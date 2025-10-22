@@ -7,9 +7,11 @@
 import { productsHandlers } from './products';
 import { ordersHandlers } from './orders';
 import { customersHandlers } from './customers';
+import { cartHandlers } from './cartHandlers';
 
 export const handlers = [
   ...productsHandlers,
   ...ordersHandlers,
   ...customersHandlers,
+  ...cartHandlers,
 ];

@@ -91,18 +91,18 @@ description: "Task list for Shopping Cart and Order Management implementation"
 
 ### Implementation for User Story 1
 
-- [ ] T042 Create cart store with Zustand and persist middleware for localStorage in frontend/src/store/cartStore.ts
-- [ ] T043 [P] Create CartItem component (product display, quantity, price, line total) in frontend/src/components/cart/CartItem.tsx
-- [ ] T044 [P] Create CartSummary component (subtotal, tax, shipping, total) in frontend/src/components/cart/CartSummary.tsx
-- [ ] T045 [P] Create CartIndicator component (item count badge) in frontend/src/components/cart/CartIndicator.tsx
-- [ ] T046 [P] Create EmptyCart component (message when cart is empty) in frontend/src/components/cart/EmptyCart.tsx
-- [ ] T047 Create cart API client methods (getCart, addToCart) in frontend/src/services/api/cartApi.ts
-- [ ] T048 Create useCart hook with TanStack Query (queries for cart data) in frontend/src/services/hooks/useCart.ts
-- [ ] T049 Create MSW handlers for GET /api/v1/cart in frontend/src/mocks/handlers/cartHandlers.ts
-- [ ] T050 Create MSW handlers for POST /api/v1/cart/items in frontend/src/mocks/handlers/cartHandlers.ts
-- [ ] T051 Create CartPage component assembling cart UI in frontend/src/pages/CartPage.tsx
-- [ ] T052 Add cart routes to router configuration in frontend/src/router.tsx
-- [ ] T053 Integrate CartIndicator into main navigation/header in frontend/src/App.tsx
+- [x] T042 Create cart store with Zustand and persist middleware for localStorage in frontend/src/store/cartStore.ts
+- [x] T043 [P] Create CartItem component (product display, quantity, price, line total) in frontend/src/components/cart/CartItem.tsx
+- [x] T044 [P] Create CartSummary component (subtotal, tax, shipping, total) in frontend/src/components/cart/CartSummary.tsx
+- [x] T045 [P] Create CartIndicator component (item count badge) in frontend/src/components/cart/CartIndicator.tsx
+- [x] T046 [P] Create EmptyCart component (message when cart is empty) in frontend/src/components/cart/EmptyCart.tsx
+- [x] T047 Create cart API client methods (getCart, addToCart) in frontend/src/services/api/cartApi.ts
+- [x] T048 Create useCart hook with TanStack Query (queries for cart data) in frontend/src/services/hooks/useCart.ts
+- [x] T049 Create MSW handlers for GET /api/v1/cart in frontend/src/mocks/handlers/cartHandlers.ts
+- [x] T050 Create MSW handlers for POST /api/v1/cart/items in frontend/src/mocks/handlers/cartHandlers.ts
+- [x] T051 Create CartPage component assembling cart UI in frontend/src/pages/CartPage.tsx
+- [x] T052 Add cart routes to router configuration in frontend/src/router.tsx
+- [x] T053 Integrate CartIndicator into main navigation/header in frontend/src/App.tsx
 
 **Checkpoint**: At this point, User Story 1 should be fully functional and testable independently
 
