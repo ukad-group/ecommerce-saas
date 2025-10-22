@@ -28,21 +28,21 @@ description: "Task list for Shopping Cart and Order Management implementation"
 
 **Purpose**: Project initialization and basic structure
 
-- [ ] T001 Initialize Vite project with React and TypeScript at frontend/ using Vite 5.x template
-- [ ] T002 Install core dependencies (react-router-dom 6.x, @tanstack/react-query v5, zustand 4.x, msw 2.x) in frontend/package.json
-- [ ] T003 [P] Configure TypeScript with strict mode in frontend/tsconfig.json
-- [ ] T004 [P] Configure Vite build and dev server settings in frontend/vite.config.ts
-- [ ] T005 [P] Install and configure Tailwind CSS in frontend/tailwind.config.js
-- [ ] T006 [P] Install Headless UI components (@headlessui/react) in frontend/package.json
-- [ ] T007 [P] Install React Hook Form and zod validator in frontend/package.json
-- [ ] T008 [P] Configure Vitest for testing in frontend/vite.config.ts
-- [ ] T009 [P] Install React Testing Library (@testing-library/react, @testing-library/jest-dom) in frontend/package.json
-- [ ] T010 Create project folder structure (components/, pages/, services/, mocks/, store/, types/, utils/) in frontend/src/
-- [ ] T011 [P] Create environment configuration with VITE_TENANT_ID, VITE_API_BASE_URL, VITE_USE_MOCKS in frontend/.env.local
-- [ ] T012 [P] Configure ESLint and Prettier for code quality in frontend/
-- [ ] T013 Create base CSS with Tailwind directives in frontend/src/index.css
-- [ ] T014 Create HTML entry point in frontend/index.html
-- [ ] T015 Update package.json scripts (dev, build, test, preview) in frontend/package.json
+- [x] T001 Initialize Vite project with React and TypeScript at frontend/ using Vite 5.x template
+- [x] T002 Install core dependencies (react-router-dom 6.x, @tanstack/react-query v5, zustand 4.x, msw 2.x) in frontend/package.json
+- [x] T003 [P] Configure TypeScript with strict mode in frontend/tsconfig.json
+- [x] T004 [P] Configure Vite build and dev server settings in frontend/vite.config.ts
+- [x] T005 [P] Install and configure Tailwind CSS in frontend/tailwind.config.js
+- [x] T006 [P] Install Headless UI components (@headlessui/react) in frontend/package.json
+- [x] T007 [P] Install React Hook Form and zod validator in frontend/package.json
+- [x] T008 [P] Configure Vitest for testing in frontend/vite.config.ts
+- [x] T009 [P] Install React Testing Library (@testing-library/react, @testing-library/jest-dom) in frontend/package.json
+- [x] T010 Create project folder structure (components/, pages/, services/, mocks/, store/, types/, utils/) in frontend/src/
+- [x] T011 [P] Create environment configuration with VITE_TENANT_ID, VITE_API_BASE_URL, VITE_USE_MOCKS in frontend/.env.local
+- [x] T012 [P] Configure ESLint and Prettier for code quality in frontend/
+- [x] T013 Create base CSS with Tailwind directives in frontend/src/index.css
+- [x] T014 Create HTML entry point in frontend/index.html
+- [x] T015 Update package.json scripts (dev, build, test, preview) in frontend/package.json
 
 ---
 
@@ -52,32 +52,32 @@ description: "Task list for Shopping Cart and Order Management implementation"
 
 **CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T016 [P] Create Order type definition (id, tenantId, customerId, orderNumber, status, totals, timestamps) in frontend/src/types/order.ts
-- [ ] T017 [P] Create OrderLineItem type definition in frontend/src/types/order.ts
-- [ ] T018 [P] Create OrderStatus enum ('new' | 'submitted' | 'paid' | 'completed' | 'cancelled') in frontend/src/types/order.ts
-- [ ] T019 [P] Create OrderStatusHistory type definition in frontend/src/types/order.ts
-- [ ] T020 [P] Create ShippingAddress and BillingAddress type definitions in frontend/src/types/address.ts
-- [ ] T021 [P] Create PaymentTransaction type definition in frontend/src/types/payment.ts
-- [ ] T022 [P] Create Customer type definition in frontend/src/types/customer.ts
-- [ ] T023 [P] Create API request/response types in frontend/src/types/api.ts
-- [ ] T024 Create base API client with fetch wrapper and tenant context in frontend/src/services/api/client.ts
-- [ ] T025 Configure MSW browser worker in frontend/src/mocks/browser.ts
-- [ ] T026 Configure MSW server worker for tests in frontend/src/mocks/server.ts
-- [ ] T027 [P] Create mock products data (20 sample products) in frontend/src/mocks/data/mockProducts.ts
-- [ ] T028 [P] Create mock customers data in frontend/src/mocks/data/mockCustomers.ts
-- [ ] T029 [P] Create mock orders data (5 sample orders in various statuses) in frontend/src/mocks/data/mockOrders.ts
-- [ ] T030 Create React Router configuration with route structure in frontend/src/router.tsx
-- [ ] T031 Create TanStack Query provider setup in frontend/src/App.tsx
-- [ ] T032 Enable MSW in development mode in frontend/src/main.tsx
-- [ ] T033 [P] Create currency formatting utility in frontend/src/utils/currency.ts
-- [ ] T034 [P] Create form validation utility in frontend/src/utils/validation.ts
-- [ ] T035 [P] Create localStorage helper utilities in frontend/src/utils/storage.ts
-- [ ] T036 [P] Create order status helper utilities (valid transitions) in frontend/src/utils/orderHelpers.ts
-- [ ] T037 [P] Create common Button component in frontend/src/components/common/Button.tsx
-- [ ] T038 [P] Create common Input component in frontend/src/components/common/Input.tsx
-- [ ] T039 [P] Create common Select component in frontend/src/components/common/Select.tsx
-- [ ] T040 [P] Create common LoadingSpinner component in frontend/src/components/common/LoadingSpinner.tsx
-- [ ] T041 Create user store for current user context with Zustand in frontend/src/store/userStore.ts
+- [x] T016 [P] Create Order type definition (id, tenantId, customerId, orderNumber, status, totals, timestamps) in frontend/src/types/order.ts
+- [x] T017 [P] Create OrderLineItem type definition in frontend/src/types/order.ts
+- [x] T018 [P] Create OrderStatus enum ('new' | 'submitted' | 'paid' | 'completed' | 'cancelled') in frontend/src/types/order.ts
+- [x] T019 [P] Create OrderStatusHistory type definition in frontend/src/types/order.ts
+- [x] T020 [P] Create ShippingAddress and BillingAddress type definitions in frontend/src/types/address.ts
+- [x] T021 [P] Create PaymentTransaction type definition in frontend/src/types/payment.ts
+- [x] T022 [P] Create Customer type definition in frontend/src/types/customer.ts
+- [x] T023 [P] Create API request/response types in frontend/src/types/api.ts
+- [x] T024 Create base API client with fetch wrapper and tenant context in frontend/src/services/api/client.ts
+- [x] T025 Configure MSW browser worker in frontend/src/mocks/browser.ts
+- [x] T026 Configure MSW server worker for tests in frontend/src/mocks/server.ts
+- [x] T027 [P] Create mock products data (20 sample products) in frontend/src/mocks/data/mockProducts.ts
+- [x] T028 [P] Create mock customers data in frontend/src/mocks/data/mockCustomers.ts
+- [x] T029 [P] Create mock orders data (5 sample orders in various statuses) in frontend/src/mocks/data/mockOrders.ts
+- [x] T030 Create React Router configuration with route structure in frontend/src/router.tsx
+- [x] T031 Create TanStack Query provider setup in frontend/src/App.tsx
+- [x] T032 Enable MSW in development mode in frontend/src/main.tsx
+- [x] T033 [P] Create currency formatting utility in frontend/src/utils/currency.ts
+- [x] T034 [P] Create form validation utility in frontend/src/utils/validation.ts
+- [x] T035 [P] Create localStorage helper utilities in frontend/src/utils/storage.ts
+- [x] T036 [P] Create order status helper utilities (valid transitions) in frontend/src/utils/orderHelpers.ts
+- [x] T037 [P] Create common Button component in frontend/src/components/common/Button.tsx
+- [x] T038 [P] Create common Input component in frontend/src/components/common/Input.tsx
+- [x] T039 [P] Create common Select component in frontend/src/components/common/Select.tsx
+- [x] T040 [P] Create common LoadingSpinner component in frontend/src/components/common/LoadingSpinner.tsx
+- [x] T041 Create user store for current user context with Zustand in frontend/src/store/userStore.ts
 
 **Checkpoint**: Foundation ready - user story implementation can now begin in parallel
 

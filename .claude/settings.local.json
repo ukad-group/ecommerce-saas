@@ -1,8 +1,14 @@
 {
   "permissions": {
     "allow": [
-      "Bash(git add:*)",
-      "Bash(git commit:*)"
+      "Bash(mkdir:*)",
+      "Bash(npm run build)",
+      "Bash(cat:*)",
+      "Bash(npm run test:*)",
+      "Bash(timeout 10 npm run test -- --run)",
+      "Bash(echo:*)",
+      "Bash(npx tsc:*)",
+      "Bash(git add:*)"
     ],
     "deny": [],
     "ask": []
