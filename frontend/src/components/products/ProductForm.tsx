@@ -92,6 +92,24 @@ export function ProductForm({
     }
   };
 
+  // Build hierarchical category structure
+  const buildCategoryTree = () => {
+    if (!categories) return [];
+
+    const renderCategory = (category: any, level: number = 0): any[] => {
+      const children = categories.filter((c) => c.parentId === category.id);
+      return [
+        { ...category, level },
+        ...children.flatMap((child) => renderCategory(child, level + 1)),
+      ];
+    };
+
+    const rootCategories = categories.filter((c) => !c.parentId);
+    return rootCategories.flatMap((cat) => renderCategory(cat, 0));
+  };
+
+  const hierarchicalCategories = buildCategoryTree();
+
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
       {/* Basic Information */}
@@ -194,9 +212,13 @@ export function ProductForm({
       <div className="bg-white rounded-lg shadow p-6">
         <h2 className="text-lg font-medium text-gray-900 mb-4">Categories</h2>
         <div className="space-y-2">
-          {categories && categories.length > 0 ? (
-            categories.map((category) => (
-              <label key={category.id} className="flex items-center">
+          {hierarchicalCategories.length > 0 ? (
+            hierarchicalCategories.map((category) => (
+              <label
+                key={category.id}
+                className="flex items-center"
+                style={{ paddingLeft: `${category.level * 1.5}rem` }}
+              >
                 <input
                   type="checkbox"
                   checked={selectedCategories.includes(category.id)}
@@ -204,9 +226,10 @@ export function ProductForm({
                   className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
                 />
                 <span className="ml-2 text-sm text-gray-700">
-                  {category.parentId
-                    ? `${categories.find((c) => c.id === category.parentId)?.name} > ${category.name}`
-                    : category.name}
+                  {category.level > 0 && (
+                    <span className="text-gray-400 mr-1">└─</span>
+                  )}
+                  {category.name}
                 </span>
               </label>
             ))
