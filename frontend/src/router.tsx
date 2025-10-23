@@ -8,6 +8,7 @@ import { createBrowserRouter } from 'react-router-dom';
 import { Layout } from './components/layout/Layout';
 import { CartPage } from './pages/CartPage';
 import { AdminOrdersPage } from './pages/admin/AdminOrdersPage';
+import { AdminOrderDetailsPage } from './pages/admin/AdminOrderDetailsPage';
 import { ProductsPage } from './pages/admin/ProductsPage';
 import { ProductEditPage } from './pages/admin/ProductEditPage';
 import { CategoriesPage } from './pages/admin/CategoriesPage';
@@ -19,7 +20,6 @@ const CheckoutPage = () => <div>Checkout Page - Coming Soon</div>;
 const CheckoutConfirmationPage = () => <div>Order Confirmation - Coming Soon</div>;
 const OrdersPage = () => <div>Orders Page - Coming Soon</div>;
 const OrderDetailPage = () => <div>Order Detail - Coming Soon</div>;
-const AdminOrderDetailPage = () => <div>Admin Order Detail - Coming Soon</div>;
 
 /**
  * Application router configuration
@@ -60,7 +60,7 @@ export const router = createBrowserRouter([
       },
       {
         path: 'admin/orders/:orderId',
-        element: <AdminOrderDetailPage />,
+        element: <AdminOrderDetailsPage />,
       },
       {
         path: 'admin/products',
