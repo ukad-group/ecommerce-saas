@@ -5,10 +5,10 @@
  */
 
 import { createBrowserRouter } from 'react-router-dom';
+import { CartPage } from './pages/CartPage';
 
 // Placeholder components - will be implemented in later tasks
 const HomePage = () => <div>Home Page - Coming Soon</div>;
-const CartPage = () => <div>Cart Page - Coming Soon</div>;
 const CheckoutPage = () => <div>Checkout Page - Coming Soon</div>;
 const CheckoutConfirmationPage = () => <div>Order Confirmation - Coming Soon</div>;
 const OrdersPage = () => <div>Orders Page - Coming Soon</div>;
