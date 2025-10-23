@@ -85,6 +85,11 @@ export function ProductList({ products, onDelete }: ProductListProps) {
                         {product.description.substring(0, 60)}...
                       </p>
                     )}
+                    {product.categoryIds && product.categoryIds.length > 0 && (
+                      <p className="text-xs text-gray-400 mt-1">
+                        {product.categoryIds.length} categor{product.categoryIds.length === 1 ? 'y' : 'ies'}
+                      </p>
+                    )}
                   </div>
                 </div>
               </td>

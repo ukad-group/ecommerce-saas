@@ -9,6 +9,7 @@ import { ordersHandlers } from './orders';
 import { customersHandlers } from './customers';
 import { cartHandlers } from './cartHandlers';
 import { adminHandlers } from './adminHandlers';
+import { categoriesHandlers } from './categories';
 
 export const handlers = [
   ...productsHandlers,
@@ -16,4 +17,5 @@ export const handlers = [
   ...customersHandlers,
   ...cartHandlers,
   ...adminHandlers,
+  ...categoriesHandlers,
 ];

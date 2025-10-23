@@ -9,6 +9,7 @@ import { useForm } from 'react-hook-form';
 import { Input } from '../common/Input';
 import { Select } from '../common/Select';
 import { Button } from '../common/Button';
+import { useCategories } from '../../services/hooks/useCategories';
 import type { Product, ProductStatus } from '../../types/product';
 
 interface ProductFormProps {
@@ -28,6 +29,7 @@ interface ProductFormData {
   stockQuantity: number;
   lowStockThreshold: number;
   currency: string;
+  categoryIds: string[];
 }
 
 export function ProductForm({
@@ -36,10 +38,14 @@ export function ProductForm({
   onCancel,
   isSubmitting = false,
 }: ProductFormProps) {
+  const { data: categories } = useCategories();
+
   const {
     register,
     handleSubmit,
     formState: { errors },
+    watch,
+    setValue,
   } = useForm<ProductFormData>({
     defaultValues: product
       ? {
@@ -52,14 +58,18 @@ export function ProductForm({
           stockQuantity: product.stockQuantity,
           lowStockThreshold: product.lowStockThreshold,
           currency: product.currency,
+          categoryIds: product.categoryIds || [],
         }
       : {
           status: 'draft',
           currency: 'USD',
           stockQuantity: 0,
           lowStockThreshold: 10,
+          categoryIds: [],
         },
   });
+
+  const selectedCategories = watch('categoryIds') || [];
 
   const statusOptions = [
     { value: 'active', label: 'Active' },
@@ -72,6 +82,15 @@ export function ProductForm({
     { value: 'EUR', label: 'EUR' },
     { value: 'GBP', label: 'GBP' },
   ];
+
+  const handleCategoryToggle = (categoryId: string) => {
+    const current = selectedCategories;
+    if (current.includes(categoryId)) {
+      setValue('categoryIds', current.filter((id) => id !== categoryId));
+    } else {
+      setValue('categoryIds', [...current, categoryId]);
+    }
+  };
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
@@ -169,6 +188,32 @@ export function ProductForm({
       <div className="bg-white rounded-lg shadow p-6">
         <h2 className="text-lg font-medium text-gray-900 mb-4">Status</h2>
         <Select label="Product Status" {...register('status')} options={statusOptions} />
+      </div>
+
+      {/* Categories */}
+      <div className="bg-white rounded-lg shadow p-6">
+        <h2 className="text-lg font-medium text-gray-900 mb-4">Categories</h2>
+        <div className="space-y-2">
+          {categories && categories.length > 0 ? (
+            categories.map((category) => (
+              <label key={category.id} className="flex items-center">
+                <input
+                  type="checkbox"
+                  checked={selectedCategories.includes(category.id)}
+                  onChange={() => handleCategoryToggle(category.id)}
+                  className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                />
+                <span className="ml-2 text-sm text-gray-700">
+                  {category.parentId
+                    ? `${categories.find((c) => c.id === category.parentId)?.name} > ${category.name}`
+                    : category.name}
+                </span>
+              </label>
+            ))
+          ) : (
+            <p className="text-sm text-gray-500">No categories available</p>
+          )}
+        </div>
       </div>
 
       {/* Form Actions */}

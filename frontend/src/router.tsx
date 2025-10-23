@@ -10,6 +10,8 @@ import { CartPage } from './pages/CartPage';
 import { AdminOrdersPage } from './pages/admin/AdminOrdersPage';
 import { ProductsPage } from './pages/admin/ProductsPage';
 import { ProductEditPage } from './pages/admin/ProductEditPage';
+import { CategoriesPage } from './pages/admin/CategoriesPage';
+import { CategoryEditPage } from './pages/admin/CategoryEditPage';
 
 // Placeholder components - will be implemented in later tasks
 const HomePage = () => <div>Home Page - Coming Soon</div>;
@@ -71,6 +73,18 @@ export const router = createBrowserRouter([
       {
         path: 'admin/products/:productId/edit',
         element: <ProductEditPage />,
+      },
+      {
+        path: 'admin/categories',
+        element: <CategoriesPage />,
+      },
+      {
+        path: 'admin/categories/new',
+        element: <CategoryEditPage />,
+      },
+      {
+        path: 'admin/categories/:categoryId/edit',
+        element: <CategoryEditPage />,
       },
     ],
   },
