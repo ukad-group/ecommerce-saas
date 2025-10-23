@@ -5,8 +5,11 @@
  */
 
 import { createBrowserRouter } from 'react-router-dom';
+import { Layout } from './components/layout/Layout';
 import { CartPage } from './pages/CartPage';
 import { AdminOrdersPage } from './pages/admin/AdminOrdersPage';
+import { ProductsPage } from './pages/admin/ProductsPage';
+import { ProductEditPage } from './pages/admin/ProductEditPage';
 
 // Placeholder components - will be implemented in later tasks
 const HomePage = () => <div>Home Page - Coming Soon</div>;
@@ -23,34 +26,52 @@ const AdminOrderDetailPage = () => <div>Admin Order Detail - Coming Soon</div>;
 export const router = createBrowserRouter([
   {
     path: '/',
-    element: <HomePage />,
-  },
-  {
-    path: '/cart',
-    element: <CartPage />,
-  },
-  {
-    path: '/checkout',
-    element: <CheckoutPage />,
-  },
-  {
-    path: '/checkout/confirmation/:orderId',
-    element: <CheckoutConfirmationPage />,
-  },
-  {
-    path: '/orders',
-    element: <OrdersPage />,
-  },
-  {
-    path: '/orders/:orderId',
-    element: <OrderDetailPage />,
-  },
-  {
-    path: '/admin/orders',
-    element: <AdminOrdersPage />,
-  },
-  {
-    path: '/admin/orders/:orderId',
-    element: <AdminOrderDetailPage />,
+    element: <Layout />,
+    children: [
+      {
+        index: true,
+        element: <HomePage />,
+      },
+      {
+        path: 'cart',
+        element: <CartPage />,
+      },
+      {
+        path: 'checkout',
+        element: <CheckoutPage />,
+      },
+      {
+        path: 'checkout/confirmation/:orderId',
+        element: <CheckoutConfirmationPage />,
+      },
+      {
+        path: 'orders',
+        element: <OrdersPage />,
+      },
+      {
+        path: 'orders/:orderId',
+        element: <OrderDetailPage />,
+      },
+      {
+        path: 'admin/orders',
+        element: <AdminOrdersPage />,
+      },
+      {
+        path: 'admin/orders/:orderId',
+        element: <AdminOrderDetailPage />,
+      },
+      {
+        path: 'admin/products',
+        element: <ProductsPage />,
+      },
+      {
+        path: 'admin/products/new',
+        element: <ProductEditPage />,
+      },
+      {
+        path: 'admin/products/:productId/edit',
+        element: <ProductEditPage />,
+      },
+    ],
   },
 ]);

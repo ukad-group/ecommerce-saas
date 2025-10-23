@@ -8,21 +8,15 @@ import { http, HttpResponse } from 'msw';
 import { mockProducts } from '../data/mockProducts';
 import type { Product } from '../../types/product';
 
-const baseURL = 'http://localhost:3000/api';
+const baseURL = 'http://localhost:3000/api/v1';
 
 export const productsHandlers = [
-  // GET /api/products - List all products
+  // GET /api/v1/products - List all products
   http.get(`${baseURL}/products`, () => {
-    return HttpResponse.json({
-      data: mockProducts,
-      totalCount: mockProducts.length,
-      page: 1,
-      limit: 50,
-      totalPages: 1,
-    });
+    return HttpResponse.json(mockProducts);
   }),
 
-  // GET /api/products/:id - Get single product
+  // GET /api/v1/products/:id - Get single product
   http.get(`${baseURL}/products/:id`, ({ params }) => {
     const { id } = params;
     const product = mockProducts.find((p) => p.id === id);
@@ -38,10 +32,10 @@ export const productsHandlers = [
       );
     }
 
-    return HttpResponse.json({ data: product });
+    return HttpResponse.json(product);
   }),
 
-  // POST /api/products - Create product
+  // POST /api/v1/products - Create product
   http.post(`${baseURL}/products`, async ({ request }) => {
     const body = (await request.json()) as Partial<Product>;
 
@@ -65,10 +59,10 @@ export const productsHandlers = [
 
     mockProducts.push(newProduct);
 
-    return HttpResponse.json({ data: newProduct }, { status: 201 });
+    return HttpResponse.json(newProduct, { status: 201 });
   }),
 
-  // PUT /api/products/:id - Update product
+  // PUT /api/v1/products/:id - Update product
   http.put(`${baseURL}/products/:id`, async ({ params, request }) => {
     const { id } = params;
     const body = (await request.json()) as Partial<Product>;
@@ -95,10 +89,10 @@ export const productsHandlers = [
 
     mockProducts[index] = updatedProduct;
 
-    return HttpResponse.json({ data: updatedProduct });
+    return HttpResponse.json(updatedProduct);
   }),
 
-  // DELETE /api/products/:id - Delete product
+  // DELETE /api/v1/products/:id - Delete product
   http.delete(`${baseURL}/products/:id`, ({ params }) => {
     const { id } = params;
     const index = mockProducts.findIndex((p) => p.id === id);
