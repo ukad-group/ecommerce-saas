@@ -174,6 +174,7 @@ export const cartHandlers = [
         unitPrice: price,
         lineTotal: parseFloat((price * quantity).toFixed(2)),
         currency: product.currency,
+        stockQuantity: product.stockQuantity,
       };
       lineItems.push(newLineItem);
     }

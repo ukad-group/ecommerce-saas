@@ -60,6 +60,7 @@ export interface OrderLineItem {
   unitPrice: number;
   lineTotal: number;
   currency: string;
+  stockQuantity?: number; // Current stock level for out-of-stock warnings
   metadata?: Record<string, any>;
 }
 

@@ -68,6 +68,31 @@ export function CartItem({ item, onUpdateQuantity, onRemove }: CartItemProps) {
           {formatCurrency(item.unitPrice, item.currency)}
         </p>
 
+        {/* Out of Stock Warning */}
+        {item.stockQuantity !== undefined && (
+          <>
+            {item.stockQuantity === 0 && (
+              <div className="mt-2 bg-red-50 border border-red-200 rounded px-2 py-1">
+                <p className="text-sm text-red-700 font-medium">Out of Stock</p>
+              </div>
+            )}
+            {item.stockQuantity > 0 && item.quantity > item.stockQuantity && (
+              <div className="mt-2 bg-yellow-50 border border-yellow-200 rounded px-2 py-1">
+                <p className="text-sm text-yellow-700 font-medium">
+                  Only {item.stockQuantity} left in stock
+                </p>
+              </div>
+            )}
+            {item.stockQuantity > 0 && item.stockQuantity <= 5 && item.quantity <= item.stockQuantity && (
+              <div className="mt-2 bg-yellow-50 border border-yellow-100 rounded px-2 py-1">
+                <p className="text-sm text-yellow-600">
+                  Low stock: {item.stockQuantity} remaining
+                </p>
+              </div>
+            )}
+          </>
+        )}
+
         {/* Quantity Controls */}
         <div className="flex items-center gap-2 mt-3">
           <button

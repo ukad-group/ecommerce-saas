@@ -9,6 +9,7 @@ import { useNavigate } from 'react-router-dom';
 import { useCart } from '../services/hooks/useCart';
 import { useUpdateCartItem } from '../services/hooks/useUpdateCartItem';
 import { useRemoveCartItem } from '../services/hooks/useRemoveCartItem';
+import { useClearCart } from '../services/hooks/useClearCart';
 import { CartItem } from '../components/cart/CartItem';
 import { CartSummary } from '../components/cart/CartSummary';
 import { EmptyCart } from '../components/cart/EmptyCart';
@@ -26,6 +27,7 @@ export function CartPage() {
   const { data: cart, isLoading, error } = useCart();
   const updateCartItem = useUpdateCartItem();
   const removeCartItem = useRemoveCartItem();
+  const clearCart = useClearCart();
 
   const handleUpdateQuantity = (lineItemId: string, quantity: number) => {
     updateCartItem.mutate({ lineItemId, quantity });
@@ -33,6 +35,12 @@ export function CartPage() {
 
   const handleRemove = (lineItemId: string) => {
     removeCartItem.mutate(lineItemId);
+  };
+
+  const handleClearCart = () => {
+    if (window.confirm('Are you sure you want to clear your cart?')) {
+      clearCart.mutate();
+    }
   };
 
   const handleCheckout = () => {
@@ -82,9 +90,18 @@ export function CartPage() {
         {/* Cart Items */}
         <div className="lg:col-span-2">
           <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">
-              Cart Items ({cart.lineItems.length})
-            </h2>
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold text-gray-900">
+                Cart Items ({cart.lineItems.length})
+              </h2>
+              <Button
+                variant="danger"
+                onClick={handleClearCart}
+                className="text-sm px-3 py-1"
+              >
+                Clear Cart
+              </Button>
+            </div>
 
             <div className="space-y-4">
               {cart.lineItems.map((item) => (
