@@ -8,7 +8,9 @@
       "Bash(timeout 10 npm run test -- --run)",
       "Bash(echo:*)",
       "Bash(npx tsc:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(curl:*)",
+      "Bash(npm run dev)"
     ],
     "deny": [],
     "ask": []

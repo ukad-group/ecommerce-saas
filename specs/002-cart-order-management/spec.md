@@ -5,6 +5,12 @@
 **Status**: Draft
 **Input**: User description: "Build shopping cart and order management system, with the idea that orders might have different statuses, including but not limited to new, submitted, paid, completed, so while users do shopping, they just create a new order."
 
+## Clarifications
+
+### Session 2025-10-23
+
+- Q: What is the overall system architecture? → A: Headless e-commerce with: (1) SaaS backoffice UI/UX for configuring products, variants, categories, orders; (2) Backoffice APIs (mocked now, real implementation later); (3) Client APIs for storefront usage (get products/catalogs, search, create orders, update statuses, register users); (4) Future phase: CMS plugins and framework SDKs
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Add Products to Cart (Priority: P1)
@@ -295,12 +301,15 @@ As a customer, I need to cancel orders or request refunds so that I can change m
 
 ## Assumptions
 
+- **Headless Architecture**: System is a headless e-commerce platform with separation between backoffice (admin UI + APIs) and client APIs
+- **SaaS Backoffice**: The backoffice UI/UX being developed provides management interface for products, variants, categories, and orders across tenants
+- **Client APIs**: Separate client-facing APIs enable storefront integrations via CMS plugins or custom implementations (future phase)
+- **Mock-First Development**: Backoffice APIs are mocked during UI development and will be implemented with real backend later
 - Customers can browse products and add them to cart without requiring login (guest shopping)
 - Payment processing integration will be handled by a separate payment gateway service
 - Tax calculation will be based on shipping address and may integrate with external tax service
 - Shipping cost calculation will be based on predefined rules or external shipping service
 - Email notification service is available for sending order confirmations and cart abandonment emails
-- The integrated CMS storefront provides the customer-facing interface for cart and checkout
 - Orders are associated with tenants, and each tenant operates independently
 - Currency handling and internationalization will be addressed in future iterations
 - Product images and details are retrieved from the Product Catalog feature
@@ -312,6 +321,10 @@ As a customer, I need to cancel orders or request refunds so that I can change m
 
 ## Out of Scope
 
+- **Backend Implementation**: Real backend APIs for backoffice and client (using mocks for now)
+- **CMS Plugins**: Umbraco, Optimizely, or other CMS system integration plugins (future phase)
+- **Framework SDKs**: JavaScript/React/Vue SDKs for framework-specific integrations (future phase)
+- **Storefront UI**: Customer-facing storefront interface (clients will build their own using client APIs)
 - Payment gateway integration implementation (integration points defined, but gateway selection and configuration is separate)
 - Tax calculation logic (system will integrate with external service)
 - Shipping carrier integration and real-time rate calculation

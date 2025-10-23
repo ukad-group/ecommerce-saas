@@ -13,7 +13,7 @@ import type { Order } from '../../types/order';
  * Returns an Order with status 'new'
  */
 export async function getCart(): Promise<Order> {
-  return apiClient.get<Order>('/v1/cart');
+  return apiClient.get<Order>('/cart');
 }
 
 /**
@@ -27,7 +27,7 @@ export async function addToCart(
   productId: string,
   quantity: number = 1
 ): Promise<Order> {
-  return apiClient.post<Order>('/v1/cart/items', {
+  return apiClient.post<Order>('/cart/items', {
     productId,
     quantity,
   });
@@ -44,7 +44,7 @@ export async function updateCartItem(
   lineItemId: string,
   quantity: number
 ): Promise<Order> {
-  return apiClient.put<Order>(`/v1/cart/items/${lineItemId}`, {
+  return apiClient.put<Order>(`/cart/items/${lineItemId}`, {
     quantity,
   });
 }
@@ -56,7 +56,7 @@ export async function updateCartItem(
  * @returns Updated cart (Order)
  */
 export async function removeCartItem(lineItemId: string): Promise<Order> {
-  return apiClient.delete<Order>(`/v1/cart/items/${lineItemId}`);
+  return apiClient.delete<Order>(`/cart/items/${lineItemId}`);
 }
 
 /**
@@ -64,7 +64,7 @@ export async function removeCartItem(lineItemId: string): Promise<Order> {
  * Removes all line items
  */
 export async function clearCart(): Promise<void> {
-  return apiClient.delete<void>('/v1/cart');
+  return apiClient.delete<void>('/cart');
 }
 
 /**

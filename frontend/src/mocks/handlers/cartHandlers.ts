@@ -85,7 +85,7 @@ const createOrUpdateCart = (lineItems: OrderLineItem[]): Order => {
 
 export const cartHandlers = [
   // GET /api/v1/cart - Get current cart
-  http.get('/api/v1/cart', () => {
+  http.get('http://localhost:3000/api/v1/cart', () => {
     const cart = initializeCart();
 
     if (!cart) {
@@ -115,7 +115,7 @@ export const cartHandlers = [
   }),
 
   // POST /api/v1/cart/items - Add item to cart
-  http.post('/api/v1/cart/items', async ({ request }) => {
+  http.post('http://localhost:3000/api/v1/cart/items', async ({ request }) => {
     const body = (await request.json()) as {
       productId: string;
       quantity: number;
@@ -183,7 +183,7 @@ export const cartHandlers = [
   }),
 
   // PUT /api/v1/cart/items/:id - Update cart item quantity
-  http.put('/api/v1/cart/items/:id', async ({ params, request }) => {
+  http.put('http://localhost:3000/api/v1/cart/items/:id', async ({ params, request }) => {
     const { id } = params;
     const body = (await request.json()) as { quantity: number };
     const { quantity } = body;
@@ -218,7 +218,7 @@ export const cartHandlers = [
   }),
 
   // DELETE /api/v1/cart/items/:id - Remove item from cart
-  http.delete('/api/v1/cart/items/:id', ({ params }) => {
+  http.delete('http://localhost:3000/api/v1/cart/items/:id', ({ params }) => {
     const { id } = params;
 
     if (!cartStore || !cartStore.lineItems) {
@@ -235,7 +235,7 @@ export const cartHandlers = [
   }),
 
   // DELETE /api/v1/cart - Clear cart
-  http.delete('/api/v1/cart', () => {
+  http.delete('http://localhost:3000/api/v1/cart', () => {
     cartStore = null;
     return new HttpResponse(null, { status: 204 });
   }),

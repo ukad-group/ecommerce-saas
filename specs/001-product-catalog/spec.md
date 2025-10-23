@@ -5,6 +5,12 @@
 **Status**: Draft
 **Input**: User description: "Create a product catalog management system"
 
+## Clarifications
+
+### Session 2025-10-23
+
+- Q: What is the overall system architecture? → A: Headless e-commerce with: (1) SaaS backoffice UI/UX for configuring products, variants, categories, orders; (2) Backoffice APIs (mocked now, real implementation later); (3) Client APIs for storefront usage (get products/catalogs, search, create orders, update statuses, register users); (4) Future phase: CMS plugins and framework SDKs
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Basic Product Creation and Listing (Priority: P1)
@@ -242,8 +248,12 @@ As a back-office administrator managing hundreds of products, I need to search a
 
 ## Assumptions
 
+- **Headless Architecture**: System is a headless e-commerce platform with separation between backoffice (admin UI + APIs) and client APIs
+- **SaaS Backoffice**: The backoffice UI/UX being developed provides management interface for products, variants, categories, and orders across tenants
+- **Client APIs**: Separate client-facing APIs enable storefront integrations via CMS plugins or custom implementations (future phase)
+- **Mock-First Development**: Backoffice APIs are mocked during UI development and will be implemented with real backend later
 - Administrators accessing the product catalog are already authenticated and authorized
-- The system will integrate with external CMS platforms via API (detailed integration specifications to be defined separately)
+- The system will integrate with external CMS platforms via Client APIs (CMS plugins in future phase)
 - Currency is assumed to be tenant-configurable but all products within a tenant use the same currency
 - Image storage will use cloud storage (Azure Blob Storage as per constitution), cost for storage is acceptable
 - Product descriptions support plain text in MVP; rich text/HTML can be added in future iteration
@@ -266,6 +276,10 @@ As a back-office administrator managing hundreds of products, I need to search a
 
 The following are explicitly out of scope for this feature specification:
 
+- **Backend Implementation**: Real backend APIs for backoffice and client (using mocks for now)
+- **CMS Plugins**: Umbraco, Optimizely, or other CMS system integration plugins (future phase)
+- **Framework SDKs**: JavaScript/React/Vue SDKs for framework-specific integrations (future phase)
+- **Storefront UI**: Customer-facing storefront interface (clients will build their own using client APIs)
 - Customer-facing product display and storefront UI (handled by integrated CMS)
 - Shopping cart functionality
 - Checkout and payment processing
