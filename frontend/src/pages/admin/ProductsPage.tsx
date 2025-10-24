@@ -8,7 +8,11 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ProductList } from '../../components/products/ProductList';
-import { useProducts, useDeleteProduct } from '../../services/hooks/useProducts';
+import {
+  useProducts,
+  useDeleteProduct,
+  useUpdateProductStock,
+} from '../../services/hooks/useProducts';
 import { LoadingSpinner } from '../../components/common/LoadingSpinner';
 import { Button } from '../../components/common/Button';
 import { Input } from '../../components/common/Input';
@@ -25,6 +29,7 @@ export function ProductsPage() {
   });
 
   const deleteProduct = useDeleteProduct();
+  const updateStock = useUpdateProductStock();
 
   const handleDelete = async (productId: string) => {
     if (window.confirm('Are you sure you want to delete this product?')) {
@@ -35,6 +40,10 @@ export function ProductsPage() {
         alert('Failed to delete product. Please try again.');
       }
     }
+  };
+
+  const handleStockUpdate = (productId: string, newStock: number) => {
+    updateStock.mutate({ productId, stockQuantity: newStock });
   };
 
   const statusOptions = [
@@ -90,7 +99,12 @@ export function ProductsPage() {
               <p className="text-red-800">Error loading products: {error.message}</p>
             </div>
           ) : (
-            <ProductList products={products || []} onDelete={handleDelete} />
+            <ProductList
+              products={products || []}
+              onDelete={handleDelete}
+              onStockUpdate={handleStockUpdate}
+              isUpdating={updateStock.isPending}
+            />
           )}
         </div>
       </div>

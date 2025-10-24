@@ -91,3 +91,25 @@ export function useDeleteProduct() {
     },
   });
 }
+
+/**
+ * Hook to update product stock quantity
+ * Convenience hook for quick stock updates
+ */
+export function useUpdateProductStock() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      productId,
+      stockQuantity,
+    }: {
+      productId: string;
+      stockQuantity: number;
+    }) => updateProduct(productId, { stockQuantity }),
+    onSuccess: () => {
+      // Invalidate and refetch products list
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+    },
+  });
+}

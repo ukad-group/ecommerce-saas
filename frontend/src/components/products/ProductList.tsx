@@ -9,10 +9,13 @@ import { Link } from 'react-router-dom';
 import type { Product } from '../../types/product';
 import { formatCurrency } from '../../utils/currency';
 import { Button } from '../common/Button';
+import { QuickStockUpdate } from './QuickStockUpdate';
 
 interface ProductListProps {
   products: Product[];
   onDelete?: (productId: string) => void;
+  onStockUpdate?: (productId: string, newStock: number) => void;
+  isUpdating?: boolean;
 }
 
 const statusColors: Record<string, string> = {
@@ -21,7 +24,12 @@ const statusColors: Record<string, string> = {
   draft: 'bg-yellow-100 text-yellow-800',
 };
 
-export function ProductList({ products, onDelete }: ProductListProps) {
+export function ProductList({
+  products,
+  onDelete,
+  onStockUpdate,
+  isUpdating = false,
+}: ProductListProps) {
   if (products.length === 0) {
     return (
       <div className="bg-white rounded-lg shadow p-8 text-center">
@@ -114,15 +122,23 @@ export function ProductList({ products, onDelete }: ProductListProps) {
                 )}
               </td>
               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                <span
-                  className={
-                    product.stockQuantity <= product.lowStockThreshold
-                      ? 'text-red-600 font-medium'
-                      : ''
-                  }
-                >
-                  {product.stockQuantity}
-                </span>
+                {onStockUpdate ? (
+                  <QuickStockUpdate
+                    product={product}
+                    onUpdate={onStockUpdate}
+                    isUpdating={isUpdating}
+                  />
+                ) : (
+                  <span
+                    className={
+                      product.stockQuantity <= product.lowStockThreshold
+                        ? 'text-red-600 font-medium'
+                        : ''
+                    }
+                  >
+                    {product.stockQuantity}
+                  </span>
+                )}
               </td>
               <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                 <Link
