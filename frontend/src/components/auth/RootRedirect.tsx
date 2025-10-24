@@ -13,9 +13,13 @@ import { useAuthStore } from '../../store/authStore';
  * Checks authentication and redirects appropriately
  */
 export function RootRedirect() {
+  const session = useAuthStore((state) => state.session);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
 
-  if (isAuthenticated) {
+  // Check if we have a valid session (not just the flag)
+  const hasValidSession = isAuthenticated && session !== null;
+
+  if (hasValidSession) {
     return <Navigate to="/admin" replace />;
   }
 
