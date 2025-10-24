@@ -7,6 +7,7 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import { Layout } from './components/layout/Layout';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
+import { RootRedirect } from './components/auth/RootRedirect';
 import { LoginPage } from './pages/LoginPage';
 import { CartPage } from './pages/CartPage';
 import { AdminDashboardPage } from './pages/admin/AdminDashboardPage';
@@ -38,7 +39,7 @@ export const router = createBrowserRouter([
     children: [
       {
         index: true,
-        element: <Navigate to="/admin" replace />,
+        element: <RootRedirect />,
       },
       {
         path: 'admin',

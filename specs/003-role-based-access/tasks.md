@@ -117,12 +117,12 @@
 
 **Purpose**: Enforce authentication boundaries and session persistence
 
-- [ ] T035 [P] Implement redirect to /login for unauthenticated users accessing /admin routes (verify ProtectedRoute works)
-- [ ] T036 [P] Test session persistence across page refreshes (localStorage should persist session)
-- [ ] T037 Test logout clears session and localStorage (verify authStore.logout() works)
-- [ ] T038 Add redirect logic for root route / (redirect to /admin if authenticated, /login if not)
-- [ ] T039 [P] Test direct URL navigation protection (manual navigation to /admin/products should redirect if not authenticated)
-- [ ] T040 Verify route protection per quickstart.md Test Scenario 4
+- [x] T035 [P] Implement redirect to /login for unauthenticated users accessing /admin routes (verify ProtectedRoute works)
+- [x] T036 [P] Test session persistence across page refreshes (localStorage should persist session)
+- [x] T037 Test logout clears session and localStorage (verify authStore.logout() works)
+- [x] T038 Add redirect logic for root route / (redirect to /admin if authenticated, /login if not)
+- [x] T039 [P] Test direct URL navigation protection (manual navigation to /admin/products should redirect if not authenticated)
+- [x] T040 Verify route protection per quickstart.md Test Scenario 4
 
 **Checkpoint**: Route protection and session management complete
 
