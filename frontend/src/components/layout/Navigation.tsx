@@ -5,6 +5,7 @@
  */
 
 import { Link } from 'react-router-dom';
+import { UserInfo } from '../auth/UserInfo';
 
 export function Navigation() {
   return (
@@ -46,6 +47,11 @@ export function Navigation() {
                 Orders
               </Link>
             </div>
+          </div>
+
+          {/* User Info and Logout */}
+          <div className="flex items-center">
+            <UserInfo />
           </div>
         </div>
       </div>

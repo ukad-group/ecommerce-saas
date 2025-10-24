@@ -4,8 +4,10 @@
  * Defines application routes and navigation structure.
  */
 
-import { createBrowserRouter } from 'react-router-dom';
+import { createBrowserRouter, Navigate } from 'react-router-dom';
 import { Layout } from './components/layout/Layout';
+import { ProtectedRoute } from './components/auth/ProtectedRoute';
+import { LoginPage } from './pages/LoginPage';
 import { CartPage } from './pages/CartPage';
 import { AdminDashboardPage } from './pages/admin/AdminDashboardPage';
 import { AdminOrdersPage } from './pages/admin/AdminOrdersPage';
@@ -27,16 +29,88 @@ const OrderDetailPage = () => <div>Order Detail - Coming Soon</div>;
  */
 export const router = createBrowserRouter([
   {
+    path: '/login',
+    element: <LoginPage />,
+  },
+  {
     path: '/',
     element: <Layout />,
     children: [
       {
         index: true,
-        element: <AdminDashboardPage />,
+        element: <Navigate to="/admin" replace />,
       },
       {
         path: 'admin',
-        element: <AdminDashboardPage />,
+        element: (
+          <ProtectedRoute>
+            <AdminDashboardPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'admin/orders',
+        element: (
+          <ProtectedRoute>
+            <AdminOrdersPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'admin/orders/:orderId',
+        element: (
+          <ProtectedRoute>
+            <AdminOrderDetailsPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'admin/products',
+        element: (
+          <ProtectedRoute>
+            <ProductsPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'admin/products/new',
+        element: (
+          <ProtectedRoute>
+            <ProductEditPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'admin/products/:productId/edit',
+        element: (
+          <ProtectedRoute>
+            <ProductEditPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'admin/categories',
+        element: (
+          <ProtectedRoute>
+            <CategoriesPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'admin/categories/new',
+        element: (
+          <ProtectedRoute>
+            <CategoryEditPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'admin/categories/:categoryId/edit',
+        element: (
+          <ProtectedRoute>
+            <CategoryEditPage />
+          </ProtectedRoute>
+        ),
       },
       {
         path: 'cart',
@@ -57,38 +131,6 @@ export const router = createBrowserRouter([
       {
         path: 'orders/:orderId',
         element: <OrderDetailPage />,
-      },
-      {
-        path: 'admin/orders',
-        element: <AdminOrdersPage />,
-      },
-      {
-        path: 'admin/orders/:orderId',
-        element: <AdminOrderDetailsPage />,
-      },
-      {
-        path: 'admin/products',
-        element: <ProductsPage />,
-      },
-      {
-        path: 'admin/products/new',
-        element: <ProductEditPage />,
-      },
-      {
-        path: 'admin/products/:productId/edit',
-        element: <ProductEditPage />,
-      },
-      {
-        path: 'admin/categories',
-        element: <CategoriesPage />,
-      },
-      {
-        path: 'admin/categories/new',
-        element: <CategoryEditPage />,
-      },
-      {
-        path: 'admin/categories/:categoryId/edit',
-        element: <CategoryEditPage />,
       },
     ],
   },

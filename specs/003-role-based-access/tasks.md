@@ -26,10 +26,10 @@
 
 **Purpose**: Project initialization and auth-specific structure
 
-- [ ] T001 Create auth directory structure (frontend/src/components/auth/, frontend/src/types/auth.ts, frontend/src/services/auth/, frontend/src/mocks/data/)
-- [ ] T002 [P] Define auth types in frontend/src/types/auth.ts (UserProfile, Role enum, UserSession, Tenant)
-- [ ] T003 [P] Create hardcoded profiles in frontend/src/mocks/data/mockProfiles.ts (superadmin, tenant-admin, tenant-user)
-- [ ] T004 [P] Create tenant list for selector in frontend/src/mocks/data/mockTenants.ts (tenant-a, tenant-b, tenant-c)
+- [x] T001 Create auth directory structure (frontend/src/components/auth/, frontend/src/types/auth.ts, frontend/src/services/auth/, frontend/src/mocks/data/)
+- [x] T002 [P] Define auth types in frontend/src/types/auth.ts (UserProfile, Role enum, UserSession, Tenant)
+- [x] T003 [P] Create hardcoded profiles in frontend/src/mocks/data/mockProfiles.ts (superadmin, tenant-admin, tenant-user)
+- [x] T004 [P] Create tenant list for selector in frontend/src/mocks/data/mockTenants.ts (tenant-a, tenant-b, tenant-c)
 
 ---
 
@@ -39,11 +39,11 @@
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T005 Create Zustand auth store in frontend/src/store/authStore.ts with localStorage persistence (session state, login/logout methods, role checks)
-- [ ] T006 Implement authService in frontend/src/services/auth/authService.ts (login logic, profile validation, session creation)
-- [ ] T007 Create ProtectedRoute wrapper component in frontend/src/components/auth/ProtectedRoute.tsx (checks authentication, redirects to /login)
-- [ ] T008 Create route guards utility in frontend/src/utils/authGuards.ts (hasPermission helper, role-based checks)
-- [ ] T009 Update router configuration in frontend/src/router.tsx (wrap /admin routes with ProtectedRoute, add /login route)
+- [x] T005 Create Zustand auth store in frontend/src/store/authStore.ts with localStorage persistence (session state, login/logout methods, role checks)
+- [x] T006 Implement authService in frontend/src/services/auth/authService.ts (login logic, profile validation, session creation)
+- [x] T007 Create ProtectedRoute wrapper component in frontend/src/components/auth/ProtectedRoute.tsx (checks authentication, redirects to /login)
+- [x] T008 Create route guards utility in frontend/src/utils/authGuards.ts (hasPermission helper, role-based checks)
+- [x] T009 Update router configuration in frontend/src/router.tsx (wrap /admin routes with ProtectedRoute, add /login route)
 
 **Checkpoint**: Foundation ready - user story implementation can now begin in parallel
 
@@ -57,15 +57,15 @@
 
 ### Implementation for User Story 1
 
-- [ ] T010 [P] [US1] Create LoginPage component in frontend/src/pages/LoginPage.tsx (profile selector, conditional tenant selector, login button)
-- [ ] T011 [P] [US1] Create ProfileSelector component in frontend/src/components/auth/ProfileSelector.tsx (dropdown with 3 hardcoded profiles)
-- [ ] T012 [P] [US1] Create TenantSelector component in frontend/src/components/auth/TenantSelector.tsx (conditional dropdown, shown only for non-superadmin)
-- [ ] T013 [US1] Implement superadmin login flow in authService.ts (no tenant validation, create session without selectedTenantId)
-- [ ] T014 [US1] Add superadmin role checks to authStore (isSuperadmin helper, getTenantId returns null for superadmin)
-- [ ] T015 [US1] Update data query hooks to skip tenant filtering for superadmin in frontend/src/services/hooks/ (useProducts, useCategories, useOrders)
-- [ ] T016 [US1] Add UserInfo component in frontend/src/components/auth/UserInfo.tsx (show current user, role, logout button)
-- [ ] T017 [US1] Integrate UserInfo into Navigation component in frontend/src/components/layout/Navigation.tsx (header display)
-- [ ] T018 [US1] Implement logout flow in authStore (clear session, clear localStorage, redirect to /login)
+- [x] T010 [P] [US1] Create LoginPage component in frontend/src/pages/LoginPage.tsx (profile selector, conditional tenant selector, login button)
+- [x] T011 [P] [US1] Create ProfileSelector component in frontend/src/components/auth/ProfileSelector.tsx (dropdown with 3 hardcoded profiles)
+- [x] T012 [P] [US1] Create TenantSelector component in frontend/src/components/auth/TenantSelector.tsx (conditional dropdown, shown only for non-superadmin)
+- [x] T013 [US1] Implement superadmin login flow in authService.ts (no tenant validation, create session without selectedTenantId)
+- [x] T014 [US1] Add superadmin role checks to authStore (isSuperadmin helper, getTenantId returns null for superadmin)
+- [x] T015 [US1] Update data query hooks to skip tenant filtering for superadmin in frontend/src/services/hooks/ (useProducts, useCategories, useOrders)
+- [x] T016 [US1] Add UserInfo component in frontend/src/components/auth/UserInfo.tsx (show current user, role, logout button)
+- [x] T017 [US1] Integrate UserInfo into Navigation component in frontend/src/components/layout/Navigation.tsx (header display)
+- [x] T018 [US1] Implement logout flow in authStore (clear session, clear localStorage, redirect to /login)
 
 **Checkpoint**: At this point, superadmin login should be fully functional with access to all data
 

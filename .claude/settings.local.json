@@ -12,7 +12,9 @@
       "Bash(curl:*)",
       "Bash(npm run dev)",
       "Bash(test:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(node:*)",
+      "SlashCommand(/speckit.tasks)"
     ],
     "deny": [],
     "ask": []
