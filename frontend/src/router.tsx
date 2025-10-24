@@ -7,6 +7,7 @@
 import { createBrowserRouter } from 'react-router-dom';
 import { Layout } from './components/layout/Layout';
 import { CartPage } from './pages/CartPage';
+import { AdminDashboardPage } from './pages/admin/AdminDashboardPage';
 import { AdminOrdersPage } from './pages/admin/AdminOrdersPage';
 import { AdminOrderDetailsPage } from './pages/admin/AdminOrderDetailsPage';
 import { ProductsPage } from './pages/admin/ProductsPage';
@@ -15,7 +16,6 @@ import { CategoriesPage } from './pages/admin/CategoriesPage';
 import { CategoryEditPage } from './pages/admin/CategoryEditPage';
 
 // Placeholder components - will be implemented in later tasks
-const HomePage = () => <div>Home Page - Coming Soon</div>;
 const CheckoutPage = () => <div>Checkout Page - Coming Soon</div>;
 const CheckoutConfirmationPage = () => <div>Order Confirmation - Coming Soon</div>;
 const OrdersPage = () => <div>Orders Page - Coming Soon</div>;
@@ -32,7 +32,11 @@ export const router = createBrowserRouter([
     children: [
       {
         index: true,
-        element: <HomePage />,
+        element: <AdminDashboardPage />,
+      },
+      {
+        path: 'admin',
+        element: <AdminDashboardPage />,
       },
       {
         path: 'cart',
