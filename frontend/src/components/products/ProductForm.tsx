@@ -17,6 +17,7 @@ interface ProductFormProps {
   onSubmit: (data: Partial<Product>) => void;
   onCancel: () => void;
   isSubmitting?: boolean;
+  images?: string[];
 }
 
 interface ProductFormData {
@@ -140,6 +141,29 @@ export function ProductForm({
             rows={4}
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
           />
+        </div>
+      </div>
+
+      {/* Product Image */}
+      <div className="bg-white rounded-lg shadow p-6">
+        <h2 className="text-lg font-medium text-gray-900 mb-4">
+          Product Image
+        </h2>
+        <div className="mt-4 flex flex-wrap gap-2">
+          {product?.images && product.images.length > 0 ? (
+            product.images.map((image, index) => (
+              <img
+                key={index}
+                src={image}
+                alt={`${product.name} Image ${index + 1}`}
+                className="h-32 w-32 object-cover rounded-md"
+              />
+            ))
+          ) : (
+            <div className="h-32 w-32 bg-gray-200 rounded-md flex items-center justify-center text-gray-500 text-sm">
+              No Image
+            </div>
+          )}
         </div>
       </div>
 

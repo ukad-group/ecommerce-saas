@@ -70,6 +70,7 @@ export function ProductEditPage() {
           onSubmit={handleSubmit}
           onCancel={handleCancel}
           isSubmitting={createProduct.isPending || updateProduct.isPending}
+          images={product?.images}
         />
       </div>
     </div>

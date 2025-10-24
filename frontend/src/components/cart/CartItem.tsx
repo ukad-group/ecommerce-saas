@@ -54,7 +54,7 @@ export function CartItem({ item, onUpdateQuantity, onRemove }: CartItemProps) {
       {/* Product Image */}
       <div className="flex-shrink-0 w-24 h-24">
         <img
-          src={item.productImage || 'https://via.placeholder.com/96x96?text=No+Image'}
+          src={item.productImage || 'https://dummyimage.com/96x96/AAA/fff.png&text=No+Image'}
           alt={item.productName}
           className="w-full h-full object-cover rounded"
         />

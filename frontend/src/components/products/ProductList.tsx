@@ -74,13 +74,11 @@ export function ProductList({
             <tr key={product.id} className="hover:bg-gray-50">
               <td className="px-6 py-4">
                 <div className="flex items-center">
-                  {product.images && product.images[0] && (
-                    <img
-                      src={product.images[0]}
-                      alt={product.name}
-                      className="h-10 w-10 rounded object-cover mr-3"
-                    />
-                  )}
+                  <img
+                    src={product.images && product.images[0] ? product.images[0] : 'https://dummyimage.com/96x96/AAA/fff.png&text=No+Image'}
+                    alt={product.name}
+                    className="h-10 w-10 rounded object-cover mr-3"
+                  />
                   <div>
                     <Link
                       to={`/admin/products/${product.id}/edit`}

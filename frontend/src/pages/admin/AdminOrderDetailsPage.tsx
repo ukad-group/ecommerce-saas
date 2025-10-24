@@ -84,7 +84,7 @@ export function AdminOrderDetailsPage() {
                       <img
                         src={
                           item.productImage ||
-                          'https://via.placeholder.com/80x80?text=No+Image'
+                          'https://dummyimage.com/80x80/AAA/fff.png&text=No+Image'
                         }
                         alt={item.productName}
                         className="w-full h-full object-cover rounded"
