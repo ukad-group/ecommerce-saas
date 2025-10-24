@@ -4,7 +4,8 @@
  * Helper functions for role-based permission checks and route guards
  */
 
-import { Role, Permission, type UserSession } from '../types/auth';
+import { Role } from '../types/auth';
+import type { Permission, UserSession } from '../types/auth';
 
 /**
  * Permission matrix - defines which permissions each role has

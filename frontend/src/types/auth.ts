@@ -62,3 +62,4 @@ export type Permission =
   | 'createCustomerShops'
   | 'editProducts'
   | 'editCategories';
+

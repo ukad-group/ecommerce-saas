@@ -7,7 +7,8 @@
 
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { UserSession, Role, Permission } from '../types/auth';
+import { Role } from '../types/auth';
+import type { UserSession, Permission } from '../types/auth';
 
 /**
  * Auth store state

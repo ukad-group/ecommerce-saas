@@ -5,7 +5,8 @@
  * In production, these will be replaced with real authentication (OAuth2/OIDC).
  */
 
-import { UserProfile, Role } from '../../types/auth';
+import { Role } from '../../types/auth';
+import type { UserProfile } from '../../types/auth';
 
 export const HARDCODED_PROFILES: UserProfile[] = [
   {

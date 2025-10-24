@@ -5,7 +5,7 @@
  * In production, this data will come from a real database.
  */
 
-import { Tenant } from '../../types/auth';
+import type { Tenant } from '../../types/auth';
 
 export const MOCK_TENANTS: Tenant[] = [
   {
