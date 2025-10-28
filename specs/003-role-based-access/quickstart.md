@@ -111,7 +111,7 @@
     - **Expected**: Status update section disabled/hidden
 11. Check navigation and buttons
     - **Expected**: "Create Tenant" feature not visible (if implemented)
-    - **Expected**: "Create Customer Shop" feature not visible (if implemented)
+    - **Expected**: "Create Market" feature not visible (if implemented)
 
 ### Success Criteria
 
@@ -119,7 +119,7 @@
 - ✅ Can view all tenant data (products, categories, orders)
 - ✅ Can edit products and categories
 - ✅ CANNOT edit order status (button disabled/hidden)
-- ✅ CANNOT create tenants or customer shops
+- ✅ CANNOT create tenants or markets
 - ✅ Tenant-scoped data filtering works correctly
 
 ---

@@ -102,7 +102,7 @@
 
 - [ ] T027 [US3] Implement tenant user login flow in authService.ts (same as tenant admin but with TENANT_USER role)
 - [ ] T028 [US3] Update TenantSelector component to show tenant dropdown for TENANT_USER role
-- [ ] T029 [US3] Add permission helper methods to authStore (hasPermission('editOrders'), canEditOrders, canCreateTenants, canCreateCustomerShops)
+- [ ] T029 [US3] Add permission helper methods to authStore (hasPermission('editOrders'), canEditOrders, canCreateTenants, canCreateMarkets)
 - [ ] T030 [US3] Update OrderStatusUpdate component in frontend/src/components/admin/OrderStatusUpdate.tsx to check authStore.hasPermission('editOrders') and disable/hide controls
 - [ ] T031 [US3] Update AdminOrderDetailsPage to conditionally render status update section based on role permissions
 - [ ] T032 [US3] Add permission checks to order edit buttons in AdminOrdersPage (disable "Update Status" for TENANT_USER)

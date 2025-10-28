@@ -65,7 +65,7 @@ Defines permission levels within the system.
 | View orders | ✅ | ✅ | ✅ |
 | Edit order status | ✅ | ✅ | ❌ |
 | Create tenants | ✅ | ❌ | ❌ |
-| Create customer shops | ✅ | ✅ | ❌ |
+| Create markets | ✅ | ✅ | ❌ |
 
 **Implementation Notes**:
 - Stored as TypeScript enum

@@ -47,6 +47,6 @@ All checklist items pass. The specification is complete and ready for planning p
 ### Notes
 
 - Specification assumes tenant data already exists; tenant creation UI explicitly out of scope
-- Customer shop creation mentioned as capability but UI implementation deferred
+- Market creation mentioned as capability but UI implementation deferred
 - Session management uses in-memory approach (no persistence across browser restarts)
 - This is a development/staging auth system; production auth explicitly marked as future phase

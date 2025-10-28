@@ -3,35 +3,35 @@
 **Feature Branch**: `002-cart-order-management` (single branch development)
 **Created**: 2025-10-24
 **Status**: Draft
-**Input**: User description: "We need a role based access system. Our eCommerce backoffice can be accessed by: Superadmin, can see everything. Can create tenants, can create customers (shops) within a tenant. Tenant admin, can see and manage everything within a specified tenant. Can create customers (shops) within a tenant. Tenant user, can see everything within a tenant, can only edit product and categories details. For the first implementation we just need to simulate a login screen with a hardcoded three user profiles for admin, for tenant admin (with tenant selector), for tenant user (with tenant selector). Once selected, we make them appear as authenticated users with the possibility to logout, which sends them back to the login screen."
+**Input**: User description: "We need a role based access system. Our eCommerce backoffice can be accessed by: Superadmin, can see everything. Can create tenants, can create markets within a tenant. Tenant admin, can see and manage everything within a specified tenant. Can create markets within a tenant. Tenant user, can see everything within a tenant, can only edit product and categories details. For the first implementation we just need to simulate a login screen with a hardcoded three user profiles for admin, for tenant admin (with tenant selector), for tenant user (with tenant selector). Once selected, we make them appear as authenticated users with the possibility to logout, which sends them back to the login screen."
 
 ## User Scenarios & Testing
 
 ### User Story 1 - Superadmin Full Access (Priority: P1)
 
-As a superadmin, I need unrestricted access to all tenants and system functions so I can manage the entire multi-tenant eCommerce platform, create new tenants, and oversee all customer shops across the system.
+As a superadmin, I need unrestricted access to all tenants and system functions so I can manage the entire multi-tenant eCommerce platform, create new tenants, and oversee all markets across the system.
 
 **Why this priority**: Superadmin access is foundational for platform management and is required before any tenant-specific operations can be performed. Without this role, there's no way to create tenants or manage the system at the highest level.
 
-**Independent Test**: Login as superadmin using the hardcoded profile, verify access to all dashboard sections (all tenants, all orders, all products, all categories), create a test tenant, create a test customer shop, and confirm no restrictions are enforced. Logout returns to login screen.
+**Independent Test**: Login as superadmin using the hardcoded profile, verify access to all dashboard sections (all tenants, all orders, all products, all categories), create a test tenant, create a test market, and confirm no restrictions are enforced. Logout returns to login screen.
 
 **Acceptance Scenarios**:
 
 1. **Given** I'm on the login screen, **When** I select the Superadmin profile, **Then** I'm authenticated and see the full admin dashboard with all tenants visible
 2. **Given** I'm authenticated as Superadmin, **When** I navigate to any section (products, categories, orders), **Then** I see data from all tenants with no filtering
 3. **Given** I'm authenticated as Superadmin, **When** I attempt to create a new tenant, **Then** the system allows me to create it successfully
-4. **Given** I'm authenticated as Superadmin, **When** I attempt to create a customer shop within any tenant, **Then** the system allows me to create it successfully
+4. **Given** I'm authenticated as Superadmin, **When** I attempt to create a market within any tenant, **Then** the system allows me to create it successfully
 5. **Given** I'm authenticated as Superadmin, **When** I click logout, **Then** I'm redirected to the login screen and my session is cleared
 
 ---
 
 ### User Story 2 - Tenant Admin Scoped Management (Priority: P1)
 
-As a tenant admin, I need to select my tenant at login and manage all aspects of my tenant's eCommerce operations (products, categories, orders, customer shops) so I can run my multi-shop business without seeing or affecting other tenants' data.
+As a tenant admin, I need to select my tenant at login and manage all aspects of my tenant's eCommerce operations (products, categories, orders, markets) so I can run my multi-shop business without seeing or affecting other tenants' data.
 
 **Why this priority**: Tenant admin is the primary user role for managing individual tenants. This is equally critical as superadmin for MVP functionality since most users will be tenant admins managing their own business.
 
-**Independent Test**: Login as tenant admin, select a specific tenant from the dropdown, verify the dashboard shows only that tenant's data, create/edit products and categories for that tenant, manage orders, create customer shops within the tenant, and confirm data isolation from other tenants. Logout clears session.
+**Independent Test**: Login as tenant admin, select a specific tenant from the dropdown, verify the dashboard shows only that tenant's data, create/edit products and categories for that tenant, manage orders, create markets within the tenant, and confirm data isolation from other tenants. Logout clears session.
 
 **Acceptance Scenarios**:
 
@@ -39,7 +39,7 @@ As a tenant admin, I need to select my tenant at login and manage all aspects of
 2. **Given** I've selected Tenant Admin profile, **When** I choose a tenant from the dropdown and login, **Then** I'm authenticated and see the admin dashboard filtered to show only my tenant's data
 3. **Given** I'm authenticated as Tenant Admin for Tenant A, **When** I view products/categories/orders, **Then** I only see data belonging to Tenant A, never Tenant B or C
 4. **Given** I'm authenticated as Tenant Admin, **When** I create or edit products and categories, **Then** the changes are scoped to my tenant only
-5. **Given** I'm authenticated as Tenant Admin, **When** I create a customer shop, **Then** it's created within my tenant and not visible to other tenants
+5. **Given** I'm authenticated as Tenant Admin, **When** I create a market, **Then** it's created within my tenant and not visible to other tenants
 6. **Given** I'm authenticated as Tenant Admin, **When** I attempt to create a new tenant, **Then** the system prevents this action (feature not available)
 7. **Given** I'm authenticated as Tenant Admin, **When** I click logout, **Then** I'm redirected to the login screen
 
@@ -51,7 +51,7 @@ As a tenant user, I need to select my tenant at login and view all tenant data (
 
 **Why this priority**: Tenant user is a supporting role for catalog management. It's lower priority than superadmin and tenant admin because it's a subset of tenant admin capabilities and represents a less common use case for the initial MVP.
 
-**Independent Test**: Login as tenant user, select a specific tenant, verify read-only access to orders and full edit access to products/categories. Confirm inability to create customer shops or modify orders. Logout clears session.
+**Independent Test**: Login as tenant user, select a specific tenant, verify read-only access to orders and full edit access to products/categories. Confirm inability to create markets or modify orders. Logout clears session.
 
 **Acceptance Scenarios**:
 
@@ -59,7 +59,7 @@ As a tenant user, I need to select my tenant at login and view all tenant data (
 2. **Given** I've selected Tenant User profile, **When** I choose a tenant and login, **Then** I'm authenticated and see the admin dashboard scoped to my tenant
 3. **Given** I'm authenticated as Tenant User, **When** I view orders, **Then** I can see all orders for my tenant but cannot edit order status or details
 4. **Given** I'm authenticated as Tenant User, **When** I navigate to products or categories, **Then** I can create, edit, and delete products and categories for my tenant
-5. **Given** I'm authenticated as Tenant User, **When** I attempt to create a customer shop, **Then** the system prevents this action (feature not available)
+5. **Given** I'm authenticated as Tenant User, **When** I attempt to create a market, **Then** the system prevents this action (feature not available)
 6. **Given** I'm authenticated as Tenant User, **When** I attempt to update order status, **Then** the update button is disabled or hidden
 7. **Given** I'm authenticated as Tenant User, **When** I click logout, **Then** I'm redirected to the login screen
 
@@ -87,7 +87,7 @@ As a tenant user, I need to select my tenant at login and view all tenant data (
 - **FR-008**: Tenant Admin MUST see and manage all data within their selected tenant only
 - **FR-009**: Tenant User MUST see all data within their selected tenant but only edit products and categories
 - **FR-010**: System MUST prevent Tenant Admin and Tenant User from seeing or accessing data from other tenants
-- **FR-011**: System MUST hide or disable tenant/customer creation features for Tenant User role
+- **FR-011**: System MUST hide or disable tenant/market creation features for Tenant User role
 - **FR-012**: System MUST hide or disable order editing features for Tenant User role
 - **FR-013**: System MUST provide a logout button visible to all authenticated users
 - **FR-014**: System MUST clear authentication state and redirect to login screen upon logout
@@ -99,7 +99,7 @@ As a tenant user, I need to select my tenant at login and view all tenant data (
 - **User Profile**: Represents a hardcoded authentication profile with attributes: display name, role (superadmin | tenant_admin | tenant_user), and associated tenant (if not superadmin)
 - **User Session**: Represents the authenticated state with attributes: selected profile, role, selected tenant ID (if applicable), authentication timestamp
 - **Role**: Defines permission boundaries with values: superadmin (full access), tenant_admin (full access within tenant), tenant_user (read all, edit products/categories only within tenant)
-- **Tenant**: Represents a business entity that owns products, categories, orders, and customer shops
+- **Tenant**: Represents a business entity that owns products, categories, orders, and markets
 
 ## Success Criteria
 
@@ -117,7 +117,7 @@ As a tenant user, I need to select my tenant at login and view all tenant data (
 - This is a development/staging implementation using hardcoded profiles, not production-ready authentication
 - Real authentication (email/password, OAuth, SSO) will be implemented in a future phase
 - Tenant data already exists in the system (we're not implementing tenant creation UI in this phase)
-- Customer shops (stores within a tenant) can be created by superadmin and tenant admin, but the UI for this is out of scope for initial implementation
+- Markets (stores within a tenant) can be created by superadmin and tenant admin, but the UI for this is out of scope for initial implementation
 - Session persistence across browser restarts is not required for this MVP (in-memory session is acceptable)
 - The application assumes a single user session at a time (no concurrent multi-user sessions in the same browser)
 
@@ -126,7 +126,7 @@ As a tenant user, I need to select my tenant at login and view all tenant data (
 - Real authentication mechanisms (passwords, tokens, OAuth)
 - User management UI (creating, editing, deleting users)
 - Tenant creation UI (superadmin can create tenants, but UI not implemented in this phase)
-- Customer shop creation UI (ability exists per requirements, but UI is future work)
+- Market creation UI (ability exists per requirements, but UI is future work)
 - Role management or custom role creation
 - Password reset or account recovery flows
 - Multi-factor authentication
@@ -141,7 +141,7 @@ As a tenant user, I need to select my tenant at login and view all tenant data (
 
 **Architecture Context**: This eCommerce platform is a headless SaaS backoffice where:
 - Tenants represent business entities (e.g., a chain of stores)
-- Each tenant can have multiple customer shops (individual stores using the platform)
+- Each tenant can have multiple markets (individual stores using the platform)
 - Products, categories, and orders are scoped to tenants
 - The backoffice UI serves platform administrators (superadmin) and tenant staff (tenant admin, tenant user)
 - Client-facing storefront APIs and SDKs are separate from this backoffice system

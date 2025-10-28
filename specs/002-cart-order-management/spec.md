@@ -15,7 +15,7 @@
 
 ### User Story 1 - Add Products to Cart (Priority: P1)
 
-As a customer shopping on the integrated CMS storefront, I need to add products to my shopping cart so that I can purchase multiple items in a single transaction.
+As a marketping on the integrated CMS storefront, I need to add products to my shopping cart so that I can purchase multiple items in a single transaction.
 
 **Why this priority**: This is the foundational capability for any eCommerce system. Without the ability to add products to a cart, no purchases can be made. This validates the core shopping flow and order creation.
 

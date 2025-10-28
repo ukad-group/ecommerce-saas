@@ -15,13 +15,13 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     'viewAllTenants',
     'editOrders',
     'createTenants',
-    'createCustomerShops',
+    'createMarkets',
     'editProducts',
     'editCategories',
   ],
   [Role.TENANT_ADMIN]: [
     'editOrders',
-    'createCustomerShops',
+    'createMarkets',
     'editProducts',
     'editCategories',
   ],
@@ -125,14 +125,14 @@ export function canCreateTenants(session: UserSession | null): boolean {
 }
 
 /**
- * Checks if user can create customer shops
+ * Checks if user can create markets
  * (Superadmin and tenant admin)
  *
  * @param session - User session
- * @returns True if can create customer shops
+ * @returns True if can create markets
  */
-export function canCreateCustomerShops(session: UserSession | null): boolean {
-  return hasPermission(session, 'createCustomerShops');
+export function canCreateMarkets(session: UserSession | null): boolean {
+  return hasPermission(session, 'createMarkets');
 }
 
 /**
