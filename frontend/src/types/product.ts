@@ -1,0 +1,88 @@
+/**
+ * Product Type Definitions
+ *
+ * Defines types for products, categories, and inventory.
+ * Based on specs/001-product-catalog/spec.md
+ */
+
+/**
+ * Product status type union
+ * Represents the lifecycle stage of a product
+ */
+export type ProductStatus = 'active' | 'inactive' | 'draft';
+
+/**
+ * Custom property for products
+ * Allows adding dynamic specification fields
+ */
+export interface CustomProperty {
+  name: string;
+  value: string;
+}
+
+/**
+ * Product entity
+ * Represents a sellable item in the catalog
+ */
+export interface Product {
+  id: string;
+  tenantId: string;
+  name: string;
+  sku?: string; // Optional when product has variants
+  description: string;
+  price?: number; // Optional when product has variants
+  salePrice?: number;
+  status: ProductStatus;
+  stockQuantity?: number; // Optional when product has variants
+  lowStockThreshold?: number; // Optional when product has variants
+  currency: string;
+  images: string[];
+  categoryIds: string[];
+  createdAt: string; // ISO 8601
+  updatedAt: string; // ISO 8601
+  metadata?: Record<string, any>;
+  hasVariants?: boolean; // Indicates if product uses variants
+  variantOptions?: VariantOption[]; // Defines available variant options (e.g., Size, Color)
+  variants?: ProductVariant[]; // Array of product variants
+  customProperties?: CustomProperty[]; // Additional specification fields
+}
+
+/**
+ * Variant option definition
+ * Defines a type of variant attribute (e.g., "Size", "Color")
+ */
+export interface VariantOption {
+  name: string; // e.g., "Size", "Color"
+  values: string[]; // e.g., ["Small", "Medium", "Large"]
+}
+
+/**
+ * Product variant
+ * Represents a specific combination of variant options
+ */
+export interface ProductVariant {
+  id: string;
+  sku: string;
+  price: number;
+  salePrice?: number;
+  stockQuantity: number;
+  lowStockThreshold: number;
+  images?: string[]; // Variant-specific images
+  options: Record<string, string>; // e.g., { "Size": "Medium", "Color": "Blue" }
+  status: ProductStatus;
+  isDefault?: boolean; // Marks the default variant for display
+}
+
+/**
+ * Product category entity
+ * Represents a grouping for product organization
+ */
+export interface Category {
+  id: string;
+  tenantId: string;
+  name: string;
+  description?: string;
+  parentId?: string;
+  createdAt: string; // ISO 8601
+  updatedAt: string; // ISO 8601
+}

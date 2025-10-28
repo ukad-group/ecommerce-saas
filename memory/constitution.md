@@ -24,6 +24,8 @@ Design all features to support easy integration with various CMS platforms:
 - Embeddable components with minimal dependencies
 
 ### IV. Minimal Viable Product Focus
+Stick to YAGNI principle, as long as something isn't specifically requested, it isn't needed. Whether it is a model field, a button, a page or popup.
+
 Start with core eCommerce functionality only:
 - Product catalog management
 - Shopping cart and checkout
@@ -91,6 +93,7 @@ All features must follow TDD workflow:
 1. Create feature specification using `/speckit.specify`
 2. Validate specification completeness
 3. Stakeholder review and approval
+4. Whenever specification get's clarified during the development, it should be reflected in a corresponding spec file.
 
 ### Planning Phase
 1. Create technical plan using `/speckit.plan`

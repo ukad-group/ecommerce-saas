@@ -1,8 +1,20 @@
 {
   "permissions": {
     "allow": [
+      "Bash(mkdir:*)",
+      "Bash(npm run build)",
+      "Bash(cat:*)",
+      "Bash(npm run test:*)",
+      "Bash(timeout 10 npm run test -- --run)",
+      "Bash(echo:*)",
+      "Bash(npx tsc:*)",
       "Bash(git add:*)",
-      "Bash(git commit:*)"
+      "Bash(curl:*)",
+      "Bash(npm run dev)",
+      "Bash(test:*)",
+      "Bash(git commit:*)",
+      "Bash(node:*)",
+      "SlashCommand(/speckit.tasks)"
     ],
     "deny": [],
     "ask": []
