@@ -20,7 +20,7 @@ This document defines all entities, relationships, validation rules, and persist
 |----------|------|----------|-------------|-------------|
 | `id` | string (UUID) | Yes | Unique order identifier | Primary key, auto-generated |
 | `tenantId` | string (UUID) | Yes | Tenant (store) this order belongs to | Foreign key to Tenant, indexed |
-| `customerId` | string (UUID) | Yes | Customer who owns this order | Foreign key to Customer, indexed |
+| `marketId` | string (UUID) | Yes | Market this order belongs to | Foreign key to Market, indexed |
 | `orderNumber` | string | Yes | Human-readable order number | Unique per tenant, format: `{tenantPrefix}-{sequence}` |
 | `status` | OrderStatus | Yes | Current order status | Enum: 'new', 'submitted', 'paid', 'completed', 'cancelled' |
 | `subtotal` | number | Yes | Sum of all line item totals (before tax/shipping) | >= 0, precision: 2 decimals |
@@ -41,17 +41,18 @@ This document defines all entities, relationships, validation rules, and persist
 
 **Relationships**:
 - `belongsTo` Tenant (via `tenantId`)
-- `belongsTo` Customer (via `customerId`)
+- `belongsTo` Market (via `marketId`)
 - `hasMany` OrderLineItem (via `lineItems[]`)
 - `hasOne` ShippingAddress (via `shippingAddressId`)
 - `hasOne` BillingAddress (via `billingAddressId`)
 - `hasMany` PaymentTransaction (via `transactions[]`)
 - `hasMany` OrderStatusHistory (via `statusHistory[]`)
 
-**Multi-Tenancy**:
-- All queries MUST filter by `tenantId`
+**Multi-Tenancy & Market Isolation**:
+- All queries MUST filter by `tenantId` AND `marketId`
 - Order numbers unique per tenant (not globally)
-- Cross-tenant access strictly forbidden
+- Cross-tenant and cross-market access strictly forbidden
+- All products in order must belong to the same market
 
 **Persistence Strategy**:
 - **status='new'**: localStorage only (cart not yet submitted)
@@ -59,7 +60,8 @@ This document defines all entities, relationships, validation rules, and persist
 - **Transition**: On checkout submit, sync from localStorage to API, then remove from localStorage
 
 **Validation Rules**:
-- `customerId` must exist and belong to same `tenantId`
+- `marketId` must exist and belong to same `tenantId`
+- All products in order line items must belong to `marketId`
 - `orderNumber` must be unique within tenant
 - `total` must equal `subtotal + tax + shipping - discount`
 - `guestEmail` required if `isGuest=true`
@@ -285,38 +287,35 @@ new ──────────→ submitted ──────────�
 
 ---
 
-### 7. Customer
+### 7. Market
 
-**Purpose**: Represents a customer who can place orders. Full definition in separate customer management feature; this is a reference for cart/order context.
+**Purpose**: Represents a specific store location or sales channel within a tenant. Orders and products are scoped to markets.
 
 **Properties** (subset relevant to orders):
 
 | Property | Type | Required | Description | Constraints |
 |----------|------|----------|-------------|-------------|
-| `id` | string (UUID) | Yes | Unique customer identifier | Primary key |
-| `tenantId` | string (UUID) | Yes | Tenant this customer belongs to | Foreign key to Tenant, indexed |
-| `email` | string | Yes | Customer email address | Unique per tenant, email format |
-| `firstName` | string | Yes | Customer first name | Max length: 100 characters |
-| `lastName` | string | Yes | Customer last name | Max length: 100 characters |
-| `isGuest` | boolean | Yes | Whether this is a guest customer | Default: false |
-| `createdAt` | datetime | Yes | When customer was created | ISO 8601 format |
+| `id` | string (UUID) | Yes | Unique market identifier | Primary key |
+| `tenantId` | string (UUID) | Yes | Tenant this market belongs to | Foreign key to Tenant, indexed |
+| `name` | string | Yes | Market name | Max length: 200 characters |
+| `code` | string | Yes | Market code | Unique per tenant, max length: 20 |
+| `type` | string | Yes | Market type | Enum: 'physical', 'online', 'hybrid' |
+| `isActive` | boolean | Yes | Whether market is operational | Default: true |
+| `settings` | JSON | No | Market-specific settings | Flexible key-value storage |
+| `createdAt` | datetime | Yes | When market was created | ISO 8601 format |
 
 **Relationships**:
 - `belongsTo` Tenant (via `tenantId`)
 - `hasMany` Order (via `orders[]`)
+- `hasMany` Product (via `products[]`)
 
 **Multi-Tenancy**:
-- Customers isolated by tenant
-- Same email can exist across tenants (different customers)
+- Markets isolated by tenant
+- Same market name can exist across tenants
 
 **Persistence**:
 - **API only**
 - Not managed by cart/order feature (referenced only)
-
-**Guest Customers**:
-- Created on-the-fly during guest checkout
-- `isGuest=true`, minimal profile information
-- Can be converted to registered customer later
 
 ---
 
@@ -337,7 +336,7 @@ new ──────────→ submitted ──────────�
 | `taxRate` | number | No | Default tax rate (if not using tax service) | 0-1 (e.g., 0.08 for 8%) |
 
 **Relationships**:
-- `hasMany` Customer (via `customers[]`)
+- `hasMany` Market (via `markets[]`)
 - `hasMany` Order (via `orders[]`)
 
 **Persistence**:
@@ -355,9 +354,9 @@ new ──────────→ submitted ──────────�
 
 ```mermaid
 erDiagram
-    Tenant ||--o{ Customer : "has many"
-    Tenant ||--o{ Order : "has many"
-    Customer ||--o{ Order : "has many"
+    Tenant ||--o{ Market : "has many"
+    Market ||--o{ Order : "has many"
+    Market ||--o{ Product : "has many"
     Order ||--o{ OrderLineItem : "has many"
     Order ||--o| ShippingAddress : "has one"
     Order ||--o| BillingAddress : "has one"
@@ -375,20 +374,21 @@ erDiagram
         float taxRate
     }
 
-    Customer {
+    Market {
         uuid id PK
         uuid tenantId FK
-        string email
-        string firstName
-        string lastName
-        boolean isGuest
+        string name
+        string code
+        string type
+        boolean isActive
+        json settings
         datetime createdAt
     }
 
     Order {
         uuid id PK
         uuid tenantId FK
-        uuid customerId FK
+        uuid marketId FK
         string orderNumber UK
         enum status
         float subtotal
@@ -543,7 +543,7 @@ export enum PaymentMethod {
 export interface Order {
   id: string;
   tenantId: string;
-  customerId: string;
+  marketId: string;
   orderNumber: string;
   status: OrderStatus;
   subtotal: number;
@@ -648,15 +648,16 @@ export interface PaymentTransaction {
 }
 
 /**
- * Customer entity (subset for orders context)
+ * Market entity (subset for orders context)
  */
-export interface Customer {
+export interface Market {
   id: string;
   tenantId: string;
-  email: string;
-  firstName: string;
-  lastName: string;
-  isGuest: boolean;
+  name: string;
+  code: string;
+  type: 'physical' | 'online' | 'hybrid';
+  isActive: boolean;
+  settings?: Record<string, any>;
   createdAt: string; // ISO 8601
 }
 
@@ -804,7 +805,8 @@ export interface ApiErrorResponse {
 **Order**:
 - `id`: UUID v4 format
 - `tenantId`: Must exist in Tenant table
-- `customerId`: Must exist in Customer table and belong to same tenant
+- `marketId`: Must exist in Market table and belong to same tenant
+- All products in line items must belong to same `marketId`
 - `orderNumber`: Unique per tenant, format: `{tenant.orderNumberPrefix}-{sequence}`
 - `status`: Must be valid OrderStatus enum value
 - `subtotal`, `tax`, `shipping`, `discount`, `total`: >= 0, max 2 decimal places
@@ -891,24 +893,33 @@ function validateBillingAddress(billing: BillingAddress, shipping: ShippingAddre
 }
 ```
 
-### Multi-Tenancy Validation
+### Multi-Tenancy & Market Validation
 
-**Tenant Isolation**:
+**Tenant & Market Isolation**:
 ```typescript
-function validateTenantAccess(order: Order, currentTenantId: string): boolean {
-  return order.tenantId === currentTenantId;
+function validateTenantAndMarketAccess(
+  order: Order,
+  currentTenantId: string,
+  currentMarketId: string
+): boolean {
+  return order.tenantId === currentTenantId && order.marketId === currentMarketId;
 }
 
-function validateCustomerBelongsToTenant(customer: Customer, tenantId: string): boolean {
-  return customer.tenantId === tenantId;
+function validateMarketBelongsToTenant(market: Market, tenantId: string): boolean {
+  return market.tenantId === tenantId;
+}
+
+function validateAllProductsBelongToMarket(order: Order): boolean {
+  return order.lineItems.every(item => item.productId.startsWith(order.marketId));
 }
 ```
 
 **API Request Validation**:
-- All API requests MUST include `X-Tenant-ID` header
-- Server validates tenant exists and user has access
-- Query results MUST be filtered by `tenantId`
-- Cross-tenant access returns 403 Forbidden
+- All API requests MUST include `X-Tenant-ID` and `X-Market-ID` headers
+- Server validates tenant and market exist and user has access
+- Query results MUST be filtered by `tenantId` AND `marketId`
+- Cross-tenant or cross-market access returns 403 Forbidden
+- Superadmin can access all tenants and markets
 
 ---
 
@@ -970,12 +981,12 @@ function validateCustomerBelongsToTenant(customer: Customer, tenantId: string): 
 - Shipping and billing addresses (PII data)
 - Payment transactions
 - Order status history
-- Customer data (managed by separate feature)
 
 **Database Schema** (PostgreSQL):
-- Multi-tenant schema: All tables have `tenant_id` column
-- Row-level security: Queries automatically filtered by tenant
-- Indexes: `tenant_id`, `customer_id`, `order_number`, `status`, `created_at`
+- Multi-tenant, market-scoped schema: All tables have `tenant_id` and `market_id` columns
+- Row-level security: Queries automatically filtered by tenant and market
+- Indexes: `(tenant_id, market_id)`, `order_number`, `status`, `created_at`
+- Composite index: `(tenant_id, market_id, status, created_at)` for filtering
 
 **Sync Strategy**:
 ```typescript

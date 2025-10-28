@@ -84,7 +84,7 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
               example:
                 error: Not Found
-                message: No active cart found for customer
+                message: No active cart found
                 statusCode: 404
         '500':
           $ref: '#/components/responses/InternalServerError'
@@ -269,7 +269,7 @@ paths:
               example:
                 id: order-123e4567-e89b-12d3-a456-426614174000
                 tenantId: demo-tenant
-                customerId: customer-123
+                marketId: market-1
                 orderNumber: DEMO-000001
                 status: submitted
                 subtotal: 89.97
@@ -278,7 +278,6 @@ paths:
                 discount: 0
                 total: 103.16
                 currency: USD
-                isGuest: false
                 createdAt: '2025-10-22T10:00:00Z'
                 updatedAt: '2025-10-22T10:30:00Z'
                 submittedAt: '2025-10-22T10:30:00Z'
@@ -392,7 +391,7 @@ paths:
               example:
                 id: order-123e4567-e89b-12d3-a456-426614174000
                 tenantId: demo-tenant
-                customerId: customer-123
+                marketId: market-1
                 orderNumber: DEMO-000001
                 status: paid
                 subtotal: 89.97
@@ -401,7 +400,6 @@ paths:
                 discount: 0
                 total: 103.16
                 currency: USD
-                isGuest: false
                 createdAt: '2025-10-22T10:00:00Z'
                 updatedAt: '2025-10-22T10:31:00Z'
                 submittedAt: '2025-10-22T10:30:00Z'
@@ -480,7 +478,7 @@ components:
       name: X-Tenant-ID
       in: header
       required: true
-      description: Unique identifier for the tenant (store)
+      description: Unique identifier for the tenant
       schema:
         type: string
         format: uuid
@@ -775,9 +773,8 @@ components:
           format: uuid
         tenantId:
           type: string
-        customerId:
+        marketId:
           type: string
-          format: uuid
         orderNumber:
           type: string
         status:
@@ -805,8 +802,6 @@ components:
           format: double
         currency:
           type: string
-        isGuest:
-          type: boolean
         createdAt:
           type: string
           format: date-time

@@ -14,14 +14,14 @@ import type { OrderStatus } from '../../types/order';
 
 export function AdminOrdersPage() {
   const [statusFilter, setStatusFilter] = useState<OrderStatus | 'all'>('all');
-  const [tenantFilter, setTenantFilter] = useState<string>('all');
+  const [marketFilter, setMarketFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [dateFrom, setDateFrom] = useState<string>('');
   const [dateTo, setDateTo] = useState<string>('');
 
   const { data: orders, isLoading, error } = useAdminOrders({
     status: statusFilter === 'all' ? undefined : statusFilter,
-    tenantId: tenantFilter === 'all' ? undefined : tenantFilter,
+    marketId: marketFilter === 'all' ? undefined : marketFilter,
     searchQuery: searchQuery || undefined,
     dateFrom: dateFrom || undefined,
     dateTo: dateTo || undefined,
@@ -41,12 +41,12 @@ export function AdminOrdersPage() {
         {/* Filters */}
         <OrderFilters
           statusFilter={statusFilter}
-          tenantFilter={tenantFilter}
+          marketFilter={marketFilter}
           searchQuery={searchQuery}
           dateFrom={dateFrom}
           dateTo={dateTo}
           onStatusChange={setStatusFilter}
-          onTenantChange={setTenantFilter}
+          onMarketChange={setMarketFilter}
           onSearchChange={setSearchQuery}
           onDateFromChange={setDateFrom}
           onDateToChange={setDateTo}

@@ -26,8 +26,8 @@ paths:
       summary: Get all orders (admin view)
       description: |
         Retrieves paginated list of orders across all tenants with advanced filtering
-        and search capabilities. Administrators can filter by tenant, status, customer,
-        date range, and search by order number or customer email.
+        and search capabilities. Administrators can filter by tenant, market, status,
+        date range, and search by order number.
       operationId: getAdminOrders
       tags:
         - Admin Orders
@@ -53,14 +53,13 @@ paths:
               - completed
               - cancelled
           example: paid
-        - name: customerId
+        - name: marketId
           in: query
-          description: Filter by customer ID
+          description: Filter by market ID
           required: false
           schema:
             type: string
-            format: uuid
-          example: customer-123
+          example: market-1
         - name: dateFrom
           in: query
           description: Filter orders created after this date (ISO 8601)
@@ -79,7 +78,7 @@ paths:
           example: '2025-10-31T23:59:59Z'
         - name: searchTerm
           in: query
-          description: Search by order number or customer email
+          description: Search by order number
           required: false
           schema:
             type: string
@@ -141,13 +140,12 @@ paths:
                   - id: order-123e4567-e89b-12d3-a456-426614174000
                     tenantId: demo-tenant
                     tenantName: Demo Store
-                    customerId: customer-123
-                    customerEmail: john@example.com
+                    marketId: market-1
+                    marketName: Downtown Store
                     orderNumber: DEMO-000001
                     status: completed
                     total: 103.16
                     currency: USD
-                    isGuest: false
                     createdAt: '2025-10-20T10:00:00Z'
                     submittedAt: '2025-10-20T10:30:00Z'
                     completedAt: '2025-10-21T15:30:00Z'
@@ -155,13 +153,12 @@ paths:
                   - id: order-987e6543-e21b-12d3-a456-426614174000
                     tenantId: test-tenant
                     tenantName: Test Store
-                    customerId: customer-456
-                    customerEmail: jane@example.com
+                    marketId: market-2
+                    marketName: Airport Location
                     orderNumber: TEST-000001
                     status: paid
                     total: 152.98
                     currency: USD
-                    isGuest: false
                     createdAt: '2025-10-22T08:00:00Z'
                     submittedAt: '2025-10-22T08:15:00Z'
                     itemCount: 3
@@ -207,9 +204,8 @@ paths:
                 id: order-123e4567-e89b-12d3-a456-426614174000
                 tenantId: demo-tenant
                 tenantName: Demo Store
-                customerId: customer-123
-                customerEmail: john@example.com
-                customerName: John Doe
+                marketId: market-1
+                marketName: Downtown Store
                 orderNumber: DEMO-000001
                 status: completed
                 subtotal: 89.97
@@ -218,7 +214,6 @@ paths:
                 discount: 0
                 total: 103.16
                 currency: USD
-                isGuest: false
                 createdAt: '2025-10-20T10:00:00Z'
                 updatedAt: '2025-10-21T15:30:00Z'
                 submittedAt: '2025-10-20T10:30:00Z'
@@ -614,13 +609,13 @@ components:
 
     AdminOrderSummary:
       type: object
-      description: Order summary (admin view) with tenant and customer info
+      description: Order summary (admin view) with tenant and market info
       required:
         - id
         - tenantId
         - tenantName
-        - customerId
-        - customerEmail
+        - marketId
+        - marketName
         - orderNumber
         - status
         - total
@@ -634,12 +629,10 @@ components:
           type: string
         tenantName:
           type: string
-        customerId:
+        marketId:
           type: string
-          format: uuid
-        customerEmail:
+        marketName:
           type: string
-          format: email
         orderNumber:
           type: string
         status:
@@ -649,8 +642,6 @@ components:
           format: double
         currency:
           type: string
-        isGuest:
-          type: boolean
         createdAt:
           type: string
           format: date-time
@@ -678,13 +669,9 @@ components:
           type: string
         tenantName:
           type: string
-        customerId:
+        marketId:
           type: string
-          format: uuid
-        customerEmail:
-          type: string
-          format: email
-        customerName:
+        marketName:
           type: string
         orderNumber:
           type: string
@@ -707,11 +694,6 @@ components:
           format: double
         currency:
           type: string
-        isGuest:
-          type: boolean
-        guestEmail:
-          type: string
-          format: email
         createdAt:
           type: string
           format: date-time

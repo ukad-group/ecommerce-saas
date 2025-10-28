@@ -2,7 +2,7 @@
  * Auth Store (Zustand)
  *
  * Global state management for admin authentication and authorization
- * Separate from userStore (which handles customer/shopping context)
+ * Handles user sessions, roles, permissions, and tenant context
  */
 
 import { create } from 'zustand';

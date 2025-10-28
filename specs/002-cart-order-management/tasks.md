@@ -31,7 +31,7 @@ Update quantities, remove items, clear cart, stock warnings. All mutation hooks 
 - adminApi: getAdminOrders, getAdminOrderById, updateOrderStatus
 - useAdminOrders, useAdminOrder, useUpdateOrderStatus
 - useProducts, useUpdateProductStock
-- useCategories
+- useCategories, useMarkets
 
 **MSW Handlers:**
 - GET/PUT /admin/orders, /admin/orders/:id, /admin/orders/:id/status

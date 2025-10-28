@@ -11,12 +11,12 @@ import type { OrderStatus } from '../../types/order';
 
 interface OrderFiltersProps {
   statusFilter: OrderStatus | 'all';
-  tenantFilter: string;
+  marketFilter: string;
   searchQuery: string;
   dateFrom: string;
   dateTo: string;
   onStatusChange: (status: OrderStatus | 'all') => void;
-  onTenantChange: (tenant: string) => void;
+  onMarketChange: (market: string) => void;
   onSearchChange: (query: string) => void;
   onDateFromChange: (date: string) => void;
   onDateToChange: (date: string) => void;
@@ -24,12 +24,12 @@ interface OrderFiltersProps {
 
 export function OrderFilters({
   statusFilter,
-  tenantFilter,
+  marketFilter,
   searchQuery,
   dateFrom,
   dateTo,
   onStatusChange,
-  onTenantChange,
+  onMarketChange,
   onSearchChange,
   onDateFromChange,
   onDateToChange,
@@ -69,8 +69,8 @@ export function OrderFilters({
         <Select
           label="Market"
           id="market-filter"
-          value={tenantFilter}
-          onChange={(e) => onTenantChange(e.target.value)}
+          value={marketFilter}
+          onChange={(e) => onMarketChange(e.target.value)}
           options={marketOptions}
         />
 

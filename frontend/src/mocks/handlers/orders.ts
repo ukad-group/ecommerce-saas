@@ -23,8 +23,6 @@ export const ordersHandlers = [
       filteredOrders = filteredOrders.filter((o) => o.status === status);
     }
 
-    }
-
     return HttpResponse.json({
       data: filteredOrders,
       totalCount: filteredOrders.length,
@@ -60,7 +58,7 @@ export const ordersHandlers = [
     const newOrder: Order = {
       id: `order-${Date.now()}`,
       tenantId: 'default-tenant',
-      
+      marketId: 'market-1',
       orderNumber: `ORD-2025-${1000 + mockOrders.length + 1}`,
       status: 'new',
       subtotal: body.subtotal || 0,
@@ -69,8 +67,6 @@ export const ordersHandlers = [
       discount: body.discount || 0,
       total: body.total || 0,
       currency: body.currency || 'USD',
-      isGuest: body.isGuest || false,
-      guestEmail: body.guestEmail,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       lineItems: body.lineItems || [],
@@ -160,29 +156,12 @@ export const ordersHandlers = [
       ...mockOrders[index],
       status: 'cancelled',
       cancelledAt: new Date().toISOString(),
-      cancellationReason: body.reason || 'Cancelled by customer',
+      cancellationReason: body.reason || 'Order cancelled',
       updatedAt: new Date().toISOString(),
     };
 
     mockOrders[index] = cancelledOrder;
 
     return HttpResponse.json({ data: cancelledOrder });
-  }),
-
-    const cart = mockOrders.find(
-    );
-
-    if (!cart) {
-      return HttpResponse.json(
-        {
-          error: 'Not Found',
-          message: 'Cart not found',
-          statusCode: 404,
-        },
-        { status: 404 }
-      );
-    }
-
-    return HttpResponse.json({ data: cart });
   }),
 ];

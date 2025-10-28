@@ -13,7 +13,7 @@ import type { Order, OrderStatus } from '../../types/order';
  */
 export interface AdminOrdersQueryParams {
   status?: OrderStatus;
-  tenantId?: string;
+  marketId?: string;
   searchQuery?: string;
   dateFrom?: string;
   dateTo?: string;
@@ -31,7 +31,7 @@ export async function getAdminOrders(
   const queryParams = new URLSearchParams();
 
   if (params?.status) queryParams.append('status', params.status);
-  if (params?.tenantId) queryParams.append('tenantId', params.tenantId);
+  if (params?.marketId) queryParams.append('marketId', params.marketId);
   if (params?.searchQuery) queryParams.append('search', params.searchQuery);
   if (params?.dateFrom) queryParams.append('dateFrom', params.dateFrom);
   if (params?.dateTo) queryParams.append('dateTo', params.dateTo);
@@ -118,7 +118,7 @@ export async function exportOrders(
   const queryParams = new URLSearchParams();
 
   if (params?.status) queryParams.append('status', params.status);
-  if (params?.tenantId) queryParams.append('tenantId', params.tenantId);
+  if (params?.marketId) queryParams.append('marketId', params.marketId);
   if (params?.searchQuery) queryParams.append('search', params.searchQuery);
   if (params?.dateFrom) queryParams.append('dateFrom', params.dateFrom);
   if (params?.dateTo) queryParams.append('dateTo', params.dateTo);

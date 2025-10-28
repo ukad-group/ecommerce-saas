@@ -53,7 +53,7 @@ export const useCartStore = create<CartState>()(
 **Stores to Create**:
 1. `cartStore.ts` - Cart state with localStorage persistence
 2. `checkoutStore.ts` - Checkout flow state (shipping, billing, payment) with sessionStorage
-3. `userStore.ts` - Current user context (tenantId, customerId, isGuest)
+3. `authStore.ts` - Current user context (tenantId, marketId, role, profile)
 
 ---
 
@@ -100,7 +100,7 @@ if (import.meta.env.VITE_USE_MOCKS === 'true') {
 - `handlers/adminHandlers.ts` - Admin API endpoints
 - `data/mockOrders.ts` - Mock order data
 - `data/mockProducts.ts` - Mock product data (references Feature 001)
-- `data/mockCustomers.ts` - Mock customer data
+- `data/mockMarkets.ts` - Mock market data
 
 **Edge Cases to Mock**:
 1. Out of stock products (409 Conflict)
@@ -700,9 +700,9 @@ const { data: order } = useQuery({
 
 ## Open Questions
 
-1. **Cart Merging Strategy**: When guest user logs in with existing cart, what is the desired behavior?
-   - Replace guest cart with saved cart?
-   - Merge both carts (sum quantities for duplicates)?
+1. **Cart Merging Strategy**: When user has items in cart and changes market context, what is the desired behavior?
+   - Clear cart (products from different market)?
+   - Merge if products exist in new market?
    - Ask user to choose?
    - **Action**: Clarify with product owner before implementation
 
@@ -729,7 +729,7 @@ const { data: order } = useQuery({
 5. **Guest Checkout**: Do we support guest checkout (no account creation)?
    - Yes: Guest orders tracked by email only
    - No: Force account creation before checkout
-   - **Action**: Clarify business requirement; impacts Customer entity design
+   - **Action**: Clarify business requirement; impacts order authentication flow
 
 6. **Order Cancellation Window**: What rules govern when customers can cancel orders?
    - Can cancel until status = 'completed'?

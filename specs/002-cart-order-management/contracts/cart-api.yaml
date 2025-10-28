@@ -22,9 +22,9 @@ tags:
 paths:
   /cart:
     get:
-      summary: Get current customer's cart
+      summary: Get current cart
       description: |
-        Retrieves the active cart (Order with status='new') for the authenticated customer.
+        Retrieves the active cart (Order with status='new') for the authenticated user.
         If no active cart exists, returns an empty cart structure.
       operationId: getCart
       tags:
@@ -46,7 +46,7 @@ paths:
                   value:
                     id: cart-123e4567-e89b-12d3-a456-426614174000
                     tenantId: demo-tenant
-                    customerId: customer-123
+                    marketId: market-1
                     orderNumber: DEMO-000001
                     status: new
                     subtotal: 89.97
@@ -55,7 +55,6 @@ paths:
                     discount: 0
                     total: 89.97
                     currency: USD
-                    isGuest: false
                     createdAt: '2025-10-22T10:00:00Z'
                     updatedAt: '2025-10-22T10:15:00Z'
                     lineItems:
@@ -84,7 +83,7 @@ paths:
                   value:
                     id: cart-new
                     tenantId: demo-tenant
-                    customerId: customer-123
+                    marketId: market-1
                     status: new
                     subtotal: 0
                     tax: 0
@@ -92,7 +91,6 @@ paths:
                     discount: 0
                     total: 0
                     currency: USD
-                    isGuest: false
                     createdAt: '2025-10-22T10:00:00Z'
                     updatedAt: '2025-10-22T10:00:00Z'
                     lineItems: []
@@ -121,7 +119,7 @@ paths:
               example:
                 id: cart-123e4567-e89b-12d3-a456-426614174000
                 tenantId: demo-tenant
-                customerId: customer-123
+                marketId: market-1
                 status: new
                 subtotal: 0
                 tax: 0
@@ -129,7 +127,6 @@ paths:
                 discount: 0
                 total: 0
                 currency: USD
-                isGuest: false
                 createdAt: '2025-10-22T10:00:00Z'
                 updatedAt: '2025-10-22T10:30:00Z'
                 lineItems: []
@@ -332,7 +329,7 @@ components:
       name: X-Tenant-ID
       in: header
       required: true
-      description: Unique identifier for the tenant (store)
+      description: Unique identifier for the tenant
       schema:
         type: string
         format: uuid
@@ -345,7 +342,7 @@ components:
       required:
         - id
         - tenantId
-        - customerId
+        - marketId
         - status
         - subtotal
         - tax
@@ -353,7 +350,6 @@ components:
         - discount
         - total
         - currency
-        - isGuest
         - createdAt
         - updatedAt
       properties:
@@ -364,13 +360,12 @@ components:
           example: cart-123e4567-e89b-12d3-a456-426614174000
         tenantId:
           type: string
-          description: Tenant (store) identifier
+          description: Tenant identifier
           example: demo-tenant
-        customerId:
+        marketId:
           type: string
-          format: uuid
-          description: Customer identifier
-          example: customer-123
+          description: Market identifier
+          example: market-1
         orderNumber:
           type: string
           description: Human-readable order number
@@ -412,15 +407,6 @@ components:
           description: ISO 4217 currency code
           pattern: '^[A-Z]{3}$'
           example: USD
-        isGuest:
-          type: boolean
-          description: Whether this is a guest order
-          example: false
-        guestEmail:
-          type: string
-          format: email
-          description: Email for guest orders (required if isGuest=true)
-          example: guest@example.com
         createdAt:
           type: string
           format: date-time

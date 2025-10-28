@@ -202,10 +202,10 @@ As a back-office administrator managing hundreds of products, I need to search a
 - **FR-036**: System MUST allow combining multiple filters
 - **FR-037**: System MUST provide clear indication of active filters with ability to clear them
 
-#### Multi-Tenancy
-- **FR-038**: System MUST isolate product data by tenant (different customers see only their products)
-- **FR-039**: System MUST ensure all product operations respect tenant boundaries
-- **FR-040**: System MUST support different product catalogs for different tenants
+#### Multi-Tenancy & Market Isolation
+- **FR-038**: System MUST isolate product data by tenant and market (each market has its own catalog)
+- **FR-039**: System MUST ensure all product operations respect tenant and market boundaries
+- **FR-040**: System MUST support different product catalogs for different markets within a tenant
 
 #### Data Validation
 - **FR-041**: System MUST validate required fields before saving (name, SKU, price)
@@ -229,7 +229,9 @@ As a back-office administrator managing hundreds of products, I need to search a
 
 - **Inventory Adjustment**: Audit record of manual inventory changes. Tracks quantity change, reason, timestamp, and user who made the adjustment.
 
-- **Tenant**: Represents a customer account in the SaaS system. All products belong to a specific tenant for data isolation.
+- **Tenant**: Represents a business entity in the SaaS system. A tenant can have multiple markets.
+
+- **Market**: Represents a specific store or sales channel within a tenant (e.g., "Downtown Store", "Online Store"). All products belong to a specific market for catalog isolation.
 
 ## Success Criteria *(mandatory)*
 

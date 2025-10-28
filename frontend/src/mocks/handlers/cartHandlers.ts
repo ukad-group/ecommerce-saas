@@ -53,7 +53,7 @@ const createOrUpdateCart = (lineItems: OrderLineItem[]): Order => {
     cartStore = {
       id: `order-${Date.now()}`,
       tenantId: 'default-tenant',
-      
+      marketId: 'market-1', // Default market
       orderNumber: `ORD-${Date.now()}`,
       status: 'new',
       subtotal: totals.subtotal,
@@ -62,7 +62,6 @@ const createOrUpdateCart = (lineItems: OrderLineItem[]): Order => {
       discount: 0,
       total: totals.total,
       currency: 'USD',
-      isGuest: false,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       lineItems,
@@ -93,7 +92,7 @@ export const cartHandlers = [
       const emptyCart: Order = {
         id: `order-${Date.now()}`,
         tenantId: 'default-tenant',
-        
+        marketId: 'market-1', // Default market
         orderNumber: `ORD-${Date.now()}`,
         status: 'new',
         subtotal: 0,
@@ -102,7 +101,6 @@ export const cartHandlers = [
         discount: 0,
         total: 0,
         currency: 'USD',
-        isGuest: false,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         lineItems: [],
@@ -167,9 +165,10 @@ export const cartHandlers = [
     } else {
       // Add new line item
       const newLineItem: OrderLineItem = {
-        id: `line-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        id: `line-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
         orderId: cartStore?.id || '',
         productId: product.id,
+        marketId: product.marketId, // Product's market
         productName: product.name,
         sku: sku,
         productImage: product.images[0],

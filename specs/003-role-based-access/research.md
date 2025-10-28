@@ -183,10 +183,12 @@ export const HARDCODED_PROFILES: UserProfile[] = [
 - Navigate hook for programmatic redirects
 - Location state for post-login redirects
 
-### Multi-Tenancy Filtering
-- X-Tenant-ID header on all API requests (existing pattern)
-- Query filter by `authStore.getTenantId()` for tenant-scoped roles
-- Superadmin bypasses tenant filter (sees all data)
+### Multi-Tenancy & Market Filtering
+- X-Tenant-ID and X-Market-ID headers on all API requests (existing pattern)
+- Query filter by `authStore.getTenantId()` and `authStore.getMarketId()` for scoped roles
+- Superadmin bypasses tenant and market filters (sees all data)
+- Tenant Admin filters by tenant only (sees all markets within tenant)
+- Tenant User filters by both tenant and assigned markets
 
 ### Role-Based UI Rendering
 - Conditional rendering with `authStore.hasPermission(feature)`

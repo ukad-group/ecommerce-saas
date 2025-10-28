@@ -172,13 +172,13 @@ npm run test:e2e
 | `demo-tenant` | Demo Store | `DEMO` | USD |
 | `test-tenant` | Test Store | `TEST` | USD |
 
-### Mock Customers
+### Mock Markets
 
-| Customer ID | Email | Name | Is Guest |
-|-------------|-------|------|----------|
-| `customer-123` | john@example.com | John Doe | No |
-| `customer-456` | jane@example.com | Jane Smith | No |
-| `guest-789` | guest@example.com | Guest User | Yes |
+| Market ID | Tenant ID | Name | Code |
+|-----------|-----------|------|------|
+| `market-dt-001` | `tenant-a` | Downtown Store | DT-001 |
+| `market-ap-001` | `tenant-a` | Airport Location | AP-001 |
+| `market-ml-001` | `tenant-b` | Mall Store | ML-001 |
 
 ### Mock Products
 
@@ -195,13 +195,13 @@ Mock products are referenced from Feature 001 (Product Catalog). Sample data inc
 
 Pre-populated mock orders for testing:
 
-| Order Number | Status | Customer | Total | Items |
-|--------------|--------|----------|-------|-------|
-| DEMO-000001 | completed | john@example.com | $103.16 | 2 |
-| DEMO-000002 | paid | john@example.com | $152.98 | 3 |
-| DEMO-000003 | submitted | jane@example.com | $89.97 | 1 |
-| DEMO-000004 | cancelled | john@example.com | $45.00 | 1 |
-| TEST-000001 | completed | jane@example.com | $200.50 | 5 |
+| Order Number | Status | Market | Total | Items |
+|--------------|--------|--------|-------|-------|
+| DEMO-000001 | completed | Downtown Store | $103.16 | 2 |
+| DEMO-000002 | paid | Downtown Store | $152.98 | 3 |
+| DEMO-000003 | submitted | Airport Location | $89.97 | 1 |
+| DEMO-000004 | cancelled | Downtown Store | $45.00 | 1 |
+| TEST-000001 | completed | Mall Store | $200.50 | 5 |
 
 ### Mock Cart Persistence
 

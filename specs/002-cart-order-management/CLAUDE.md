@@ -205,8 +205,7 @@ POST   /api/v1/orders/:id/cancel       // Request cancellation
 {
   id: string;
   tenantId: string;
-  marketId: string;            // NEW: Market-specific
-  customerId: string;
+  marketId: string;            // Market-specific
   orderNumber: string;
   status: 'new' | 'submitted' | 'paid' | 'completed' | 'cancelled';
   lineItems: OrderLineItem[];
@@ -287,8 +286,9 @@ The system implements two-level data isolation:
 - **Tenant User**: Specific assigned markets only
 
 **Cart/Order Context**:
-- Cart persistence includes market context
-- Orders cannot contain products from multiple markets
+- Cart persistence includes market context (active market during session)
+- Orders are scoped to a specific market
+- Products in an order must belong to that market's catalog
 - Checkout validates all products belong to same market
 
 ## Testing
@@ -405,8 +405,8 @@ From [spec.md](spec.md) Success Criteria:
 
 ### Internal
 - ✅ Product catalog (products, pricing, inventory)
-- ✅ Auth system (customer context, role-based access)
-- ⏳ Customer management (customer accounts)
+- ✅ Auth system (user authentication, role-based access)
+- ✅ Market management (market context, market-based catalogs)
 - ⏳ Payment gateway integration
 
 ### External
@@ -430,7 +430,7 @@ From [spec.md](spec.md) Success Criteria:
 Located in `frontend/src/mocks/data/`:
 - **mockOrders.ts**: 10+ sample orders in various statuses
 - **mockProducts.ts**: Products for cart testing
-- **mockCustomers.ts**: Customer profiles
+- **mockMarkets.ts**: Market data for different locations
 
 ### Environment Variables
 ```bash
@@ -499,7 +499,6 @@ When implementing the .NET backend:
 
 5. **Performance**
    - Composite index on: (tenant_id, market_id, status, created_at)
-   - Index on: (market_id, customer_id, status)
    - Index on: order_number (unique across system)
    - Implement server-side pagination
    - Consider caching for frequently accessed orders
