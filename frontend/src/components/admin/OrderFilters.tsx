@@ -2,7 +2,7 @@
  * Order Filters Component
  *
  * Provides filtering controls for admin order list.
- * Supports status, tenant, date range, and text search.
+ * Supports status, market, date range, and text search.
  */
 
 import { Select } from '../common/Select';
@@ -46,11 +46,11 @@ export function OrderFilters({
     { value: 'on-hold', label: 'On Hold' },
   ];
 
-  const tenantOptions = [
-    { value: 'all', label: 'All Tenants' },
-    { value: 'default-tenant', label: 'Default Tenant' },
-    { value: 'tenant-001', label: 'Tenant 001' },
-    { value: 'tenant-002', label: 'Tenant 002' },
+  const marketOptions = [
+    { value: 'all', label: 'All Markets' },
+    { value: 'market-1', label: 'Downtown Store' },
+    { value: 'market-2', label: 'Airport Location' },
+    { value: 'market-3', label: 'Online Store' },
   ];
 
   return (
@@ -65,13 +65,13 @@ export function OrderFilters({
           options={statusOptions}
         />
 
-        {/* Tenant Filter */}
+        {/* Market Filter */}
         <Select
-          label="Tenant"
-          id="tenant-filter"
+          label="Market"
+          id="market-filter"
           value={tenantFilter}
           onChange={(e) => onTenantChange(e.target.value)}
-          options={tenantOptions}
+          options={marketOptions}
         />
 
         {/* Date From */}

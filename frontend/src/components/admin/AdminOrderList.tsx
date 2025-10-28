@@ -47,7 +47,7 @@ export function AdminOrderList({ orders }: AdminOrderListProps) {
               Total
             </th>
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Tenant
+              Market
             </th>
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
               Date
@@ -81,7 +81,7 @@ export function AdminOrderList({ orders }: AdminOrderListProps) {
                 {formatCurrency(order.total, order.currency)}
               </td>
               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                {order.tenantId}
+                {order.marketId}
               </td>
               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                 {new Date(order.createdAt).toLocaleDateString()}
