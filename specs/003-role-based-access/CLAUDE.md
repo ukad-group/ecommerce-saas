@@ -7,7 +7,23 @@
 **Priority**: P1 (Core MVP)
 **Created**: 2025-10-24
 
-This feature implements a three-tier role-based access control system with hardcoded user profiles for development. The system provides Superadmin (full platform access), Tenant Admin (full tenant access), and Tenant User (view all, edit products/categories only) roles.
+This feature implements a three-tier role-based access control system with hardcoded user profiles for development. The system provides Superadmin (full platform access), Tenant Admin (full tenant access across all markets), and Tenant User (market-specific access with limited edit rights) roles.
+
+### Market-Based Permissions
+
+With the new market hierarchy, permissions operate at two levels:
+
+**Tenant Level**:
+- Superadmin: Access all tenants
+- Tenant Admin: Access their tenant only
+- Tenant User: Access their tenant only
+
+**Market Level**:
+- Superadmin: Access all markets across all tenants
+- Tenant Admin: Access all markets within their tenant
+- Tenant User: Access only assigned markets within their tenant
+
+This allows fine-grained control where a tenant user might manage products for "Downtown Store" but not "Airport Location" within the same tenant.
 
 ## Quick Reference
 
@@ -82,33 +98,33 @@ This feature implements a three-tier role-based access control system with hardc
 
 ### Superadmin (Fully Implemented)
 **Capabilities**:
-- ✅ Full access to all tenants
-- ✅ View/edit products, categories, orders across all tenants
+- ✅ Full access to all tenants and markets
+- ✅ View/edit products, categories, orders across all tenants and markets
 - ✅ Create new tenants (future backend feature)
-- ✅ Create customer shops within any tenant (future backend feature)
-- ✅ No tenant selection required at login
+- ✅ Create new markets within any tenant (future backend feature)
+- ✅ No tenant/market selection required at login
 
-**Test**: Select "Super Admin" profile → Login → Access all data
+**Test**: Select "Super Admin" profile → Login → Access all data across all tenants and markets
 
 ### Tenant Admin (Not Implemented)
 **Capabilities**:
 - Select specific tenant at login
-- View/edit all data within selected tenant only
-- Create customer shops within their tenant
+- View/edit all data within selected tenant across ALL markets
+- Create new markets within their tenant
 - Cannot see other tenants' data
 - Cannot create new tenants
 
-**Test**: Select "Admin (Demo Store)" → Select "Demo Store" → Login → Access tenant-scoped data
+**Test**: Select "Admin (Demo Store)" → Select "Demo Store" tenant → Login → Access all markets within tenant
 
 ### Tenant User (Not Implemented)
 **Capabilities**:
-- Select specific tenant at login
-- View all data within selected tenant
-- Edit products and categories only
-- Cannot edit order status or create customer shops
-- Cannot see other tenants' data
+- Select specific tenant and market(s) at login
+- View all data within assigned market(s) only
+- Edit products and categories within assigned markets
+- Cannot edit order status or create markets
+- Cannot see other tenants' or unassigned markets' data
 
-**Test**: Select "Catalog Manager (Demo Store)" → Select "Demo Store" → Login → View orders (read-only), edit products/categories
+**Test**: Select "Catalog Manager (Demo Store)" → Select tenant + assigned market → Login → View/edit only assigned market's products/categories
 
 ## Key Components
 
@@ -192,6 +208,7 @@ enum Role {
 {
   profile: UserProfile;
   selectedTenantId?: string;
+  selectedMarketIds?: string[];    // NEW: For tenant users with market assignments
   authenticatedAt: Date;
   expiresAt?: Date;
 }
@@ -203,6 +220,18 @@ enum Role {
   id: string;
   name: string;
   displayName: string;
+}
+```
+
+### Market (New Entity)
+```typescript
+{
+  id: string;
+  tenantId: string;
+  name: string;                // e.g., "Downtown Store"
+  code: string;                // e.g., "DT-001"
+  type: 'physical' | 'online' | 'hybrid';
+  isActive: boolean;
 }
 ```
 
@@ -232,23 +261,25 @@ enum Role {
 
 ## Permission System
 
-### Permission Matrix (Planned)
+### Permission Matrix (Updated for Markets)
 
 | Feature | Superadmin | Tenant Admin | Tenant User |
 |---------|-----------|--------------|-------------|
 | View all tenants | ✅ | ❌ | ❌ |
-| View tenant data | ✅ | ✅ (own) | ✅ (own) |
+| View all markets | ✅ | ✅ (within tenant) | ❌ |
+| View assigned markets | ✅ | ✅ | ✅ (assigned only) |
 | Create tenant | ✅ | ❌ | ❌ |
-| Create customer shop | ✅ | ✅ (own tenant) | ❌ |
-| Edit products | ✅ | ✅ (own tenant) | ✅ (own tenant) |
-| Edit categories | ✅ | ✅ (own tenant) | ✅ (own tenant) |
-| View orders | ✅ | ✅ (own tenant) | ✅ (own tenant) |
-| Edit order status | ✅ | ✅ (own tenant) | ❌ |
+| Create market | ✅ | ✅ (within tenant) | ❌ |
+| Edit products | ✅ (all markets) | ✅ (tenant markets) | ✅ (assigned markets) |
+| Edit categories | ✅ (all markets) | ✅ (tenant markets) | ✅ (assigned markets) |
+| View orders | ✅ (all markets) | ✅ (tenant markets) | ✅ (assigned markets) |
+| Edit order status | ✅ | ✅ (tenant markets) | ❌ |
+| Manage inventory | ✅ (all markets) | ✅ (tenant markets) | ✅ (assigned markets) |
 
 ### Implementation (Current State)
-- ✅ Superadmin: All permissions active
-- ❌ Tenant Admin: Permissions not enforced (tenant filtering missing)
-- ❌ Tenant User: Permissions not enforced (UI controls missing)
+- ✅ Superadmin: All permissions active (no filtering)
+- ❌ Tenant Admin: Permissions not enforced (tenant+market filtering missing)
+- ❌ Tenant User: Permissions not enforced (market assignment and UI controls missing)
 
 ## Testing
 
@@ -366,12 +397,13 @@ From [spec.md](spec.md) Success Criteria:
 
 ## Known Issues
 
-1. **Tenant Filtering Not Enforced**: Tenant admins and users currently see all data (no tenant filtering in API calls)
-2. **No Permission Checks**: Tenant users can edit order status (UI doesn't check permissions)
-3. **No Form Validation**: Login page doesn't validate required fields
-4. **No Error Handling**: Login failures not displayed to user
-5. **Session-Only**: Auth state doesn't survive browser restart (localStorage only)
-6. **Hardcoded Profiles**: Not production-ready (replace with real auth later)
+1. **Tenant & Market Filtering Not Enforced**: Users currently see all data (no tenant/market filtering in API calls)
+2. **No Market Selection UI**: Tenant users need market selector to choose assigned markets
+3. **No Permission Checks**: Tenant users can edit order status (UI doesn't check permissions)
+4. **No Form Validation**: Login page doesn't validate required fields
+5. **No Error Handling**: Login failures not displayed to user
+6. **Session-Only**: Auth state doesn't survive browser restart (localStorage only)
+7. **Hardcoded Profiles**: Not production-ready (replace with real auth later)
 
 ## Configuration
 

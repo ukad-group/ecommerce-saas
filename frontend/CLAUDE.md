@@ -2,7 +2,22 @@
 
 ## Overview
 
-This is the React + TypeScript frontend for the eCommerce SaaS MVP backoffice. The application provides admin interfaces for managing products, categories, orders, and implementing role-based access control across multiple tenants.
+This is the React + TypeScript frontend for the eCommerce SaaS MVP backoffice. The application provides admin interfaces for managing markets, products, categories, orders, and implementing role-based access control across multiple tenants.
+
+### Market-Based Architecture
+
+The system uses a hierarchical data structure:
+```
+Tenant (Business Entity)
+└── Markets (Stores/Locations)
+    └── Categories (Product Organization)
+        └── Products (Catalog Items)
+```
+
+- **Products and categories** are market-specific (not tenant-wide)
+- **Orders** belong to specific markets
+- **Users** have tenant-level access with optional market-level restrictions
+- **API calls** include both `X-Tenant-ID` and `X-Market-ID` headers
 
 ## Technology Stack
 
@@ -233,9 +248,10 @@ The application uses MSW to mock backend API responses during development.
 All mock data is in `src/mocks/data/`:
 - **mockProfiles.ts**: 3 hardcoded user profiles
 - **mockTenants.ts**: 3 sample tenants
-- **mockProducts.ts**: 20+ products with variants
-- **mockCategories.ts**: Hierarchical category tree
-- **mockOrders.ts**: 10+ orders in various statuses
+- **mockMarkets.ts**: Sample markets per tenant (NEW)
+- **mockProducts.ts**: 20+ products with variants (market-specific)
+- **mockCategories.ts**: Hierarchical category tree (market-specific)
+- **mockOrders.ts**: 10+ orders in various statuses (market-specific)
 - **mockCustomers.ts**: Customer profiles
 
 ### Disabling Mocks
@@ -349,7 +365,8 @@ All APIs follow OpenAPI 3.0 specifications (see `/specs/*/contracts/`).
 ```
 Content-Type: application/json
 Authorization: Bearer {token} (future)
-X-Tenant-ID: {tenantId} (for scoped roles)
+X-Tenant-ID: {tenantId} (for tenant-scoped roles)
+X-Market-ID: {marketId} (for market-scoped data)
 ```
 
 **Response Format**:
@@ -477,29 +494,45 @@ export function Badge({ status }: { status: OrderStatus }) {
 2. authStore.logout() clears session
 3. Redirects to `/login`
 
-## Multi-Tenancy
+## Multi-Tenancy & Market Isolation
 
-### Tenant Context
-- Stored in authStore: `selectedTenantId`
-- Superadmin: tenantId = null (see all)
-- Tenant Admin/User: tenantId = selected tenant
+### Tenant & Market Context
+- Stored in authStore: `selectedTenantId` and `selectedMarketIds`
+- **Superadmin**: No tenant/market filter (see all)
+- **Tenant Admin**: Selected tenant, all markets within tenant
+- **Tenant User**: Selected tenant, specific assigned markets
 
 ### Data Filtering
 ```typescript
 // In API calls
 const headers = {
   'X-Tenant-ID': authStore.getState().session?.selectedTenantId,
+  'X-Market-ID': authStore.getState().session?.selectedMarketIds?.[0], // or current market
 };
 
-// In MSW handlers
+// In MSW handlers (two-level filtering)
 http.get('/api/v1/products', ({ request }) => {
   const tenantId = request.headers.get('X-Tenant-ID');
-  const products = mockProducts.filter(p =>
-    !tenantId || p.tenantId === tenantId
-  );
+  const marketId = request.headers.get('X-Market-ID');
+
+  const products = mockProducts.filter(p => {
+    // Superadmin: see all
+    if (!tenantId) return true;
+    // Tenant-level filter
+    if (p.tenantId !== tenantId) return false;
+    // Market-level filter (if specified)
+    if (marketId && p.marketId !== marketId) return false;
+    return true;
+  });
+
   return HttpResponse.json({ data: products });
 });
 ```
+
+### Market Assignment
+- **Tenant Users** can be assigned to specific markets
+- Products, categories, and orders are market-scoped
+- Each market has its own catalog within the tenant
 
 ## Testing
 
