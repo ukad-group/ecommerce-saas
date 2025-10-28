@@ -98,7 +98,7 @@ export function OrderFilters({
         label="Search"
         id="search"
         type="text"
-        placeholder="Search by order number, customer name, or email..."
+        placeholder="Search by order number..."
         value={searchQuery}
         onChange={(e) => onSearchChange(e.target.value)}
       />

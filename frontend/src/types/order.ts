@@ -19,8 +19,7 @@ export type OrderStatus = 'new' | 'submitted' | 'paid' | 'completed' | 'cancelle
 export interface Order {
   id: string;
   tenantId: string;
-  marketId: string; // NEW: Orders are market-specific
-  customerId: string;
+  marketId: string; // Orders are market-specific
   orderNumber: string;
   status: OrderStatus;
   subtotal: number;
@@ -29,8 +28,6 @@ export interface Order {
   discount: number;
   total: number;
   currency: string;
-  isGuest: boolean;
-  guestEmail?: string;
   createdAt: string; // ISO 8601
   updatedAt: string; // ISO 8601
   submittedAt?: string; // ISO 8601

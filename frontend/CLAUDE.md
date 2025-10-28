@@ -120,7 +120,6 @@ Tenant (Business Entity)
       mockProducts.ts
       mockCategories.ts
       mockOrders.ts
-      mockCustomers.ts
     browser.ts         # MSW browser setup
     server.ts          # MSW server setup (for tests)
 
@@ -130,7 +129,7 @@ Tenant (Business Entity)
     order.ts           # Order, OrderLineItem, OrderStatus
     address.ts         # ShippingAddress, BillingAddress
     payment.ts         # PaymentTransaction
-    customer.ts        # Customer
+    market.ts          # Market
     api.ts             # API request/response types
 
   /utils/              # Helper functions
@@ -228,7 +227,7 @@ VITE_ENABLE_CART_PERSISTENCE=false
 - `/admin/orders` - Order list with filtering
 - `/admin/orders/:id` - Order details
 
-### Customer Routes (Some Not Yet Implemented)
+### Shopping Routes (Some Not Yet Implemented)
 - `/cart` - Shopping cart (implemented)
 - `/checkout` - Checkout wizard (not implemented - API ready)
 - `/orders` - Order history (not implemented)
@@ -248,11 +247,10 @@ The application uses MSW to mock backend API responses during development.
 All mock data is in `src/mocks/data/`:
 - **mockProfiles.ts**: 3 hardcoded user profiles
 - **mockTenants.ts**: 3 sample tenants
-- **mockMarkets.ts**: Sample markets per tenant (NEW)
+- **mockMarkets.ts**: Sample markets per tenant
 - **mockProducts.ts**: 20+ products with variants (market-specific)
 - **mockCategories.ts**: Hierarchical category tree (market-specific)
 - **mockOrders.ts**: 10+ orders in various statuses (market-specific)
-- **mockCustomers.ts**: Customer profiles
 
 ### Disabling Mocks
 To use a real backend API:
@@ -350,7 +348,7 @@ Located in `src/services/api/client.ts`, provides:
 ### API Services
 Each feature has its own API service file:
 - **cartApi.ts**: Cart operations
-- **ordersApi.ts**: Customer order operations
+- **ordersApi.ts**: Order operations
 - **checkoutApi.ts**: Checkout flow
 - **adminApi.ts**: Admin order management
 - **productsApi.ts**: Product CRUD
