@@ -12,8 +12,23 @@ const baseURL = 'http://localhost:3000/api/v1';
 
 export const categoriesHandlers = [
   // GET /api/v1/categories - List all categories
-  http.get(`${baseURL}/categories`, () => {
-    return HttpResponse.json(mockCategories);
+  http.get(`${baseURL}/categories`, ({ request }) => {
+    const tenantId = request.headers.get('X-Tenant-ID');
+    const marketId = request.headers.get('X-Market-ID');
+
+    let filteredCategories = [...mockCategories];
+
+    // Filter by tenant (if specified)
+    if (tenantId) {
+      filteredCategories = filteredCategories.filter((c) => c.tenantId === tenantId);
+    }
+
+    // Filter by market (if specified)
+    if (marketId) {
+      filteredCategories = filteredCategories.filter((c) => c.marketId === marketId);
+    }
+
+    return HttpResponse.json(filteredCategories);
   }),
 
   // GET /api/v1/categories/:id - Get single category
@@ -38,10 +53,13 @@ export const categoriesHandlers = [
   // POST /api/v1/categories - Create category
   http.post(`${baseURL}/categories`, async ({ request }) => {
     const body = (await request.json()) as Partial<Category>;
+    const tenantId = request.headers.get('X-Tenant-ID') || 'tenant-a';
+    const marketId = request.headers.get('X-Market-ID') || 'market-1';
 
     const newCategory: Category = {
       id: `cat-${Date.now()}`,
-      tenantId: 'default-tenant',
+      tenantId,
+      marketId,
       name: body.name || '',
       description: body.description,
       parentId: body.parentId,
@@ -76,6 +94,7 @@ export const categoriesHandlers = [
       ...body,
       id: mockCategories[index].id,
       tenantId: mockCategories[index].tenantId,
+      marketId: mockCategories[index].marketId,
       updatedAt: new Date().toISOString(),
     };
 

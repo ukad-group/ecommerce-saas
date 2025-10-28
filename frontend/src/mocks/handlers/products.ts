@@ -14,11 +14,23 @@ export const productsHandlers = [
   // GET /api/v1/products - List all products
   http.get(`${baseURL}/products`, ({ request }) => {
     const url = new URL(request.url);
+    const tenantId = request.headers.get('X-Tenant-ID');
+    const marketId = request.headers.get('X-Market-ID');
     const status = url.searchParams.get('status');
     const search = url.searchParams.get('search');
     const categoryId = url.searchParams.get('categoryId');
 
     let filteredProducts = [...mockProducts];
+
+    // Filter by tenant (if specified)
+    if (tenantId) {
+      filteredProducts = filteredProducts.filter((p) => p.tenantId === tenantId);
+    }
+
+    // Filter by market (if specified)
+    if (marketId) {
+      filteredProducts = filteredProducts.filter((p) => p.marketId === marketId);
+    }
 
     // Filter by status
     if (status) {
@@ -67,10 +79,13 @@ export const productsHandlers = [
   // POST /api/v1/products - Create product
   http.post(`${baseURL}/products`, async ({ request }) => {
     const body = (await request.json()) as Partial<Product>;
+    const tenantId = request.headers.get('X-Tenant-ID') || 'tenant-a';
+    const marketId = request.headers.get('X-Market-ID') || 'market-1';
 
     const newProduct: Product = {
       id: `prod-${Date.now()}`,
-      tenantId: 'default-tenant',
+      tenantId,
+      marketId,
       name: body.name || '',
       sku: body.sku || '',
       description: body.description || '',
@@ -113,6 +128,7 @@ export const productsHandlers = [
       ...body,
       id: mockProducts[index].id,
       tenantId: mockProducts[index].tenantId,
+      marketId: mockProducts[index].marketId,
       updatedAt: new Date().toISOString(),
     };
 

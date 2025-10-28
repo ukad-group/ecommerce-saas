@@ -15,6 +15,7 @@ function filterOrders(
   params: {
     status?: string;
     tenantId?: string;
+    marketId?: string;
     search?: string;
     dateFrom?: string;
     dateTo?: string;
@@ -30,6 +31,11 @@ function filterOrders(
   // Filter by tenant
   if (params.tenantId && params.tenantId !== 'all') {
     filtered = filtered.filter((order) => order.tenantId === params.tenantId);
+  }
+
+  // Filter by market
+  if (params.marketId && params.marketId !== 'all') {
+    filtered = filtered.filter((order) => order.marketId === params.marketId);
   }
 
   // Filter by search query (order number, customer ID)
@@ -71,6 +77,7 @@ export const adminHandlers = [
     const params = {
       status: url.searchParams.get('status') || undefined,
       tenantId: url.searchParams.get('tenantId') || undefined,
+      marketId: url.searchParams.get('marketId') || undefined,
       search: url.searchParams.get('search') || undefined,
       dateFrom: url.searchParams.get('dateFrom') || undefined,
       dateTo: url.searchParams.get('dateTo') || undefined,
@@ -214,6 +221,7 @@ export const adminHandlers = [
     const params = {
       status: url.searchParams.get('status') || undefined,
       tenantId: url.searchParams.get('tenantId') || undefined,
+      marketId: url.searchParams.get('marketId') || undefined,
       search: url.searchParams.get('search') || undefined,
       dateFrom: url.searchParams.get('dateFrom') || undefined,
       dateTo: url.searchParams.get('dateTo') || undefined,
@@ -223,7 +231,7 @@ export const adminHandlers = [
 
     // Generate CSV content
     const csvHeader =
-      'Order Number,Customer ID,Status,Items,Total,Currency,Tenant,Created At\n';
+      'Order Number,Customer ID,Status,Items,Total,Currency,Tenant,Market,Created At\n';
     const csvRows = filteredOrders
       .map((order) =>
         [
@@ -234,6 +242,7 @@ export const adminHandlers = [
           order.total,
           order.currency,
           order.tenantId,
+          order.marketId,
           order.createdAt,
         ].join(',')
       )
