@@ -22,7 +22,7 @@ export function QuickStockUpdate({
   isUpdating = false,
 }: QuickStockUpdateProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [newStock, setNewStock] = useState(product.stockQuantity.toString());
+  const [newStock, setNewStock] = useState((product.stockQuantity ?? 0).toString());
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,15 +33,18 @@ export function QuickStockUpdate({
     }
   };
 
+  const stockQty = product.stockQuantity ?? 0;
+  const threshold = product.lowStockThreshold ?? 0;
+
   const getStockStatusColor = () => {
-    if (product.stockQuantity === 0) return 'text-red-600';
-    if (product.stockQuantity <= product.lowStockThreshold) return 'text-yellow-600';
+    if (stockQty === 0) return 'text-red-600';
+    if (stockQty <= threshold) return 'text-yellow-600';
     return 'text-green-600';
   };
 
   const getStockStatusText = () => {
-    if (product.stockQuantity === 0) return 'Out of Stock';
-    if (product.stockQuantity <= product.lowStockThreshold) return 'Low Stock';
+    if (stockQty === 0) return 'Out of Stock';
+    if (stockQty <= threshold) return 'Low Stock';
     return 'In Stock';
   };
 
@@ -50,7 +53,7 @@ export function QuickStockUpdate({
       <div className="flex items-center gap-2">
         <div className="text-sm">
           <span className={`font-medium ${getStockStatusColor()}`}>
-            {product.stockQuantity}
+            {stockQty}
           </span>
           <span className="text-gray-500 ml-1">({getStockStatusText()})</span>
         </div>
@@ -86,7 +89,7 @@ export function QuickStockUpdate({
         <button
           type="button"
           onClick={() => {
-            setNewStock(product.stockQuantity.toString());
+            setNewStock(stockQty.toString());
             setIsOpen(false);
           }}
           disabled={isUpdating}

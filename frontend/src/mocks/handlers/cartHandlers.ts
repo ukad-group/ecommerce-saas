@@ -132,8 +132,8 @@ export const cartHandlers = [
       );
     }
 
-    // Check stock
-    if (product.stockQuantity < quantity) {
+    // Check stock (skip for products with variants)
+    if (!product.hasVariants && (product.stockQuantity ?? 0) < quantity) {
       return HttpResponse.json(
         { error: 'Insufficient stock', statusCode: 400 },
         { status: 400 }
@@ -149,11 +149,15 @@ export const cartHandlers = [
       (item) => item.productId === productId
     );
 
+    // Get price and stock
+    const price = product.salePrice || product.price || 0;
+    const stockQty = product.stockQuantity ?? 0;
+    const sku = product.sku || '';
+
     if (existingItemIndex >= 0) {
       // Update quantity
       const existingItem = lineItems[existingItemIndex];
       const newQuantity = existingItem.quantity + quantity;
-      const price = product.salePrice || product.price;
 
       lineItems[existingItemIndex] = {
         ...existingItem,
@@ -162,19 +166,18 @@ export const cartHandlers = [
       };
     } else {
       // Add new line item
-      const price = product.salePrice || product.price;
       const newLineItem: OrderLineItem = {
         id: `line-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         orderId: cartStore?.id || '',
         productId: product.id,
         productName: product.name,
-        sku: product.sku,
+        sku: sku,
         productImage: product.images[0],
         quantity,
         unitPrice: price,
         lineTotal: parseFloat((price * quantity).toFixed(2)),
         currency: product.currency,
-        stockQuantity: product.stockQuantity,
+        stockQuantity: stockQty,
       };
       lineItems.push(newLineItem);
     }

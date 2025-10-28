@@ -77,10 +77,14 @@ export function AdminDashboardPage() {
   const activeProducts =
     allProducts?.filter((p) => p.status === 'active').length || 0;
   const lowStockProducts =
-    allProducts?.filter((p) => p.stockQuantity <= p.lowStockThreshold).length ||
-    0;
+    allProducts?.filter((p) =>
+      !p.hasVariants &&
+      p.stockQuantity !== undefined &&
+      p.lowStockThreshold !== undefined &&
+      p.stockQuantity <= p.lowStockThreshold
+    ).length || 0;
   const outOfStockProducts =
-    allProducts?.filter((p) => p.stockQuantity === 0).length || 0;
+    allProducts?.filter((p) => !p.hasVariants && p.stockQuantity === 0).length || 0;
 
   const totalRevenue =
     allOrders

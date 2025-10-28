@@ -100,7 +100,13 @@ export function ProductList({
                 </div>
               </td>
               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                {product.sku}
+                {product.hasVariants ? (
+                  <span className="text-xs text-gray-400">
+                    {product.variants?.length || 0} variant{product.variants?.length !== 1 ? 's' : ''}
+                  </span>
+                ) : (
+                  product.sku
+                )}
               </td>
               <td className="px-6 py-4 whitespace-nowrap">
                 <span
@@ -112,15 +118,47 @@ export function ProductList({
                 </span>
               </td>
               <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                {formatCurrency(product.price, product.currency)}
-                {product.salePrice && (
-                  <span className="ml-2 text-gray-400 line-through text-xs">
-                    {formatCurrency(product.salePrice, product.currency)}
-                  </span>
+                {product.hasVariants ? (
+                  <div>
+                    {product.variants && product.variants.length > 0 ? (
+                      <>
+                        {formatCurrency(
+                          Math.min(...product.variants.map((v) => v.price)),
+                          product.currency
+                        )}
+                        {' - '}
+                        {formatCurrency(
+                          Math.max(...product.variants.map((v) => v.price)),
+                          product.currency
+                        )}
+                      </>
+                    ) : (
+                      <span className="text-gray-400 text-xs">No variants</span>
+                    )}
+                  </div>
+                ) : (
+                  <>
+                    {product.price !== undefined ? formatCurrency(product.price, product.currency) : 'N/A'}
+                    {product.salePrice && (
+                      <span className="ml-2 text-gray-400 line-through text-xs">
+                        {formatCurrency(product.salePrice, product.currency)}
+                      </span>
+                    )}
+                  </>
                 )}
               </td>
               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                {onStockUpdate ? (
+                {product.hasVariants ? (
+                  <div>
+                    {product.variants && product.variants.length > 0 ? (
+                      <span>
+                        {product.variants.reduce((sum, v) => sum + v.stockQuantity, 0)} total
+                      </span>
+                    ) : (
+                      <span className="text-gray-400 text-xs">No variants</span>
+                    )}
+                  </div>
+                ) : onStockUpdate ? (
                   <QuickStockUpdate
                     product={product}
                     onUpdate={onStockUpdate}
@@ -129,12 +167,14 @@ export function ProductList({
                 ) : (
                   <span
                     className={
+                      product.stockQuantity !== undefined &&
+                      product.lowStockThreshold !== undefined &&
                       product.stockQuantity <= product.lowStockThreshold
                         ? 'text-red-600 font-medium'
                         : ''
                     }
                   >
-                    {product.stockQuantity}
+                    {product.stockQuantity !== undefined ? product.stockQuantity : 'N/A'}
                   </span>
                 )}
               </td>
