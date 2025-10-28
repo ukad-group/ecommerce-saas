@@ -7,7 +7,7 @@
 
 /**
  * Shipping address entity
- * Customer's shipping address for order delivery
+ * Order's shipping address for order delivery
  */
 export interface ShippingAddress {
   id?: string;
@@ -24,7 +24,7 @@ export interface ShippingAddress {
 
 /**
  * Billing address entity
- * Customer's billing address for payment processing
+ * Order's billing address for payment processing
  */
 export interface BillingAddress {
   id?: string;

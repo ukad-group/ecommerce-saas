@@ -53,7 +53,7 @@ const createOrUpdateCart = (lineItems: OrderLineItem[]): Order => {
     cartStore = {
       id: `order-${Date.now()}`,
       tenantId: 'default-tenant',
-      customerId: 'cust-1', // Default customer for dev
+      
       orderNumber: `ORD-${Date.now()}`,
       status: 'new',
       subtotal: totals.subtotal,
@@ -93,7 +93,7 @@ export const cartHandlers = [
       const emptyCart: Order = {
         id: `order-${Date.now()}`,
         tenantId: 'default-tenant',
-        customerId: 'cust-1',
+        
         orderNumber: `ORD-${Date.now()}`,
         status: 'new',
         subtotal: 0,

@@ -2,7 +2,6 @@
  * Mock Order Data
  *
  * Sample orders for development and testing.
- * Includes various statuses and customer scenarios.
  */
 
 import type { Order } from '../../types/order';
@@ -400,7 +399,6 @@ export const mockOrders: Order[] = [
     transactions: transactions['order-3'],
   },
 
-  // Order 4: Completed - delivered to customer
   {
     id: 'order-4',
     tenantId: 'tenant-a',
@@ -498,7 +496,6 @@ export const mockOrders: Order[] = [
     billingAddress: billingAddresses['bill-5'],
   },
 
-  // Order 6: Cancelled - customer requested cancellation
   {
     id: 'order-6',
     tenantId: 'tenant-a',
@@ -515,7 +512,6 @@ export const mockOrders: Order[] = [
     updatedAt: '2025-10-06T14:30:00Z',
     submittedAt: '2025-10-05T11:30:00Z',
     cancelledAt: '2025-10-06T14:30:00Z',
-    cancellationReason: 'Customer requested cancellation - changed mind',
     lineItems: [
       {
         id: 'line-14',

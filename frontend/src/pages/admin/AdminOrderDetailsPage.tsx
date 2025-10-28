@@ -256,19 +256,13 @@ export function AdminOrderDetailsPage() {
                   <p className="text-gray-900 font-mono">{order.id}</p>
                 </div>
                 <div>
-                  <span className="text-gray-600">Customer ID</span>
-                  <p className="text-gray-900">{order.customerId}</p>
-                </div>
-                <div>
                   <span className="text-gray-600">Tenant ID</span>
                   <p className="text-gray-900">{order.tenantId}</p>
                 </div>
-                {order.isGuest && (
-                  <div>
-                    <span className="text-gray-600">Guest Email</span>
-                    <p className="text-gray-900">{order.guestEmail}</p>
-                  </div>
-                )}
+                <div>
+                  <span className="text-gray-600">Market ID</span>
+                  <p className="text-gray-900">{order.marketId}</p>
+                </div>
                 <div>
                   <span className="text-gray-600">Created</span>
                   <p className="text-gray-900">

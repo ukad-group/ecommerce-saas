@@ -15,7 +15,6 @@ export const ordersHandlers = [
   http.get(`${baseURL}/orders`, ({ request }) => {
     const url = new URL(request.url);
     const status = url.searchParams.get('status');
-    const customerId = url.searchParams.get('customerId');
 
     let filteredOrders = [...mockOrders];
 
@@ -24,9 +23,6 @@ export const ordersHandlers = [
       filteredOrders = filteredOrders.filter((o) => o.status === status);
     }
 
-    // Filter by customerId if provided
-    if (customerId) {
-      filteredOrders = filteredOrders.filter((o) => o.customerId === customerId);
     }
 
     return HttpResponse.json({
@@ -64,7 +60,7 @@ export const ordersHandlers = [
     const newOrder: Order = {
       id: `order-${Date.now()}`,
       tenantId: 'default-tenant',
-      customerId: body.customerId || '',
+      
       orderNumber: `ORD-2025-${1000 + mockOrders.length + 1}`,
       status: 'new',
       subtotal: body.subtotal || 0,
@@ -173,11 +169,7 @@ export const ordersHandlers = [
     return HttpResponse.json({ data: cancelledOrder });
   }),
 
-  // GET /api/customers/:customerId/cart - Get customer's active cart
-  http.get(`${baseURL}/customers/:customerId/cart`, ({ params }) => {
-    const { customerId } = params;
     const cart = mockOrders.find(
-      (o) => o.customerId === customerId && o.status === 'new'
     );
 
     if (!cart) {

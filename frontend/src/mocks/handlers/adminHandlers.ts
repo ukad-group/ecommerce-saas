@@ -38,13 +38,12 @@ function filterOrders(
     filtered = filtered.filter((order) => order.marketId === params.marketId);
   }
 
-  // Filter by search query (order number, customer ID)
+  // Filter by search query (order number)
   if (params.search) {
     const searchLower = params.search.toLowerCase();
     filtered = filtered.filter(
       (order) =>
-        order.orderNumber.toLowerCase().includes(searchLower) ||
-        order.customerId.toLowerCase().includes(searchLower)
+        order.orderNumber.toLowerCase().includes(searchLower)
     );
   }
 
@@ -231,12 +230,11 @@ export const adminHandlers = [
 
     // Generate CSV content
     const csvHeader =
-      'Order Number,Customer ID,Status,Items,Total,Currency,Tenant,Market,Created At\n';
+      'Order Number,Status,Items,Total,Currency,Tenant,Market,Created At\n';
     const csvRows = filteredOrders
       .map((order) =>
         [
           order.orderNumber,
-          order.customerId,
           order.status,
           order.lineItems?.length || 0,
           order.total,
