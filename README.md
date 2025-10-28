@@ -1,6 +1,16 @@
 # eCommerce SaaS MVP
 
-A minimal viable product for a standalone eCommerce back-office solution designed for easy integration with Umbraco, Optimizely, and other CMS platforms.
+A minimal viable product for a standalone eCommerce back-office solution with market-based multi-tenancy, designed for easy integration with Umbraco, Optimizely, and other CMS platforms.
+
+## Architecture Overview
+
+The system uses a **market-based hierarchy**:
+- **Tenant** → Business entity (e.g., retail chain)
+- **Market** → Individual store/location within tenant
+- **Categories** → Product organization per market
+- **Products** → Catalog items per market
+
+This allows each market to have its own unique catalog while remaining under the tenant umbrella.
 
 ## Project Philosophy
 
@@ -160,15 +170,25 @@ VITE_USE_MOCKS=true  # Use MSW for API mocking
 
 See [frontend/CLAUDE.md](frontend/CLAUDE.md) for complete frontend guide.
 
-## Multi-Tenancy
+## Multi-Tenancy & Market Isolation
 
-All data is isolated by tenant:
-- Superadmin sees all tenants
-- Tenant Admin/User sees only their tenant
-- API calls include `X-Tenant-ID` header
-- MSW handlers filter by tenant
+The system implements two-level data isolation:
 
-See [CLAUDE.md](CLAUDE.md#multi-tenancy) for details.
+**Tenant Level**:
+- Tenants are completely isolated business entities
+- Each tenant can have multiple markets
+
+**Market Level**:
+- Products, categories, and orders are market-specific
+- Each market has its own catalog
+- API calls include `X-Tenant-ID` and `X-Market-ID` headers
+
+**Access Control**:
+- **Superadmin**: All tenants and markets
+- **Tenant Admin**: All markets within their tenant
+- **Tenant User**: Specific assigned markets only
+
+See [CLAUDE.md](CLAUDE.md#multi-tenancy--market-isolation) for details.
 
 ## Contributing
 

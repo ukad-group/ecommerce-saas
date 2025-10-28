@@ -9,6 +9,14 @@
 
 This feature implements a comprehensive shopping cart and order management system where carts are represented as orders with "new" status, progressing through multiple states (new → submitted → paid → completed). Includes both customer-facing cart functionality and admin order management.
 
+### Market-Based Orders
+
+Orders are **market-specific**:
+- Each order is associated with a specific market
+- Products in the order belong to that market's catalog
+- Order fulfillment and inventory are managed per market
+- This allows location-specific pricing, inventory, and shipping
+
 ## Quick Reference
 
 - **Specification**: [spec.md](spec.md)
@@ -197,6 +205,7 @@ POST   /api/v1/orders/:id/cancel       // Request cancellation
 {
   id: string;
   tenantId: string;
+  marketId: string;            // NEW: Market-specific
   customerId: string;
   orderNumber: string;
   status: 'new' | 'submitted' | 'paid' | 'completed' | 'cancelled';
@@ -220,6 +229,7 @@ POST   /api/v1/orders/:id/cancel       // Request cancellation
   id: string;
   orderId: string;
   productId: string;
+  marketId: string;            // NEW: Product's market
   productName: string;
   productSKU: string;
   productImage?: string;
@@ -257,14 +267,29 @@ new (cart) → submitted (order placed) → paid (payment confirmed) → complet
 - **completed**: Order fulfilled and delivered
 - **cancelled**: Order cancelled (before completion)
 
-## Multi-Tenancy
+## Multi-Tenancy & Market Isolation
 
-All orders and carts are isolated by tenant:
-- Each order has a `tenantId` field
-- API calls include `X-Tenant-ID` header
-- MSW handlers filter by tenant ID
-- Superadmin sees all tenants; other roles see only their tenant
-- Cart persistence considers tenant context
+The system implements two-level data isolation:
+
+### Tenant Level
+- Orders belong to a tenant
+- Each tenant can have multiple markets
+
+### Market Level
+- Each order is associated with a specific market
+- Products in orders come from that market's catalog
+- Inventory is managed per market
+- API calls include both `X-Tenant-ID` and `X-Market-ID` headers
+
+**Access Control**:
+- **Superadmin**: All tenants and markets
+- **Tenant Admin**: All markets within their tenant
+- **Tenant User**: Specific assigned markets only
+
+**Cart/Order Context**:
+- Cart persistence includes market context
+- Orders cannot contain products from multiple markets
+- Checkout validates all products belong to same market
 
 ## Testing
 
@@ -467,12 +492,15 @@ When implementing the .NET backend:
    - Deduct stock when status → 'paid'
    - Release stock when status → 'cancelled'
 
-4. **Multi-Tenancy**
-   - All queries filter by tenant_id
-   - Validate tenant context in all operations
+4. **Multi-Tenancy & Market Isolation**
+   - All queries filter by tenant_id AND market_id
+   - Validate both tenant and market context in all operations
+   - Ensure order products belong to order's market
 
 5. **Performance**
-   - Index on: tenant_id, customer_id, status, created_at, order_number
+   - Composite index on: (tenant_id, market_id, status, created_at)
+   - Index on: (market_id, customer_id, status)
+   - Index on: order_number (unique across system)
    - Implement server-side pagination
    - Consider caching for frequently accessed orders
 

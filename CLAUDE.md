@@ -2,12 +2,31 @@
 
 ## Project Overview
 
-This is a headless eCommerce SaaS platform MVP with a multi-tenant architecture. The system consists of:
+This is a headless eCommerce SaaS platform MVP with a multi-tenant, market-based architecture. The system consists of:
 
-1. **SaaS Backoffice**: Admin UI/UX for managing products, variants, categories, orders, and tenants
+1. **SaaS Backoffice**: Admin UI/UX for managing markets, products, variants, categories, orders, and tenants
 2. **Backoffice APIs**: RESTful APIs for the admin interface (currently mocked with MSW, real backend to be implemented)
 3. **Client APIs**: Separate APIs for storefront integrations (future phase)
 4. **CMS Plugins & SDKs**: Framework-specific integrations for Umbraco, Optimizely, etc. (future phase)
+
+### Data Hierarchy
+
+The system follows a market-based hierarchy:
+
+```
+Tenant (Business Entity - e.g., Retail Chain)
+└── Markets (Individual Stores/Locations)
+    └── Categories (Product Organization)
+        └── Products (Catalog Items)
+```
+
+**Key Concepts**:
+- **Tenant**: A business entity using the platform (e.g., "ABC Retail Group")
+- **Market**: A specific store or sales channel within a tenant (e.g., "Downtown Store", "Airport Location")
+- **Categories**: Product categories specific to each market
+- **Products**: Catalog items specific to each market
+
+This allows each market to have its own unique catalog, categories, and product offerings while remaining under the same tenant umbrella.
 
 ## Technology Stack
 
@@ -287,18 +306,40 @@ VITE_USE_MOCKS=true  # Set to false to use real API
 - Tenant Admin: "Admin (Demo Store)" + tenant selector
 - Tenant User: "Catalog Manager (Demo Store)" + tenant selector
 
-**Mock Tenants**:
-- tenant-a: "Demo Store"
-- tenant-b: "Test Store"
-- tenant-c: "Sample Store"
+**Mock Tenants & Markets**:
+- **Tenant A** ("Demo Retail Group")
+  - Market 1: "Downtown Store"
+  - Market 2: "Airport Location"
+- **Tenant B** ("Test Retail Chain")
+  - Market 1: "Mall Store"
+- **Tenant C** ("Sample Corp")
+  - Market 1: "Online Store"
 
-## Multi-Tenancy
+## Multi-Tenancy & Market Isolation
 
-All data is isolated by tenant:
-- Each order, product, and category belongs to exactly one tenant
-- API calls include `X-Tenant-ID` header for tenant context
-- Superadmin can see all tenants; other roles see only their tenant
-- MSW handlers filter data by tenant ID
+The system implements a two-level isolation strategy:
+
+### Tenant Level
+- Tenants are completely isolated business entities
+- Each tenant can have multiple markets
+- Superadmin can see all tenants; Tenant Admin/User see only their tenant
+
+### Market Level
+- Each market belongs to exactly one tenant
+- Products and categories are market-specific (not tenant-wide)
+- Orders are associated with a specific market
+- API calls include both `X-Tenant-ID` and `X-Market-ID` headers
+
+**Data Ownership**:
+- **Tenant owns**: Markets, users, settings, billing
+- **Market owns**: Products, categories, orders, inventory
+
+**Access Control**:
+- **Superadmin**: Access all tenants and all markets
+- **Tenant Admin**: Access all markets within their tenant
+- **Tenant User**: Access specific markets they're assigned to (limited edit rights)
+
+This architecture allows a retail chain (tenant) to manage multiple stores (markets), where each store can have different product catalogs tailored to its location and customer base.
 
 ## Performance Standards
 

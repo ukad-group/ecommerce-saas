@@ -9,6 +9,14 @@
 
 This feature implements a comprehensive product catalog management system for the eCommerce SaaS backoffice, enabling administrators to create, edit, and organize products with categories, variants, inventory tracking, and images.
 
+### Market-Based Architecture
+
+Products and categories are **market-specific**, not tenant-wide:
+- Each market has its own unique catalog
+- Categories are scoped to markets
+- Products belong to specific markets
+- This allows different stores/locations to have tailored product offerings
+
 ## Quick Reference
 
 - **Specification**: [spec.md](spec.md)
@@ -115,15 +123,16 @@ DELETE /api/v1/categories/:id        // Delete category
 {
   id: string;
   tenantId: string;
+  marketId: string;          // NEW: Market-specific
   name: string;
-  sku: string;
+  sku: string;               // Unique within market
   description?: string;
   basePrice: number;
   salePrice?: number;
   status: 'active' | 'inactive' | 'draft';
   stockQuantity: number;
   lowStockThreshold: number;
-  categoryIds: string[];
+  categoryIds: string[];     // Categories within same market
   variants?: ProductVariant[];
   customProperties?: { [key: string]: any };
   createdAt: Date;
@@ -136,6 +145,7 @@ DELETE /api/v1/categories/:id        // Delete category
 {
   id: string;
   tenantId: string;
+  marketId: string;          // NEW: Market-specific
   name: string;
   description?: string;
   parentId?: string;
@@ -146,13 +156,44 @@ DELETE /api/v1/categories/:id        // Delete category
 }
 ```
 
-## Multi-Tenancy
+**Market** (New Entity):
+```typescript
+{
+  id: string;
+  tenantId: string;
+  name: string;              // e.g., "Downtown Store"
+  code: string;              // e.g., "DT-001"
+  type: 'physical' | 'online' | 'hybrid';
+  isActive: boolean;
+  settings?: {
+    currency?: string;
+    timezone?: string;
+    address?: Address;
+  };
+  createdAt: Date;
+  updatedAt: Date;
+}
+```
 
-All products and categories are isolated by tenant:
-- Each product/category has a `tenantId` field
+## Multi-Tenancy & Market Isolation
+
+The system implements two-level data isolation:
+
+### Tenant Level
+- Tenants own markets
+- Each tenant can have multiple markets
 - API calls include `X-Tenant-ID` header
-- MSW handlers filter data by tenant ID
-- Superadmin sees all tenants; other roles see only their tenant
+
+### Market Level
+- Products and categories are market-specific
+- Each market has its own catalog
+- API calls include both `X-Tenant-ID` and `X-Market-ID` headers
+- MSW handlers filter by both tenant and market
+
+**Access Control**:
+- **Superadmin**: All tenants and markets
+- **Tenant Admin**: All markets within their tenant
+- **Tenant User**: Specific assigned markets only
 
 ## Testing
 
@@ -274,27 +315,32 @@ When implementing the .NET backend, ensure:
    - Implement same validation rules
 
 2. **Database Schema**
-   - Products table with tenant_id foreign key
-   - Categories table with self-referencing parent_id
+   - Markets table with tenant_id foreign key
+   - Products table with tenant_id AND market_id foreign keys
+   - Categories table with tenant_id AND market_id foreign keys
+   - Categories self-referencing parent_id within same market
    - Product_Categories junction table (many-to-many)
    - Variants table if supporting full variant system
    - Soft-delete: Add `deleted_at` timestamp column
 
-3. **Multi-Tenancy**
-   - All queries must filter by tenant_id
-   - Validate X-Tenant-ID header matches authenticated user's tenant
-   - Superadmin can access all tenants
+3. **Multi-Tenancy & Market Isolation**
+   - All queries must filter by tenant_id AND market_id
+   - Validate X-Tenant-ID and X-Market-ID headers
+   - Superadmin can access all tenants and markets
+   - Tenant Admin can access all markets within their tenant
 
 4. **Performance**
-   - Index on: tenant_id, sku, status, created_at
+   - Composite index on: (tenant_id, market_id, sku)
+   - Index on: (market_id, status, created_at)
    - Implement pagination server-side
    - Consider full-text search index for name/description
 
 5. **Validation**
-   - SKU uniqueness per tenant
+   - SKU uniqueness per market (not per tenant)
    - Price >= 0
    - Stock quantity >= 0
-   - Category exists and belongs to same tenant
+   - Category exists and belongs to same market
+   - Market belongs to same tenant
 
 ## Resources
 

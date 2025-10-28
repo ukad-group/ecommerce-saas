@@ -2,6 +2,25 @@
 
 This directory contains detailed specifications for all implemented and planned features in the eCommerce SaaS MVP.
 
+## Architecture Overview
+
+The platform uses a **market-based hierarchy**:
+
+```
+Tenant (Business Entity)
+└── Markets (Stores/Locations)
+    └── Categories
+        └── Products
+```
+
+**Key Concepts**:
+- **Tenant**: A business using the platform (e.g., "ABC Retail Group")
+- **Market**: A specific store or sales channel (e.g., "Downtown Store", "Online Store")
+- **Categories**: Product organization within a market
+- **Products**: Catalog items within a market
+
+This allows multi-location businesses to manage unique catalogs per location while maintaining centralized tenant management.
+
 ## Directory Structure
 
 Each feature has its own subdirectory with the following files:

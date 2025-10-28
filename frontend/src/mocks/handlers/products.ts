@@ -12,8 +12,37 @@ const baseURL = 'http://localhost:3000/api/v1';
 
 export const productsHandlers = [
   // GET /api/v1/products - List all products
-  http.get(`${baseURL}/products`, () => {
-    return HttpResponse.json(mockProducts);
+  http.get(`${baseURL}/products`, ({ request }) => {
+    const url = new URL(request.url);
+    const status = url.searchParams.get('status');
+    const search = url.searchParams.get('search');
+    const categoryId = url.searchParams.get('categoryId');
+
+    let filteredProducts = [...mockProducts];
+
+    // Filter by status
+    if (status) {
+      filteredProducts = filteredProducts.filter((p) => p.status === status);
+    }
+
+    // Filter by search query (name or SKU)
+    if (search) {
+      const searchLower = search.toLowerCase();
+      filteredProducts = filteredProducts.filter(
+        (p) =>
+          p.name.toLowerCase().includes(searchLower) ||
+          p.sku?.toLowerCase().includes(searchLower)
+      );
+    }
+
+    // Filter by category
+    if (categoryId) {
+      filteredProducts = filteredProducts.filter((p) =>
+        p.categoryIds?.includes(categoryId)
+      );
+    }
+
+    return HttpResponse.json(filteredProducts);
   }),
 
   // GET /api/v1/products/:id - Get single product

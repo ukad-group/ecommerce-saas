@@ -41,11 +41,13 @@ Defer complex features like:
 - Marketplace features
 
 ### V. SaaS-First Architecture
-Design for multi-tenancy from day one:
+Design for multi-tenancy and market-based isolation from day one:
 - Clear tenant isolation at data and API level
-- Configuration per tenant (branding, features, limits)
+- Market-level isolation for products, categories, and orders
+- Each tenant can have multiple markets (stores/locations)
+- Configuration per tenant (branding, features, limits, billing)
+- Configuration per market (catalog, pricing, inventory)
 - Scalable infrastructure considerations
-- Subscription and billing awareness
 
 ### VI. Test-Driven Development (NON-NEGOTIABLE)
 All features must follow TDD workflow:
@@ -121,17 +123,25 @@ All features must follow TDD workflow:
 ```
 /specs          - Feature specifications
 /memory         - Project constitution and shared knowledge
-/src
+/frontend       - React + TypeScript frontend application
+/src            - Backend source (future phase)
   /api          - Backend API projects
-  /ui           - Frontend application
   /shared       - Shared contracts and DTOs
   /integrations - CMS integration libraries
-/tests
-  /api-tests    - Backend tests
-  /ui-tests     - Frontend tests
-  /e2e-tests    - End-to-end integration tests
-/mocks          - Mock API implementations
+/tests          - Backend tests (future phase)
 /docs           - Additional documentation
+```
+
+### Data Hierarchy
+```
+Tenant (Business Entity)
+└── Markets (Stores/Locations)
+    └── Categories (Product Organization)
+        └── Products (Catalog Items)
+            └── Variants (Size, Color, etc.)
+
+Orders belong to a specific Market
+Users are assigned to Tenant (with market-level permissions)
 ```
 
 ### Feature Branches
