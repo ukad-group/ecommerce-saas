@@ -46,4 +46,4 @@
 
 **Key Design Concept**: The specification correctly models the user's input that "while users do shopping, they just create a new order" - the cart is implemented as an order with "new" status that transitions through submitted → paid → completed.
 
-**Ready for**: `/speckit.plan` to create technical implementation plan
+**Ready for**: the planning phase to create technical implementation plan

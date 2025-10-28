@@ -42,4 +42,4 @@
 - Multi-tenancy considerations built into requirements (FR-038 through FR-040)
 - Edge cases comprehensively identified
 
-**Ready for**: `/speckit.plan` to create technical implementation plan
+**Ready for**: the planning phase to create technical implementation plan

@@ -1031,7 +1031,7 @@ http.post('/api/v1/checkout/payment', () => {
 
 ## Next Steps
 
-1. **Implement Phase 2 tasks**: Run `/speckit.tasks` to generate task breakdown
+1. **Implement Phase 2 tasks**: Run task generation to generate task breakdown
 2. **Set up CI/CD**: Configure GitHub Actions for automated testing
 3. **Design UI mockups**: Create visual designs for all pages (optional)
 4. **Begin implementation**: Start with core components (cart, checkout)

@@ -33,7 +33,7 @@
 
 **Status**: ✅ PASSED
 
-All checklist items pass. The specification is complete and ready for planning phase (`/speckit.plan`).
+All checklist items pass. The specification is complete and ready for planning phase (the planning phase).
 
 ### Strengths
 

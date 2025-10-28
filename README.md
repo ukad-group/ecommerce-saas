@@ -4,7 +4,7 @@ A minimal viable product for a standalone eCommerce back-office solution designe
 
 ## Project Philosophy
 
-This project follows **Spec-Driven Development** using [GitHub's spec-kit](https://github.com/github/spec-kit) methodology. We build specifications first, develop UI with API mocks, then implement the actual backend infrastructure.
+This project follows a **specification-driven development** approach. We build specifications first, develop UI with API mocks, then implement the actual backend infrastructure.
 
 ### Key Principles
 
@@ -16,111 +16,216 @@ This project follows **Spec-Driven Development** using [GitHub's spec-kit](https
 
 See [memory/constitution.md](memory/constitution.md) for complete project principles and guidelines.
 
-## Getting Started with Spec-Kit
+## Quick Start
 
-This project uses spec-kit slash commands to drive development:
+New to the project? Start here:
 
-### Available Commands
-
-- `/speckit.specify` - Create a feature specification
-- `/speckit.clarify` - Clarify requirements in a spec
-- `/speckit.plan` - Create technical implementation plan
-- `/speckit.tasks` - Generate actionable task list
-- `/speckit.implement` - Implement the planned feature
-- `/speckit.analyze` - Analyze existing specifications
-- `/speckit.constitution` - Review project constitution
-
-### Workflow
-
-1. **Specify**: Describe what you want to build (focus on WHAT and WHY)
-   ```
-   /speckit.specify Build a product catalog that allows managing products with variants,
-   pricing tiers, and inventory tracking. Products can be organized into categories...
-   ```
-
-2. **Clarify** (if needed): Answer any clarification questions
-
-3. **Plan**: Define the technical approach and architecture
-   ```
-   /speckit.plan Use .NET 8 Web API with PostgreSQL. Frontend using React with
-   TypeScript. API-first with OpenAPI docs...
-   ```
-
-4. **Tasks**: Break down into implementable tasks
-   ```
-   /speckit.tasks
-   ```
-
-5. **Implement**: Build the feature following the tasks
-   ```
-   /speckit.implement
-   ```
+1. **Read [CLAUDE.md](CLAUDE.md)** - Complete project overview, technology stack, and getting started guide
+2. **Review [memory/constitution.md](memory/constitution.md)** - Core principles and guidelines
+3. **Check [specs/CLAUDE.md](specs/CLAUDE.md)** - Feature specifications overview
+4. **Explore [frontend/CLAUDE.md](frontend/CLAUDE.md)** - Frontend development guide
 
 ## Project Structure
 
 ```
-/specs/          Feature specifications (one per feature)
-/memory/         Project constitution and shared knowledge
-/scripts/        Spec-kit automation scripts
-/templates/      Spec-kit templates for specs, plans, tasks
-/.claude/        Claude Code slash commands
-/src/            Source code (created during implementation)
-/tests/          Test suites (created during implementation)
-/mocks/          Mock API implementations
+/specs/          # Feature specifications (see specs/CLAUDE.md)
+  /001-product-catalog/
+    spec.md      # Detailed feature specification
+    plan.md      # Technical implementation plan
+    tasks.md     # Task breakdown with status
+    CLAUDE.md    # Feature guide and quick reference
+  /002-cart-order-management/
+  /003-role-based-access/
+  CLAUDE.md      # Specifications directory guide
+
+/memory/         # Project constitution and core principles
+  constitution.md
+
+/frontend/       # React + TypeScript frontend application
+  /src/
+    /components/ # UI components
+    /pages/      # Route pages
+    /services/   # API clients and hooks
+    /mocks/      # MSW mock handlers
+    /store/      # Zustand state management
+    /types/      # TypeScript definitions
+  CLAUDE.md      # Frontend development guide
+
+/docs/           # Additional documentation
+
+CLAUDE.md        # Main project guide (START HERE)
+README.md        # This file
 ```
 
-## Next Steps
+## Current Status
 
-### 1. Review the Constitution
+### Implemented Features
 
-Read through [memory/constitution.md](memory/constitution.md) to understand the project's core principles and technical constraints.
+✅ **Product Catalog (001)** - Product and category management
+- Create, edit, delete products
+- Hierarchical categories
+- Quick stock updates
+- Product variants support
 
-### 2. Create Your First Specification
+✅ **Cart & Order Management (002)** - Shopping cart and order processing
+- Cart management (add, update, remove items)
+- Admin order dashboard with filtering
+- Order status workflow
 
-Start with a core eCommerce feature. For example:
+⚠️ **Role-Based Access Control (003)** - Multi-role authentication
+- Superadmin login complete
+- Tenant admin/user flows in progress
 
-```
-/speckit.specify Create a product catalog management system for the back-office.
-Admin users should be able to create, edit, and delete products. Each product has
-a name, description, SKU, price, and inventory count. Products can be organized
-into categories. Support product variants (size, color, etc.) with different
-prices and inventory...
-```
+### What's Next
 
-### 3. Follow the Spec-Driven Workflow
+See [CLAUDE.md](CLAUDE.md) for detailed roadmap and priorities:
+1. Complete RBAC tenant filtering
+2. Implement checkout UI (API ready)
+3. Add cart persistence
+4. Begin .NET backend implementation
 
-The spec-kit commands will guide you through:
-- Validating your specification
-- Creating a technical plan
-- Breaking down into tasks
-- Implementing with tests
+## Technology Stack
 
-## Technology Stack (Planned)
+### Frontend (Implemented)
+- **Framework**: React 18 with TypeScript 5
+- **Build Tool**: Vite 5
+- **Routing**: React Router 6
+- **State Management**: Zustand 4
+- **Data Fetching**: TanStack Query v5
+- **API Mocking**: Mock Service Worker (MSW) 2
+- **Styling**: Tailwind CSS + Headless UI
+- **Testing**: Vitest + React Testing Library
 
-- **Backend**: .NET 8+ (ASP.NET Core)
-- **Database**: PostgreSQL
-- **Frontend**: TBD (React/Vue/Svelte)
+### Backend (Planned)
+- **Framework**: .NET 8+ (ASP.NET Core)
+- **Database**: PostgreSQL (multi-tenant)
 - **API**: RESTful with OpenAPI/Swagger
 - **Auth**: OAuth2/OIDC
 - **Deployment**: Docker/Kubernetes
 
+## Development Workflow
+
+### 1. Review Existing Specifications
+Check [specs/CLAUDE.md](specs/CLAUDE.md) for implemented and planned features.
+
+### 2. Create Feature Specification
+Document requirements in `specs/[number]-[feature-name]/spec.md`:
+- User stories with acceptance criteria
+- Functional requirements
+- Success criteria
+- Data models
+
+### 3. Create Technical Plan
+Document implementation approach in `plan.md`:
+- Technical context
+- API contracts (OpenAPI)
+- Component architecture
+- Testing strategy
+
+### 4. Break Down Tasks
+Create actionable task list in `tasks.md` with status tracking.
+
+### 5. Implement with TDD
+Follow Test-Driven Development:
+- Write tests first
+- Implement features
+- Validate against spec
+- Update task status
+
+## Running the Application
+
+### Frontend Development Server
+```bash
+cd frontend
+npm install
+npm run dev
+# Opens at http://localhost:5176
+```
+
+### Environment Configuration
+Create `frontend/.env.local`:
+```bash
+VITE_TENANT_ID=demo-tenant
+VITE_API_BASE_URL=http://localhost:5176/api
+VITE_USE_MOCKS=true  # Use MSW for API mocking
+```
+
+### Available Routes
+- `/login` - Login page (hardcoded profiles)
+- `/admin` - Admin dashboard
+- `/admin/products` - Product management
+- `/admin/categories` - Category management
+- `/admin/orders` - Order management
+- `/cart` - Shopping cart
+
+See [frontend/CLAUDE.md](frontend/CLAUDE.md) for complete frontend guide.
+
+## Multi-Tenancy
+
+All data is isolated by tenant:
+- Superadmin sees all tenants
+- Tenant Admin/User sees only their tenant
+- API calls include `X-Tenant-ID` header
+- MSW handlers filter by tenant
+
+See [CLAUDE.md](CLAUDE.md#multi-tenancy) for details.
+
 ## Contributing
 
-All development follows the spec-driven methodology:
+### Development Process
+1. Review relevant feature specification in `/specs/`
+2. Check task status in `tasks.md`
+3. Follow TDD workflow
+4. Update documentation as needed
+5. Create PR with spec reference
 
-1. Start with a specification using `/speckit.specify`
-2. Get spec reviewed and approved
-3. Create technical plan with `/speckit.plan`
-4. Generate tasks with `/speckit.tasks`
-5. Implement following TDD principles
-6. Submit PR linking to the spec
+### Coding Standards
+- TypeScript strict mode
+- 80%+ test coverage
+- Component patterns documented in frontend/CLAUDE.md
+- API contracts follow OpenAPI 3.0
+
+### Git Workflow
+- Feature branches: `feature/[spec-number]-[short-name]`
+- Descriptive commit messages
+- Link commits to spec/task numbers
+- PR requires review and passing tests
 
 ## Documentation
 
-- [Constitution](memory/constitution.md) - Project principles and guidelines
-- [Specifications](specs/) - Individual feature specs
-- [Spec-Kit Documentation](https://github.com/github/spec-kit) - Methodology details
+- **[CLAUDE.md](CLAUDE.md)** - Main project guide (START HERE)
+- **[memory/constitution.md](memory/constitution.md)** - Core principles
+- **[specs/CLAUDE.md](specs/CLAUDE.md)** - Feature specifications guide
+- **[frontend/CLAUDE.md](frontend/CLAUDE.md)** - Frontend development guide
+- **Feature specs** - Detailed specs in `/specs/[feature]/`
+
+## Key Features
+
+### API-First Development
+Every feature starts with OpenAPI contracts and MSW mocks before any real backend implementation.
+
+### Mock-First UI
+UI is built and validated against mocks first, ensuring UX is perfect before backend work begins.
+
+### Test-Driven Development
+All code follows TDD: tests first, then implementation. Minimum 80% coverage required.
+
+### Multi-Tenant Architecture
+Designed for SaaS from day one with tenant isolation at data and API level.
+
+## Getting Help
+
+- Review [CLAUDE.md](CLAUDE.md) for comprehensive project information
+- Check feature-specific CLAUDE.md files for detailed guidance
+- See [memory/constitution.md](memory/constitution.md) for core principles
+- Explore `/specs/` for feature specifications
 
 ## License
 
 TBD
+
+---
+
+**Last Updated**: 2025-10-28
+**Status**: MVP Development Phase
+**Next Major Milestone**: Complete RBAC and Checkout UI

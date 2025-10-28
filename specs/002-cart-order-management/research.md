@@ -759,7 +759,7 @@ const { data: order } = useQuery({
    - `contracts/*.yaml` (4 files)
    - `quickstart.md`
 4. Re-check constitution compliance after Phase 1
-5. Execute Phase 2: Generate task breakdown (`/speckit.tasks`)
+5. Execute Phase 2: Generate task breakdown (task generation)
 
 ---
 

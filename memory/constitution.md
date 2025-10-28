@@ -90,16 +90,16 @@ All features must follow TDD workflow:
 ## Development Workflow
 
 ### Specification Phase
-1. Create feature specification using `/speckit.specify`
+1. Create feature specification in `specs/[number]-[feature]/spec.md`
 2. Validate specification completeness
 3. Stakeholder review and approval
-4. Whenever specification get's clarified during the development, it should be reflected in a corresponding spec file.
+4. Whenever specification gets clarified during development, update the spec file
 
 ### Planning Phase
-1. Create technical plan using `/speckit.plan`
+1. Create technical plan in `specs/[number]-[feature]/plan.md`
 2. Define API contracts (OpenAPI specification)
-3. Create mock implementations
-4. Break down into tasks using `/speckit.tasks`
+3. Create mock implementations with MSW
+4. Break down into tasks in `specs/[number]-[feature]/tasks.md`
 
 ### Implementation Phase
 1. Implement UI with mocks first
