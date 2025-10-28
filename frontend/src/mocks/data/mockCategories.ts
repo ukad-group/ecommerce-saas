@@ -9,7 +9,8 @@ import type { Category } from '../../types/product';
 export const mockCategories: Category[] = [
   {
     id: 'cat-1',
-    tenantId: 'default-tenant',
+    tenantId: 'tenant-a',
+    marketId: 'market-1',
     name: 'Electronics',
     description: 'Electronic devices and accessories',
     createdAt: '2024-01-15T10:00:00Z',
@@ -17,7 +18,8 @@ export const mockCategories: Category[] = [
   },
   {
     id: 'cat-2',
-    tenantId: 'default-tenant',
+    tenantId: 'tenant-a',
+    marketId: 'market-1',
     name: 'Computers',
     description: 'Laptops, desktops, and computer accessories',
     parentId: 'cat-1',
@@ -26,7 +28,8 @@ export const mockCategories: Category[] = [
   },
   {
     id: 'cat-3',
-    tenantId: 'default-tenant',
+    tenantId: 'tenant-a',
+    marketId: 'market-1',
     name: 'Mobile Phones',
     description: 'Smartphones and mobile accessories',
     parentId: 'cat-1',
@@ -35,7 +38,8 @@ export const mockCategories: Category[] = [
   },
   {
     id: 'cat-4',
-    tenantId: 'default-tenant',
+    tenantId: 'tenant-a',
+    marketId: 'market-1',
     name: 'Clothing',
     description: 'Apparel and fashion items',
     createdAt: '2024-01-20T10:00:00Z',
@@ -43,7 +47,8 @@ export const mockCategories: Category[] = [
   },
   {
     id: 'cat-5',
-    tenantId: 'default-tenant',
+    tenantId: 'tenant-a',
+    marketId: 'market-1',
     name: "Men's Clothing",
     description: "Men's apparel and accessories",
     parentId: 'cat-4',
@@ -52,7 +57,8 @@ export const mockCategories: Category[] = [
   },
   {
     id: 'cat-6',
-    tenantId: 'default-tenant',
+    tenantId: 'tenant-a',
+    marketId: 'market-1',
     name: "Women's Clothing",
     description: "Women's apparel and accessories",
     parentId: 'cat-4',
@@ -61,7 +67,8 @@ export const mockCategories: Category[] = [
   },
   {
     id: 'cat-7',
-    tenantId: 'default-tenant',
+    tenantId: 'tenant-a',
+    marketId: 'market-1',
     name: 'Home & Garden',
     description: 'Home decor, furniture, and garden supplies',
     createdAt: '2024-01-25T10:00:00Z',
@@ -69,7 +76,8 @@ export const mockCategories: Category[] = [
   },
   {
     id: 'cat-8',
-    tenantId: 'default-tenant',
+    tenantId: 'tenant-a',
+    marketId: 'market-1',
     name: 'Books',
     description: 'Physical and digital books',
     createdAt: '2024-02-01T10:00:00Z',

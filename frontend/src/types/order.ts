@@ -14,10 +14,12 @@ export type OrderStatus = 'new' | 'submitted' | 'paid' | 'completed' | 'cancelle
 /**
  * Order entity
  * Represents both shopping carts (status='new') and submitted orders (status!='new')
+ * Orders are market-specific
  */
 export interface Order {
   id: string;
   tenantId: string;
+  marketId: string; // NEW: Orders are market-specific
   customerId: string;
   orderNumber: string;
   status: OrderStatus;
@@ -53,6 +55,7 @@ export interface OrderLineItem {
   id: string;
   orderId: string;
   productId: string;
+  marketId: string; // NEW: Product's market (should match order's market)
   productName: string;
   sku: string;
   productImage?: string;

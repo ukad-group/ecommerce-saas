@@ -22,13 +22,14 @@ export interface CustomProperty {
 
 /**
  * Product entity
- * Represents a sellable item in the catalog
+ * Represents a sellable item in the catalog (market-specific)
  */
 export interface Product {
   id: string;
   tenantId: string;
+  marketId: string; // NEW: Products are market-specific
   name: string;
-  sku?: string; // Optional when product has variants
+  sku?: string; // Optional when product has variants, unique within market
   description: string;
   price?: number; // Optional when product has variants
   salePrice?: number;
@@ -75,11 +76,12 @@ export interface ProductVariant {
 
 /**
  * Product category entity
- * Represents a grouping for product organization
+ * Represents a grouping for product organization (market-specific)
  */
 export interface Category {
   id: string;
   tenantId: string;
+  marketId: string; // NEW: Categories are market-specific
   name: string;
   description?: string;
   parentId?: string;

@@ -11,7 +11,8 @@ import type { Product } from '../../types/product';
 export const mockProducts: Product[] = [
   {
     id: 'prod-1',
-    tenantId: 'default-tenant',
+    tenantId: 'tenant-a',
+    marketId: 'market-1',
     name: 'Wireless Bluetooth Headphones',
     sku: 'WBH-001',
     description: 'Premium wireless headphones with active noise cancellation and 30-hour battery life.',
@@ -36,7 +37,8 @@ export const mockProducts: Product[] = [
   },
   {
     id: 'prod-1a',
-    tenantId: 'default-tenant',
+    tenantId: 'tenant-a',
+    marketId: 'market-1',
     name: 'Premium Cotton T-Shirt',
     description: 'Comfortable, breathable cotton t-shirt available in multiple sizes and colors.',
     status: 'active',
@@ -163,7 +165,8 @@ export const mockProducts: Product[] = [
   },
   {
     id: 'prod-2',
-    tenantId: 'default-tenant',
+    tenantId: 'tenant-a',
+    marketId: 'market-1',
     name: 'Ergonomic Office Chair',
     sku: 'EOC-002',
     description: 'Adjustable ergonomic office chair with lumbar support and breathable mesh back.',
@@ -185,7 +188,8 @@ export const mockProducts: Product[] = [
   },
   {
     id: 'prod-3',
-    tenantId: 'default-tenant',
+    tenantId: 'tenant-a',
+    marketId: 'market-1',
     name: 'Stainless Steel Water Bottle',
     sku: 'SSWB-003',
     description: 'Insulated stainless steel water bottle keeps drinks cold for 24 hours or hot for 12 hours.',
@@ -201,7 +205,8 @@ export const mockProducts: Product[] = [
   },
   {
     id: 'prod-4',
-    tenantId: 'default-tenant',
+    tenantId: 'tenant-a',
+    marketId: 'market-1',
     name: 'USB-C Hub 7-in-1',
     sku: 'USBH-004',
     description: '7-in-1 USB-C hub with HDMI, USB 3.0 ports, SD card reader, and power delivery.',
@@ -218,7 +223,8 @@ export const mockProducts: Product[] = [
   },
   {
     id: 'prod-5',
-    tenantId: 'default-tenant',
+    tenantId: 'tenant-a',
+    marketId: 'market-1',
     name: 'Mechanical Keyboard RGB',
     sku: 'MKB-005',
     description: 'Mechanical gaming keyboard with customizable RGB backlighting and blue switches.',
@@ -234,7 +240,8 @@ export const mockProducts: Product[] = [
   },
   {
     id: 'prod-6',
-    tenantId: 'default-tenant',
+    tenantId: 'tenant-a',
+    marketId: 'market-1',
     name: 'Yoga Mat Premium',
     sku: 'YMP-006',
     description: 'Extra thick yoga mat with non-slip surface and carrying strap.',
@@ -250,7 +257,8 @@ export const mockProducts: Product[] = [
   },
   {
     id: 'prod-7',
-    tenantId: 'default-tenant',
+    tenantId: 'tenant-a',
+    marketId: 'market-1',
     name: 'Smart Watch Fitness Tracker',
     sku: 'SWF-007',
     description: 'Smart watch with heart rate monitor, GPS tracking, and 7-day battery life.',
@@ -267,7 +275,8 @@ export const mockProducts: Product[] = [
   },
   {
     id: 'prod-8',
-    tenantId: 'default-tenant',
+    tenantId: 'tenant-a',
+    marketId: 'market-1',
     name: 'Portable Phone Charger 20000mAh',
     sku: 'PPC-008',
     description: 'High-capacity portable charger with dual USB ports and LED display.',
@@ -283,7 +292,8 @@ export const mockProducts: Product[] = [
   },
   {
     id: 'prod-9',
-    tenantId: 'default-tenant',
+    tenantId: 'tenant-a',
+    marketId: 'market-1',
     name: 'Desk Lamp LED Adjustable',
     sku: 'DLA-009',
     description: 'LED desk lamp with adjustable brightness, color temperature, and USB charging port.',
@@ -299,7 +309,8 @@ export const mockProducts: Product[] = [
   },
   {
     id: 'prod-10',
-    tenantId: 'default-tenant',
+    tenantId: 'tenant-a',
+    marketId: 'market-1',
     name: 'Coffee Maker Programmable',
     sku: 'CMP-010',
     description: '12-cup programmable coffee maker with auto-shutoff and reusable filter.',
@@ -315,7 +326,8 @@ export const mockProducts: Product[] = [
   },
   {
     id: 'prod-11',
-    tenantId: 'default-tenant',
+    tenantId: 'tenant-a',
+    marketId: 'market-1',
     name: 'Wireless Mouse Optical',
     sku: 'WMO-011',
     description: 'Ergonomic wireless mouse with 6 programmable buttons and adjustable DPI.',
@@ -332,7 +344,8 @@ export const mockProducts: Product[] = [
   },
   {
     id: 'prod-12',
-    tenantId: 'default-tenant',
+    tenantId: 'tenant-a',
+    marketId: 'market-1',
     name: 'Standing Desk Converter',
     sku: 'SDC-012',
     description: 'Height-adjustable standing desk converter with dual-tier design for monitor and keyboard.',
@@ -348,7 +361,8 @@ export const mockProducts: Product[] = [
   },
   {
     id: 'prod-13',
-    tenantId: 'default-tenant',
+    tenantId: 'tenant-a',
+    marketId: 'market-1',
     name: 'Bluetooth Speaker Waterproof',
     sku: 'BSW-013',
     description: 'Portable Bluetooth speaker with 360-degree sound, waterproof rating, and 12-hour battery.',
@@ -364,7 +378,8 @@ export const mockProducts: Product[] = [
   },
   {
     id: 'prod-14',
-    tenantId: 'default-tenant',
+    tenantId: 'tenant-a',
+    marketId: 'market-1',
     name: 'Backpack Laptop 17-inch',
     sku: 'BLP-014',
     description: 'Durable laptop backpack with padded compartment, USB charging port, and water-resistant fabric.',
@@ -381,7 +396,8 @@ export const mockProducts: Product[] = [
   },
   {
     id: 'prod-15',
-    tenantId: 'default-tenant',
+    tenantId: 'tenant-a',
+    marketId: 'market-1',
     name: 'Webcam HD 1080p',
     sku: 'WHD-015',
     description: 'Full HD webcam with auto-focus, built-in microphone, and wide-angle lens.',
@@ -397,7 +413,8 @@ export const mockProducts: Product[] = [
   },
   {
     id: 'prod-16',
-    tenantId: 'default-tenant',
+    tenantId: 'tenant-a',
+    marketId: 'market-1',
     name: 'Resistance Bands Set',
     sku: 'RBS-016',
     description: 'Set of 5 resistance bands with different resistance levels, handles, and door anchor.',
@@ -413,7 +430,8 @@ export const mockProducts: Product[] = [
   },
   {
     id: 'prod-17',
-    tenantId: 'default-tenant',
+    tenantId: 'tenant-a',
+    marketId: 'market-1',
     name: 'Monitor 27-inch 4K',
     sku: 'M27-017',
     description: '27-inch 4K UHD monitor with IPS panel, HDR support, and adjustable stand.',
@@ -438,7 +456,8 @@ export const mockProducts: Product[] = [
   },
   {
     id: 'prod-18',
-    tenantId: 'default-tenant',
+    tenantId: 'tenant-a',
+    marketId: 'market-1',
     name: 'Air Purifier HEPA',
     sku: 'APH-018',
     description: 'HEPA air purifier with 3-stage filtration, quiet operation, and smart sensors.',
@@ -454,7 +473,8 @@ export const mockProducts: Product[] = [
   },
   {
     id: 'prod-19',
-    tenantId: 'default-tenant',
+    tenantId: 'tenant-a',
+    marketId: 'market-1',
     name: 'Gaming Mouse Pad XXL',
     sku: 'GMP-019',
     description: 'Extra large gaming mouse pad with stitched edges and non-slip rubber base.',
@@ -470,7 +490,8 @@ export const mockProducts: Product[] = [
   },
   {
     id: 'prod-20',
-    tenantId: 'default-tenant',
+    tenantId: 'tenant-a',
+    marketId: 'market-1',
     name: 'Dumbbells Adjustable Set',
     sku: 'DAS-020',
     description: 'Adjustable dumbbell set with quick-change weight selection from 5 to 52.5 lbs.',
