@@ -45,15 +45,13 @@ export interface UserSession {
 }
 
 /**
- * Tenant entity
- * Represents a business/organization in the multi-tenant system
+ * Simple Tenant reference for auth
+ * Full tenant details are in types/tenant.ts
  */
-export interface Tenant {
+export interface TenantRef {
   id: string;
   name: string;
   displayName: string;
-  /** Whether this tenant is active */
-  active: boolean;
 }
 
 /**

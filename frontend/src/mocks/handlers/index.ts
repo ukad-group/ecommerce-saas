@@ -10,6 +10,9 @@ import { cartHandlers } from './cartHandlers';
 import { adminHandlers } from './adminHandlers';
 import { categoriesHandlers } from './categories';
 import { checkoutHandlers } from './checkoutHandlers';
+import { tenantHandlers } from './tenantHandlers';
+import { marketHandlers } from './marketHandlers';
+import { apiKeyHandlers } from './apiKeyHandlers';
 
 export const handlers = [
   ...productsHandlers,
@@ -18,4 +21,7 @@ export const handlers = [
   ...adminHandlers,
   ...categoriesHandlers,
   ...checkoutHandlers,
+  ...tenantHandlers,
+  ...marketHandlers,
+  ...apiKeyHandlers,
 ];

@@ -5,26 +5,69 @@
  * In production, this data will come from a real database.
  */
 
-import type { Tenant } from '../../types/auth';
+import type { Tenant } from '../../types/tenant';
 
 export const MOCK_TENANTS: Tenant[] = [
   {
     id: 'tenant-a',
-    name: 'demo-store',
-    displayName: 'Demo Store',
-    active: true,
+    name: 'demo-retail-group',
+    displayName: 'Demo Retail Group',
+    status: 'active',
+    contactEmail: 'admin@demoretail.com',
+    contactPhone: '+1-555-0100',
+    address: {
+      street: '123 Business Ave',
+      city: 'New York',
+      state: 'NY',
+      postalCode: '10001',
+      country: 'USA'
+    },
+    settings: {
+      maxMarkets: 10,
+      maxUsers: 50,
+      features: ['inventory', 'analytics', 'api_access']
+    },
+    marketCount: 3,
+    createdAt: new Date('2024-01-01'),
+    updatedAt: new Date('2024-10-28'),
   },
   {
     id: 'tenant-b',
-    name: 'fashion-boutique',
-    displayName: 'Fashion Boutique',
-    active: true,
+    name: 'test-retail-chain',
+    displayName: 'Test Retail Chain',
+    status: 'active',
+    contactEmail: 'contact@testretail.com',
+    contactPhone: '+1-555-0200',
+    address: {
+      street: '456 Commerce St',
+      city: 'Chicago',
+      state: 'IL',
+      postalCode: '60601',
+      country: 'USA'
+    },
+    settings: {
+      maxMarkets: 5,
+      maxUsers: 25,
+      features: ['inventory', 'api_access']
+    },
+    marketCount: 2,
+    createdAt: new Date('2024-02-15'),
+    updatedAt: new Date('2024-10-25'),
   },
   {
     id: 'tenant-c',
-    name: 'electronics-hub',
-    displayName: 'Electronics Hub',
-    active: true,
+    name: 'sample-corp',
+    displayName: 'Sample Corp',
+    status: 'active',
+    contactEmail: 'info@samplecorp.com',
+    settings: {
+      maxMarkets: 3,
+      maxUsers: 10,
+      features: ['api_access']
+    },
+    marketCount: 2,
+    createdAt: new Date('2024-03-20'),
+    updatedAt: new Date('2024-10-26'),
   },
 ];
 
@@ -39,7 +82,7 @@ export function getTenantById(tenantId: string): Tenant | undefined {
  * Get all active tenants
  */
 export function getActiveTenants(): Tenant[] {
-  return MOCK_TENANTS.filter((t) => t.active);
+  return MOCK_TENANTS.filter((t) => t.status === 'active');
 }
 
 /**

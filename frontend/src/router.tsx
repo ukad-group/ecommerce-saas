@@ -17,6 +17,9 @@ import { ProductsPage } from './pages/admin/ProductsPage';
 import { ProductEditPage } from './pages/admin/ProductEditPage';
 import { CategoriesPage } from './pages/admin/CategoriesPage';
 import { CategoryEditPage } from './pages/admin/CategoryEditPage';
+import { TenantsPage } from './pages/admin/tenants/TenantsPage';
+import { MarketsPage } from './pages/admin/markets/MarketsPage';
+import { Role } from './types/auth';
 
 // Placeholder components - will be implemented in later tasks
 const CheckoutPage = () => <div>Checkout Page - Coming Soon</div>;
@@ -110,6 +113,30 @@ export const router = createBrowserRouter([
         element: (
           <ProtectedRoute>
             <CategoryEditPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'admin/tenants',
+        element: (
+          <ProtectedRoute allowedRoles={[Role.SUPERADMIN]}>
+            <TenantsPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'admin/tenants/:tenantId/markets',
+        element: (
+          <ProtectedRoute allowedRoles={[Role.SUPERADMIN]}>
+            <MarketsPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'admin/markets',
+        element: (
+          <ProtectedRoute allowedRoles={[Role.SUPERADMIN, Role.TENANT_ADMIN]}>
+            <MarketsPage />
           </ProtectedRoute>
         ),
       },
