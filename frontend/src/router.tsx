@@ -19,6 +19,7 @@ import { CategoriesPage } from './pages/admin/CategoriesPage';
 import { CategoryEditPage } from './pages/admin/CategoryEditPage';
 import { TenantsPage } from './pages/admin/tenants/TenantsPage';
 import { MarketsPage } from './pages/admin/markets/MarketsPage';
+import { ApiKeysPage } from './pages/admin/markets/ApiKeysPage';
 import { Role } from './types/auth';
 
 // Placeholder components - will be implemented in later tasks
@@ -137,6 +138,14 @@ export const router = createBrowserRouter([
         element: (
           <ProtectedRoute allowedRoles={[Role.SUPERADMIN, Role.TENANT_ADMIN]}>
             <MarketsPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'admin/markets/:marketId/api-keys',
+        element: (
+          <ProtectedRoute allowedRoles={[Role.SUPERADMIN, Role.TENANT_ADMIN]}>
+            <ApiKeysPage />
           </ProtectedRoute>
         ),
       },
