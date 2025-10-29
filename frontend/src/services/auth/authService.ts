@@ -77,7 +77,7 @@ export async function login(request: LoginRequest): Promise<LoginResponse> {
   }
 
   // Validate tenant is active
-  if (!tenant.active) {
+  if (tenant.status !== 'active') {
     return {
       success: false,
       error: 'Selected tenant is not active',
