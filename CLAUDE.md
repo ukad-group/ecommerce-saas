@@ -257,6 +257,133 @@ All features must follow TDD workflow:
 - ProtectedRoute wrapper
 - authStore (Zustand)
 
+### 4. Tenant & Market Management (Feature 004)
+**Status**: In Development
+
+**Implementation Plan**:
+
+#### Data Models
+
+**Enhanced Tenant Type**:
+```typescript
+interface Tenant {
+  id: string;
+  name: string;           // Unique slug
+  displayName: string;
+  status: 'active' | 'inactive';
+  contactEmail: string;
+  contactPhone?: string;
+  address?: Address;
+  settings?: {
+    maxMarkets?: number;
+    maxUsers?: number;
+    features?: string[];
+  };
+  createdAt: Date;
+  updatedAt: Date;
+}
+```
+
+**Enhanced Market Type**:
+```typescript
+interface Market {
+  id: string;
+  tenantId: string;
+  name: string;
+  code: string;
+  type: 'physical' | 'online' | 'hybrid';
+  status: 'active' | 'inactive';
+  currency: string;
+  timezone: string;
+  address?: Address;
+  apiKeyCount: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+```
+
+**API Key Type**:
+```typescript
+interface ApiKey {
+  id: string;
+  tenantId: string;
+  marketId: string;
+  name: string;           // Descriptive name
+  keyHash: string;        // Never store plain text
+  lastFourChars: string;
+  status: 'active' | 'revoked';
+  createdAt: Date;
+  lastUsedAt?: Date;
+  expiresAt?: Date;
+}
+
+interface ApiKeyCreationResponse {
+  id: string;
+  key: string;            // Full key (shown only once)
+  name: string;
+  marketId: string;
+  createdAt: Date;
+}
+```
+
+#### Component Structure
+```
+/components
+  /tenants
+    TenantList.tsx
+    TenantForm.tsx
+    TenantFilters.tsx
+    TenantStatusBadge.tsx
+  /markets
+    MarketList.tsx
+    MarketForm.tsx
+    MarketFilters.tsx
+    MarketTypeBadge.tsx
+  /api-keys
+    ApiKeyList.tsx
+    ApiKeyGenerator.tsx
+    ApiKeyDisplay.tsx
+
+/pages/admin
+  /tenants
+    TenantsPage.tsx
+    TenantDetailsPage.tsx
+  /markets
+    MarketsPage.tsx
+    MarketDetailsPage.tsx
+    ApiKeysPage.tsx
+```
+
+#### Mock Implementation
+
+**API Key Generation**:
+```typescript
+function generateApiKey(): string {
+  const prefix = 'sk_live_';
+  const randomBytes = crypto.getRandomValues(new Uint8Array(32));
+  const hexString = Array.from(randomBytes)
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('');
+  return prefix + hexString;
+}
+```
+
+**TanStack Query Hooks**:
+- `useTenants()` - List with filters
+- `useTenant(id)` - Single tenant
+- `useCreateTenant()` - Create mutation
+- `useMarkets(tenantId?)` - List markets
+- `useMarket(id)` - Single market
+- `useApiKeys(marketId)` - List API keys
+- `useGenerateApiKey()` - Generate key mutation
+- `useRevokeApiKey()` - Revoke key mutation
+
+#### Navigation Updates
+- Add "Tenants & Markets" tab for superadmin
+- Add "Markets" tab for tenant admin
+- Hide for tenant users
+- Implement role-based route protection
+
 ## Running the Application
 
 ### Installation
@@ -351,10 +478,11 @@ This architecture allows a retail chain (tenant) to manage multiple stores (mark
 ## Next Steps
 
 ### Immediate Priorities
-1. **Complete Role-Based Access**: Finish tenant admin and tenant user login flows
-2. **Implement Checkout UI**: Build checkout forms and pages (API ready)
-3. **Cart Persistence**: Add localStorage persistence for guest carts
-4. **Backend Implementation**: Start .NET backend following API contracts
+1. **Tenant & Market Management**: Implement tenant/market CRUD with API key support (Feature 004)
+2. **Complete Role-Based Access**: Finish tenant admin and tenant user login flows
+3. **Implement Checkout UI**: Build checkout forms and pages (API ready)
+4. **Cart Persistence**: Add localStorage persistence for guest carts
+5. **Backend Implementation**: Start .NET backend following API contracts
 
 ### Future Enhancements
 - Customer-facing order tracking
@@ -473,8 +601,9 @@ When backend is ready:
 - **v1.1** (2025-10-23): Product catalog feature
 - **v1.2** (2025-10-24): Cart and order management feature
 - **v1.3** (2025-10-24): Role-based access control feature
+- **v1.4** (2025-10-29): Tenant & Market Management specification (Feature 004)
 
 ---
 
-**Last Updated**: 2025-10-28
+**Last Updated**: 2025-10-29
 **Status**: Active Development - MVP Phase
