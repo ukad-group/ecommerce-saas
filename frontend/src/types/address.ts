@@ -6,6 +6,18 @@
  */
 
 /**
+ * Generic address interface
+ * Used for tenant and market addresses
+ */
+export interface Address {
+  street: string;
+  city: string;
+  state: string;
+  postalCode: string;
+  country: string;
+}
+
+/**
  * Shipping address entity
  * Order's shipping address for order delivery
  */
