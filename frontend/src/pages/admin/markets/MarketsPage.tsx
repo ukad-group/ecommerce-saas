@@ -10,7 +10,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { PlusIcon, MagnifyingGlassIcon, KeyIcon } from '@heroicons/react/24/outline';
-import { Market, MarketStatus, MarketType } from '../../../types/market';
+import type { Market, MarketStatus, MarketType } from '../../../types/market';
 import { useAuthStore } from '../../../store/authStore';
 import { Role } from '../../../types/auth';
 

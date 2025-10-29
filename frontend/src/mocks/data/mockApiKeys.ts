@@ -5,7 +5,7 @@
  * In production, keys would be generated and hashed securely.
  */
 
-import { ApiKey } from '../../types/apiKey';
+import type { ApiKey } from '../../types/apiKey';
 
 export const mockApiKeys: ApiKey[] = [
   // Downtown Store (market-1) - 2 keys

@@ -7,7 +7,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { PlusIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline';
-import { Tenant, TenantStatus, TenantsResponse } from '../../../types/tenant';
+import type { Tenant, TenantStatus, TenantsResponse } from '../../../types/tenant';
 
 export function TenantsPage() {
   const [searchTerm, setSearchTerm] = useState('');

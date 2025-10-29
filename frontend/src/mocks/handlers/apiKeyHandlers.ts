@@ -7,7 +7,7 @@
 
 import { http, HttpResponse } from 'msw';
 import { mockApiKeys, generateMockApiKey, getLastFourChars, hashApiKey } from '../data/mockApiKeys';
-import { ApiKey, ApiKeyCreationResponse, CreateApiKeyInput } from '../../types/apiKey';
+import type { ApiKey, ApiKeyCreationResponse, CreateApiKeyInput } from '../../types/apiKey';
 import { mockMarkets } from '../data/mockMarkets';
 
 // In-memory storage for API keys (starts with mock data)

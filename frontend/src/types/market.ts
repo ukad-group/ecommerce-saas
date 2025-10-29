@@ -1,4 +1,4 @@
-import { Address } from './address';
+import type { Address } from './address';
 
 export type MarketType = 'physical' | 'online' | 'hybrid';
 export type MarketStatus = 'active' | 'inactive';

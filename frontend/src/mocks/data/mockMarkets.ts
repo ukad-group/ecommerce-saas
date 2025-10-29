@@ -1,4 +1,4 @@
-import { Market } from '../../types/market';
+import type { Market } from '../../types/market';
 
 export const mockMarkets: Market[] = [
   // Tenant A: Demo Retail Group

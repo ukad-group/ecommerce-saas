@@ -7,7 +7,7 @@
 
 import { http, HttpResponse } from 'msw';
 import { MOCK_TENANTS } from '../data/mockTenants';
-import { Tenant, CreateTenantInput, UpdateTenantInput, TenantsResponse } from '../../types/tenant';
+import type { Tenant, CreateTenantInput, UpdateTenantInput, TenantsResponse } from '../../types/tenant';
 
 // In-memory storage for tenants (starts with mock data)
 let tenants = [...MOCK_TENANTS];

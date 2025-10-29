@@ -7,7 +7,7 @@
 
 import { http, HttpResponse } from 'msw';
 import { mockMarkets } from '../data/mockMarkets';
-import { Market, CreateMarketInput, UpdateMarketInput } from '../../types/market';
+import type { Market, CreateMarketInput, UpdateMarketInput } from '../../types/market';
 
 // In-memory storage for markets (starts with mock data)
 let markets = [...mockMarkets];

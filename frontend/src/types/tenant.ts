@@ -3,7 +3,7 @@
  * Defines the structure for tenants (business entities) in the multi-tenant system
  */
 
-import { Address } from './address';
+import type { Address } from './address';
 
 export type TenantStatus = 'active' | 'inactive';
 
