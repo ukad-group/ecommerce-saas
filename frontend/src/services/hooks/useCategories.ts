@@ -14,15 +14,21 @@ import {
   deleteCategory,
 } from '../api/productsApi';
 import type { Category } from '../../types/product';
+import { useAuthStore } from '../../store/authStore';
 
 /**
  * Hook to fetch all categories
+ * Automatically filters by selected tenant and market from auth context
  */
 export function useCategories() {
+  const tenantId = useAuthStore((state) => state.getTenantId());
+  const marketId = useAuthStore((state) => state.getMarketId());
+
   return useQuery({
-    queryKey: ['categories'],
+    queryKey: ['categories', tenantId, marketId],
     queryFn: () => getCategories(),
     staleTime: 60000, // 1 minute
+    enabled: !!tenantId && !!marketId, // Only fetch when both are selected
   });
 }
 

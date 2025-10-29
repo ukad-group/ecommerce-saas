@@ -6,6 +6,8 @@
 
 import { Link } from 'react-router-dom';
 import { UserInfo } from '../auth/UserInfo';
+import { HeaderTenantSelector } from '../auth/HeaderTenantSelector';
+import { HeaderMarketSelector } from '../auth/HeaderMarketSelector';
 import { useAuthStore } from '../../store/authStore';
 import { Role } from '../../types/auth';
 
@@ -16,6 +18,7 @@ export function Navigation() {
   return (
     <nav className="bg-white shadow-sm border-b border-gray-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Main Header Row */}
         <div className="flex justify-between h-16">
           <div className="flex">
             {/* Logo */}
@@ -69,6 +72,17 @@ export function Navigation() {
           <div className="flex items-center">
             <UserInfo />
           </div>
+        </div>
+
+        {/* Context Selectors Row */}
+        <div className="flex items-center gap-3 py-3 border-t border-gray-100">
+          <span className="text-sm font-medium text-gray-700">Context:</span>
+
+          {/* Tenant Selector - Only for Superadmin */}
+          {userRole === Role.SUPERADMIN && <HeaderTenantSelector />}
+
+          {/* Market Selector - For all roles */}
+          <HeaderMarketSelector />
         </div>
       </div>
     </nav>

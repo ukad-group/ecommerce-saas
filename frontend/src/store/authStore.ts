@@ -21,10 +21,13 @@ interface AuthState {
   setSession: (session: UserSession) => void;
   clearSession: () => void;
   logout: () => void;
+  setTenant: (tenantId: string) => void;
+  setMarket: (marketId: string) => void;
 
   // Getters/helpers
   getRole: () => Role | null;
   getTenantId: () => string | null;
+  getMarketId: () => string | null;
   isSuperadmin: () => boolean;
   hasPermission: (permission: Permission) => boolean;
 }
@@ -107,6 +110,38 @@ export const useAuthStore = create<AuthState>()(
       },
 
       /**
+       * Sets the selected tenant for the current session (superadmin only)
+       */
+      setTenant: (tenantId: string) => {
+        const session = get().session;
+        if (!session) return;
+
+        set({
+          session: {
+            ...session,
+            selectedTenantId: tenantId,
+            // Clear market selection when tenant changes
+            selectedMarketIds: null,
+          },
+        });
+      },
+
+      /**
+       * Sets the selected market for the current session
+       */
+      setMarket: (marketId: string) => {
+        const session = get().session;
+        if (!session) return;
+
+        set({
+          session: {
+            ...session,
+            selectedMarketIds: [marketId],
+          },
+        });
+      },
+
+      /**
        * Gets the current user's role
        */
       getRole: () => {
@@ -119,6 +154,15 @@ export const useAuthStore = create<AuthState>()(
        */
       getTenantId: () => {
         return get().session?.selectedTenantId ?? null;
+      },
+
+      /**
+       * Gets the current market ID
+       * Returns first selected market or null
+       */
+      getMarketId: () => {
+        const marketIds = get().session?.selectedMarketIds;
+        return marketIds && marketIds.length > 0 ? marketIds[0] : null;
       },
 
       /**

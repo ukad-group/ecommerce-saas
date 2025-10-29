@@ -6,6 +6,7 @@
  */
 
 import type { ApiError } from '../../types/api';
+import { useAuthStore } from '../../store/authStore';
 
 /**
  * Custom error class for API errors
@@ -33,8 +34,9 @@ export class ApiErrorClass extends Error {
  */
 interface ApiClientConfig {
   baseURL: string;
-  tenantId: string;
   getAuthToken: () => string | null;
+  getTenantId: () => string | null;
+  getMarketId: () => string | null;
 }
 
 /**
@@ -43,18 +45,20 @@ interface ApiClientConfig {
  */
 export class ApiClient {
   private baseURL: string;
-  private tenantId: string;
   private getAuthToken: () => string | null;
+  private getTenantId: () => string | null;
+  private getMarketId: () => string | null;
 
   constructor(config: ApiClientConfig) {
     this.baseURL = config.baseURL;
-    this.tenantId = config.tenantId;
     this.getAuthToken = config.getAuthToken;
+    this.getTenantId = config.getTenantId;
+    this.getMarketId = config.getMarketId;
   }
 
   /**
    * Core request method
-   * Adds authentication and tenant headers to all requests
+   * Adds authentication, tenant, and market headers to all requests
    */
   async request<T>(
     endpoint: string,
@@ -65,8 +69,19 @@ export class ApiClient {
     // Build headers
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
-      'X-Tenant-ID': this.tenantId,
     };
+
+    // Add tenant ID header if available
+    const tenantId = this.getTenantId();
+    if (tenantId) {
+      headers['X-Tenant-ID'] = tenantId;
+    }
+
+    // Add market ID header if available
+    const marketId = this.getMarketId();
+    if (marketId) {
+      headers['X-Market-ID'] = marketId;
+    }
 
     // Add authorization header if token is available
     const token = this.getAuthToken();
@@ -168,13 +183,22 @@ export class ApiClient {
 
 /**
  * Singleton API client instance
- * Configuration from environment variables
+ * Dynamically retrieves tenant/market context from auth store
  */
 export const apiClient = new ApiClient({
   baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api',
-  tenantId: import.meta.env.VITE_TENANT_ID || 'default-tenant',
   getAuthToken: () => {
-    // TODO: Integrate with auth store when implemented
+    // TODO: Integrate with real auth token when backend is ready
     return localStorage.getItem('authToken');
+  },
+  getTenantId: () => {
+    // Get tenant ID from auth store
+    const state = useAuthStore.getState();
+    return state.getTenantId();
+  },
+  getMarketId: () => {
+    // Get market ID from auth store
+    const state = useAuthStore.getState();
+    return state.getMarketId();
   },
 });

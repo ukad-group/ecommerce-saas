@@ -15,15 +15,21 @@ import {
   type AdminOrdersQueryParams,
 } from '../api/adminApi';
 import type { OrderStatus } from '../../types/order';
+import { useAuthStore } from '../../store/authStore';
 
 /**
  * Hook to fetch all orders with optional filtering (admin view)
+ * Automatically filters by selected tenant and market from auth context
  */
 export function useAdminOrders(params?: AdminOrdersQueryParams) {
+  const tenantId = useAuthStore((state) => state.getTenantId());
+  const marketId = useAuthStore((state) => state.getMarketId());
+
   return useQuery({
-    queryKey: ['admin', 'orders', params],
+    queryKey: ['admin', 'orders', tenantId, marketId, params],
     queryFn: () => getAdminOrders(params),
     staleTime: 30000, // 30 seconds
+    enabled: !!tenantId && !!marketId, // Only fetch when both are selected
   });
 }
 

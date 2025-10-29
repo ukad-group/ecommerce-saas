@@ -65,14 +65,6 @@ export function UserInfo() {
           >
             {roleBadge.label}
           </span>
-
-          {/* Tenant Info */}
-          {tenant && (
-            <>
-              <span>|</span>
-              <span>{tenant.displayName}</span>
-            </>
-          )}
         </div>
       </div>
 

@@ -15,15 +15,21 @@ import {
   type ProductsQueryParams,
 } from '../api/productsApi';
 import type { Product } from '../../types/product';
+import { useAuthStore } from '../../store/authStore';
 
 /**
  * Hook to fetch all products with optional filtering
+ * Automatically filters by selected tenant and market from auth context
  */
 export function useProducts(params?: ProductsQueryParams) {
+  const tenantId = useAuthStore((state) => state.getTenantId());
+  const marketId = useAuthStore((state) => state.getMarketId());
+
   return useQuery({
-    queryKey: ['products', params],
+    queryKey: ['products', tenantId, marketId, params],
     queryFn: () => getProducts(params),
     staleTime: 30000, // 30 seconds
+    enabled: !!tenantId && !!marketId, // Only fetch when both are selected
   });
 }
 

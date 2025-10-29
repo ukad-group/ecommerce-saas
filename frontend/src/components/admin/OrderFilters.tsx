@@ -11,12 +11,10 @@ import type { OrderStatus } from '../../types/order';
 
 interface OrderFiltersProps {
   statusFilter: OrderStatus | 'all';
-  marketFilter: string;
   searchQuery: string;
   dateFrom: string;
   dateTo: string;
   onStatusChange: (status: OrderStatus | 'all') => void;
-  onMarketChange: (market: string) => void;
   onSearchChange: (query: string) => void;
   onDateFromChange: (date: string) => void;
   onDateToChange: (date: string) => void;
@@ -24,12 +22,10 @@ interface OrderFiltersProps {
 
 export function OrderFilters({
   statusFilter,
-  marketFilter,
   searchQuery,
   dateFrom,
   dateTo,
   onStatusChange,
-  onMarketChange,
   onSearchChange,
   onDateFromChange,
   onDateToChange,
@@ -46,34 +42,10 @@ export function OrderFilters({
     { value: 'on-hold', label: 'On Hold' },
   ];
 
-  const marketOptions = [
-    { value: 'all', label: 'All Markets' },
-    { value: 'market-1', label: 'Downtown Store' },
-    { value: 'market-2', label: 'Airport Location' },
-    { value: 'market-3', label: 'Online Store' },
-  ];
-
   return (
     <div className="bg-white rounded-lg shadow p-6 space-y-4">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Status Filter */}
-        <Select
-          label="Status"
-          id="status-filter"
-          value={statusFilter}
-          onChange={(e) => onStatusChange(e.target.value as OrderStatus | 'all')}
-          options={statusOptions}
-        />
-
-        {/* Market Filter */}
-        <Select
-          label="Market"
-          id="market-filter"
-          value={marketFilter}
-          onChange={(e) => onMarketChange(e.target.value)}
-          options={marketOptions}
-        />
-
+      {/* First row: Date filters */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Date From */}
         <Input
           label="From Date"
@@ -93,15 +65,27 @@ export function OrderFilters({
         />
       </div>
 
-      {/* Search */}
-      <Input
-        label="Search"
-        id="search"
-        type="text"
-        placeholder="Search by order number..."
-        value={searchQuery}
-        onChange={(e) => onSearchChange(e.target.value)}
-      />
+      {/* Second row: Search and Status */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Search */}
+        <Input
+          label="Search"
+          id="search"
+          type="text"
+          placeholder="Search by order number..."
+          value={searchQuery}
+          onChange={(e) => onSearchChange(e.target.value)}
+        />
+
+        {/* Status Filter */}
+        <Select
+          label="Status"
+          id="status-filter"
+          value={statusFilter}
+          onChange={(e) => onStatusChange(e.target.value as OrderStatus | 'all')}
+          options={statusOptions}
+        />
+      </div>
     </div>
   );
 }
