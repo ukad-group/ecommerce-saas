@@ -8,6 +8,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { PlusIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline';
 import type { Tenant, TenantStatus, TenantsResponse } from '../../../types/tenant';
+import { apiClient } from '../../../services/api/client';
 
 export function TenantsPage() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -27,24 +28,14 @@ export function TenantsPage() {
       if (searchTerm) params.append('search', searchTerm);
       if (statusFilter !== 'all') params.append('status', statusFilter);
 
-      const response = await fetch(`/api/v1/tenants?${params}`);
-      if (!response.ok) {
-        throw new Error('Failed to fetch tenants');
-      }
-      return response.json();
+      return apiClient.get<TenantsResponse>(`/admin/tenants?${params}`);
     },
   });
 
   // Deactivate tenant mutation
   const deactivateMutation = useMutation({
     mutationFn: async (tenantId: string) => {
-      const response = await fetch(`/api/v1/tenants/${tenantId}`, {
-        method: 'DELETE',
-      });
-      if (!response.ok) {
-        throw new Error('Failed to deactivate tenant');
-      }
-      return response.json();
+      return apiClient.delete(`/admin/tenants/${tenantId}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tenants'] });
@@ -54,13 +45,7 @@ export function TenantsPage() {
   // Reactivate tenant mutation
   const reactivateMutation = useMutation({
     mutationFn: async (tenantId: string) => {
-      const response = await fetch(`/api/v1/tenants/${tenantId}/reactivate`, {
-        method: 'POST',
-      });
-      if (!response.ok) {
-        throw new Error('Failed to reactivate tenant');
-      }
-      return response.json();
+      return apiClient.post(`/admin/tenants/${tenantId}/reactivate`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tenants'] });

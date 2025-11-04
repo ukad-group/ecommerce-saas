@@ -14,7 +14,11 @@
       "Bash(test:*)",
       "Bash(git commit:*)",
       "Bash(node:*)",
-      "SlashCommand(/speckit.tasks)"
+      "SlashCommand(/speckit.tasks)",
+      "Bash(dotnet sln add:*)",
+      "Bash(dotnet restore)",
+      "Bash(dotnet build)",
+      "Bash(dotnet run)"
     ],
     "deny": [],
     "ask": []

@@ -1,0 +1,147 @@
+@model ECommShowcase.Web.Models.ViewModels.ProductDetailViewModel
+@{
+    ViewData["Title"] = Model.Product.Name;
+}
+
+<div class="container my-4">
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a asp-controller="Home" asp-action="Index">Home</a></li>
+            <li class="breadcrumb-item"><a asp-controller="Products" asp-action="Index">Products</a></li>
+            @if (Model.Category != null)
+            {
+                <li class="breadcrumb-item">
+                    <a asp-controller="Products" asp-action="Index" asp-route-categoryId="@Model.Category.Id">
+                        @Model.Category.Name
+                    </a>
+                </li>
+            }
+            <li class="breadcrumb-item active" aria-current="page">@Model.Product.Name</li>
+        </ol>
+    </nav>
+
+    <div class="row">
+        <!-- Product Image -->
+        <div class="col-md-6">
+            <div class="card">
+                <img src="@(Model.Product.ImageUrl ?? "https://via.placeholder.com/600x400/6c757d/ffffff?text=" + Uri.EscapeDataString(Model.Product.Name))"
+                     class="card-img-top" alt="@Model.Product.Name" style="max-height: 500px; object-fit: contain;">
+            </div>
+        </div>
+
+        <!-- Product Details -->
+        <div class="col-md-6">
+            <h1 class="display-5 fw-bold">@Model.Product.Name</h1>
+
+            @if (Model.Category != null)
+            {
+                <p class="text-muted">
+                    <i class="bi bi-tag"></i>
+                    <a asp-controller="Products" asp-action="Index" asp-route-categoryId="@Model.Category.Id">
+                        @Model.Category.Name
+                    </a>
+                </p>
+            }
+
+            <div class="my-3">
+                <span class="display-6 text-primary fw-bold">@Model.CurrencySymbol@Model.Product.Price.ToString("N2")</span>
+            </div>
+
+            <!-- Stock Status -->
+            <div class="mb-3">
+                @if (Model.IsInStock)
+                {
+                    <span class="badge bg-success fs-6">
+                        <i class="bi bi-check-circle"></i> In Stock (@Model.Product.StockQuantity available)
+                    </span>
+                }
+                else
+                {
+                    <span class="badge bg-danger fs-6">
+                        <i class="bi bi-x-circle"></i> Out of Stock
+                    </span>
+                }
+            </div>
+
+            <!-- Description -->
+            @if (!string.IsNullOrEmpty(Model.Product.Description))
+            {
+                <div class="mb-4">
+                    <h5>Description</h5>
+                    <p class="lead">@Model.Product.Description</p>
+                </div>
+            }
+
+            <!-- Product Info -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h5 class="card-title">Product Information</h5>
+                    <ul class="list-unstyled mb-0">
+                        <li><strong>SKU:</strong> @Model.Product.Sku</li>
+                        <li><strong>Status:</strong> <span class="badge bg-info">@Model.Product.Status</span></li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Add to Cart -->
+            @if (Model.IsInStock)
+            {
+                <form asp-controller="Cart" asp-action="AddItem" method="post">
+                    <input type="hidden" name="productId" value="@Model.Product.Id" />
+                    <div class="input-group mb-3">
+                        <span class="input-group-text">Quantity</span>
+                        <input type="number" name="quantity" class="form-control" value="1" min="1" max="@Model.Product.StockQuantity" style="max-width: 100px;">
+                        <button type="submit" class="btn btn-primary btn-lg flex-grow-1">
+                            <i class="bi bi-cart-plus"></i> Add to Cart
+                        </button>
+                    </div>
+                </form>
+            }
+            else
+            {
+                <button class="btn btn-secondary btn-lg w-100" disabled>
+                    <i class="bi bi-x-circle"></i> Out of Stock
+                </button>
+            }
+
+            <!-- Additional Actions -->
+            <div class="d-grid gap-2 mt-3">
+                <a asp-controller="Products" asp-action="Index" class="btn btn-outline-secondary">
+                    <i class="bi bi-arrow-left"></i> Back to Products
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Features -->
+    <div class="row mt-5">
+        <div class="col-md-4">
+            <div class="card text-center h-100">
+                <div class="card-body">
+                    <i class="bi bi-truck fs-1 text-primary"></i>
+                    <h5 class="card-title mt-3">Free Shipping</h5>
+                    <p class="card-text text-muted">On orders over $50</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card text-center h-100">
+                <div class="card-body">
+                    <i class="bi bi-shield-check fs-1 text-primary"></i>
+                    <h5 class="card-title mt-3">Secure Payment</h5>
+                    <p class="card-text text-muted">100% secure transactions</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card text-center h-100">
+                <div class="card-body">
+                    <i class="bi bi-arrow-clockwise fs-1 text-primary"></i>
+                    <h5 class="card-title mt-3">Easy Returns</h5>
+                    <p class="card-text text-muted">30-day return policy</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

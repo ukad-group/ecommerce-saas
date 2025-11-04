@@ -1,0 +1,172 @@
+@model ECommShowcase.Web.Models.ViewModels.CheckoutViewModel
+@{
+    ViewData["Title"] = "Checkout";
+}
+
+<div class="container my-4">
+    <h2 class="mb-4">
+        <i class="bi bi-credit-card"></i> Checkout
+    </h2>
+
+    <div class="row">
+        <!-- Checkout Form -->
+        <div class="col-lg-8">
+            <form asp-controller="Checkout" asp-action="Complete" method="post">
+                @Html.AntiForgeryToken()
+
+                <!-- Customer Information -->
+                <div class="card mb-4">
+                    <div class="card-header bg-light">
+                        <h5 class="mb-0"><i class="bi bi-person"></i> Customer Information</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-12 mb-3">
+                                <label asp-for="FullName" class="form-label">Full Name *</label>
+                                <input asp-for="FullName" class="form-control" placeholder="John Doe" />
+                                <span asp-validation-for="FullName" class="text-danger"></span>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-8 mb-3">
+                                <label asp-for="Email" class="form-label">Email Address *</label>
+                                <input asp-for="Email" type="email" class="form-control" placeholder="john.doe@example.com" />
+                                <span asp-validation-for="Email" class="text-danger"></span>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label asp-for="Phone" class="form-label">Phone Number</label>
+                                <input asp-for="Phone" type="tel" class="form-control" placeholder="(555) 123-4567" />
+                                <span asp-validation-for="Phone" class="text-danger"></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Shipping Address -->
+                <div class="card mb-4">
+                    <div class="card-header bg-light">
+                        <h5 class="mb-0"><i class="bi bi-geo-alt"></i> Shipping Address</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label asp-for="Street" class="form-label">Street Address *</label>
+                            <input asp-for="Street" class="form-control" placeholder="123 Main St" />
+                            <span asp-validation-for="Street" class="text-danger"></span>
+                        </div>
+                        <div class="mb-3">
+                            <label asp-for="Street2" class="form-label">Apartment, suite, etc. (optional)</label>
+                            <input asp-for="Street2" class="form-control" placeholder="Apt 4B" />
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label asp-for="City" class="form-label">City *</label>
+                                <input asp-for="City" class="form-control" placeholder="New York" />
+                                <span asp-validation-for="City" class="text-danger"></span>
+                            </div>
+                            <div class="col-md-3 mb-3">
+                                <label asp-for="State" class="form-label">State *</label>
+                                <input asp-for="State" class="form-control" placeholder="NY" />
+                                <span asp-validation-for="State" class="text-danger"></span>
+                            </div>
+                            <div class="col-md-3 mb-3">
+                                <label asp-for="PostalCode" class="form-label">Postal Code *</label>
+                                <input asp-for="PostalCode" class="form-control" placeholder="10001" />
+                                <span asp-validation-for="PostalCode" class="text-danger"></span>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label asp-for="Country" class="form-label">Country *</label>
+                            <select asp-for="Country" class="form-select">
+                                <option value="USA" selected>United States</option>
+                                <option value="Canada">Canada</option>
+                                <option value="UK">United Kingdom</option>
+                                <option value="Other">Other</option>
+                            </select>
+                            <span asp-validation-for="Country" class="text-danger"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Payment Information (Fake) -->
+                <div class="card mb-4">
+                    <div class="card-header bg-light">
+                        <h5 class="mb-0"><i class="bi bi-credit-card"></i> Payment Information</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="alert alert-info mb-0">
+                            <i class="bi bi-info-circle"></i>
+                            <strong>Demo Mode:</strong> This is a fake payment system. Click "Place Order" to simulate a successful payment.
+                            No actual payment will be processed.
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="d-flex justify-content-between">
+                    <a asp-controller="Cart" asp-action="Index" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-left"></i> Back to Cart
+                    </a>
+                    <button type="submit" class="btn btn-primary btn-lg">
+                        <i class="bi bi-check-circle"></i> Place Order
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Order Summary -->
+        <div class="col-lg-4">
+            <div class="card sticky-top" style="top: 20px;">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">Order Summary</h5>
+                </div>
+                <div class="card-body">
+                    <!-- Cart Items -->
+                    <div class="mb-3">
+                        @foreach (var item in Model.Cart.Items)
+                        {
+                            <div class="d-flex justify-content-between mb-2">
+                                <span class="text-muted">
+                                    @item.ProductName <small>x @item.Quantity</small>
+                                </span>
+                                <span>@Model.CurrencySymbol@item.Subtotal.ToString("N2")</span>
+                            </div>
+                        }
+                    </div>
+
+                    <hr>
+
+                    <!-- Totals -->
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>Subtotal:</span>
+                        <strong>@Model.CurrencySymbol@Model.Cart.Subtotal.ToString("N2")</strong>
+                    </div>
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>Tax:</span>
+                        <strong>@Model.CurrencySymbol@Model.Cart.Tax.ToString("N2")</strong>
+                    </div>
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>Shipping:</span>
+                        <strong class="text-success">FREE</strong>
+                    </div>
+
+                    <hr>
+
+                    <div class="d-flex justify-content-between mb-3">
+                        <span class="h5">Total:</span>
+                        <span class="h5 text-primary">@Model.CurrencySymbol@Model.Cart.Total.ToString("N2")</span>
+                    </div>
+
+                    <div class="text-muted small">
+                        <i class="bi bi-shield-check"></i> Secure Checkout<br>
+                        <i class="bi bi-truck"></i> Free shipping<br>
+                        <i class="bi bi-arrow-clockwise"></i> 30-day return policy
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

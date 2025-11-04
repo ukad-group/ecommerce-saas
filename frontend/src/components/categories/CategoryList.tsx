@@ -16,9 +16,15 @@ interface CategoryListProps {
 
 export function CategoryList({ categories, onDelete }: CategoryListProps) {
   // Build category tree
-  const buildTree = (parentId?: string): Category[] => {
+  const buildTree = (parentId?: string | null): Category[] => {
     return categories
-      .filter((cat) => cat.parentId === parentId)
+      .filter((cat) => {
+        // Match null and undefined as the same (root level)
+        if (parentId === undefined || parentId === null) {
+          return cat.parentId === null || cat.parentId === undefined;
+        }
+        return cat.parentId === parentId;
+      })
       .sort((a, b) => a.name.localeCompare(b.name));
   };
 

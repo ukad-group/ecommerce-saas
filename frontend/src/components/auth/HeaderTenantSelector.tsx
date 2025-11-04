@@ -5,7 +5,7 @@
  * Shows tenant display name and allows quick tenant switching
  */
 
-import { Fragment } from 'react';
+import { Fragment, useEffect } from 'react';
 import { Menu, Transition } from '@headlessui/react';
 import { ChevronDownIcon, BuildingOfficeIcon } from '@heroicons/react/20/solid';
 import { useAuthStore } from '../../store/authStore';
@@ -22,6 +22,13 @@ export function HeaderTenantSelector() {
   const tenants = getActiveTenants();
   const currentTenantId = session?.selectedTenantId;
   const currentTenant = tenants.find((t) => t.id === currentTenantId);
+
+  // Auto-select first tenant if none is selected
+  useEffect(() => {
+    if (!currentTenantId && tenants.length > 0) {
+      setTenant(tenants[0].id);
+    }
+  }, [currentTenantId, tenants, setTenant]);
 
   const handleTenantChange = (tenantId: string) => {
     setTenant(tenantId);

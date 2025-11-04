@@ -1,0 +1,130 @@
+@model ECommShowcase.Web.Models.ViewModels.CartViewModel
+@{
+    ViewData["Title"] = "Shopping Cart";
+}
+
+<div class="container my-4">
+    <h2 class="mb-4">
+        <i class="bi bi-cart3"></i> Shopping Cart
+    </h2>
+
+    @if (Model.IsEmpty)
+    {
+        <div class="alert alert-info">
+            <i class="bi bi-info-circle"></i> Your cart is empty.
+            <a asp-controller="Products" asp-action="Index" class="alert-link">Continue shopping</a>
+        </div>
+    }
+    else
+    {
+        <div class="row">
+            <!-- Cart Items -->
+            <div class="col-lg-8">
+                <div class="card mb-4">
+                    <div class="card-header bg-light">
+                        <h5 class="mb-0">Cart Items (@Model.TotalItems items)</h5>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-hover mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Product</th>
+                                        <th>Price</th>
+                                        <th>Quantity</th>
+                                        <th>Subtotal</th>
+                                        <th></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var item in Model.Cart.Items)
+                                    {
+                                        <tr>
+                                            <td>
+                                                <div class="d-flex align-items-center">
+                                                    <img src="@(item.ProductImageUrl ?? "https://via.placeholder.com/80x80/6c757d/ffffff?text=Product")"
+                                                         alt="@item.ProductName" class="img-thumbnail me-3" style="width: 80px; height: 80px; object-fit: cover;">
+                                                    <div>
+                                                        <a asp-controller="Products" asp-action="Details" asp-route-id="@item.ProductId" class="text-decoration-none">
+                                                            <strong>@item.ProductName</strong>
+                                                        </a>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td class="align-middle">
+                                                @Model.CurrencySymbol@item.UnitPrice.ToString("N2")
+                                            </td>
+                                            <td class="align-middle">
+                                                <form asp-controller="Cart" asp-action="UpdateItem" method="post" class="d-inline">
+                                                    <input type="hidden" name="itemId" value="@item.Id" />
+                                                    <div class="input-group" style="max-width: 150px;">
+                                                        <input type="number" name="quantity" class="form-control form-control-sm" value="@item.Quantity" min="1" max="99">
+                                                        <button type="submit" class="btn btn-sm btn-outline-secondary">
+                                                            <i class="bi bi-arrow-repeat"></i>
+                                                        </button>
+                                                    </div>
+                                                </form>
+                                            </td>
+                                            <td class="align-middle">
+                                                <strong>@Model.CurrencySymbol@item.Subtotal.ToString("N2")</strong>
+                                            </td>
+                                            <td class="align-middle">
+                                                <form asp-controller="Cart" asp-action="RemoveItem" method="post" class="d-inline">
+                                                    <input type="hidden" name="itemId" value="@item.Id" />
+                                                    <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Remove this item from cart?');">
+                                                        <i class="bi bi-trash"></i>
+                                                    </button>
+                                                </form>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Continue Shopping -->
+                <a asp-controller="Products" asp-action="Index" class="btn btn-outline-secondary">
+                    <i class="bi bi-arrow-left"></i> Continue Shopping
+                </a>
+            </div>
+
+            <!-- Order Summary -->
+            <div class="col-lg-4">
+                <div class="card">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0">Order Summary</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between mb-2">
+                            <span>Subtotal:</span>
+                            <strong>@Model.CurrencySymbol@Model.Cart.Subtotal.ToString("N2")</strong>
+                        </div>
+                        <div class="d-flex justify-content-between mb-2">
+                            <span>Tax:</span>
+                            <strong>@Model.CurrencySymbol@Model.Cart.Tax.ToString("N2")</strong>
+                        </div>
+                        <hr>
+                        <div class="d-flex justify-content-between mb-3">
+                            <span class="h5">Total:</span>
+                            <span class="h5 text-primary">@Model.CurrencySymbol@Model.Cart.Total.ToString("N2")</span>
+                        </div>
+
+                        <div class="d-grid gap-2">
+                            <a asp-controller="Checkout" asp-action="Index" class="btn btn-primary btn-lg">
+                                <i class="bi bi-credit-card"></i> Proceed to Checkout
+                            </a>
+                        </div>
+
+                        <div class="mt-3 text-muted small">
+                            <i class="bi bi-shield-check"></i> Secure Checkout<br>
+                            <i class="bi bi-truck"></i> Free shipping on orders over $50<br>
+                            <i class="bi bi-arrow-clockwise"></i> 30-day return policy
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>

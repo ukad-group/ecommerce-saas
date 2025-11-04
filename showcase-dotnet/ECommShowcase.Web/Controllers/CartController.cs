@@ -1,0 +1,146 @@
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
+using ECommShowcase.Web.Models.Configuration;
+using ECommShowcase.Web.Models.DTOs;
+using ECommShowcase.Web.Models.ViewModels;
+using ECommShowcase.Web.Services;
+
+namespace ECommShowcase.Web.Controllers;
+
+public class CartController : Controller
+{
+    private readonly ILogger<CartController> _logger;
+    private readonly IECommApiClient _apiClient;
+    private readonly ShowcaseSettings _settings;
+
+    public CartController(
+        ILogger<CartController> logger,
+        IECommApiClient apiClient,
+        IOptions<ShowcaseSettings> settings)
+    {
+        _logger = logger;
+        _apiClient = apiClient;
+        _settings = settings.Value;
+    }
+
+    // GET: /Cart
+    public async Task<IActionResult> Index()
+    {
+        try
+        {
+            var sessionId = GetOrCreateSessionId();
+            var cart = await _apiClient.GetCartAsync(sessionId);
+
+            var viewModel = new CartViewModel
+            {
+                Cart = cart ?? new CartDto(),
+                CurrencySymbol = _settings.CurrencySymbol
+            };
+
+            return View(viewModel);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error loading cart");
+            return View(new CartViewModel
+            {
+                CurrencySymbol = _settings.CurrencySymbol
+            });
+        }
+    }
+
+    // POST: /Cart/AddItem
+    [HttpPost]
+    public async Task<IActionResult> AddItem(string productId, int quantity = 1)
+    {
+        try
+        {
+            var sessionId = GetOrCreateSessionId();
+            var request = new AddCartItemRequest
+            {
+                ProductId = productId,
+                Quantity = quantity
+            };
+
+            await _apiClient.AddCartItemAsync(sessionId, request);
+
+            TempData["SuccessMessage"] = "Item added to cart";
+            return RedirectToAction(nameof(Index));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error adding item to cart");
+            TempData["ErrorMessage"] = "Failed to add item to cart";
+            return RedirectToAction("Details", "Products", new { id = productId });
+        }
+    }
+
+    // POST: /Cart/UpdateItem
+    [HttpPost]
+    public async Task<IActionResult> UpdateItem(string itemId, int quantity)
+    {
+        try
+        {
+            var sessionId = GetOrCreateSessionId();
+            await _apiClient.UpdateCartItemAsync(sessionId, itemId, quantity);
+
+            return RedirectToAction(nameof(Index));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error updating cart item");
+            TempData["ErrorMessage"] = "Failed to update item";
+            return RedirectToAction(nameof(Index));
+        }
+    }
+
+    // POST: /Cart/RemoveItem
+    [HttpPost]
+    public async Task<IActionResult> RemoveItem(string itemId)
+    {
+        try
+        {
+            var sessionId = GetOrCreateSessionId();
+            await _apiClient.DeleteCartItemAsync(sessionId, itemId);
+
+            TempData["SuccessMessage"] = "Item removed from cart";
+            return RedirectToAction(nameof(Index));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error removing cart item");
+            TempData["ErrorMessage"] = "Failed to remove item";
+            return RedirectToAction(nameof(Index));
+        }
+    }
+
+    // GET: /Cart/Count (for AJAX)
+    [HttpGet]
+    public async Task<IActionResult> Count()
+    {
+        try
+        {
+            var sessionId = GetOrCreateSessionId();
+            var cart = await _apiClient.GetCartAsync(sessionId);
+            var count = cart?.Items.Sum(i => i.Quantity) ?? 0;
+
+            return Json(new { count });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting cart count");
+            return Json(new { count = 0 });
+        }
+    }
+
+    private string GetOrCreateSessionId()
+    {
+        var sessionId = HttpContext.Session.GetString("CartSessionId");
+        if (string.IsNullOrEmpty(sessionId))
+        {
+            sessionId = Guid.NewGuid().ToString();
+            HttpContext.Session.SetString("CartSessionId", sessionId);
+        }
+        return sessionId;
+    }
+}

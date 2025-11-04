@@ -5,7 +5,7 @@
  * Shows market name and allows quick market switching within their tenant
  */
 
-import { Fragment } from 'react';
+import { Fragment, useEffect } from 'react';
 import { Menu, Transition } from '@headlessui/react';
 import { ChevronDownIcon, MapPinIcon } from '@heroicons/react/20/solid';
 import { useAuthStore } from '../../store/authStore';
@@ -34,6 +34,13 @@ export function HeaderMarketSelector() {
   const markets = getMarketsByTenant(tenantId);
   const currentMarketId = session?.selectedMarketIds?.[0];
   const currentMarket = markets.find((m) => m.id === currentMarketId);
+
+  // Auto-select first market if none is selected
+  useEffect(() => {
+    if (tenantId && !currentMarketId && markets.length > 0) {
+      setMarket(markets[0].id);
+    }
+  }, [tenantId, currentMarketId, markets, setMarket]);
 
   const handleMarketChange = (marketId: string) => {
     setMarket(marketId);
