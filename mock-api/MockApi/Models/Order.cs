@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace MockApi.Models;
 
 public class Order
@@ -14,7 +16,10 @@ public class Order
     public CustomerInfo Customer { get; set; } = new();
     public Address ShippingAddress { get; set; } = new();
     public Address? BillingAddress { get; set; }
+
+    [JsonPropertyName("lineItems")]
     public List<OrderItem> Items { get; set; } = new();
+
     public string? TrackingNumber { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
