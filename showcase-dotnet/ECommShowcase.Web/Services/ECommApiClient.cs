@@ -47,7 +47,7 @@ public class ECommApiClient : IECommApiClient
                 queryParams.Add($"search={Uri.EscapeDataString(search)}");
 
             var query = string.Join("&", queryParams);
-            var response = await _httpClient.GetFromJsonAsync<ProductListResponse>($"/products?{query}");
+            var response = await _httpClient.GetFromJsonAsync<ProductListResponse>($"products?{query}");
 
             return response ?? new ProductListResponse();
         }
@@ -62,7 +62,7 @@ public class ECommApiClient : IECommApiClient
     {
         try
         {
-            return await _httpClient.GetFromJsonAsync<ProductDto>($"/products/{productId}");
+            return await _httpClient.GetFromJsonAsync<ProductDto>($"products/{productId}");
         }
         catch (Exception ex)
         {
@@ -76,7 +76,7 @@ public class ECommApiClient : IECommApiClient
     {
         try
         {
-            var response = await _httpClient.GetFromJsonAsync<CategoryListResponse>("/categories");
+            var response = await _httpClient.GetFromJsonAsync<CategoryListResponse>("categories");
             return response?.Data ?? new List<CategoryDto>();
         }
         catch (Exception ex)
@@ -90,7 +90,7 @@ public class ECommApiClient : IECommApiClient
     {
         try
         {
-            return await _httpClient.GetFromJsonAsync<CategoryDto>($"/categories/{categoryId}");
+            return await _httpClient.GetFromJsonAsync<CategoryDto>($"categories/{categoryId}");
         }
         catch (Exception ex)
         {
@@ -107,7 +107,7 @@ public class ECommApiClient : IECommApiClient
             _httpClient.DefaultRequestHeaders.Remove("X-Session-ID");
             _httpClient.DefaultRequestHeaders.Add("X-Session-ID", sessionId);
 
-            return await _httpClient.GetFromJsonAsync<CartDto>("/cart");
+            return await _httpClient.GetFromJsonAsync<CartDto>("cart");
         }
         catch (Exception ex)
         {
@@ -123,7 +123,7 @@ public class ECommApiClient : IECommApiClient
             _httpClient.DefaultRequestHeaders.Remove("X-Session-ID");
             _httpClient.DefaultRequestHeaders.Add("X-Session-ID", sessionId);
 
-            var response = await _httpClient.PostAsJsonAsync("/cart/items", request);
+            var response = await _httpClient.PostAsJsonAsync("cart/items", request);
             response.EnsureSuccessStatusCode();
 
             var item = await response.Content.ReadFromJsonAsync<CartItemDto>();
@@ -144,7 +144,7 @@ public class ECommApiClient : IECommApiClient
             _httpClient.DefaultRequestHeaders.Add("X-Session-ID", sessionId);
 
             var request = new UpdateCartItemRequest { Quantity = quantity };
-            var response = await _httpClient.PutAsJsonAsync($"/cart/items/{itemId}", request);
+            var response = await _httpClient.PutAsJsonAsync($"cart/items/{itemId}", request);
             response.EnsureSuccessStatusCode();
 
             var item = await response.Content.ReadFromJsonAsync<CartItemDto>();
@@ -164,7 +164,7 @@ public class ECommApiClient : IECommApiClient
             _httpClient.DefaultRequestHeaders.Remove("X-Session-ID");
             _httpClient.DefaultRequestHeaders.Add("X-Session-ID", sessionId);
 
-            var response = await _httpClient.DeleteAsync($"/cart/items/{itemId}");
+            var response = await _httpClient.DeleteAsync($"cart/items/{itemId}");
             response.EnsureSuccessStatusCode();
         }
         catch (Exception ex)
@@ -179,7 +179,7 @@ public class ECommApiClient : IECommApiClient
     {
         try
         {
-            var response = await _httpClient.PostAsJsonAsync("/orders", request);
+            var response = await _httpClient.PostAsJsonAsync("orders", request);
             response.EnsureSuccessStatusCode();
 
             var order = await response.Content.ReadFromJsonAsync<OrderDto>();
@@ -202,7 +202,7 @@ public class ECommApiClient : IECommApiClient
                 Notes = notes
             };
 
-            var response = await _httpClient.PutAsJsonAsync($"/orders/{orderId}/status", request);
+            var response = await _httpClient.PutAsJsonAsync($"orders/{orderId}/status", request);
             response.EnsureSuccessStatusCode();
 
             var order = await response.Content.ReadFromJsonAsync<OrderDto>();
@@ -219,7 +219,7 @@ public class ECommApiClient : IECommApiClient
     {
         try
         {
-            return await _httpClient.GetFromJsonAsync<OrderDto>($"/orders/{orderId}");
+            return await _httpClient.GetFromJsonAsync<OrderDto>($"orders/{orderId}");
         }
         catch (Exception ex)
         {
