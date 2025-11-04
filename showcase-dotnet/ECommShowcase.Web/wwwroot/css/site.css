@@ -19,9 +19,18 @@ main {
   flex: 1;
 }
 
+/* UKAD Color Palette */
+:root {
+  --ukad-navy: #304477;        /* Primary brand color */
+  --ukad-navy-dark: #253659;   /* Darker shade for hover */
+  --ukad-navy-darker: #1e2a47; /* Darkest shade */
+  --ukad-blue: #4a6ba8;        /* Accent color - brighter blue */
+  --ukad-blue-light: rgba(74, 107, 168, 0.25); /* Light accent for shadows */
+}
+
 /* Custom focus styles */
 .btn:focus, .btn:active:focus, .btn-link.nav-link:focus, .form-control:focus, .form-check-input:focus {
-  box-shadow: 0 0 0 0.1rem white, 0 0 0 0.25rem #258cfb;
+  box-shadow: 0 0 0 0.1rem white, 0 0 0 0.25rem var(--ukad-blue);
 }
 
 /* Card hover effects */
@@ -46,6 +55,85 @@ main {
 /* Navigation */
 .navbar-brand {
   font-size: 1.5rem;
+}
+
+/* UKAD Group branding */
+.navbar.bg-primary {
+  background-color: var(--ukad-navy) !important;
+}
+
+.btn-primary {
+  background-color: var(--ukad-blue);
+  border-color: var(--ukad-blue);
+}
+
+.btn-primary:hover,
+.btn-primary:focus {
+  background-color: var(--ukad-navy);
+  border-color: var(--ukad-navy-dark);
+}
+
+.btn-outline-primary {
+  color: var(--ukad-blue);
+  border-color: var(--ukad-blue);
+}
+
+.btn-outline-primary:hover,
+.btn-outline-primary:focus {
+  background-color: var(--ukad-blue);
+  border-color: var(--ukad-blue);
+  color: #fff;
+}
+
+.text-primary {
+  color: var(--ukad-blue) !important;
+}
+
+.bg-primary {
+  background-color: var(--ukad-navy) !important;
+}
+
+.badge.bg-danger {
+  background-color: #dc3545 !important;
+}
+
+/* Links */
+a {
+  color: var(--ukad-blue);
+  text-decoration: none;
+}
+
+a:hover {
+  color: var(--ukad-navy);
+  text-decoration: underline;
+}
+
+/* List Group Active Items (Category Filters) */
+.list-group-item.active {
+  background-color: var(--ukad-blue);
+  border-color: var(--ukad-blue);
+  color: #fff;
+}
+
+.list-group-item-action:hover {
+  background-color: rgba(74, 107, 168, 0.1);
+}
+
+/* Pagination Active Items */
+.pagination .page-item.active .page-link {
+  background-color: var(--ukad-blue);
+  border-color: var(--ukad-blue);
+  color: #fff;
+}
+
+.pagination .page-link {
+  color: var(--ukad-blue);
+}
+
+.pagination .page-link:hover {
+  color: var(--ukad-navy);
+  background-color: rgba(74, 107, 168, 0.1);
+  border-color: #dee2e6;
 }
 
 /* Cart badge animation */
@@ -94,13 +182,33 @@ img {
 /* Form improvements */
 .form-control:focus,
 .form-select:focus {
-  border-color: #0d6efd;
-  box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+  border-color: var(--ukad-blue);
+  box-shadow: 0 0 0 0.25rem var(--ukad-blue-light);
 }
 
 /* Alert improvements */
 .alert {
   border-radius: 0.5rem;
+}
+
+.alert-info {
+  background-color: rgba(74, 107, 168, 0.1);
+  border-color: var(--ukad-blue);
+  color: var(--ukad-navy);
+}
+
+.alert-info .alert-link {
+  color: var(--ukad-navy);
+  font-weight: 600;
+}
+
+/* Badges */
+.badge.bg-info {
+  background-color: var(--ukad-blue) !important;
+}
+
+.badge.bg-success {
+  background-color: #198754 !important;
 }
 
 /* Category cards */

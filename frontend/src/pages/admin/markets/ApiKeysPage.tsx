@@ -31,7 +31,7 @@ export function ApiKeysPage() {
   const { data: market } = useQuery<Market>({
     queryKey: ['market', marketId],
     queryFn: async () => {
-      const response = await fetch(`/api/v1/markets/${marketId}`);
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/admin/markets/${marketId}`);
       if (!response.ok) {
         throw new Error('Failed to fetch market');
       }
@@ -44,7 +44,7 @@ export function ApiKeysPage() {
   const { data: apiKeys, isLoading, error } = useQuery<ApiKeyListItem[]>({
     queryKey: ['apiKeys', marketId],
     queryFn: async () => {
-      const response = await fetch(`/api/v1/markets/${marketId}/api-keys`);
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/markets/${marketId}/api-keys`);
       if (!response.ok) {
         throw new Error('Failed to fetch API keys');
       }
@@ -56,7 +56,7 @@ export function ApiKeysPage() {
   // Generate new API key mutation
   const generateKeyMutation = useMutation({
     mutationFn: async (input: CreateApiKeyInput) => {
-      const response = await fetch(`/api/v1/markets/${marketId}/api-keys`, {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/markets/${marketId}/api-keys`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -80,7 +80,7 @@ export function ApiKeysPage() {
   // Revoke API key mutation
   const revokeKeyMutation = useMutation({
     mutationFn: async (keyId: string) => {
-      const response = await fetch(`/api/v1/markets/${marketId}/api-keys/${keyId}`, {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/markets/${marketId}/api-keys/${keyId}`, {
         method: 'DELETE',
       });
       if (!response.ok) {

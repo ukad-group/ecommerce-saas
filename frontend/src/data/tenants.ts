@@ -10,6 +10,7 @@ export interface TenantRef {
   name: string;
   displayName: string;
   contactEmail: string;
+  status: 'active' | 'inactive';
 }
 
 export interface MarketRef {
@@ -26,18 +27,21 @@ const tenants: TenantRef[] = [
     name: 'demo-retail-group',
     displayName: 'Demo Retail Group',
     contactEmail: 'admin@demoretail.com',
+    status: 'active',
   },
   {
     id: 'tenant-b',
     name: 'test-retail-chain',
     displayName: 'Test Retail Chain',
     contactEmail: 'contact@testretail.com',
+    status: 'active',
   },
   {
     id: 'tenant-c',
     name: 'sample-corp',
     displayName: 'Sample Corp',
     contactEmail: 'info@samplecorp.com',
+    status: 'active',
   },
 ];
 

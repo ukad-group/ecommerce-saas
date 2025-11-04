@@ -25,7 +25,7 @@
         <!-- Product Image -->
         <div class="col-md-6">
             <div class="card">
-                <img src="@(Model.Product.ImageUrl ?? "https://via.placeholder.com/600x400/6c757d/ffffff?text=" + Uri.EscapeDataString(Model.Product.Name))"
+                <img src="@(Model.Product.ImageUrl ?? "https://dummyimage.com/600x400/6c757d/ffffff&text=" + Uri.EscapeDataString(Model.Product.Name))"
                      class="card-img-top" alt="@Model.Product.Name" style="max-height: 500px; object-fit: contain;">
             </div>
         </div>

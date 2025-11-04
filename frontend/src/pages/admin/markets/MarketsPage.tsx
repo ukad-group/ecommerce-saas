@@ -48,7 +48,7 @@ export function MarketsPage() {
       if (statusFilter !== 'all') params.append('status', statusFilter);
       if (typeFilter !== 'all') params.append('type', typeFilter);
 
-      const response = await fetch(`/api/v1/markets?${params}`);
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/admin/markets?${params}`);
       if (!response.ok) {
         throw new Error('Failed to fetch markets');
       }
@@ -59,7 +59,7 @@ export function MarketsPage() {
   // Deactivate market mutation
   const deactivateMutation = useMutation({
     mutationFn: async (marketId: string) => {
-      const response = await fetch(`/api/v1/markets/${marketId}`, {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/admin/markets/${marketId}`, {
         method: 'DELETE',
       });
       if (!response.ok) {
@@ -75,7 +75,7 @@ export function MarketsPage() {
   // Reactivate market mutation
   const reactivateMutation = useMutation({
     mutationFn: async (marketId: string) => {
-      const response = await fetch(`/api/v1/markets/${marketId}/reactivate`, {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/admin/markets/${marketId}/reactivate`, {
         method: 'POST',
       });
       if (!response.ok) {

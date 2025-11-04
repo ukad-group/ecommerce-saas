@@ -5,34 +5,31 @@
  * TODO: Replace with real authentication system.
  */
 
-export interface UserProfile {
-  id: string;
-  name: string;
-  email: string;
-  role: 'superadmin' | 'tenant_admin' | 'tenant_user';
-  tenantId?: string;
-}
+import type { UserProfile } from '../types/auth';
+import { Role } from '../types/auth';
 
 const profiles: UserProfile[] = [
   {
     id: 'profile-1',
-    name: 'Super Admin',
+    displayName: 'Super Admin',
     email: 'admin@platform.com',
-    role: 'superadmin',
+    role: Role.SUPERADMIN,
+    defaultTenantId: null,
   },
   {
     id: 'profile-2',
-    name: 'Admin (Demo Store)',
+    displayName: 'Admin (Demo Store)',
     email: 'admin@demostore.com',
-    role: 'tenant_admin',
-    tenantId: 'tenant-a',
+    role: Role.TENANT_ADMIN,
+    defaultTenantId: 'tenant-a',
   },
   {
     id: 'profile-3',
-    name: 'Catalog Manager (Demo Store)',
+    displayName: 'Catalog Manager (Demo Store)',
     email: 'catalog@demostore.com',
-    role: 'tenant_user',
-    tenantId: 'tenant-a',
+    role: Role.TENANT_USER,
+    defaultTenantId: 'tenant-a',
+    assignedMarketIds: ['market-1'],
   },
 ];
 

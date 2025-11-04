@@ -29,15 +29,21 @@ public class OrdersController : ControllerBase
             Customer = request.Customer,
             ShippingAddress = request.ShippingAddress,
             BillingAddress = request.BillingAddress,
-            Items = cart.Items.Select(ci => new OrderItem
+            Items = cart.Items.Select(ci =>
             {
-                Id = Guid.NewGuid().ToString(),
-                ProductId = ci.ProductId,
-                ProductName = ci.ProductName,
-                ProductImageUrl = ci.ProductImageUrl,
-                UnitPrice = ci.UnitPrice,
-                Quantity = ci.Quantity,
-                Subtotal = ci.Subtotal
+                var product = _store.GetProducts().FirstOrDefault(p => p.Id == ci.ProductId);
+                return new OrderItem
+                {
+                    Id = Guid.NewGuid().ToString(),
+                    ProductId = ci.ProductId,
+                    ProductName = ci.ProductName,
+                    Sku = product?.Sku ?? "",
+                    ProductImageUrl = ci.ProductImageUrl,
+                    UnitPrice = ci.UnitPrice,
+                    Quantity = ci.Quantity,
+                    Subtotal = ci.Subtotal,
+                    Currency = "USD"
+                };
             }).ToList(),
             Subtotal = cart.Subtotal,
             Tax = cart.Tax,

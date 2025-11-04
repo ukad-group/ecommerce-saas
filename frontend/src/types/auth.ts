@@ -9,11 +9,13 @@
  * - TENANT_ADMIN: Full access within selected tenant across all markets
  * - TENANT_USER: Market-specific access within tenant (edit products/categories only)
  */
-export enum Role {
-  SUPERADMIN = 'SUPERADMIN',
-  TENANT_ADMIN = 'TENANT_ADMIN',
-  TENANT_USER = 'TENANT_USER',
-}
+export const Role = {
+  SUPERADMIN: 'SUPERADMIN',
+  TENANT_ADMIN: 'TENANT_ADMIN',
+  TENANT_USER: 'TENANT_USER',
+} as const;
+
+export type Role = typeof Role[keyof typeof Role];
 
 /**
  * User profile (hardcoded for MVP)

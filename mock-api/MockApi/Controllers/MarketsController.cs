@@ -11,13 +11,50 @@ public class MarketsController : ControllerBase
     private readonly MockDataStore _store = MockDataStore.Instance;
 
     [HttpGet]
-    public ActionResult<List<Market>> GetMarkets([FromQuery] string? tenantId = null)
+    public ActionResult GetMarkets(
+        [FromQuery] string? tenantId = null,
+        [FromQuery] string? search = null,
+        [FromQuery] string? status = null,
+        [FromQuery] string? type = null,
+        [FromQuery] int page = 1,
+        [FromQuery] int limit = 10)
     {
-        if (!string.IsNullOrEmpty(tenantId))
+        var markets = string.IsNullOrEmpty(tenantId)
+            ? _store.GetMarkets()
+            : _store.GetMarketsByTenant(tenantId);
+
+        // Apply filters
+        if (!string.IsNullOrEmpty(search))
         {
-            return Ok(_store.GetMarketsByTenant(tenantId));
+            markets = markets.Where(m =>
+                m.Name.Contains(search, StringComparison.OrdinalIgnoreCase) ||
+                m.Code.Contains(search, StringComparison.OrdinalIgnoreCase)).ToList();
         }
-        return Ok(_store.GetMarkets());
+
+        if (!string.IsNullOrEmpty(status))
+        {
+            markets = markets.Where(m => m.Status.Equals(status, StringComparison.OrdinalIgnoreCase)).ToList();
+        }
+
+        if (!string.IsNullOrEmpty(type))
+        {
+            markets = markets.Where(m => m.Type.Equals(type, StringComparison.OrdinalIgnoreCase)).ToList();
+        }
+
+        // Pagination
+        var total = markets.Count;
+        var paginatedMarkets = markets
+            .Skip((page - 1) * limit)
+            .Take(limit)
+            .ToList();
+
+        return Ok(new
+        {
+            data = paginatedMarkets,
+            total = total,
+            page = page,
+            limit = limit
+        });
     }
 
     [HttpGet("{id}")]

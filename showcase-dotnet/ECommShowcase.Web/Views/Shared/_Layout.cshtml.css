@@ -8,19 +8,24 @@ a.navbar-brand {
 }
 
 a {
-  color: #0077cc;
+  color: #4a6ba8; /* UKAD accent blue */
 }
 
 .btn-primary {
   color: #fff;
-  background-color: #1b6ec2;
-  border-color: #1861ac;
+  background-color: #4a6ba8; /* UKAD accent blue */
+  border-color: #4a6ba8;
+}
+
+.btn-primary:hover {
+  background-color: #304477; /* UKAD navy on hover */
+  border-color: #253659;
 }
 
 .nav-pills .nav-link.active, .nav-pills .show > .nav-link {
   color: #fff;
-  background-color: #1b6ec2;
-  border-color: #1861ac;
+  background-color: #4a6ba8; /* UKAD accent blue */
+  border-color: #4a6ba8;
 }
 
 .border-top {

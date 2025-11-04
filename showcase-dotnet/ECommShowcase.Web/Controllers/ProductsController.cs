@@ -89,8 +89,9 @@ public class ProductsController : Controller
     }
 
     // GET: /Products/Search
-    public async Task<IActionResult> Search(string q, int page = 1)
+    public IActionResult Search(string q, int page = 1)
     {
-        return await Index(categoryId: null, search: q, page: page);
+        // Redirect to Index with search parameter
+        return RedirectToAction(nameof(Index), new { search = q, page = page });
     }
 }

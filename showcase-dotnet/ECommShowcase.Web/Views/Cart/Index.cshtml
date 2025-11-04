@@ -42,7 +42,7 @@
                                         <tr>
                                             <td>
                                                 <div class="d-flex align-items-center">
-                                                    <img src="@(item.ProductImageUrl ?? "https://via.placeholder.com/80x80/6c757d/ffffff?text=Product")"
+                                                    <img src="@(item.ProductImageUrl ?? "https://dummyimage.com/80x80/6c757d/ffffff&text=Product")"
                                                          alt="@item.ProductName" class="img-thumbnail me-3" style="width: 80px; height: 80px; object-fit: cover;">
                                                     <div>
                                                         <a asp-controller="Products" asp-action="Details" asp-route-id="@item.ProductId" class="text-decoration-none">
