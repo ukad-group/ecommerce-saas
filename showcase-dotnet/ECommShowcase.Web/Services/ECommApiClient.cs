@@ -47,9 +47,16 @@ public class ECommApiClient : IECommApiClient
                 queryParams.Add($"search={Uri.EscapeDataString(search)}");
 
             var query = string.Join("&", queryParams);
-            var response = await _httpClient.GetFromJsonAsync<ProductListResponse>($"products?{query}");
+            // Mock API returns List<Product>, not paginated response
+            var products = await _httpClient.GetFromJsonAsync<List<ProductDto>>($"products?{query}");
 
-            return response ?? new ProductListResponse();
+            return new ProductListResponse
+            {
+                Data = products ?? new List<ProductDto>(),
+                Total = products?.Count ?? 0,
+                Page = page,
+                PageSize = pageSize
+            };
         }
         catch (Exception ex)
         {
@@ -76,8 +83,9 @@ public class ECommApiClient : IECommApiClient
     {
         try
         {
-            var response = await _httpClient.GetFromJsonAsync<CategoryListResponse>("categories");
-            return response?.Data ?? new List<CategoryDto>();
+            // Mock API returns List<Category>, not CategoryListResponse
+            var categories = await _httpClient.GetFromJsonAsync<List<CategoryDto>>("categories");
+            return categories ?? new List<CategoryDto>();
         }
         catch (Exception ex)
         {
