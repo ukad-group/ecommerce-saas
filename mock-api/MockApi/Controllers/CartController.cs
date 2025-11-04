@@ -49,15 +49,18 @@ public class CartController : ControllerBase
         }
         else
         {
+            // Get the effective price (use sale price if available, otherwise regular price)
+            var effectivePrice = product.SalePrice ?? product.Price ?? 0m;
+
             var newItem = new CartItem
             {
                 Id = Guid.NewGuid().ToString(),
                 ProductId = product.Id,
                 ProductName = product.Name,
                 ProductImageUrl = product.ImageUrl,
-                UnitPrice = product.Price,
+                UnitPrice = effectivePrice,
                 Quantity = request.Quantity,
-                Subtotal = product.Price * request.Quantity
+                Subtotal = effectivePrice * request.Quantity
             };
             cart.Items.Add(newItem);
             existingItem = newItem;

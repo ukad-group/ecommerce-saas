@@ -16,11 +16,40 @@
                        class="list-group-item list-group-item-action @(string.IsNullOrEmpty(Model.SelectedCategoryId) ? "active" : "")">
                         All Products
                     </a>
-                    @foreach (var category in Model.Categories)
+                    @{
+                        // Build hierarchical category list
+                        var hierarchicalCategories = new List<(CategoryDto category, int level)>();
+                        var rootCategories = Model.Categories.Where(c => string.IsNullOrEmpty(c.ParentId)).OrderBy(c => c.DisplayOrder).ThenBy(c => c.Name).ToList();
+
+                        void BuildHierarchy(CategoryDto category, int level)
+                        {
+                            hierarchicalCategories.Add((category, level));
+                            var children = Model.Categories.Where(c => c.ParentId == category.Id).OrderBy(c => c.DisplayOrder).ThenBy(c => c.Name);
+                            foreach (var child in children)
+                            {
+                                BuildHierarchy(child, level + 1);
+                            }
+                        }
+
+                        foreach (var category in rootCategories)
+                        {
+                            BuildHierarchy(category, 0);
+                        }
+                    }
+
+                    @foreach (var item in hierarchicalCategories)
                     {
-                        <a asp-controller="Products" asp-action="Index" asp-route-categoryId="@category.Id"
-                           class="list-group-item list-group-item-action @(Model.SelectedCategoryId == category.Id ? "active" : "")">
-                            @category.Name
+                        var indent = item.level > 0 ? $"padding-left: {(item.level * 1.5 + 1)}rem;" : "";
+                        var prefix = item.level > 0 ? "└─ " : "";
+
+                        <a asp-controller="Products" asp-action="Index" asp-route-categoryId="@item.category.Id"
+                           class="list-group-item list-group-item-action @(Model.SelectedCategoryId == item.category.Id ? "active" : "")"
+                           style="@indent">
+                            @if (item.level > 0)
+                            {
+                                <span class="text-muted">@prefix</span>
+                            }
+                            @item.category.Name
                         </a>
                     }
                 </div>
@@ -76,8 +105,8 @@
                                         </p>
                                     }
                                     <div class="d-flex justify-content-between align-items-center mt-2">
-                                        <span class="h5 mb-0 text-primary">@Model.CurrencySymbol@product.Price.ToString("N2")</span>
-                                        @if (product.StockQuantity > 0)
+                                        <span class="h5 mb-0 text-primary">@Model.CurrencySymbol@((product.Price ?? 0).ToString("N2"))</span>
+                                        @if ((product.StockQuantity ?? 0) > 0)
                                         {
                                             <span class="badge bg-success">In Stock (@product.StockQuantity)</span>
                                         }
@@ -86,7 +115,7 @@
                                             <span class="badge bg-danger">Out of Stock</span>
                                         }
                                     </div>
-                                    @if (product.StockQuantity > 0)
+                                    @if ((product.StockQuantity ?? 0) > 0)
                                     {
                                         <form asp-controller="Cart" asp-action="AddItem" method="post" class="mt-3">
                                             <input type="hidden" name="productId" value="@product.Id" />

@@ -358,10 +358,13 @@ public class MockDataStore
                 Description = "Premium noise-cancelling wireless headphones with 30-hour battery life",
                 Sku = "WBH-001",
                 Price = 79.99m,
-                ImageUrl = "https://dummyimage.com/300x300/4A5568/fff.png&text=Headphones",
-                CategoryId = "cat-1",
+                Currency = "USD",
+                Images = new List<string> { "https://dummyimage.com/300x300/4A5568/fff.png&text=Headphones" },
+                CategoryIds = new List<string> { "cat-1" },
                 Status = "active",
                 StockQuantity = 50,
+                LowStockThreshold = 10,
+                HasVariants = false,
                 CreatedAt = DateTime.UtcNow.AddDays(-20),
                 UpdatedAt = DateTime.UtcNow.AddDays(-5)
             },
@@ -374,10 +377,13 @@ public class MockDataStore
                 Description = "Feature-rich smartwatch with fitness tracking and heart rate monitor",
                 Sku = "SWP-002",
                 Price = 199.99m,
-                ImageUrl = "https://dummyimage.com/300x300/3B82F6/fff.png&text=Smart+Watch",
-                CategoryId = "cat-1",
+                Currency = "USD",
+                Images = new List<string> { "https://dummyimage.com/300x300/3B82F6/fff.png&text=Smart+Watch" },
+                CategoryIds = new List<string> { "cat-1" },
                 Status = "active",
                 StockQuantity = 30,
+                LowStockThreshold = 10,
+                HasVariants = false,
                 CreatedAt = DateTime.UtcNow.AddDays(-18),
                 UpdatedAt = DateTime.UtcNow.AddDays(-3)
             },
@@ -390,10 +396,13 @@ public class MockDataStore
                 Description = "Ultra HD webcam with auto-focus and built-in microphone",
                 Sku = "WEB-003",
                 Price = 89.99m,
-                ImageUrl = "https://dummyimage.com/300x300/6366F1/fff.png&text=4K+Webcam",
-                CategoryId = "cat-1",
+                Currency = "USD",
+                Images = new List<string> { "https://dummyimage.com/300x300/6366F1/fff.png&text=4K+Webcam" },
+                CategoryIds = new List<string> { "cat-1" },
                 Status = "active",
                 StockQuantity = 25,
+                LowStockThreshold = 10,
+                HasVariants = false,
                 CreatedAt = DateTime.UtcNow.AddDays(-15),
                 UpdatedAt = DateTime.UtcNow.AddDays(-2)
             },
@@ -407,10 +416,13 @@ public class MockDataStore
                 Description = "Comfortable 100% cotton t-shirt available in multiple colors",
                 Sku = "TSH-004",
                 Price = 19.99m,
-                ImageUrl = "https://dummyimage.com/300x300/10B981/fff.png&text=T-Shirt",
-                CategoryId = "cat-2",
+                Currency = "USD",
+                Images = new List<string> { "https://dummyimage.com/300x300/10B981/fff.png&text=T-Shirt" },
+                CategoryIds = new List<string> { "cat-2" },
                 Status = "active",
                 StockQuantity = 100,
+                LowStockThreshold = 10,
+                HasVariants = false,
                 CreatedAt = DateTime.UtcNow.AddDays(-25),
                 UpdatedAt = DateTime.UtcNow.AddDays(-4)
             },
@@ -423,10 +435,13 @@ public class MockDataStore
                 Description = "Premium denim jeans with modern slim fit design",
                 Sku = "JNS-005",
                 Price = 59.99m,
-                ImageUrl = "https://dummyimage.com/300x300/2563EB/fff.png&text=Jeans",
-                CategoryId = "cat-2",
+                Currency = "USD",
+                Images = new List<string> { "https://dummyimage.com/300x300/2563EB/fff.png&text=Jeans" },
+                CategoryIds = new List<string> { "cat-2" },
                 Status = "active",
                 StockQuantity = 75,
+                LowStockThreshold = 10,
+                HasVariants = false,
                 CreatedAt = DateTime.UtcNow.AddDays(-22),
                 UpdatedAt = DateTime.UtcNow.AddDays(-6)
             },
@@ -439,10 +454,13 @@ public class MockDataStore
                 Description = "Warm and waterproof winter jacket with insulated lining",
                 Sku = "JKT-006",
                 Price = 129.99m,
-                ImageUrl = "https://dummyimage.com/300x300/DC2626/fff.png&text=Winter+Jacket",
-                CategoryId = "cat-2",
+                Currency = "USD",
+                Images = new List<string> { "https://dummyimage.com/300x300/DC2626/fff.png&text=Winter+Jacket" },
+                CategoryIds = new List<string> { "cat-2" },
                 Status = "active",
                 StockQuantity = 40,
+                LowStockThreshold = 10,
+                HasVariants = false,
                 CreatedAt = DateTime.UtcNow.AddDays(-19),
                 UpdatedAt = DateTime.UtcNow.AddDays(-1)
             },
@@ -456,10 +474,13 @@ public class MockDataStore
                 Description = "Adjustable LED desk lamp with touch control and USB charging port",
                 Sku = "LMP-007",
                 Price = 34.99m,
-                ImageUrl = "https://dummyimage.com/300x300/F59E0B/fff.png&text=Desk+Lamp",
-                CategoryId = "cat-3",
+                Currency = "USD",
+                Images = new List<string> { "https://dummyimage.com/300x300/F59E0B/fff.png&text=Desk+Lamp" },
+                CategoryIds = new List<string> { "cat-3" },
                 Status = "active",
                 StockQuantity = 60,
+                LowStockThreshold = 10,
+                HasVariants = false,
                 CreatedAt = DateTime.UtcNow.AddDays(-17),
                 UpdatedAt = DateTime.UtcNow.AddDays(-3)
             },
@@ -472,10 +493,13 @@ public class MockDataStore
                 Description = "Complete 10-piece garden tool set with carrying case",
                 Sku = "GTS-008",
                 Price = 49.99m,
-                ImageUrl = "https://dummyimage.com/300x300/059669/fff.png&text=Garden+Tools",
-                CategoryId = "cat-3",
+                Currency = "USD",
+                Images = new List<string> { "https://dummyimage.com/300x300/059669/fff.png&text=Garden+Tools" },
+                CategoryIds = new List<string> { "cat-3" },
                 Status = "active",
                 StockQuantity = 35,
+                LowStockThreshold = 10,
+                HasVariants = false,
                 CreatedAt = DateTime.UtcNow.AddDays(-14),
                 UpdatedAt = DateTime.UtcNow.AddDays(-2)
             },
@@ -489,10 +513,13 @@ public class MockDataStore
                 Description = "Extra thick yoga mat with non-slip surface and carrying strap",
                 Sku = "YGA-009",
                 Price = 29.99m,
-                ImageUrl = "https://dummyimage.com/300x300/8B5CF6/fff.png&text=Yoga+Mat",
-                CategoryId = "cat-4",
+                Currency = "USD",
+                Images = new List<string> { "https://dummyimage.com/300x300/8B5CF6/fff.png&text=Yoga+Mat" },
+                CategoryIds = new List<string> { "cat-4" },
                 Status = "active",
                 StockQuantity = 80,
+                LowStockThreshold = 10,
+                HasVariants = false,
                 CreatedAt = DateTime.UtcNow.AddDays(-12),
                 UpdatedAt = DateTime.UtcNow.AddDays(-1)
             },
@@ -505,10 +532,13 @@ public class MockDataStore
                 Description = "Waterproof camping tent with easy setup, fits 4 people comfortably",
                 Sku = "TNT-010",
                 Price = 149.99m,
-                ImageUrl = "https://dummyimage.com/300x300/16A34A/fff.png&text=Camping+Tent",
-                CategoryId = "cat-4",
+                Currency = "USD",
+                Images = new List<string> { "https://dummyimage.com/300x300/16A34A/fff.png&text=Camping+Tent" },
+                CategoryIds = new List<string> { "cat-4" },
                 Status = "active",
                 StockQuantity = 20,
+                LowStockThreshold = 10,
+                HasVariants = false,
                 CreatedAt = DateTime.UtcNow.AddDays(-10),
                 UpdatedAt = DateTime.UtcNow.AddDays(-1)
             },
@@ -522,10 +552,13 @@ public class MockDataStore
                 Description = "Comprehensive guide to modern programming practices and patterns",
                 Sku = "BK-011",
                 Price = 39.99m,
-                ImageUrl = "https://dummyimage.com/300x300/0EA5E9/fff.png&text=Programming+Book",
-                CategoryId = "cat-5",
+                Currency = "USD",
+                Images = new List<string> { "https://dummyimage.com/300x300/0EA5E9/fff.png&text=Programming+Book" },
+                CategoryIds = new List<string> { "cat-5" },
                 Status = "active",
                 StockQuantity = 45,
+                LowStockThreshold = 10,
+                HasVariants = false,
                 CreatedAt = DateTime.UtcNow.AddDays(-8),
                 UpdatedAt = DateTime.UtcNow.AddDays(-1)
             },
@@ -538,10 +571,13 @@ public class MockDataStore
                 Description = "100+ delicious recipes for home chefs",
                 Sku = "BK-012",
                 Price = 24.99m,
-                ImageUrl = "https://dummyimage.com/300x300/EC4899/fff.png&text=Cookbook",
-                CategoryId = "cat-5",
+                Currency = "USD",
+                Images = new List<string> { "https://dummyimage.com/300x300/EC4899/fff.png&text=Cookbook" },
+                CategoryIds = new List<string> { "cat-5" },
                 Status = "active",
                 StockQuantity = 55,
+                LowStockThreshold = 10,
+                HasVariants = false,
                 CreatedAt = DateTime.UtcNow.AddDays(-6),
                 UpdatedAt = DateTime.UtcNow.AddDays(-1)
             }
@@ -879,9 +915,61 @@ public class MockDataStore
     public List<Product> GetProducts() => _products;
     public Product? GetProduct(string id) => _products.FirstOrDefault(p => p.Id == id);
 
+    public void AddProduct(Product product)
+    {
+        product.CreatedAt = DateTime.UtcNow;
+        product.UpdatedAt = DateTime.UtcNow;
+        _products.Add(product);
+    }
+
+    public void UpdateProduct(Product product)
+    {
+        var index = _products.FindIndex(p => p.Id == product.Id);
+        if (index >= 0)
+        {
+            product.UpdatedAt = DateTime.UtcNow;
+            _products[index] = product;
+        }
+    }
+
+    public void DeleteProduct(string id)
+    {
+        var index = _products.FindIndex(p => p.Id == id);
+        if (index >= 0)
+        {
+            _products.RemoveAt(index);
+        }
+    }
+
     // Categories
     public List<Category> GetCategories() => _categories;
     public Category? GetCategory(string id) => _categories.FirstOrDefault(c => c.Id == id);
+
+    public void AddCategory(Category category)
+    {
+        category.CreatedAt = DateTime.UtcNow;
+        category.UpdatedAt = DateTime.UtcNow;
+        _categories.Add(category);
+    }
+
+    public void UpdateCategory(Category category)
+    {
+        var index = _categories.FindIndex(c => c.Id == category.Id);
+        if (index >= 0)
+        {
+            category.UpdatedAt = DateTime.UtcNow;
+            _categories[index] = category;
+        }
+    }
+
+    public void DeleteCategory(string id)
+    {
+        var index = _categories.FindIndex(c => c.Id == id);
+        if (index >= 0)
+        {
+            _categories.RemoveAt(index);
+        }
+    }
 
     // Carts
     public Cart GetOrCreateCart(string sessionId)

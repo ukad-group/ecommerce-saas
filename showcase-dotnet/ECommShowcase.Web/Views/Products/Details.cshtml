@@ -45,7 +45,7 @@
             }
 
             <div class="my-3">
-                <span class="display-6 text-primary fw-bold">@Model.CurrencySymbol@Model.Product.Price.ToString("N2")</span>
+                <span class="display-6 text-primary fw-bold">@Model.CurrencySymbol@((Model.Product.Price ?? 0).ToString("N2"))</span>
             </div>
 
             <!-- Stock Status -->
