@@ -9,7 +9,7 @@ import { Fragment, useEffect } from 'react';
 import { Menu, Transition } from '@headlessui/react';
 import { ChevronDownIcon, BuildingOfficeIcon } from '@heroicons/react/20/solid';
 import { useAuthStore } from '../../store/authStore';
-import { getActiveTenants } from '../../mocks/data/mockTenants';
+import { getActiveTenants } from '../../data/tenants';
 
 /**
  * Tenant selector dropdown for superadmin in header

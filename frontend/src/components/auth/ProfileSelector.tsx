@@ -5,7 +5,7 @@
  * Displays 3 profiles: Superadmin, Tenant Admin, Tenant User
  */
 
-import { getAllProfiles } from '../../mocks/data/mockProfiles';
+import { getAllProfiles } from '../../data/profiles';
 import { Role } from '../../types/auth';
 
 interface ProfileSelectorProps {

@@ -11,7 +11,7 @@ import { ProfileSelector } from '../components/auth/ProfileSelector';
 import { TenantSelector } from '../components/auth/TenantSelector';
 import { useAuthStore } from '../store/authStore';
 import { login, requiresTenantSelection } from '../services/auth/authService';
-import { getProfileById } from '../mocks/data/mockProfiles';
+import { getProfileById } from '../data/profiles';
 import type { UserProfile } from '../types/auth';
 
 /**

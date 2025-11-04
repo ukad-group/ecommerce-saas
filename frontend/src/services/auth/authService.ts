@@ -7,8 +7,8 @@
 
 import type { UserSession, UserProfile } from '../../types/auth';
 import { Role } from '../../types/auth';
-import { getProfileById } from '../../mocks/data/mockProfiles';
-import { getTenantById } from '../../mocks/data/mockTenants';
+import { getProfileById } from '../../data/profiles';
+import { getTenantById } from '../../data/tenants';
 
 /**
  * Login request parameters

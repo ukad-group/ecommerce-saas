@@ -9,7 +9,7 @@ import { Fragment, useEffect } from 'react';
 import { Menu, Transition } from '@headlessui/react';
 import { ChevronDownIcon, MapPinIcon } from '@heroicons/react/20/solid';
 import { useAuthStore } from '../../store/authStore';
-import { getMarketsByTenant } from '../../mocks/data/mockMarkets';
+import { getMarketsByTenant } from '../../data/tenants';
 
 /**
  * Market selector dropdown for all roles in header

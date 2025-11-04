@@ -5,7 +5,7 @@
  * Only shown for non-superadmin roles
  */
 
-import { getTenantsByProfileId } from '../../mocks/data/mockTenants';
+import { getTenantsByProfileId } from '../../data/tenants';
 
 interface TenantSelectorProps {
   profileId: string;

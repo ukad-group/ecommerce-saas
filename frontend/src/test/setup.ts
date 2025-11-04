@@ -1,24 +1,10 @@
 /**
  * Test Setup
  *
- * Configures testing environment with MSW and testing library.
+ * Configures testing environment.
  */
 
 import '@testing-library/jest-dom';
-import { beforeAll, afterEach, afterAll } from 'vitest';
-import { server } from '../mocks/server';
 
-// Start MSW server before all tests
-beforeAll(() => {
-  server.listen({ onUnhandledRequest: 'warn' });
-});
-
-// Reset handlers after each test
-afterEach(() => {
-  server.resetHandlers();
-});
-
-// Clean up after all tests
-afterAll(() => {
-  server.close();
-});
+// MSW has been removed. Tests now use the real .NET Mock API on localhost:5180
+// If tests need mocking, consider using nock or msw@browser for API mocking

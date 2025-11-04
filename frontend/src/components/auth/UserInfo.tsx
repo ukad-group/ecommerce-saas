@@ -7,7 +7,7 @@
 
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
-import { getTenantById } from '../../mocks/data/mockTenants';
+import { getTenantById } from '../../data/tenants';
 import { Role } from '../../types/auth';
 
 /**
