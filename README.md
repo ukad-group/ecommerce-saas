@@ -19,7 +19,7 @@ This project follows a **specification-driven development** approach. We build s
 ### Key Principles
 
 1. **API-First**: Define contracts before implementation
-2. **Mock-First UI**: Build and validate UI against mocks
+2. **Mock-First Development**: Build and validate UI against mock backend
 3. **Multi-Platform Ready**: Easy CMS integration
 4. **SaaS-First**: Multi-tenant from day one
 5. **MVP Focus**: Core features only, defer complexity
@@ -40,26 +40,29 @@ New to the project? Start here:
 ```
 /specs/          # Feature specifications (see specs/CLAUDE.md)
   /001-product-catalog/
-    spec.md      # Detailed feature specification
-    plan.md      # Technical implementation plan
-    tasks.md     # Task breakdown with status
-    CLAUDE.md    # Feature guide and quick reference
   /002-cart-order-management/
   /003-role-based-access/
-  CLAUDE.md      # Specifications directory guide
+  /004-tenant-market-management/
 
 /memory/         # Project constitution and core principles
-  constitution.md
 
-/frontend/       # React + TypeScript frontend application
+/frontend/       # Admin backoffice React application
   /src/
     /components/ # UI components
     /pages/      # Route pages
-    /services/   # API clients and hooks
-    /mocks/      # MSW mock handlers
+    /services/   # API clients and TanStack Query hooks
+    /data/       # Minimal hardcoded data (auth only)
     /store/      # Zustand state management
     /types/      # TypeScript definitions
-  CLAUDE.md      # Frontend development guide
+
+/mock-api/       # .NET Mock API Server
+  /MockApi/
+    /Controllers/  # API endpoints
+    /Models/       # Data models and DTOs
+    /Data/         # In-memory mock data store
+
+/showcase-dotnet/  # Showcase eCommerce website (ASP.NET MVC)
+  /ECommShowcase.Web/
 
 /docs/           # Additional documentation
 
@@ -82,93 +85,113 @@ README.md        # This file
 - Admin order dashboard with filtering
 - Order status workflow
 
-⚠️ **Role-Based Access Control (003)** - Multi-role authentication
-- Superadmin login complete
-- Tenant admin/user flows in progress
+✅ **Role-Based Access Control (003)** - Multi-role authentication
+- Superadmin, Tenant Admin, Tenant User roles
+- Protected routes and permission checks
+- Automatic tenant/market selection
+
+✅ **Tenant & Market Management (004)** - Multi-tenancy support
+- Tenant CRUD operations
+- Market management per tenant
+- API key management
+
+✅ **Mock API Migration** - Complete .NET backend mock
+- ASP.NET Core Web API replacing browser mocks
+- 8 controllers with full CRUD operations
+- Comprehensive seed data
+
+✅ **Showcase Website** - Customer-facing demo
+- Product browsing and search
+- Shopping cart
+- Fake checkout flow
 
 ### What's Next
 
-See [CLAUDE.md](CLAUDE.md) for detailed roadmap and priorities:
-1. Complete RBAC tenant filtering
-2. Implement checkout UI (API ready)
-3. Add cart persistence
-4. Begin .NET backend implementation
+See [CLAUDE.md](CLAUDE.md) for detailed roadmap:
+1. Production .NET backend implementation
+2. Real database (PostgreSQL)
+3. OAuth2/OIDC authentication
+4. Email notifications
+5. Advanced inventory management
 
 ## Technology Stack
 
-### Frontend (Implemented)
+### Admin Backoffice
 - **Framework**: React 18 with TypeScript 5
 - **Build Tool**: Vite 5
-- **Routing**: React Router 6
 - **State Management**: Zustand 4
 - **Data Fetching**: TanStack Query v5
-- **API Mocking**: Mock Service Worker (MSW) 2
 - **Styling**: Tailwind CSS + Headless UI
-- **Testing**: Vitest + React Testing Library
+- **Port**: http://localhost:5173
 
-### Backend (Planned)
+### Mock API Server
+- **Framework**: ASP.NET Core 9.0 Web API
+- **Language**: C# 12
+- **Data**: In-memory singleton store
+- **Port**: http://localhost:5180
+
+### Showcase Website
+- **Framework**: ASP.NET Core 9.0 MVC
+- **Styling**: Bootstrap 5
+- **Port**: http://localhost:5025
+
+### Production Backend (Planned)
 - **Framework**: .NET 8+ (ASP.NET Core)
 - **Database**: PostgreSQL (multi-tenant)
 - **API**: RESTful with OpenAPI/Swagger
 - **Auth**: OAuth2/OIDC
+- **Caching**: Redis
 - **Deployment**: Docker/Kubernetes
-
-## Development Workflow
-
-### 1. Review Existing Specifications
-Check [specs/CLAUDE.md](specs/CLAUDE.md) for implemented and planned features.
-
-### 2. Create Feature Specification
-Document requirements in `specs/[number]-[feature-name]/spec.md`:
-- User stories with acceptance criteria
-- Functional requirements
-- Success criteria
-- Data models
-
-### 3. Create Technical Plan
-Document implementation approach in `plan.md`:
-- Technical context
-- API contracts (OpenAPI)
-- Component architecture
-- Testing strategy
-
-### 4. Break Down Tasks
-Create actionable task list in `tasks.md` with status tracking.
-
-### 5. Implement with TDD
-Follow Test-Driven Development:
-- Write tests first
-- Implement features
-- Validate against spec
-- Update task status
 
 ## Running the Application
 
-### Frontend Development Server
+The application consists of three separate services:
+
+### 1. Mock API Server (Required)
 ```bash
-cd frontend
-npm install
-npm run dev
-# Opens at http://localhost:5176
+cd mock-api/MockApi
+dotnet run
+# Starts on http://localhost:5180
 ```
 
-### Environment Configuration
-Create `frontend/.env.local`:
+### 2. Admin Backoffice
 ```bash
-VITE_TENANT_ID=demo-tenant
-VITE_API_BASE_URL=http://localhost:5176/api
-VITE_USE_MOCKS=true  # Use MSW for API mocking
+cd frontend
+npm install  # First time only
+npm run dev
+# Starts on http://localhost:5173
+```
+
+Environment configuration (frontend/.env.local):
+```bash
+VITE_TENANT_ID=tenant-a
+VITE_API_BASE_URL=http://localhost:5180/api/v1
+VITE_USE_MOCKS=false
+```
+
+### 3. Showcase Website (Optional)
+```bash
+cd showcase-dotnet/ECommShowcase.Web
+dotnet run
+# Starts on http://localhost:5025
 ```
 
 ### Available Routes
-- `/login` - Login page (hardcoded profiles)
-- `/admin` - Admin dashboard
+
+**Admin Backoffice** (http://localhost:5173):
+- `/login` - Login with profile selection
+- `/admin` - Dashboard with metrics
 - `/admin/products` - Product management
 - `/admin/categories` - Category management
 - `/admin/orders` - Order management
-- `/cart` - Shopping cart
+- `/admin/tenants` - Tenant management (superadmin)
 
-See [frontend/CLAUDE.md](frontend/CLAUDE.md) for complete frontend guide.
+**Showcase Website** (http://localhost:5025):
+- `/` - Home page with featured products
+- `/products` - Product catalog
+- `/products/{id}` - Product details
+- `/cart` - Shopping cart
+- `/checkout` - Fake checkout flow
 
 ## Multi-Tenancy & Market Isolation
 
@@ -190,19 +213,41 @@ The system implements two-level data isolation:
 
 See [CLAUDE.md](CLAUDE.md#multi-tenancy--market-isolation) for details.
 
+## Development Workflow
+
+### 1. Review Specifications
+Check [specs/CLAUDE.md](specs/CLAUDE.md) for features and requirements.
+
+### 2. Create Feature Specification
+Document in `specs/[number]-[feature-name]/spec.md`:
+- User stories with acceptance criteria
+- Functional requirements
+- Data models
+
+### 3. Create Technical Plan
+Document in `plan.md`:
+- API contracts (OpenAPI)
+- Component architecture
+- Testing strategy
+
+### 4. Implement with TDD
+- Write tests first
+- Implement features
+- Validate against spec
+
 ## Contributing
 
 ### Development Process
 1. Review relevant feature specification in `/specs/`
 2. Check task status in `tasks.md`
 3. Follow TDD workflow
-4. Update documentation as needed
+4. Update documentation
 5. Create PR with spec reference
 
 ### Coding Standards
 - TypeScript strict mode
 - 80%+ test coverage
-- Component patterns documented in frontend/CLAUDE.md
+- Follow component patterns in frontend/CLAUDE.md
 - API contracts follow OpenAPI 3.0
 
 ### Git Workflow
@@ -215,27 +260,27 @@ See [CLAUDE.md](CLAUDE.md#multi-tenancy--market-isolation) for details.
 
 - **[CLAUDE.md](CLAUDE.md)** - Main project guide (START HERE)
 - **[memory/constitution.md](memory/constitution.md)** - Core principles
-- **[specs/CLAUDE.md](specs/CLAUDE.md)** - Feature specifications guide
-- **[frontend/CLAUDE.md](frontend/CLAUDE.md)** - Frontend development guide
-- **Feature specs** - Detailed specs in `/specs/[feature]/`
+- **[specs/CLAUDE.md](specs/CLAUDE.md)** - Feature specifications
+- **[frontend/CLAUDE.md](frontend/CLAUDE.md)** - Frontend guide
+- **[showcase-dotnet/CLAUDE.md](showcase-dotnet/CLAUDE.md)** - Showcase guide
 
 ## Key Features
 
 ### API-First Development
-Every feature starts with OpenAPI contracts and MSW mocks before any real backend implementation.
+Every feature starts with OpenAPI contracts and mock implementation before real backend work.
 
-### Mock-First UI
-UI is built and validated against mocks first, ensuring UX is perfect before backend work begins.
+### Mock Backend Architecture
+.NET Mock API provides realistic development environment, easily replaceable with production backend.
 
 ### Test-Driven Development
 All code follows TDD: tests first, then implementation. Minimum 80% coverage required.
 
-### Multi-Tenant Architecture
+### Multi-Tenant SaaS
 Designed for SaaS from day one with tenant isolation at data and API level.
 
 ## Getting Help
 
-- Review [CLAUDE.md](CLAUDE.md) for comprehensive project information
+- Review [CLAUDE.md](CLAUDE.md) for comprehensive information
 - Check feature-specific CLAUDE.md files for detailed guidance
 - See [memory/constitution.md](memory/constitution.md) for core principles
 - Explore `/specs/` for feature specifications
@@ -246,6 +291,6 @@ TBD
 
 ---
 
-**Last Updated**: 2025-10-28
-**Status**: MVP Development Phase
-**Next Major Milestone**: Complete RBAC and Checkout UI
+**Last Updated**: 2025-11-04
+**Status**: MVP Development Phase - Mock API Complete
+**Next Major Milestone**: Production Backend Implementation

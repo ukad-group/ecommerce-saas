@@ -4,10 +4,11 @@
 
 This is a headless eCommerce SaaS platform MVP with a multi-tenant, market-based architecture. The system consists of:
 
-1. **SaaS Backoffice**: Admin UI/UX for managing markets, products, variants, categories, orders, and tenants
-2. **Backoffice APIs**: RESTful APIs for the admin interface (currently mocked with MSW, real backend to be implemented)
-3. **Client APIs**: Separate APIs for storefront integrations (future phase)
-4. **CMS Plugins & SDKs**: Framework-specific integrations for Umbraco, Optimizely, etc. (future phase)
+1. **SaaS Backoffice** (frontend/): React-based admin UI for managing markets, products, categories, orders, and tenants
+2. **Mock API Server** (mock-api/): ASP.NET Core Web API providing mock backend for development and testing
+3. **Showcase Website** (showcase-dotnet/): ASP.NET MVC demo storefront showcasing the platform capabilities
+4. **Real Backend**: Production .NET backend to replace mock-api (future phase)
+5. **CMS Plugins & SDKs**: Framework-specific integrations for Umbraco, Optimizely, etc. (future phase)
 
 ### Data Hierarchy
 
@@ -30,22 +31,39 @@ This allows each market to have its own unique catalog, categories, and product 
 
 ## Technology Stack
 
-### Frontend
+### Admin Backoffice (frontend/)
 - **Framework**: React 18 with TypeScript 5
 - **Build Tool**: Vite 5
 - **Routing**: React Router 6
 - **State Management**: Zustand 4 (with localStorage persistence)
 - **Data Fetching**: TanStack Query v5
-- **API Mocking**: Mock Service Worker (MSW) 2
 - **Styling**: Tailwind CSS + Headless UI
 - **Forms**: React Hook Form
 - **Testing**: Vitest + React Testing Library
 
-### Backend (Future Phase)
+### Mock API Server (mock-api/)
+- **Framework**: ASP.NET Core 9.0 Web API
+- **Language**: C# 12
+- **Port**: http://localhost:5180
+- **Data**: In-memory mock data store (singleton)
+- **CORS**: Enabled for localhost development
+- **Endpoints**: 8 controllers (Products, Categories, Cart, Orders, Tenants, Markets, Admin, API Keys)
+
+### Showcase Website (showcase-dotnet/)
+- **Framework**: ASP.NET Core 9.0 MVC
+- **Language**: C# 12
+- **Port**: http://localhost:5025
+- **Styling**: Bootstrap 5
+- **HTTP Client**: Typed HttpClient with Polly retry policies
+- **Session**: In-memory session for cart state
+
+### Production Backend (Future Phase)
 - **.NET**: 8+ with ASP.NET Core
 - **Database**: PostgreSQL (multi-tenant ready)
 - **API Documentation**: OpenAPI/Swagger
 - **Authentication**: OAuth2/OIDC
+- **Caching**: Redis
+- **Message Queue**: RabbitMQ or Azure Service Bus
 
 ## Core Principles
 
@@ -143,8 +161,9 @@ All features must follow TDD workflow:
   /001-product-catalog/
   /002-cart-order-management/
   /003-role-based-access/
+  /004-tenant-market-management/
 /memory/                         # Project constitution and shared knowledge
-/frontend/                       # Frontend React application
+/frontend/                       # Admin backoffice React application
   /src/
     /components/                 # Reusable UI components
       /cart/
@@ -153,17 +172,30 @@ All features must follow TDD workflow:
       /admin/
       /auth/
       /common/
+      /categories/
+      /products/
+      /tenants/
+      /markets/
     /pages/                      # Page-level components (routes)
     /services/                   # API client abstraction
-      /api/
+      /api/                      # API client methods
       /hooks/                    # TanStack Query hooks
-    /mocks/                      # MSW mock API handlers
-      /handlers/
-      /data/
+    /data/                       # Minimal hardcoded data (auth only)
     /store/                      # Zustand state management
     /types/                      # TypeScript interfaces
     /utils/                      # Helper functions
   /tests/                        # Component and integration tests
+/mock-api/                       # .NET Mock API Server
+  /MockApi/
+    /Controllers/                # API endpoints (8 controllers)
+    /Models/                     # Data models and DTOs
+    /Data/                       # MockDataStore (in-memory data)
+/showcase-dotnet/                # Showcase eCommerce website
+  /ECommShowcase.Web/
+    /Controllers/                # MVC controllers (Home, Products, Cart, Checkout)
+    /Views/                      # Razor views
+    /Models/                     # ViewModels and DTOs
+    /Services/                   # API client for mock-api
 /docs/                           # Additional documentation
 ```
 
@@ -386,61 +418,96 @@ function generateApiKey(): string {
 
 ## Running the Application
 
-### Installation
+The application consists of three separate services that run concurrently:
+
+### 1. Mock API Server (Backend)
+
 ```bash
-cd frontend
-npm install
+cd mock-api/MockApi
+dotnet run
+# Starts on http://localhost:5180
 ```
 
-### Development Server
+**What it provides:**
+- RESTful API endpoints for all business data
+- In-memory data store with comprehensive seed data
+- CORS enabled for frontend development
+- 8 controllers: Products, Categories, Cart, Orders, Tenants, Markets, AdminOrders, ApiKeys
+
+### 2. Admin Backoffice (Frontend)
+
 ```bash
+cd frontend
+npm install  # First time only
 npm run dev
-# Opens at http://localhost:5176
+# Starts on http://localhost:5173
 ```
+
+**Configuration** (frontend/.env.local):
+```bash
+VITE_TENANT_ID=tenant-a
+VITE_API_BASE_URL=http://localhost:5180/api/v1
+VITE_USE_MOCKS=false
+```
+
+### 3. Showcase Website (Optional)
+
+```bash
+cd showcase-dotnet/ECommShowcase.Web
+dotnet run
+# Starts on http://localhost:5025
+```
+
+**What it provides:**
+- Customer-facing storefront demo
+- Product browsing and search
+- Shopping cart management
+- Fake checkout flow (auto-pays orders)
 
 ### Available Routes
 
-**Public Routes**:
+**Admin Backoffice** (http://localhost:5173):
 - `/login` - Login page with profile selection
-
-**Admin Routes** (Protected):
 - `/admin` - Dashboard with metrics and recent orders
 - `/admin/products` - Product management
 - `/admin/categories` - Category management
-- `/admin/orders` - Order management
-- `/admin/orders/:id` - Order details
+- `/admin/orders` - Order management and details
+- `/admin/tenants` - Tenant management (superadmin only)
 
-**Customer Routes** (Future):
+**Showcase Website** (http://localhost:5025):
+- `/` - Home page with featured products
+- `/products` - Product catalog with filtering
+- `/products/{id}` - Product details
 - `/cart` - Shopping cart
-- `/checkout` - Checkout wizard
-- `/orders` - Order history
-- `/orders/:id` - Order details
+- `/checkout` - Checkout wizard with fake payment
 
-### Mock Data
+### Seed Data
 
-The application uses Mock Service Worker (MSW) to simulate backend APIs:
+The Mock API comes with comprehensive seed data:
 
-**Configuration**:
-```bash
-# .env.local
-VITE_TENANT_ID=demo-tenant
-VITE_API_BASE_URL=http://localhost:5176/api
-VITE_USE_MOCKS=true  # Set to false to use real API
-```
-
-**Mock Users**:
-- Superadmin: "Super Admin"
-- Tenant Admin: "Admin (Demo Store)" + tenant selector
-- Tenant User: "Catalog Manager (Demo Store)" + tenant selector
+**Mock Users** (Login credentials):
+- **Superadmin**: "Super Admin" → Access all tenants
+- **Tenant Admin**: "Admin (Demo Store)" → tenant-a access
+- **Tenant User**: "Catalog Manager (Demo Store)" → tenant-a limited access
 
 **Mock Tenants & Markets**:
-- **Tenant A** ("Demo Retail Group")
-  - Market 1: "Downtown Store"
-  - Market 2: "Airport Location"
-- **Tenant B** ("Test Retail Chain")
-  - Market 1: "Mall Store"
-- **Tenant C** ("Sample Corp")
-  - Market 1: "Online Store"
+- **Tenant A** ("Demo Retail Group") - tenant-a
+  - Market 1: "Downtown Store" (market-1)
+  - Market 2: "Airport Location" (market-2)
+  - Market 3: "Online Store" (market-3)
+- **Tenant B** ("Test Retail Chain") - tenant-b
+  - Market 4: "Mall Store" (market-4)
+  - Market 5: "Web Store" (market-5)
+- **Tenant C** ("Sample Corp") - tenant-c
+  - Market 6: "Flagship" (market-6)
+  - Market 7: "Outlet" (market-7)
+
+**Mock Data Summary**:
+- 12 Products across market-1
+- 5 Categories (Electronics, Clothing, Home & Garden, Sports & Outdoors, Books)
+- 6 Orders in various statuses (submitted, paid, processing, completed)
+- 9 API Keys across different markets
+- 3 Tenants, 7 Markets
 
 ## Multi-Tenancy & Market Isolation
 
@@ -497,19 +564,22 @@ This architecture allows a retail chain (tenant) to manage multiple stores (mark
 ## Important Notes
 
 ### Current Limitations
-- **No Real Backend**: All APIs are mocked with MSW
-- **Hardcoded Authentication**: Using hardcoded user profiles (not production-ready)
-- **No Payment Processing**: Payment flow simulated only
+- **Mock Backend**: Using in-memory .NET Mock API (not production-ready, no persistence)
+- **Hardcoded Authentication**: Using hardcoded user profiles (no real auth system)
+- **No Payment Processing**: Payment flow simulated only (auto-pays on checkout)
 - **No Email Notifications**: Email features not implemented
+- **No Database**: All data resets when mock-api restarts
 - **Limited Error Handling**: Basic error handling in place
 
-### Migration Path to Real Backend
-When backend is ready:
-1. Set `VITE_USE_MOCKS=false` in `.env.local`
-2. Update `VITE_API_BASE_URL` to backend URL
-3. Ensure backend implements exact OpenAPI contracts
-4. Test all flows against real API
-5. Fix any contract mismatches
+### Migration Path to Production Backend
+When production backend is ready:
+1. Keep `VITE_USE_MOCKS=false` in frontend `.env.local`
+2. Update `VITE_API_BASE_URL` to production backend URL
+3. Replace mock-api with real .NET backend implementing same contracts
+4. Showcase website updates `ECommPlatformSettings:BaseUrl` to production
+5. Implement real database (PostgreSQL), auth (OAuth2), caching, etc.
+6. Test all flows against production API
+7. Fix any contract mismatches
 
 ## Key Decisions & Architecture
 
@@ -533,34 +603,51 @@ When backend is ready:
 - Excellent DevTools
 - Framework-agnostic
 
-### Why MSW?
-- Intercepts at network level (shows in browser Network tab)
-- Works in both browser and tests
-- TypeScript support
-- Industry standard for API mocking
-- Easy to disable when backend ready
+### Why .NET Mock API Over MSW?
+- **Real HTTP calls**: Frontend makes actual HTTP requests (visible in Network tab)
+- **Cross-platform**: Can be used by both React admin and ASP.NET showcase
+- **Backend validation**: Tests API contracts before real backend implementation
+- **Technology alignment**: Same stack as production backend (.NET/C#)
+- **Easy transition**: Replace mock-api with production backend without frontend changes
+- **Realistic development**: Simulates real client-server architecture
+
+### Why ASP.NET MVC for Showcase?
+- **Different rendering approach**: Server-side rendering vs React SPA
+- **Framework demonstration**: Shows platform works with various frontend technologies
+- **Customer reference**: Ready-to-use example for client integrations
+- **.NET developer friendly**: Familiar technology for backend developers
+- **Production-like**: Closer to how clients might integrate (CMS plugins, etc.)
 
 ## Troubleshooting
 
 ### Common Issues
 
-**Cart not persisting**:
-- Check localStorage quota
-- Clear browser storage and retry
-- Verify Zustand persist middleware is configured
+**Mock API not responding**:
+- Ensure mock-api is running on port 5180
+- Check `dotnet run` output for errors
+- Verify CORS is enabled in mock-api Program.cs
 
-**Mock API not intercepting**:
-- Ensure MSW worker is registered in `main.tsx`
-- Check browser console for MSW startup message
-- Verify handlers are registered for the endpoint
+**Frontend can't connect to API**:
+- Check frontend/.env.local has correct `VITE_API_BASE_URL`
+- Ensure `VITE_USE_MOCKS=false`
+- Verify mock-api is running before starting frontend
+
+**Showcase website shows no products**:
+- Ensure mock-api is running on port 5180
+- Check showcase-dotnet appsettings.json has correct BaseUrl
+- Verify HttpClient configuration in Program.cs
+
+**Cart not persisting**:
+- Admin: Check localStorage quota and authStore state
+- Showcase: Check ASP.NET session is enabled (Program.cs)
 
 **TypeScript errors**:
-- Ensure types match OpenAPI contract definitions
-- Run `npm run type-check`
-- Check that all imports are correct
+- Ensure types match API response structure
+- Run `npm run type-check` in frontend
+- Check apiClient.ts for correct base URL
 
 **Route protection not working**:
-- Verify auth state in localStorage
+- Verify auth state in localStorage (admin)
 - Check ProtectedRoute wrapper in router.tsx
 - Ensure authStore has valid session
 
@@ -588,12 +675,23 @@ When backend is ready:
 
 ## Resources
 
+**Frontend:**
 - [React Documentation](https://react.dev)
 - [Vite Documentation](https://vitejs.dev)
-- [Mock Service Worker](https://mswjs.io)
 - [TanStack Query](https://tanstack.com/query)
 - [Zustand](https://github.com/pmndrs/zustand)
 - [Tailwind CSS](https://tailwindcss.com)
+- [Headless UI](https://headlessui.com)
+
+**Backend:**
+- [ASP.NET Core Documentation](https://docs.microsoft.com/aspnet/core)
+- [C# Documentation](https://docs.microsoft.com/dotnet/csharp)
+- [Entity Framework Core](https://docs.microsoft.com/ef/core) (for future real backend)
+
+**Showcase:**
+- [ASP.NET MVC Documentation](https://docs.microsoft.com/aspnet/core/mvc)
+- [Razor Pages](https://docs.microsoft.com/aspnet/core/razor-pages)
+- [Bootstrap Documentation](https://getbootstrap.com/docs)
 
 ## Version History
 
@@ -602,8 +700,9 @@ When backend is ready:
 - **v1.2** (2025-10-24): Cart and order management feature
 - **v1.3** (2025-10-24): Role-based access control feature
 - **v1.4** (2025-10-29): Tenant & Market Management specification (Feature 004)
+- **v2.0** (2025-11-04): **Architecture overhaul** - Replaced MSW with .NET Mock API, added showcase website
 
 ---
 
-**Last Updated**: 2025-10-29
+**Last Updated**: 2025-11-04
 **Status**: Active Development - MVP Phase

@@ -2,13 +2,13 @@
 
 ## Project Overview
 
-This is a reference implementation of a customer-facing eCommerce storefront built with ASP.NET Core MVC. It demonstrates how to integrate with the eCommerce SaaS Platform APIs to create a functional online shop.
+ASP.NET Core MVC reference implementation of a customer-facing eCommerce storefront demonstrating integration with the eCommerce SaaS Platform APIs.
 
 **Purpose**:
-- Showcase the eCommerce SaaS platform capabilities
-- Provide a reference implementation for clients integrating the platform
-- Serve as living documentation for API integration patterns
-- Act as a starter template for new storefront projects
+- Showcase platform capabilities
+- Reference implementation for client integrations
+- Living documentation for API integration patterns
+- Starter template for new storefronts
 
 ## Technology Stack
 
@@ -17,30 +17,28 @@ This is a reference implementation of a customer-facing eCommerce storefront bui
 - **View Engine**: Razor Pages
 - **HTTP Client**: HttpClient with IHttpClientFactory
 - **Session Management**: In-memory session state
-- **Styling**: Bootstrap 5 (included in template)
+- **Styling**: Bootstrap 5
 - **JavaScript**: Vanilla JS for cart interactions
 
 ## Architecture
 
 ### Integration Pattern
 
-This showcase website acts as a **client application** that consumes the eCommerce SaaS Platform APIs:
-
 ```
 [Showcase Website (ASP.NET MVC)]
          |
          | HTTP/REST
          v
-[eCommerce SaaS Platform APIs]
+[.NET Mock API :5180]
          |
          v
-[Platform Database]
+[In-Memory Data Store]
 ```
 
 **Key Integration Points**:
-- API Client service layer for all platform communication
+- API Client service layer
 - API Key authentication (per market)
-- Session-based shopping cart state
+- Session-based shopping cart
 - Order management through platform APIs
 
 ### Project Structure
@@ -58,37 +56,17 @@ This showcase website acts as a **client application** that consumes the eCommer
     ICartService.cs             # Cart business logic interface
     CartService.cs              # Cart management service
   /Models/
-    /ViewModels/
-      HomeViewModel.cs
-      ProductListViewModel.cs
-      ProductDetailViewModel.cs
-      CartViewModel.cs
-      CheckoutViewModel.cs
+    /ViewModels/                # View-specific models
     /DTOs/                      # Match platform API contracts
-      ProductDto.cs
-      CategoryDto.cs
-      CartDto.cs
-      OrderDto.cs
   /Views/
-    /Home/
-      Index.cshtml              # Home page
-    /Products/
-      Index.cshtml              # Product listing
-      Details.cshtml            # Product detail
-    /Cart/
-      Index.cshtml              # Shopping cart
-    /Checkout/
-      Index.cshtml              # Checkout form
-      Confirmation.cshtml       # Order confirmation
+    /Home/, /Products/, /Cart/, /Checkout/
     /Shared/
       _Layout.cshtml            # Main layout with nav
       _ProductCard.cshtml       # Reusable product card
   /wwwroot/
-    /css/
-    /js/
-      cart.js                   # Cart interactions
-  appsettings.json              # Configuration
-  Program.cs                    # Application startup
+    /css/, /js/cart.js
+  appsettings.json
+  Program.cs
 ```
 
 ## Configuration
@@ -98,9 +76,9 @@ This showcase website acts as a **client application** that consumes the eCommer
 ```json
 {
   "ECommPlatform": {
-    "BaseUrl": "http://localhost:5176/api/v1",
+    "BaseUrl": "http://localhost:5180/api/v1",
     "ApiKey": "sk_live_demo_key_12345",
-    "TenantId": "demo-tenant",
+    "TenantId": "tenant-a",
     "MarketId": "market-1",
     "Timeout": 30
   },
@@ -123,57 +101,33 @@ This showcase website acts as a **client application** that consumes the eCommer
 
 ## Core Features
 
-### 1. Home Page
-**Status**: Implemented
-
-**Features**:
+### 1. Home Page ✅
 - Hero section with store branding
 - Featured/latest products grid
-- Category navigation
-- Search bar
+- Category navigation, search bar
 
-**Controller**: `HomeController`
-**View**: `Views/Home/Index.cshtml`
-
-### 2. Product Catalog
-**Status**: Implemented
-
-**Features**:
+### 2. Product Catalog ✅
 - Product listing with pagination
-- Category filtering
-- Product search
-- Product cards with image, name, price
-- "Add to Cart" quick action
-
-**Controller**: `ProductsController`
-**Views**:
-- `Views/Products/Index.cshtml` (listing)
-- `Views/Products/Details.cshtml` (detail page)
+- Category filtering, product search
+- Product cards with quick "Add to Cart"
+- Product detail pages
 
 **API Integration**:
 - `GET /api/v1/products` - List products
-- `GET /api/v1/products/{id}` - Get product details
+- `GET /api/v1/products/{id}` - Product details
 - `GET /api/v1/categories` - List categories
 
-### 3. Shopping Cart
-**Status**: Implemented
-
-**Features**:
+### 3. Shopping Cart ✅
 - View cart items
-- Update quantities
-- Remove items
+- Update quantities, remove items
 - Real-time total calculation
 - Session persistence
-- Cart indicator in navigation (item count)
-
-**Controller**: `CartController`
-**Service**: `CartService`
-**View**: `Views/Cart/Index.cshtml`
+- Cart indicator in navigation
 
 **State Management**:
 - Cart stored in HTTP session
 - Cart synced with platform via API
-- Session expires after 20 minutes of inactivity
+- Session expires after 20 minutes
 
 **API Integration**:
 - `POST /api/v1/cart/items` - Add item
@@ -181,63 +135,44 @@ This showcase website acts as a **client application** that consumes the eCommer
 - `DELETE /api/v1/cart/items/{id}` - Remove item
 - `GET /api/v1/cart` - Get current cart
 
-### 4. Checkout Flow
-**Status**: Implemented (Fake Payment)
-
-**Features**:
-- Customer information form (name, email, phone)
+### 4. Checkout Flow ✅ (Fake Payment)
+- Customer information form
 - Shipping address form
 - Fake payment button
-- Order summary
-- Order confirmation page
-
-**Controller**: `CheckoutController`
-**Views**:
-- `Views/Checkout/Index.cshtml` (form)
-- `Views/Checkout/Confirmation.cshtml` (success)
+- Order summary and confirmation
 
 **Fake Payment Flow**:
-1. User fills out checkout form
-2. Clicks "Pay Now" button
-3. Order created via API with status "Pending"
-4. Immediately updated to "Paid" status
+1. User fills checkout form
+2. Clicks "Pay Now"
+3. Order created with status "Pending"
+4. Immediately updated to "Paid"
 5. Fake tracking number generated
-6. Confirmation page shown with order details
+6. Confirmation page shown
 
 **API Integration**:
 - `POST /api/v1/orders` - Create order
 - `PUT /api/v1/orders/{id}/status` - Update to "Paid"
 
-### 5. Product Search
-**Status**: Implemented
-
-**Features**:
+### 5. Product Search ✅
 - Search bar in navigation
 - Search results page
 - Search by product name/description
-- Category filter on search results
-
-**Controller**: `ProductsController.Search()`
-**View**: `Views/Products/Index.cshtml` (reused)
-
-**API Integration**:
-- `GET /api/v1/products?search={query}` - Search products
+- Category filter on results
 
 ## API Client Implementation
 
 ### ECommApiClient Service
 
-The `ECommApiClient` is a service that wraps all HTTP communication with the platform:
+Wraps all HTTP communication with the platform.
 
 **Key Methods**:
 ```csharp
 // Products
-Task<List<ProductDto>> GetProductsAsync(string? categoryId = null, string? search = null, int page = 1, int pageSize = 12);
+Task<List<ProductDto>> GetProductsAsync(string? categoryId, string? search, int page, int pageSize);
 Task<ProductDto?> GetProductByIdAsync(string productId);
 
 // Categories
 Task<List<CategoryDto>> GetCategoriesAsync();
-Task<CategoryDto?> GetCategoryByIdAsync(string categoryId);
 
 // Cart
 Task<CartDto?> GetCartAsync(string sessionId);
@@ -247,7 +182,7 @@ Task DeleteCartItemAsync(string sessionId, string itemId);
 
 // Orders
 Task<OrderDto> CreateOrderAsync(CreateOrderRequest request);
-Task<OrderDto> UpdateOrderStatusAsync(string orderId, string status, string? notes = null);
+Task<OrderDto> UpdateOrderStatusAsync(string orderId, string status, string? notes);
 ```
 
 **Authentication**:
@@ -258,25 +193,25 @@ Task<OrderDto> UpdateOrderStatusAsync(string orderId, string status, string? not
 **Error Handling**:
 - Retry logic for transient failures (3 retries)
 - Timeout handling (30 seconds default)
-- Graceful degradation (show cached data if available)
+- Graceful degradation
 - User-friendly error messages
 
 ## Data Models
 
 ### DTOs (Data Transfer Objects)
 
-DTOs match the platform API contracts exactly:
+DTOs match the platform API contracts:
 
 **ProductDto**:
 ```csharp
 public class ProductDto
 {
-    public string Id { get; set; } = string.Empty;
-    public string Name { get; set; } = string.Empty;
+    public string Id { get; set; }
+    public string Name { get; set; }
     public string? Description { get; set; }
     public decimal Price { get; set; }
     public string? ImageUrl { get; set; }
-    public string CategoryId { get; set; } = string.Empty;
+    public string CategoryId { get; set; }
     public string Status { get; set; } = "active";
     public int StockQuantity { get; set; }
 }
@@ -286,38 +221,24 @@ public class ProductDto
 ```csharp
 public class CartDto
 {
-    public string Id { get; set; } = string.Empty;
-    public List<CartItemDto> Items { get; set; } = new();
+    public string Id { get; set; }
+    public List<CartItemDto> Items { get; set; }
     public decimal Subtotal { get; set; }
     public decimal Tax { get; set; }
     public decimal Total { get; set; }
 }
 ```
 
-**OrderDto**:
-```csharp
-public class OrderDto
-{
-    public string Id { get; set; } = string.Empty;
-    public string OrderNumber { get; set; } = string.Empty;
-    public string Status { get; set; } = "pending";
-    public decimal Total { get; set; }
-    public CustomerInfoDto Customer { get; set; } = new();
-    public List<OrderItemDto> Items { get; set; } = new();
-    public DateTime CreatedAt { get; set; }
-}
-```
-
 ### ViewModels
 
-ViewModels adapt DTOs for view rendering:
+Adapt DTOs for view rendering:
 
 **ProductListViewModel**:
 ```csharp
 public class ProductListViewModel
 {
-    public List<ProductDto> Products { get; set; } = new();
-    public List<CategoryDto> Categories { get; set; } = new();
+    public List<ProductDto> Products { get; set; }
+    public List<CategoryDto> Categories { get; set; }
     public string? SelectedCategoryId { get; set; }
     public string? SearchQuery { get; set; }
     public int CurrentPage { get; set; }
@@ -325,37 +246,27 @@ public class ProductListViewModel
 }
 ```
 
-**CartViewModel**:
-```csharp
-public class CartViewModel
-{
-    public CartDto Cart { get; set; } = new();
-    public string CurrencySymbol { get; set; } = "$";
-    public bool IsEmpty => Cart.Items.Count == 0;
-}
-```
-
 ## Running the Application
 
 ### Prerequisites
 - .NET 9.0 SDK or later
-- eCommerce SaaS Platform running (with mock APIs)
+- .NET Mock API running (http://localhost:5180)
 
 ### Development Setup
 
-1. **Start the Platform Backend** (if available):
+1. **Start .NET Mock API**:
    ```bash
-   # From eComm/frontend directory
-   npm run dev
-   # Platform runs at http://localhost:5176
+   cd mock-api/MockApi
+   dotnet run
+   # Runs at http://localhost:5180
    ```
 
 2. **Configure API Settings**:
-   Edit `appsettings.Development.json`:
+   Verify `appsettings.Development.json`:
    ```json
    {
      "ECommPlatform": {
-       "BaseUrl": "http://localhost:5176/api/v1"
+       "BaseUrl": "http://localhost:5180/api/v1"
      }
    }
    ```
@@ -366,7 +277,7 @@ public class CartViewModel
    dotnet run
    # Or with watch mode:
    dotnet watch run
-   # Opens at https://localhost:5001
+   # Opens at http://localhost:5025
    ```
 
 ### Available Routes
@@ -384,31 +295,30 @@ public class CartViewModel
 
 ### API Contract Alignment
 
-This showcase is built against the platform's API contracts defined in the main eComm project. Any changes to the platform APIs require corresponding updates here.
+Built against platform API contracts. Changes to platform APIs require corresponding updates here.
 
-**Contract Source**: See `/specs/` in main eComm repository for API specifications.
+**Contract Source**: See [../specs/](../specs/) in main eComm repository.
 
-### Mock vs Real Backend
+### .NET Mock API Integration
 
-The showcase works with both:
+The showcase works with the .NET Mock API:
 
-1. **Mock APIs** (MSW in platform frontend):
-   - Uses `http://localhost:5176/api/v1`
-   - Suitable for development and demos
-   - No real data persistence
+- **Mock API**: `http://localhost:5180/api/v1`
+- In-memory data store (seed data in MockDataStore.cs)
+- No real data persistence
+- Suitable for development and demos
 
-2. **Real Backend** (future .NET backend):
-   - Update `BaseUrl` in appsettings.json
-   - Requires valid API key from platform
-   - Full data persistence
+**Future Real Backend**:
+- Update `BaseUrl` in appsettings.json
+- Requires valid API key from platform
+- Full data persistence
 
 ### Authentication Flow
 
 **API Key Authentication**:
-1. Obtain API key from platform (Admin UI → Markets → API Keys)
-2. Configure API key in `appsettings.json`
-3. All requests include `X-API-Key` header automatically
-4. Platform validates and scopes requests to the market
+1. API key configured in `appsettings.json`
+2. All requests include `X-API-Key` header automatically
+3. Platform validates and scopes requests to market
 
 ### Session Management
 
@@ -416,13 +326,13 @@ The showcase works with both:
 - Session ID stored in HTTP session
 - Cart tied to session on platform side
 - Session expires after 20 minutes of inactivity
-- On expiry, cart is cleared (could be persisted for registered users)
+- On expiry, cart is cleared
 
 ## Development Guidelines
 
 ### Adding New Features
 
-1. **Define API contract** in main platform project first
+1. **Define API contract** in main platform project
 2. **Update ECommApiClient** with new methods
 3. **Create DTOs** matching API response
 4. **Build controller** with business logic
@@ -439,14 +349,14 @@ The showcase works with both:
 ### Error Handling
 
 **User-Facing Errors**:
-- Product not found → Show 404 page
-- API timeout → Show "Service unavailable" message
-- Cart operation fails → Show error toast, retry
+- Product not found → 404 page
+- API timeout → "Service unavailable" message
+- Cart operation fails → Error toast, retry
 
 **Logging**:
 - Log all API errors to console
 - Include request/response details
-- Use structured logging (Serilog recommended for production)
+- Use structured logging (Serilog for production)
 
 ## Fake Flows Implementation
 
@@ -455,49 +365,34 @@ The showcase works with both:
 **Flow**:
 1. Checkout form submitted
 2. Order created with status "Pending"
-3. Simulate 1-second payment processing delay
+3. Simulate 1-second processing delay
 4. Update order status to "Paid"
-5. Generate fake tracking number: `TRACK-{orderId.Substring(0,8)}`
+5. Generate fake tracking: `TRACK-{orderId.Substring(0,8)}`
 6. Redirect to confirmation page
 
-**Code Location**: `CheckoutController.CompleteCheckout()`
+**Code**: `CheckoutController.CompleteCheckout()`
 
 ### Fake Shipping
 
-**Flow**:
 - All orders auto-assigned fake tracking number
 - Shipping status always "Processing"
 - No actual shipping provider integration
-
-**Future Enhancement**: Add admin webhook to simulate shipping updates.
 
 ## Deployment
 
 ### Hosting Options
 
-1. **Azure App Service**:
-   - Deploy directly from Visual Studio
-   - Configure app settings for production API URL
-   - Enable Application Insights for monitoring
-
-2. **IIS (On-Premises)**:
-   - Publish to folder
-   - Configure IIS site
-   - Set environment variables for configuration
-
-3. **Docker**:
-   - Add Dockerfile (standard ASP.NET Core)
-   - Build and deploy container
-   - Configure via environment variables
+1. **Azure App Service**
+2. **IIS (On-Premises)**
+3. **Docker**
 
 ### Production Checklist
 
 - [ ] Update `appsettings.Production.json` with production API URL
-- [ ] Use production API key (not demo key)
+- [ ] Use production API key
 - [ ] Enable HTTPS
 - [ ] Configure session state for scalability (Redis/SQL Server)
 - [ ] Set up Application Insights or logging
-- [ ] Configure CORS if needed
 - [ ] Test all flows end-to-end
 - [ ] Load test checkout flow
 
@@ -508,32 +403,31 @@ The showcase works with both:
 - Add/update/remove cart items
 - Complete checkout flow
 - Test search functionality
-- Verify responsive design (mobile, tablet, desktop)
+- Verify responsive design
 
 ### Automated Testing (Future)
-- Unit tests for services (ECommApiClient, CartService)
+- Unit tests for services
 - Integration tests for controllers
-- UI tests with Playwright/Selenium
+- UI tests with Playwright
 
 ## Troubleshooting
 
 ### Common Issues
 
 **Cannot connect to platform APIs**:
-- Verify platform is running at configured URL
+- Verify .NET Mock API running at http://localhost:5180
 - Check `ECommPlatform:BaseUrl` in appsettings.json
 - Ensure firewall allows localhost connections
-- Check browser console for CORS errors
 
 **Cart not persisting**:
-- Verify session state is configured in `Program.cs`
+- Verify session state configured in `Program.cs`
 - Check session cookie is being set
 - Clear browser cookies and retry
 
 **Products not loading**:
 - Check API key is valid
-- Verify tenant/market IDs are correct
-- Check platform mock data includes products for the market
+- Verify tenant/market IDs match Mock API seed data
+- Check Mock API seed data includes products for the market
 
 **Checkout fails**:
 - Ensure cart is not empty
@@ -547,10 +441,10 @@ The showcase works with both:
 - Order history for logged-in users
 - Product reviews and ratings
 - Wishlist functionality
-- Product filtering (price, rating, etc.)
+- Product filtering (price, rating)
 - Related products recommendations
-- Email notifications (order confirmation)
-- Real payment gateway integration (Stripe/PayPal)
+- Email notifications
+- Real payment gateway (Stripe/PayPal)
 
 ### Platform Integration Enhancements
 - Webhook listener for order status updates
@@ -559,34 +453,12 @@ The showcase works with both:
 - Product recommendations API
 - Customer data synchronization
 
-## Migration to Separate Repository
-
-When moving this project to its own repository:
-
-1. **Copy entire `showcase-dotnet` folder**
-2. **Initialize new git repository**:
-   ```bash
-   cd showcase-dotnet
-   git init
-   git add .
-   git commit -m "Initial commit: eCommerce showcase website"
-   ```
-3. **Update documentation**:
-   - Update README.md with repo-specific info
-   - Add LICENSE file
-   - Add CONTRIBUTING.md if open-sourcing
-4. **Configure CI/CD**:
-   - GitHub Actions for build/test
-   - Deployment workflows
-5. **Update references**:
-   - Update links to platform documentation
-   - Reference main platform repo for API specs
-
 ## Related Documentation
 
-- **Platform Documentation**: See `../CLAUDE.md` (main eComm project)
-- **API Specifications**: See `../specs/` (feature specs in main project)
-- **ASP.NET Core Docs**: https://learn.microsoft.com/aspnet/core/
+- [Platform Documentation](../CLAUDE.md)
+- [API Specifications](../specs/)
+- [Mock API Guide](../mock-api/CLAUDE.md)
+- [Frontend Guide](../frontend/CLAUDE.md)
 
 ## Version History
 
@@ -600,6 +472,6 @@ When moving this project to its own repository:
 
 ---
 
-**Last Updated**: 2025-11-03
+**Last Updated**: 2025-11-04
 **Status**: Active Development - Reference Implementation
-**Platform Version**: Compatible with eComm Platform v1.4+
+**Platform Version**: Compatible with eComm Platform v2.0+

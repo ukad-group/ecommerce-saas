@@ -7,15 +7,15 @@
 **Priority**: P1 (Core MVP)
 **Created**: 2025-10-22
 
-This feature implements a comprehensive shopping cart and order management system where carts are represented as orders with "new" status, progressing through multiple states (new → submitted → paid → completed). Includes both customer-facing cart functionality and admin order management.
+Shopping cart and order management system where carts are orders with "new" status, progressing through states (new → submitted → paid → completed). Includes customer cart functionality and admin order management.
 
 ### Market-Based Orders
 
 Orders are **market-specific**:
-- Each order is associated with a specific market
-- Products in the order belong to that market's catalog
-- Order fulfillment and inventory are managed per market
-- This allows location-specific pricing, inventory, and shipping
+- Associated with specific market
+- Products from market's catalog
+- Market-level fulfillment and inventory
+- Location-specific pricing and shipping
 
 ## Quick Reference
 
@@ -23,179 +23,114 @@ Orders are **market-specific**:
 - **Implementation Plan**: [plan.md](plan.md)
 - **Tasks**: [tasks.md](tasks.md)
 
-## What's Implemented
+## Implementation Status
 
-### Cart Management (Phases 3-4) ✅
-- ✅ Shopping cart view with line items
-- ✅ Add products to cart
-- ✅ Update cart item quantities
-- ✅ Remove items from cart
-- ✅ Clear entire cart
-- ✅ Cart totals calculation (subtotal, tax, shipping, total)
-- ✅ Cart indicator showing item count
-- ✅ Empty cart messaging
-- ✅ Out-of-stock warnings
+### ✅ Completed
 
-### Admin Order Management (Phase 7) ✅
-- ✅ Admin dashboard with metrics and recent orders
-- ✅ Order list view with filtering
-  - Filter by status (all, new, submitted, paid, completed, cancelled)
-  - Filter by tenant
-  - Filter by date range
-  - Search by order number or customer
-- ✅ Order details view
-  - Line items with product info
-  - Order status history
-  - Shipping and billing addresses
-  - Payment transactions
-- ✅ Order status updates with notes
-- ✅ Status badges with color coding
-- ✅ Quick actions (view, update status)
+**Cart Management (Phases 3-4)**:
+- Shopping cart view with line items
+- Add/update/remove items, clear cart
+- Cart totals (subtotal, tax, shipping, total)
+- Cart indicator with item count
+- Empty cart messaging, out-of-stock warnings
 
-### API Infrastructure (Phase 5 Partial) ✅
-- ✅ Checkout API endpoints (mocked)
-- ✅ Checkout store (Zustand)
-- ✅ Checkout hooks (TanStack Query)
-- ✅ MSW handlers for checkout flow
+**Admin Order Management (Phase 7)**:
+- Dashboard with metrics and recent orders
+- Order list with filters (status, tenant, date, search)
+- Order details (line items, addresses, payment, history)
+- Status updates with notes
+- Status badges and quick actions
 
-## What's Missing
+**API Infrastructure (Phase 5 Partial)**:
+- Checkout API endpoints implemented in .NET Mock API
+- Checkout store (Zustand)
+- Checkout hooks (TanStack Query)
 
-### Checkout UI (Phase 5) ❌
-- ❌ Shipping address form
-- ❌ Billing address form
-- ❌ Payment form
-- ❌ Order review page
-- ❌ Checkout progress indicator
-- ❌ Checkout page (wizard flow)
-- ❌ Order confirmation page
-- ❌ Address validation
+### ❌ Missing
 
-### Customer Order Tracking (Phase 6) ❌
-- ❌ Customer order history page
-- ❌ Customer order details page
-- ❌ Order status timeline view
-- ❌ Order tracking information
-- ❌ Estimated delivery dates
+**Checkout UI (Phase 5)**:
+- Shipping/billing address forms
+- Payment form
+- Order review page
+- Checkout progress indicator
+- Order confirmation page
 
-### Cart Persistence (Phase 8) ❌
-- ❌ localStorage persistence for guest carts
-- ❌ Cart expiration (30-day cleanup)
-- ❌ Guest cart merge on login
-- ❌ Cross-device cart sync for logged-in users
+**Customer Order Tracking (Phase 6)**:
+- Order history page
+- Order details page
+- Status timeline view
 
-### Refunds (Phase 9) ❌
-- ❌ Customer order cancellation
-- ❌ Admin refund processing
-- ❌ Refund status tracking
-- ❌ Partial refund support
+**Cart Persistence (Phase 8)**:
+- localStorage for guest carts
+- 30-day expiration cleanup
+- Guest cart merge on login
+- Cross-device sync
 
-### Cart Abandonment (Phase 10) ❌
-- ❌ Abandoned cart detection
-- ❌ Cart recovery emails
-- ❌ Abandoned cart reports
+**Refunds (Phase 9)**:
+- Customer cancellation
+- Admin refund processing
 
-### Polish (Phase 11) ❌
-- ❌ Loading states
-- ❌ Error boundaries
-- ❌ Toast notifications
-- ❌ Accessibility improvements
-- ❌ Responsive design refinements
-- ❌ Bundle optimization
+**Cart Abandonment (Phase 10)**:
+- Detection and recovery emails
+
+**Polish (Phase 11)**:
+- Loading states, error boundaries, notifications
+- Accessibility and responsive refinements
 
 ## Key Components
 
 ### Cart Components
-- **CartPage** (`frontend/src/pages/CartPage.tsx`)
-  - Main cart view
-  - Line items list
-  - Cart totals
-  - Proceed to checkout button
-
-- **CartItem** (`frontend/src/components/cart/CartItem.tsx`)
-  - Individual line item
-  - Quantity controls
-  - Remove button
-  - Price and totals
-
-- **CartSummary** (`frontend/src/components/cart/CartSummary.tsx`)
-  - Subtotal, tax, shipping, total
-  - Promotional code input (future)
-
-- **CartIndicator** (`frontend/src/components/cart/CartIndicator.tsx`)
-  - Header indicator showing item count
-  - Links to cart page
-
-- **EmptyCart** (`frontend/src/components/cart/EmptyCart.tsx`)
-  - Empty state messaging
-  - Continue shopping button
+- **CartPage** ([CartPage.tsx](../../frontend/src/pages/CartPage.tsx)) - Main cart view
+- **CartItem** ([CartItem.tsx](../../frontend/src/components/cart/CartItem.tsx)) - Line item with quantity controls
+- **CartSummary** ([CartSummary.tsx](../../frontend/src/components/cart/CartSummary.tsx)) - Order totals
+- **CartIndicator** ([CartIndicator.tsx](../../frontend/src/components/cart/CartIndicator.tsx)) - Header indicator
+- **EmptyCart** ([EmptyCart.tsx](../../frontend/src/components/cart/EmptyCart.tsx)) - Empty state
 
 ### Admin Order Components
-- **AdminDashboardPage** (`frontend/src/pages/admin/AdminDashboardPage.tsx`)
-  - Order metrics (total, pending, completed, revenue)
-  - Recent orders list
-  - Quick actions
-
-- **AdminOrdersPage** (`frontend/src/pages/admin/AdminOrdersPage.tsx`)
-  - Comprehensive order list
-  - Advanced filtering
-  - Search functionality
-
-- **AdminOrderDetailsPage** (`frontend/src/pages/admin/AdminOrderDetailsPage.tsx`)
-  - Full order information
-  - Line items with product details
-  - Addresses and payment info
-  - Status update controls
-
-- **OrderStatusUpdate** (`frontend/src/components/admin/OrderStatusUpdate.tsx`)
-  - Status dropdown
-  - Notes field
-  - Update button
-
-- **OrderFilters** (`frontend/src/components/admin/OrderFilters.tsx`)
-  - Status filter
-  - Tenant filter
-  - Date range filter
-  - Search input
-
-- **OrderStatusBadge** (`frontend/src/components/orders/OrderStatusBadge.tsx`)
-  - Color-coded status indicators
-  - Icons for each status
+- **AdminDashboardPage** ([AdminDashboardPage.tsx](../../frontend/src/pages/admin/AdminDashboardPage.tsx)) - Metrics and recent orders
+- **AdminOrdersPage** ([AdminOrdersPage.tsx](../../frontend/src/pages/admin/AdminOrdersPage.tsx)) - Order list with filters
+- **AdminOrderDetailsPage** ([AdminOrderDetailsPage.tsx](../../frontend/src/pages/admin/AdminOrderDetailsPage.tsx)) - Full order details
+- **OrderStatusUpdate** ([OrderStatusUpdate.tsx](../../frontend/src/components/admin/OrderStatusUpdate.tsx)) - Status update controls
+- **OrderFilters** ([OrderFilters.tsx](../../frontend/src/components/admin/OrderFilters.tsx)) - Filter controls
+- **OrderStatusBadge** ([OrderStatusBadge.tsx](../../frontend/src/components/orders/OrderStatusBadge.tsx)) - Color-coded badges
 
 ## API Endpoints
 
-### Cart API (Mocked with MSW)
-```typescript
-GET    /api/v1/cart                    // Get current cart
-POST   /api/v1/cart/items              // Add item to cart
-PUT    /api/v1/cart/items/:id          // Update item quantity
-DELETE /api/v1/cart/items/:id          // Remove item
-DELETE /api/v1/cart                    // Clear cart
+All endpoints implemented in .NET Mock API (http://localhost:5180).
+
+### Cart API
+```
+GET    /api/v1/cart                    # Get current cart
+POST   /api/v1/cart/items              # Add item
+PUT    /api/v1/cart/items/:id          # Update quantity
+DELETE /api/v1/cart/items/:id          # Remove item
+DELETE /api/v1/cart                    # Clear cart
 ```
 
-### Checkout API (Mocked, UI Not Implemented)
-```typescript
-POST   /api/v1/checkout/validate       // Validate cart before checkout
-POST   /api/v1/checkout/shipping       // Set shipping address
-POST   /api/v1/checkout/billing        // Set billing address
-POST   /api/v1/checkout/submit         // Submit order (new → submitted)
-POST   /api/v1/checkout/payment        // Process payment (submitted → paid)
+### Checkout API (API Ready, UI Missing)
+```
+POST   /api/v1/checkout/validate       # Validate cart
+POST   /api/v1/checkout/shipping       # Set shipping address
+POST   /api/v1/checkout/billing        # Set billing address
+POST   /api/v1/checkout/submit         # Submit order (new → submitted)
+POST   /api/v1/checkout/payment        # Process payment (submitted → paid)
 ```
 
-### Orders API (Admin - Mocked)
-```typescript
-GET    /api/v1/admin/orders            // List all orders (filtered)
-GET    /api/v1/admin/orders/:id        // Get order details
-PUT    /api/v1/admin/orders/:id/status // Update order status
-POST   /api/v1/admin/orders/:id/notes  // Add admin note (future)
-POST   /api/v1/admin/orders/:id/refund // Process refund (future)
+### Admin Orders API
+```
+GET    /api/v1/admin/orders            # List all orders (filtered)
+GET    /api/v1/admin/orders/:id        # Order details
+PUT    /api/v1/admin/orders/:id/status # Update status
+POST   /api/v1/admin/orders/:id/notes  # Add note (future)
+POST   /api/v1/admin/orders/:id/refund # Process refund (future)
 ```
 
 ### Customer Orders API (Not Implemented)
-```typescript
-GET    /api/v1/orders                  // Customer order history
-GET    /api/v1/orders/:id              // Customer order details
-GET    /api/v1/orders/:id/status-history // Order status timeline
-POST   /api/v1/orders/:id/cancel       // Request cancellation
+```
+GET    /api/v1/orders                  # Order history
+GET    /api/v1/orders/:id              # Order details
+GET    /api/v1/orders/:id/status-history # Status timeline
+POST   /api/v1/orders/:id/cancel       # Request cancellation
 ```
 
 ## Data Models
@@ -228,7 +163,7 @@ POST   /api/v1/orders/:id/cancel       // Request cancellation
   id: string;
   orderId: string;
   productId: string;
-  marketId: string;            // NEW: Product's market
+  marketId: string;            // Product's market
   productName: string;
   productSKU: string;
   productImage?: string;
@@ -238,281 +173,178 @@ POST   /api/v1/orders/:id/cancel       // Request cancellation
 }
 ```
 
-### OrderStatusHistory
-```typescript
-{
-  id: string;
-  orderId: string;
-  fromStatus: OrderStatus | null;
-  toStatus: OrderStatus;
-  timestamp: Date;
-  notes?: string;
-  userId?: string;
-}
-```
-
 ## Order Status Workflow
 
 ```
-new (cart) → submitted (order placed) → paid (payment confirmed) → completed (fulfilled)
-              ↓                           ↓                           ↓
-           cancelled                  cancelled                   (no cancellation)
+new (cart) → submitted → paid → completed
+    ↓            ↓         ↓
+cancelled    cancelled  (no cancel)
 ```
 
 **Status Definitions**:
-- **new**: Shopping cart, customer still browsing
+- **new**: Shopping cart
 - **submitted**: Order placed, awaiting payment
 - **paid**: Payment confirmed, ready for fulfillment
-- **completed**: Order fulfilled and delivered
-- **cancelled**: Order cancelled (before completion)
+- **completed**: Fulfilled and delivered
+- **cancelled**: Cancelled before completion
 
 ## Multi-Tenancy & Market Isolation
 
-The system implements two-level data isolation:
+### Context
+- **Tenant Level**: Orders belong to tenant, tenant has multiple markets
+- **Market Level**: Each order tied to specific market, products from market catalog
+- API calls include `X-Tenant-ID` and `X-Market-ID` headers
 
-### Tenant Level
-- Orders belong to a tenant
-- Each tenant can have multiple markets
-
-### Market Level
-- Each order is associated with a specific market
-- Products in orders come from that market's catalog
-- Inventory is managed per market
-- API calls include both `X-Tenant-ID` and `X-Market-ID` headers
-
-**Access Control**:
+### Access Control
 - **Superadmin**: All tenants and markets
-- **Tenant Admin**: All markets within their tenant
-- **Tenant User**: Specific assigned markets only
+- **Tenant Admin**: All markets within tenant
+- **Tenant User**: Assigned markets only
 
-**Cart/Order Context**:
-- Cart persistence includes market context (active market during session)
-- Orders are scoped to a specific market
-- Products in an order must belong to that market's catalog
-- Checkout validates all products belong to same market
+### Cart/Order Context
+- Cart persistence includes market context
+- Orders scoped to specific market
+- Checkout validates products belong to same market
 
 ## Testing
 
 ### Manual Test Scenarios
 
-**Test 1: Add to Cart**
-1. Navigate to product list
-2. Click "Add to Cart" on a product
-3. Verify cart indicator updates
-4. Navigate to `/cart`
-5. Verify product appears in cart with correct details
+**Add to Cart**:
+1. Browse products, click "Add to Cart"
+2. Verify cart indicator updates
+3. Navigate to `/cart`, verify product appears
 
-**Test 2: Modify Cart**
-1. Navigate to `/cart` with items
-2. Change quantity of an item
-3. Verify line total and order total update
-4. Remove an item
-5. Verify item removed and totals recalculated
-6. Clear cart
-7. Verify empty cart message appears
+**Modify Cart**:
+1. Update quantity, verify totals recalculate
+2. Remove item, verify removal
+3. Clear cart, verify empty message
 
-**Test 3: Stock Warnings**
-1. Add product with low/no stock to cart
-2. Verify warning badge appears
-3. Verify checkout button disabled/warned
+**Stock Warnings**:
+1. Add low/no stock product
+2. Verify warning appears
 
-**Test 4: Admin Order Management**
-1. Navigate to `/admin`
-2. View order metrics and recent orders
-3. Navigate to `/admin/orders`
-4. Filter by status (e.g., "submitted")
-5. Search for order by number
-6. Click on an order
-7. View full order details
-8. Update order status with notes
-9. Verify status history updated
+**Admin Order Management**:
+1. Navigate to `/admin`, view metrics
+2. Navigate to `/admin/orders`, filter by status
+3. Click order, view details
+4. Update status with notes
+5. Verify history updated
 
-**Test 5: Order Filtering**
-1. Navigate to `/admin/orders`
-2. Filter by status: "paid"
-3. Filter by tenant: "Demo Store"
-4. Filter by date range
-5. Verify only matching orders shown
-6. Clear filters
-7. Verify all orders shown
+**Order Filtering**:
+1. Filter by status, tenant, date range
+2. Search by order number
+3. Verify results match criteria
 
-### Edge Cases Covered
-
-- ✅ Adding same product twice (quantity increments)
-- ✅ Updating quantity to zero (removes item)
+### Edge Cases
+- ✅ Same product twice (quantity increments)
+- ✅ Quantity to zero (removes item)
 - ✅ Empty cart display
-- ✅ Out-of-stock product in cart
-- ✅ Invalid order status transitions (blocked)
+- ✅ Out-of-stock warnings
+- ✅ Invalid status transitions (blocked)
 - ✅ Order not found (404 handling)
-- ⚠️ Concurrent cart modifications (needs testing)
-- ❌ Product price changes while in cart (not handled)
+- ⚠️ Concurrent modifications (needs testing)
+- ❌ Price changes while in cart (not handled)
 - ❌ Cart expiration (not implemented)
-- ❌ Guest cart merge (not implemented)
 
 ## Success Criteria Status
 
-From [spec.md](spec.md) Success Criteria:
-
-- **SC-001** ✅ Cart operations < 2s: ACHIEVED
-- **SC-002** ⏳ Checkout < 5 minutes: NOT TESTED (UI missing)
-- **SC-003** ✅ 95% status transition success: ACHIEVED
-- **SC-004** ⏳ Cart persistence 100%: NOT IMPLEMENTED
-- **SC-005** ❌ Cart merge on login 100%: NOT IMPLEMENTED
-- **SC-006** ✅ Status history accuracy: ACHIEVED
-- **SC-007** ✅ Admin find/update < 30s: ACHIEVED
-- **SC-008** ✅ Out-of-stock prevention: ACHIEVED
-- **SC-009** ❌ Abandonment emails < 24h: NOT IMPLEMENTED
-- **SC-010** ⏳ Confirmation emails < 1min: NOT IMPLEMENTED
-- **SC-011** ✅ Tenant isolation: ACHIEVED
-- **SC-012** ⏳ Inventory sync 100%: NEEDS backend testing
+- **SC-001** ✅ Cart operations < 2s
+- **SC-002** ⏳ Checkout < 5min (UI missing)
+- **SC-003** ✅ 95% status transition success
+- **SC-004** ❌ Cart persistence (not implemented)
+- **SC-005** ❌ Cart merge on login (not implemented)
+- **SC-006** ✅ Status history accuracy
+- **SC-007** ✅ Admin find/update < 30s
+- **SC-008** ✅ Out-of-stock prevention
+- **SC-009** ❌ Abandonment emails (not implemented)
+- **SC-010** ⏳ Confirmation emails (not implemented)
+- **SC-011** ✅ Tenant isolation
+- **SC-012** ⏳ Inventory sync (needs backend testing)
 
 ## Next Steps
 
-### High Priority (Complete Phase 5)
-1. **Build Checkout UI**
-   - ShippingForm component
-   - BillingForm component
-   - PaymentForm component
-   - OrderReview component
-   - CheckoutPage with wizard flow
-   - Order confirmation page
-
-2. **Complete Checkout Flow**
-   - Connect forms to checkout API
-   - Add address validation
-   - Implement checkout progress indicator
-   - Handle checkout errors gracefully
+### High Priority
+1. **Build Checkout UI** - Forms, wizard flow, confirmation page
+2. **Cart Persistence** - localStorage for guests, merge on login
+3. **Customer Order Tracking** - History and details pages
 
 ### Medium Priority
-3. **Cart Persistence** (Phase 8)
-   - localStorage for guest carts
-   - Cart expiration logic
-   - Guest cart merge on login
-   - Cross-device sync for logged-in users
-
-4. **Customer Order Tracking** (Phase 6)
-   - Order history page
-   - Order details page
-   - Status timeline visualization
-   - Tracking information display
+4. **Refund Processing**
+5. **Cart Abandonment**
 
 ### Low Priority
-5. **Refund Processing** (Phase 9)
-6. **Cart Abandonment** (Phase 10)
-7. **Polish & Optimization** (Phase 11)
+6. **Polish & Optimization**
 
 ## Dependencies
 
 ### Internal
 - ✅ Product catalog (products, pricing, inventory)
-- ✅ Auth system (user authentication, role-based access)
-- ✅ Market management (market context, market-based catalogs)
+- ✅ Auth system (authentication, RBAC)
+- ✅ Market management
 - ⏳ Payment gateway integration
 
 ### External
-- ⏳ Payment processing service (Stripe/PayPal)
+- ⏳ Payment service (Stripe/PayPal)
 - ⏳ Email notification service
 - ⏳ Tax calculation service
-- ⏳ Shipping rate calculation service
+- ⏳ Shipping rate service
 
 ## Known Issues
 
-1. **No Cart Persistence**: Carts don't persist across browser sessions
-2. **Checkout UI Missing**: API ready but forms not built
-3. **No Customer View**: Only admin can view orders
-4. **Price Changes**: Cart doesn't update if product price changes
+1. **No Cart Persistence**: Doesn't persist across sessions
+2. **Checkout UI Missing**: API ready, forms not built
+3. **No Customer View**: Admin-only order viewing
+4. **Price Changes**: Cart doesn't update if price changes
 5. **No Inventory Reservation**: Stock not reserved during checkout
-6. **Hard-coded Tax/Shipping**: Currently using fixed percentages in mock
+6. **Hard-coded Tax/Shipping**: Fixed percentages in mock
 
 ## Configuration
 
-### Mock Data
-Located in `frontend/src/mocks/data/`:
-- **mockOrders.ts**: 10+ sample orders in various statuses
-- **mockProducts.ts**: Products for cart testing
-- **mockMarkets.ts**: Market data for different locations
+### Seed Data
+Located in `mock-api/MockApi/Data/MockDataStore.cs`:
+- 10+ sample orders in various statuses
+- Market-specific products and orders
 
 ### Environment Variables
 ```bash
-VITE_TENANT_ID=demo-tenant
-VITE_API_BASE_URL=http://localhost:5176/api
-VITE_USE_MOCKS=true
+# Frontend .env.local
+VITE_TENANT_ID=tenant-a
+VITE_API_BASE_URL=http://localhost:5180/api/v1
+VITE_USE_MOCKS=false
 ```
-
-### MSW Handlers
-Located in `frontend/src/mocks/handlers/`:
-- **cartHandlers.ts**: Cart CRUD operations
-- **checkoutHandlers.ts**: Checkout workflow
-- **ordersHandlers.ts**: Customer order management (future)
-- **adminHandlers.ts**: Admin order management
 
 ## Architecture Notes
 
 ### Cart as Order with "new" Status
-**Rationale**: Simplifies data model by treating cart as first step of order lifecycle rather than separate entity. Benefits:
-- Single table for both carts and orders
-- Seamless transition from cart to order
-- Unified history tracking
-- Easier inventory management
-
-**Tradeoff**: Slightly more complex queries to distinguish active carts from historical orders.
+**Rationale**: Simplifies data model, seamless transition, unified history tracking.
+**Tradeoff**: Slightly more complex queries to distinguish carts from orders.
 
 ### Zustand for Cart State
-**Why**: Cart needs client-side state management for instant UI updates and offline support. Zustand provides:
-- Minimal boilerplate
-- Built-in persistence middleware
-- Easy integration with TanStack Query
-- Small bundle size
+**Why**: Instant UI updates, persistence middleware, easy TanStack Query integration, tiny bundle.
 
 ### TanStack Query for Orders
-**Why**: Orders are server-managed data with complex caching needs:
-- Automatic cache invalidation
-- Optimistic updates
-- Background refetching
-- Excellent DevTools
+**Why**: Automatic cache invalidation, optimistic updates, background refetching, excellent DevTools.
 
-## Future Backend Implementation
+## Backend Implementation Notes
 
-When implementing the .NET backend:
+When implementing .NET backend:
 
-1. **Database Schema**
-   - Orders table (includes carts with status='new')
-   - OrderLineItems table
-   - OrderStatusHistory table
-   - Addresses table (shipping/billing)
-   - PaymentTransactions table
-
-2. **Order Status State Machine**
-   - Validate transitions server-side
-   - Prevent invalid status changes
-   - Audit all transitions in history table
-
-3. **Inventory Management**
-   - Reserve stock when status → 'submitted'
-   - Deduct stock when status → 'paid'
-   - Release stock when status → 'cancelled'
-
-4. **Multi-Tenancy & Market Isolation**
-   - All queries filter by tenant_id AND market_id
-   - Validate both tenant and market context in all operations
-   - Ensure order products belong to order's market
-
-5. **Performance**
-   - Composite index on: (tenant_id, market_id, status, created_at)
-   - Index on: order_number (unique across system)
-   - Implement server-side pagination
-   - Consider caching for frequently accessed orders
+1. **Database Schema**: Orders, OrderLineItems, OrderStatusHistory, Addresses, PaymentTransactions tables
+2. **State Machine**: Validate transitions server-side, prevent invalid changes, audit all transitions
+3. **Inventory**: Reserve on 'submitted', deduct on 'paid', release on 'cancelled'
+4. **Multi-Tenancy**: Filter by tenant_id AND market_id, validate context in all operations
+5. **Performance**: Index on (tenant_id, market_id, status, created_at), order_number (unique), pagination
 
 ## Resources
 
-- Specification: [spec.md](spec.md)
-- Implementation Plan: [plan.md](plan.md)
-- Task List: [tasks.md](tasks.md)
-- Project Overview: [../../CLAUDE.md](../../CLAUDE.md)
-- Constitution: [../../memory/constitution.md](../../memory/constitution.md)
+- [Specification](spec.md)
+- [Implementation Plan](plan.md)
+- [Task List](tasks.md)
+- [Project Overview](../../CLAUDE.md)
+- [Constitution](../../memory/constitution.md)
 
 ---
 
-**Last Updated**: 2025-10-28
+**Last Updated**: 2025-11-04
 **Current Phase**: Phase 5 (Checkout UI) - API Ready, UI Pending
 **Next Milestone**: Complete checkout forms and page

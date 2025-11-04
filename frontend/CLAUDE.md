@@ -2,11 +2,10 @@
 
 ## Overview
 
-This is the React + TypeScript frontend for the eCommerce SaaS MVP backoffice. The application provides admin interfaces for managing markets, products, categories, orders, and implementing role-based access control across multiple tenants.
+React + TypeScript admin backoffice for the eCommerce SaaS MVP. Manages markets, products, categories, orders, and role-based access across multiple tenants.
 
 ### Market-Based Architecture
 
-The system uses a hierarchical data structure:
 ```
 Tenant (Business Entity)
 └── Markets (Stores/Locations)
@@ -14,150 +13,89 @@ Tenant (Business Entity)
         └── Products (Catalog Items)
 ```
 
-- **Products and categories** are market-specific (not tenant-wide)
-- **Orders** belong to specific markets
-- **Users** have tenant-level access with optional market-level restrictions
-- **API calls** include both `X-Tenant-ID` and `X-Market-ID` headers
+- Products and categories are market-specific (not tenant-wide)
+- Orders belong to specific markets
+- Users have tenant-level access with optional market restrictions
+- API calls include `X-Tenant-ID` and `X-Market-ID` headers
 
 ## Technology Stack
 
 - **React**: 18.x with TypeScript 5.x
 - **Build Tool**: Vite 5.x
 - **Routing**: React Router 6.x
-- **State Management**: Zustand 4.x (with localStorage persistence)
-- **Data Fetching**: TanStack Query v5 (React Query)
-- **API Mocking**: Mock Service Worker (MSW) 2.x
+- **State Management**: Zustand 4.x (localStorage persistence)
+- **Data Fetching**: TanStack Query v5
 - **Styling**: Tailwind CSS + Headless UI
 - **Forms**: React Hook Form
 - **Testing**: Vitest + React Testing Library
+- **Backend**: .NET Mock API (http://localhost:5180)
 
 ## Project Structure
 
 ```
 /src/
   /components/          # Reusable UI components
-    /admin/            # Admin-specific components
-      AdminOrderList.tsx
-      OrderFilters.tsx
-      OrderStatusBadge.tsx
-      OrderStatusUpdate.tsx
-      ProductList.tsx
-      ProductForm.tsx
-      QuickStockUpdate.tsx
-      CategoryList.tsx
-      CategoryForm.tsx
-    /auth/             # Authentication components
-      LoginPage.tsx (moved from pages)
-      ProfileSelector.tsx
-      TenantSelector.tsx
-      UserInfo.tsx
-      ProtectedRoute.tsx
-    /cart/             # Shopping cart components
-      CartItem.tsx
-      CartSummary.tsx
-      CartIndicator.tsx
-      EmptyCart.tsx
-    /orders/           # Order components
-      OrderStatusBadge.tsx
-    /common/           # Shared UI components
-      Button.tsx
-      Input.tsx
-      Select.tsx
-      LoadingSpinner.tsx
-    /layout/           # Layout components
-      Navigation.tsx
-      Layout.tsx
+    /admin/            # AdminOrderList, ProductList, ProductForm, etc.
+    /auth/             # LoginPage, ProfileSelector, TenantSelector, UserInfo
+    /cart/             # CartItem, CartSummary, CartIndicator
+    /orders/           # OrderStatusBadge
+    /common/           # Button, Input, Select, LoadingSpinner
+    /layout/           # Navigation, Layout
+    /tenants/          # TenantList, TenantForm, MarketList
 
-  /pages/              # Page-level components (route handlers)
-    /admin/
-      AdminDashboardPage.tsx
-      AdminOrdersPage.tsx
-      AdminOrderDetailsPage.tsx
-      ProductsPage.tsx
-      ProductEditPage.tsx
-      CategoriesPage.tsx
+  /pages/              # Route handlers
+    /admin/            # AdminDashboardPage, AdminOrdersPage, ProductsPage, etc.
     LoginPage.tsx
     CartPage.tsx
-    OrderHistoryPage.tsx (future)
-    OrderDetailsPage.tsx (future)
-    CheckoutPage.tsx (future)
 
   /services/           # API and data services
     /api/
       client.ts        # Base API client (fetch wrapper)
-      cartApi.ts       # Cart API methods
-      ordersApi.ts     # Orders API methods
-      checkoutApi.ts   # Checkout API methods
-      adminApi.ts      # Admin API methods
-      productsApi.ts   # Products API methods
-      categoriesApi.ts # Categories API methods
+      cartApi.ts       # Cart endpoints
+      ordersApi.ts     # Orders endpoints
+      adminApi.ts      # Admin endpoints
+      productsApi.ts   # Products endpoints
+      categoriesApi.ts # Categories endpoints
     /hooks/            # TanStack Query hooks
-      useCart.ts
-      useOrders.ts
-      useCheckout.ts
-      useAdminOrders.ts
-      useProducts.ts
-      useCategories.ts
-    /auth/
-      authService.ts   # Authentication logic
+      useCart.ts, useOrders.ts, useProducts.ts, etc.
 
   /store/              # Zustand state management
-    authStore.ts       # Auth session state
+    authStore.ts       # Auth session state (persisted)
     cartStore.ts       # Cart state (syncs with API)
-    checkoutStore.ts   # Checkout flow state
 
-  /mocks/              # Mock Service Worker setup
-    /handlers/
-      cartHandlers.ts
-      ordersHandlers.ts
-      checkoutHandlers.ts
-      adminHandlers.ts
-      productsHandlers.ts
-      categoriesHandlers.ts
-    /data/
-      mockProfiles.ts
-      mockTenants.ts
-      mockProducts.ts
-      mockCategories.ts
-      mockOrders.ts
-    browser.ts         # MSW browser setup
-    server.ts          # MSW server setup (for tests)
+  /data/               # Minimal hardcoded data
+    tenants.ts         # Tenant/market references for auth selectors
+    profiles.ts        # Hardcoded profiles for login
 
-  /types/              # TypeScript interfaces and types
-    auth.ts            # UserProfile, Role, UserSession
-    product.ts         # Product, Category, Variant
-    order.ts           # Order, OrderLineItem, OrderStatus
-    address.ts         # ShippingAddress, BillingAddress
-    payment.ts         # PaymentTransaction
-    market.ts          # Market
-    api.ts             # API request/response types
+  /types/              # TypeScript interfaces
+    auth.ts, product.ts, order.ts, address.ts, market.ts, api.ts
 
   /utils/              # Helper functions
-    authGuards.ts      # Permission checks
-    currency.ts        # Currency formatting
-    validation.ts      # Form validation
-    storage.ts         # localStorage helpers
-    orderHelpers.ts    # Order status logic
+    authGuards.ts, currency.ts, validation.ts, orderHelpers.ts
 
-  /App.tsx             # Main app component
-  /main.tsx            # Entry point (enables MSW)
+  /App.tsx
+  /main.tsx            # Entry point
   /router.tsx          # React Router configuration
 
-/tests/                # Component and integration tests
-  /components/
-  /integration/
-  setup.ts             # Test configuration
-
-/public/               # Static assets
+/tests/                # Tests
+  setup.ts
 
 /index.html
-/vite.config.ts        # Vite configuration
-/tsconfig.json         # TypeScript configuration
-/tailwind.config.js    # Tailwind CSS configuration
-/package.json
+/vite.config.ts
+/tsconfig.json
+/tailwind.config.js
 ```
 
 ## Getting Started
+
+### Prerequisites
+Start the .NET Mock API first (required):
+```bash
+# In separate terminal
+cd mock-api/MockApi
+dotnet run
+# Runs on http://localhost:5180
+```
 
 ### Installation
 ```bash
@@ -167,224 +105,168 @@ npm install
 ### Development Server
 ```bash
 npm run dev
-# Opens at http://localhost:5176
+# Opens at http://localhost:5173
 ```
 
 ### Build for Production
 ```bash
 npm run build
-npm run preview  # Preview production build
+npm run preview
 ```
 
 ### Testing
 ```bash
 npm run test              # Run unit tests
-npm run test:watch        # Run tests in watch mode
-npm run test:coverage     # Run tests with coverage report
+npm run test:watch        # Watch mode
+npm run test:coverage     # Coverage report
 ```
 
-### Type Checking
+### Type Checking & Linting
 ```bash
 npm run type-check
-```
-
-### Linting
-```bash
 npm run lint
 npm run lint:fix
 ```
 
 ## Environment Configuration
 
-Create a `.env.local` file in the frontend directory:
+Create `.env.local`:
 
 ```bash
 # Tenant Configuration
-VITE_TENANT_ID=demo-tenant
+VITE_TENANT_ID=tenant-a
 
 # API Configuration
-VITE_API_BASE_URL=http://localhost:5176/api
-
-# Mock Service Worker
-VITE_USE_MOCKS=true                  # Set to false to use real backend API
-
-# Feature Flags (optional)
-VITE_ENABLE_CHECKOUT=true
-VITE_ENABLE_CART_PERSISTENCE=false
+VITE_API_BASE_URL=http://localhost:5180/api/v1
+VITE_USE_MOCKS=false
 ```
 
 ## Available Routes
 
-### Public Routes
-- `/login` - Login page with profile selection
+### Public
+- `/login` - Login with profile selection
 
-### Protected Admin Routes (Require Authentication)
-- `/admin` - Dashboard with metrics and recent orders
-- `/admin/products` - Product list and management
-- `/admin/products/new` - Create new product
+### Protected Admin (Require Authentication)
+- `/admin` - Dashboard with metrics
+- `/admin/products` - Product management
+- `/admin/products/new` - Create product
 - `/admin/products/:id` - Edit product
 - `/admin/categories` - Category management
 - `/admin/orders` - Order list with filtering
 - `/admin/orders/:id` - Order details
+- `/admin/tenants` - Tenant management (superadmin)
 
-### Shopping Routes (Some Not Yet Implemented)
-- `/cart` - Shopping cart (implemented)
-- `/checkout` - Checkout wizard (not implemented - API ready)
-- `/orders` - Order history (not implemented)
-- `/orders/:id` - Order details (not implemented)
+### Shopping (Partial)
+- `/cart` - Shopping cart
+- `/checkout` - Not implemented (API ready)
+- `/orders` - Not implemented
+- `/orders/:id` - Not implemented
 
-## Mock Service Worker (MSW)
+## .NET Mock API Integration
 
-The application uses MSW to mock backend API responses during development.
+The frontend communicates with a .NET Mock API server instead of browser-based mocks.
 
-### How It Works
-1. MSW intercepts network requests at the service worker level
-2. Requests appear in browser Network tab as real requests
-3. Handlers return mock data based on request parameters
-4. Works in both browser and test environments
+### API Base URL
+- Development: `http://localhost:5180/api/v1`
+- Configured in `.env.local` as `VITE_API_BASE_URL`
 
-### Mock Data Location
-All mock data is in `src/mocks/data/`:
-- **mockProfiles.ts**: 3 hardcoded user profiles
-- **mockTenants.ts**: 3 sample tenants
-- **mockMarkets.ts**: Sample markets per tenant
-- **mockProducts.ts**: 20+ products with variants (market-specific)
-- **mockCategories.ts**: Hierarchical category tree (market-specific)
-- **mockOrders.ts**: 10+ orders in various statuses (market-specific)
-
-### Disabling Mocks
-To use a real backend API:
-1. Set `VITE_USE_MOCKS=false` in `.env.local`
-2. Update `VITE_API_BASE_URL` to backend URL
-3. Ensure backend implements the same API contracts
-
-### Adding New Mock Endpoints
-1. Create handler in `src/mocks/handlers/`:
-```typescript
-// src/mocks/handlers/myHandlers.ts
-import { http, HttpResponse } from 'msw';
-
-export const myHandlers = [
-  http.get('/api/v1/my-endpoint', () => {
-    return HttpResponse.json({ data: 'mock data' });
-  }),
-];
-```
-
-2. Register in `src/mocks/browser.ts`:
-```typescript
-import { myHandlers } from './handlers/myHandlers';
-
-export const worker = setupWorker(
-  ...cartHandlers,
-  ...myHandlers,
-);
-```
-
-## State Management
-
-### Zustand Stores
-
-#### authStore
-**Purpose**: Manage authentication session
-**Persistence**: localStorage
-**Key Methods**:
-- `login(profileId, tenantId?)` - Authenticate user
-- `logout()` - Clear session
-- `isAuthenticated()` - Check auth status
-- `hasPermission(permission)` - Check permissions
-
-#### cartStore
-**Purpose**: Manage shopping cart state
-**Persistence**: localStorage (future)
-**Key Methods**:
-- `addItem(product, quantity)` - Add to cart
-- `updateQuantity(lineItemId, quantity)` - Update quantity
-- `removeItem(lineItemId)` - Remove from cart
-- `clearCart()` - Clear all items
-
-#### checkoutStore
-**Purpose**: Manage checkout flow state
-**Persistence**: sessionStorage
-**Key Methods**:
-- `setShippingAddress(address)` - Save shipping
-- `setBillingAddress(address)` - Save billing
-- `setPaymentMethod(method)` - Save payment method
-- `reset()` - Clear checkout state
-
-### TanStack Query
-
-Used for server state management (data fetching, caching, mutations).
-
-**Key Hooks**:
-- `useCart()` - Get current cart
-- `useAddToCart()` - Mutation to add item
-- `useUpdateCartItem()` - Mutation to update quantity
-- `useProducts()` - Get product list
-- `useProduct(id)` - Get single product
-- `useAdminOrders()` - Get orders with filters
-- `useUpdateOrderStatus()` - Mutation to update status
-
-**Query Keys Convention**:
-```typescript
-// Query keys for cache management
-['cart']
-['products']
-['products', productId]
-['admin', 'orders', filters]
-['admin', 'orders', orderId]
-```
-
-## API Client
-
-### Base Client
-Located in `src/services/api/client.ts`, provides:
-- Fetch wrapper with error handling
-- Request/response interceptors
-- Auth header injection
-- Tenant context header (X-Tenant-ID)
-- Error normalization
-
-### API Services
-Each feature has its own API service file:
-- **cartApi.ts**: Cart operations
-- **ordersApi.ts**: Order operations
-- **checkoutApi.ts**: Checkout flow
-- **adminApi.ts**: Admin order management
-- **productsApi.ts**: Product CRUD
-- **categoriesApi.ts**: Category CRUD
-
-### API Contract
-All APIs follow OpenAPI 3.0 specifications (see `/specs/*/contracts/`).
-
-**Base URL**: `/api/v1/`
-
-**Headers**:
+### Headers
 ```
 Content-Type: application/json
-Authorization: Bearer {token} (future)
-X-Tenant-ID: {tenantId} (for tenant-scoped roles)
-X-Market-ID: {marketId} (for market-scoped data)
+X-Tenant-ID: {tenantId}    # For tenant-scoped data
+X-Market-ID: {marketId}    # For market-scoped data
 ```
 
-**Response Format**:
+### Response Format
 ```typescript
-// Success
-{ data: T, meta?: { total, page, limit } }
+// Success (varies by endpoint)
+Product[]                   // Products, Categories
+{ data: Tenant[], total, page, limit }  // Paginated (Tenants)
 
 // Error
 { error: string, details?: any }
 ```
 
+### Hardcoded Data
+Minimal hardcoded data exists only for authentication UI:
+- `src/data/tenants.ts` - Tenant/market references for selectors
+- `src/data/profiles.ts` - User profiles for login
+
+All other data comes from .NET Mock API seed data.
+
+## State Management
+
+### Zustand Stores
+
+**authStore** (localStorage):
+- `login(profileId, tenantId?)` - Authenticate
+- `logout()` - Clear session
+- `setTenant(tenantId)` - Switch tenant
+- `setMarket(marketId)` - Switch market
+- `isAuthenticated()` - Check auth
+- `hasPermission(permission)` - Check permissions
+
+**cartStore** (future localStorage):
+- `addItem(product, quantity)`
+- `updateQuantity(lineItemId, quantity)`
+- `removeItem(lineItemId)`
+- `clearCart()`
+
+### TanStack Query
+
+Server state management with caching.
+
+**Key Hooks**:
+- `useCart()` - Current cart
+- `useAddToCart()` - Add mutation
+- `useProducts()` - Product list
+- `useProduct(id)` - Single product
+- `useAdminOrders()` - Orders with filters
+- `useUpdateOrderStatus()` - Status mutation
+- `useTenants()` - Tenant list
+- `useMarkets(tenantId)` - Market list
+
+**Query Keys**:
+```typescript
+['cart']
+['products']
+['products', productId]
+['admin', 'orders', filters]
+['tenants', filters]
+['markets', tenantId]
+```
+
+## API Client
+
+### Base Client
+Located in `src/services/api/client.ts`:
+- Fetch wrapper with error handling
+- Automatic tenant/market context headers
+- Error normalization
+- Base URL from environment
+
+### API Services
+Each feature has dedicated API file:
+- `cartApi.ts` - Cart operations
+- `ordersApi.ts` - Order operations
+- `adminApi.ts` - Admin order management
+- `productsApi.ts` - Product CRUD
+- `categoriesApi.ts` - Category CRUD
+
+Example:
+```typescript
+// src/services/api/productsApi.ts
+import { apiClient } from './client';
+
+export async function getProducts(): Promise<Product[]> {
+  return apiClient.get<Product[]>('/products');
+}
+```
+
 ## Component Patterns
 
 ### Page Components
-- Located in `/pages/`
-- Handle routing and data fetching
-- Compose smaller components
-- Minimal business logic
-
-Example:
+Located in `/pages/` - handle routing and data fetching:
 ```typescript
 export function ProductsPage() {
   const { data: products, isLoading } = useProducts();
@@ -401,12 +283,7 @@ export function ProductsPage() {
 ```
 
 ### Feature Components
-- Located in `/components/{feature}/`
-- Reusable across pages
-- Self-contained with props
-- Use hooks for data/state
-
-Example:
+Located in `/components/{feature}/` - reusable with props:
 ```typescript
 interface ProductListProps {
   products: Product[];
@@ -425,152 +302,99 @@ export function ProductList({ products, onEdit }: ProductListProps) {
 ```
 
 ### Common Components
-- Located in `/components/common/`
-- Generic UI components
-- No business logic
-- Highly reusable
-
-Example:
-```typescript
-interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary' | 'danger';
-}
-
-export function Button({ variant = 'primary', ...props }: ButtonProps) {
-  return <button className={cn('btn', `btn-${variant}`)} {...props} />;
-}
-```
+Located in `/components/common/` - generic UI, no business logic.
 
 ## Styling
 
 ### Tailwind CSS
-- Utility-first CSS framework
-- Configured in `tailwind.config.js`
-- Custom theme colors and spacing
+Utility-first framework configured in `tailwind.config.js`.
 
 ### Headless UI
-- Unstyled, accessible UI components
-- Used for: Dropdown, Dialog, Tabs, etc.
-- Styled with Tailwind classes
+Unstyled, accessible components (Dropdown, Dialog, Tabs) styled with Tailwind.
 
-### Component Styling Pattern
+### Conditional Classes
 ```typescript
-// Use cn() utility for conditional classes
 import { cn } from '@/utils/cn';
 
-export function Badge({ status }: { status: OrderStatus }) {
-  return (
-    <span className={cn(
-      'px-2 py-1 rounded-full text-xs font-medium',
-      status === 'paid' && 'bg-green-100 text-green-800',
-      status === 'pending' && 'bg-yellow-100 text-yellow-800',
-    )}>
-      {status}
-    </span>
-  );
-}
+<span className={cn(
+  'px-2 py-1 rounded-full text-xs',
+  status === 'paid' && 'bg-green-100 text-green-800',
+  status === 'pending' && 'bg-yellow-100 text-yellow-800',
+)}>
+  {status}
+</span>
 ```
 
 ## Authentication Flow
 
 ### Login
-1. User navigates to `/login`
-2. Selects profile from dropdown
-3. If not superadmin, selects tenant
-4. Clicks "Login"
-5. authStore.login() creates session
-6. Redirects to `/admin`
+1. Navigate to `/login`
+2. Select profile
+3. If not superadmin, select tenant
+4. Click "Login"
+5. `authStore.login()` creates session
+6. Redirect to `/admin`
 
 ### Protected Routes
-1. User tries to access `/admin/*`
-2. ProtectedRoute checks authStore.isAuthenticated()
-3. If authenticated: render route
-4. If not: redirect to `/login`
+1. Access `/admin/*`
+2. `ProtectedRoute` checks `authStore.isAuthenticated()`
+3. Authenticated: render route
+4. Not authenticated: redirect to `/login`
 
 ### Logout
-1. User clicks "Logout" in header
-2. authStore.logout() clears session
-3. Redirects to `/login`
+1. Click "Logout" in header
+2. `authStore.logout()` clears session
+3. Redirect to `/login`
 
 ## Multi-Tenancy & Market Isolation
 
-### Tenant & Market Context
-- Stored in authStore: `selectedTenantId` and `selectedMarketIds`
-- **Superadmin**: No tenant/market filter (see all)
-- **Tenant Admin**: Selected tenant, all markets within tenant
-- **Tenant User**: Selected tenant, specific assigned markets
+### Context
+- Stored in authStore: `selectedTenantId`, `selectedMarketIds`
+- **Superadmin**: See all tenants/markets
+- **Tenant Admin**: Selected tenant, all markets
+- **Tenant User**: Selected tenant, assigned markets
 
 ### Data Filtering
 ```typescript
-// In API calls
+// API calls include context headers
 const headers = {
-  'X-Tenant-ID': authStore.getState().session?.selectedTenantId,
-  'X-Market-ID': authStore.getState().session?.selectedMarketIds?.[0], // or current market
+  'X-Tenant-ID': session?.selectedTenantId,
+  'X-Market-ID': session?.selectedMarketIds?.[0],
 };
 
-// In MSW handlers (two-level filtering)
-http.get('/api/v1/products', ({ request }) => {
-  const tenantId = request.headers.get('X-Tenant-ID');
-  const marketId = request.headers.get('X-Market-ID');
-
-  const products = mockProducts.filter(p => {
-    // Superadmin: see all
-    if (!tenantId) return true;
-    // Tenant-level filter
-    if (p.tenantId !== tenantId) return false;
-    // Market-level filter (if specified)
-    if (marketId && p.marketId !== marketId) return false;
-    return true;
-  });
-
-  return HttpResponse.json({ data: products });
-});
+// Backend filters data accordingly
 ```
 
-### Market Assignment
-- **Tenant Users** can be assigned to specific markets
-- Products, categories, and orders are market-scoped
-- Each market has its own catalog within the tenant
+### Auto-Selection
+When no tenant/market is selected, first available is auto-selected (see [HeaderTenantSelector.tsx](src/components/auth/HeaderTenantSelector.tsx) and [HeaderMarketSelector.tsx](src/components/auth/HeaderMarketSelector.tsx)).
 
 ## Testing
 
 ### Unit Tests
-Test individual components and functions:
 ```typescript
 import { render, screen } from '@testing-library/react';
-import { ProductList } from './ProductList';
 
 test('renders product list', () => {
-  const products = [{ id: '1', name: 'Test Product', price: 100 }];
+  const products = [{ id: '1', name: 'Test', price: 100 }];
   render(<ProductList products={products} />);
-  expect(screen.getByText('Test Product')).toBeInTheDocument();
+  expect(screen.getByText('Test')).toBeInTheDocument();
 });
 ```
 
 ### Integration Tests
-Test feature workflows with MSW:
+Tests run against .NET Mock API (requires it to be running):
 ```typescript
-import { renderWithProviders } from '@/tests/setup';
-import { CartPage } from './CartPage';
-
 test('add product to cart', async () => {
   const { user } = renderWithProviders(<CartPage />);
-
   await user.click(screen.getByText('Add to Cart'));
-
-  expect(await screen.findByText('1 item in cart')).toBeInTheDocument();
+  expect(await screen.findByText('1 item')).toBeInTheDocument();
 });
 ```
 
-### Test Setup
-- MSW server configured in `tests/setup.ts`
-- Custom render with providers (Router, Query, etc.)
-- Mock data automatically loaded
-
-## Performance Optimization
+## Performance
 
 ### Code Splitting
-- Route-based code splitting via React.lazy()
+- Route-based code splitting via `React.lazy()`
 - Component lazy loading for heavy features
 
 ### Caching
@@ -581,67 +405,61 @@ test('add product to cart', async () => {
 ### Bundle Optimization
 - Vite tree-shaking
 - Dynamic imports for large dependencies
-- Analyze bundle with `npm run build -- --analyze`
 
 ## Common Tasks
 
 ### Add New Page
-1. Create component in `/pages/`
+1. Create in `/pages/`
 2. Add route in `router.tsx`
 3. Add navigation link in `Navigation.tsx`
 
 ### Add New API Endpoint
-1. Add method in appropriate service file (e.g., `productsApi.ts`)
+1. Add method in service file (e.g., `productsApi.ts`)
 2. Create TanStack Query hook in `/services/hooks/`
-3. Add MSW handler in `/mocks/handlers/`
-4. Use hook in component
+3. Use hook in component
+4. Backend must implement endpoint in .NET Mock API
 
 ### Add New Feature
-1. Create feature directory in `/components/{feature}/`
+1. Create directory in `/components/{feature}/`
 2. Create page in `/pages/`
 3. Add API service in `/services/api/`
-4. Create mock handlers
-5. Add route and navigation
-
-### Update Mock Data
-1. Edit files in `/mocks/data/`
-2. Data persists only in memory (resets on refresh)
-3. For persistent testing, use localStorage in handlers
+4. Add route and navigation
+5. Add backend endpoints in mock-api
 
 ## Troubleshooting
 
-### MSW Not Intercepting
-- Check browser console for MSW registration message
-- Verify handler is registered in `browser.ts`
-- Check handler path matches request URL
+### API Not Responding
+- Ensure .NET Mock API is running on http://localhost:5180
+- Check `VITE_API_BASE_URL` in `.env.local`
+- Verify backend endpoint exists
 
 ### TypeScript Errors
-- Run `npm run type-check` to see all errors
+- Run `npm run type-check`
 - Ensure types match API contracts
-- Check import paths are correct
+- Check import paths
 
 ### Build Errors
-- Clear node_modules and reinstall
-- Delete `.vite` cache directory
+- Clear `node_modules` and reinstall
+- Delete `.vite` cache
 - Check for circular dependencies
 
 ### State Not Persisting
 - Check localStorage in DevTools
-- Verify Zustand persist middleware is configured
-- Check for localStorage quota exceeded
+- Verify Zustand persist middleware configured
+- Check for quota exceeded
 
 ### Route Not Working
-- Verify route is defined in `router.tsx`
-- Check if route is wrapped in ProtectedRoute
-- Ensure user is authenticated
+- Verify route defined in `router.tsx`
+- Check if route needs `ProtectedRoute`
+- Ensure authenticated
 
 ## Best Practices
 
 ### Component Design
-- Keep components small and focused
+- Small, focused components
 - Extract reusable logic into hooks
-- Use TypeScript for type safety
-- Write props interfaces explicitly
+- TypeScript for type safety
+- Explicit props interfaces
 
 ### State Management
 - Server state → TanStack Query
@@ -658,8 +476,8 @@ test('add product to cart', async () => {
 ### Styling
 - Use Tailwind utilities first
 - Extract repeated patterns into components
-- Keep responsive design in mind
-- Follow accessibility best practices
+- Responsive design
+- Accessibility best practices
 
 ## Resources
 
@@ -667,18 +485,19 @@ test('add product to cart', async () => {
 - [Vite Documentation](https://vitejs.dev)
 - [TanStack Query](https://tanstack.com/query)
 - [Zustand](https://github.com/pmndrs/zustand)
-- [MSW Documentation](https://mswjs.io)
 - [Tailwind CSS](https://tailwindcss.com)
 - [React Router](https://reactrouter.com)
 
 ## Project Links
 
-- Main Project Guide: [../CLAUDE.md](../CLAUDE.md)
-- Feature Specifications: [../specs/CLAUDE.md](../specs/CLAUDE.md)
-- Constitution: [../memory/constitution.md](../memory/constitution.md)
+- [Main Project Guide](../CLAUDE.md)
+- [Feature Specifications](../specs/CLAUDE.md)
+- [Constitution](../memory/constitution.md)
+- [Mock API Guide](../mock-api/CLAUDE.md)
+- [Showcase Guide](../showcase-dotnet/CLAUDE.md)
 
 ---
 
-**Last Updated**: 2025-10-28
-**Current Version**: MVP Phase
+**Last Updated**: 2025-11-04
+**Current Version**: MVP Phase - .NET Mock API
 **Next Major Update**: Checkout UI Implementation
