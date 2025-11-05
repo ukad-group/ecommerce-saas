@@ -73,6 +73,35 @@
                 </div>
             }
 
+            <!-- Product Variants -->
+            @if (Model.Product.HasVariants && Model.Product.VariantOptions != null && Model.Product.VariantOptions.Any())
+            {
+                <div class="mb-4">
+                    <h5>Select Options</h5>
+                    @foreach (var option in Model.Product.VariantOptions)
+                    {
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">@option.Name</label>
+                            <div class="d-flex flex-wrap gap-2">
+                                @foreach (var value in option.Values)
+                                {
+                                    <button type="button" class="btn btn-outline-primary variant-option"
+                                            data-option="@option.Name"
+                                            data-value="@value">
+                                        @value
+                                    </button>
+                                }
+                            </div>
+                        </div>
+                    }
+                    <div id="variant-info" class="alert alert-info mt-3" style="display: none;">
+                        <p class="mb-1"><strong>SKU:</strong> <span id="variant-sku"></span></p>
+                        <p class="mb-1"><strong>Price:</strong> <span id="variant-price"></span></p>
+                        <p class="mb-0"><strong>Stock:</strong> <span id="variant-stock"></span></p>
+                    </div>
+                </div>
+            }
+
             <!-- Product Info -->
             <div class="card mb-4">
                 <div class="card-body">
@@ -145,3 +174,52 @@
         </div>
     </div>
 </div>
+
+@section Scripts {
+    @if (Model.Product.HasVariants && Model.Product.Variants != null)
+    {
+        <script>
+            const variants = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Product.Variants));
+            const selectedOptions = {};
+
+            document.querySelectorAll('.variant-option').forEach(button => {
+                button.addEventListener('click', function() {
+                    const option = this.dataset.option;
+                    const value = this.dataset.value;
+
+                    // Remove active class from siblings
+                    document.querySelectorAll(`[data-option="${option}"]`).forEach(btn => {
+                        btn.classList.remove('active');
+                        btn.classList.replace('btn-primary', 'btn-outline-primary');
+                    });
+
+                    // Add active class to clicked button
+                    this.classList.add('active');
+                    this.classList.replace('btn-outline-primary', 'btn-primary');
+
+                    // Store selection
+                    selectedOptions[option] = value;
+
+                    // Find matching variant
+                    const matchingVariant = variants.find(v => {
+                        return Object.keys(selectedOptions).every(key =>
+                            v.Options && v.Options[key] === selectedOptions[key]
+                        );
+                    });
+
+                    // Show variant info if all options selected
+                    const allOptionsSelected = @Model.Product.VariantOptions.Count === Object.keys(selectedOptions).length;
+
+                    if (allOptionsSelected && matchingVariant) {
+                        document.getElementById('variant-sku').textContent = matchingVariant.Sku || 'N/A';
+                        document.getElementById('variant-price').textContent = '$' + (matchingVariant.SalePrice || matchingVariant.Price || 0).toFixed(2);
+                        document.getElementById('variant-stock').textContent = matchingVariant.StockQuantity + ' available';
+                        document.getElementById('variant-info').style.display = 'block';
+                    } else {
+                        document.getElementById('variant-info').style.display = 'none';
+                    }
+                });
+            });
+        </script>
+    }
+}

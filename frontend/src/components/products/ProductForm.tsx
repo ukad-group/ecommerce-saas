@@ -51,7 +51,7 @@ export function ProductForm({
   );
   const [variants, setVariants] = useState<ProductVariant[]>(product?.variants || []);
   const [newOptionName, setNewOptionName] = useState('');
-  const [newOptionValue, setNewOptionValue] = useState('');
+  const [newOptionValues, setNewOptionValues] = useState<Record<string, string>>({});
 
   // State for custom properties management
   const [customProperties, setCustomProperties] = useState<CustomProperty[]>(
@@ -136,16 +136,17 @@ export function ProductForm({
   };
 
   const handleAddVariantValue = (optionName: string) => {
-    if (!newOptionValue.trim()) return;
+    const value = newOptionValues[optionName];
+    if (!value || !value.trim()) return;
 
     setVariantOptions(
       variantOptions.map((opt) =>
         opt.name === optionName
-          ? { ...opt, values: [...opt.values, newOptionValue] }
+          ? { ...opt, values: [...opt.values, value] }
           : opt
       )
     );
-    setNewOptionValue('');
+    setNewOptionValues({ ...newOptionValues, [optionName]: '' });
   };
 
   const handleRemoveVariantOption = (optionName: string) => {
@@ -516,8 +517,8 @@ export function ProductForm({
                 <div className="flex gap-2 mb-3">
                   <Input
                     label={`Add ${option.name} value`}
-                    value={newOptionValue}
-                    onChange={(e) => setNewOptionValue(e.target.value)}
+                    value={newOptionValues[option.name] || ''}
+                    onChange={(e) => setNewOptionValues({ ...newOptionValues, [option.name]: e.target.value })}
                     placeholder="e.g., Small, Red"
                   />
                   <div className="flex items-end">

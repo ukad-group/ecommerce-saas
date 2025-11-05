@@ -413,16 +413,40 @@ public class MockDataStore
                 TenantId = "tenant-a",
                 MarketId = "market-1",
                 Name = "Classic Cotton T-Shirt",
-                Description = "Comfortable 100% cotton t-shirt available in multiple colors",
-                Sku = "TSH-004",
-                Price = 19.99m,
+                Description = "Comfortable 100% cotton t-shirt available in multiple colors and sizes",
                 Currency = "USD",
                 Images = new List<string> { "https://dummyimage.com/300x300/10B981/fff.png&text=T-Shirt" },
                 CategoryIds = new List<string> { "cat-2" },
                 Status = "active",
-                StockQuantity = 100,
-                LowStockThreshold = 10,
-                HasVariants = false,
+                HasVariants = true,
+                VariantOptions = new List<VariantOption>
+                {
+                    new VariantOption { Name = "Size", Values = new List<string> { "Small", "Medium", "Large", "XL" } },
+                    new VariantOption { Name = "Color", Values = new List<string> { "White", "Black", "Navy", "Gray" } }
+                },
+                Variants = new List<ProductVariant>
+                {
+                    // White variants
+                    new ProductVariant { Id = "var-1", Sku = "TSH-004-WH-S", Price = 19.99m, StockQuantity = 25, LowStockThreshold = 5, Options = new Dictionary<string, string> { { "Size", "Small" }, { "Color", "White" } }, Status = "active" },
+                    new ProductVariant { Id = "var-2", Sku = "TSH-004-WH-M", Price = 19.99m, StockQuantity = 30, LowStockThreshold = 5, Options = new Dictionary<string, string> { { "Size", "Medium" }, { "Color", "White" } }, Status = "active" },
+                    new ProductVariant { Id = "var-3", Sku = "TSH-004-WH-L", Price = 19.99m, StockQuantity = 28, LowStockThreshold = 5, Options = new Dictionary<string, string> { { "Size", "Large" }, { "Color", "White" } }, Status = "active" },
+                    new ProductVariant { Id = "var-4", Sku = "TSH-004-WH-XL", Price = 19.99m, StockQuantity = 20, LowStockThreshold = 5, Options = new Dictionary<string, string> { { "Size", "XL" }, { "Color", "White" } }, Status = "active" },
+                    // Black variants
+                    new ProductVariant { Id = "var-5", Sku = "TSH-004-BK-S", Price = 19.99m, StockQuantity = 22, LowStockThreshold = 5, Options = new Dictionary<string, string> { { "Size", "Small" }, { "Color", "Black" } }, Status = "active" },
+                    new ProductVariant { Id = "var-6", Sku = "TSH-004-BK-M", Price = 19.99m, StockQuantity = 35, LowStockThreshold = 5, Options = new Dictionary<string, string> { { "Size", "Medium" }, { "Color", "Black" } }, Status = "active" },
+                    new ProductVariant { Id = "var-7", Sku = "TSH-004-BK-L", Price = 19.99m, StockQuantity = 32, LowStockThreshold = 5, Options = new Dictionary<string, string> { { "Size", "Large" }, { "Color", "Black" } }, Status = "active" },
+                    new ProductVariant { Id = "var-8", Sku = "TSH-004-BK-XL", Price = 19.99m, StockQuantity = 18, LowStockThreshold = 5, Options = new Dictionary<string, string> { { "Size", "XL" }, { "Color", "Black" } }, Status = "active" },
+                    // Navy variants
+                    new ProductVariant { Id = "var-9", Sku = "TSH-004-NV-S", Price = 21.99m, SalePrice = 19.99m, StockQuantity = 18, LowStockThreshold = 5, Options = new Dictionary<string, string> { { "Size", "Small" }, { "Color", "Navy" } }, Status = "active" },
+                    new ProductVariant { Id = "var-10", Sku = "TSH-004-NV-M", Price = 21.99m, SalePrice = 19.99m, StockQuantity = 25, LowStockThreshold = 5, Options = new Dictionary<string, string> { { "Size", "Medium" }, { "Color", "Navy" } }, Status = "active" },
+                    new ProductVariant { Id = "var-11", Sku = "TSH-004-NV-L", Price = 21.99m, SalePrice = 19.99m, StockQuantity = 22, LowStockThreshold = 5, Options = new Dictionary<string, string> { { "Size", "Large" }, { "Color", "Navy" } }, Status = "active" },
+                    new ProductVariant { Id = "var-12", Sku = "TSH-004-NV-XL", Price = 21.99m, SalePrice = 19.99m, StockQuantity = 15, LowStockThreshold = 5, Options = new Dictionary<string, string> { { "Size", "XL" }, { "Color", "Navy" } }, Status = "active" },
+                    // Gray variants
+                    new ProductVariant { Id = "var-13", Sku = "TSH-004-GR-S", Price = 19.99m, StockQuantity = 20, LowStockThreshold = 5, Options = new Dictionary<string, string> { { "Size", "Small" }, { "Color", "Gray" } }, Status = "active" },
+                    new ProductVariant { Id = "var-14", Sku = "TSH-004-GR-M", Price = 19.99m, StockQuantity = 27, LowStockThreshold = 5, Options = new Dictionary<string, string> { { "Size", "Medium" }, { "Color", "Gray" } }, Status = "active" },
+                    new ProductVariant { Id = "var-15", Sku = "TSH-004-GR-L", Price = 19.99m, StockQuantity = 24, LowStockThreshold = 5, Options = new Dictionary<string, string> { { "Size", "Large" }, { "Color", "Gray" } }, Status = "active" },
+                    new ProductVariant { Id = "var-16", Sku = "TSH-004-GR-XL", Price = 19.99m, StockQuantity = 16, LowStockThreshold = 5, Options = new Dictionary<string, string> { { "Size", "XL" }, { "Color", "Gray" } }, Status = "active" }
+                },
                 CreatedAt = DateTime.UtcNow.AddDays(-25),
                 UpdatedAt = DateTime.UtcNow.AddDays(-4)
             },
