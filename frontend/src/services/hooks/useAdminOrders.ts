@@ -27,7 +27,10 @@ export function useAdminOrders(params?: AdminOrdersQueryParams) {
 
   return useQuery({
     queryKey: ['admin', 'orders', tenantId, marketId, params],
-    queryFn: () => getAdminOrders(params),
+    queryFn: () => getAdminOrders({
+      ...params,
+      marketId: marketId || undefined, // Pass marketId from auth context
+    }),
     staleTime: 30000, // 30 seconds
     enabled: !!tenantId && !!marketId, // Only fetch when both are selected
   });

@@ -64,7 +64,7 @@ export function canTransitionTo(from: OrderStatus, to: OrderStatus): boolean {
 export function getStatusColor(status: OrderStatus): string {
   const colorMap: Record<OrderStatus, string> = {
     'new': 'bg-gray-100 text-gray-800',
-    'submitted': 'bg-blue-100 text-blue-800',
+    'submitted': 'bg-primary-100 text-primary-800',
     'paid': 'bg-green-100 text-green-800',
     'processing': 'bg-purple-100 text-purple-800',
     'completed': 'bg-emerald-100 text-emerald-800',

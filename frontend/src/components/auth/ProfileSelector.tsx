@@ -18,7 +18,7 @@ interface ProfileSelectorProps {
  */
 const ROLE_LABELS: Record<Role, { label: string; color: string }> = {
   [Role.SUPERADMIN]: { label: 'Superadmin', color: 'text-purple-600' },
-  [Role.TENANT_ADMIN]: { label: 'Tenant Admin', color: 'text-blue-600' },
+  [Role.TENANT_ADMIN]: { label: 'Tenant Admin', color: 'text-primary-600' },
   [Role.TENANT_USER]: { label: 'Tenant User', color: 'text-green-600' },
 };
 

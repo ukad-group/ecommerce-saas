@@ -26,7 +26,7 @@ export function LoadingSpinner({ size = 'md', className = '' }: LoadingSpinnerPr
 
   const spinnerClasses = `
     ${sizeClasses[size]}
-    border-blue-600
+    border-primary-600
     border-t-transparent
     rounded-full
     animate-spin

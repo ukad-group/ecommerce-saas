@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <rect width="100" height="100" fill="#4a6ba8"/>
+  <g fill="white">
+    <!-- Shopping cart icon -->
+    <circle cx="35" cy="80" r="5"/>
+    <circle cx="65" cy="80" r="5"/>
+    <path d="M 20 25 L 30 25 L 40 60 L 70 60 L 75 35 L 35 35" stroke="white" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>

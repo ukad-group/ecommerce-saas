@@ -21,8 +21,8 @@ const ROLE_BADGES: Record<Role, { label: string; bgColor: string; textColor: str
   },
   [Role.TENANT_ADMIN]: {
     label: 'Tenant Admin',
-    bgColor: 'bg-blue-100',
-    textColor: 'text-blue-800',
+    bgColor: 'bg-primary-100',
+    textColor: 'text-primary-800',
   },
   [Role.TENANT_USER]: {
     label: 'Tenant User',

@@ -17,7 +17,7 @@ const statusConfig: Record<OrderStatus, { label: string; className: string }> = 
   },
   submitted: {
     label: 'Submitted',
-    className: 'bg-blue-100 text-blue-800',
+    className: 'bg-primary-100 text-primary-800',
   },
   paid: {
     label: 'Paid',

@@ -307,7 +307,7 @@ export function ProductForm({
           <textarea
             {...register('description')}
             rows={4}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
           />
         </div>
 
@@ -337,7 +337,7 @@ export function ProductForm({
                       onChange={(e) =>
                         handleUpdateCustomProperty(index, 'name', e.target.value)
                       }
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm"
                     />
                   </div>
                   <div className="flex-1">
@@ -348,7 +348,7 @@ export function ProductForm({
                       onChange={(e) =>
                         handleUpdateCustomProperty(index, 'value', e.target.value)
                       }
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm"
                     />
                   </div>
                   <button
@@ -404,7 +404,7 @@ export function ProductForm({
               onChange={(e) => handleToggleVariants(e.target.checked)}
               className="sr-only peer"
             />
-            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-600"></div>
           </label>
         </div>
       </div>
@@ -535,13 +535,13 @@ export function ProductForm({
                   {option.values.map((value) => (
                     <span
                       key={value}
-                      className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-blue-100 text-blue-800"
+                      className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-primary-100 text-primary-800"
                     >
                       {value}
                       <button
                         type="button"
                         onClick={() => handleRemoveVariantValue(option.name, value)}
-                        className="ml-2 text-blue-600 hover:text-blue-800"
+                        className="ml-2 text-primary-600 hover:text-primary-800"
                       >
                         ×
                       </button>
