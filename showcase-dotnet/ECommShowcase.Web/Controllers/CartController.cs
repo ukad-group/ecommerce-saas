@@ -51,7 +51,7 @@ public class CartController : Controller
 
     // POST: /Cart/AddItem
     [HttpPost]
-    public async Task<IActionResult> AddItem(string productId, int quantity = 1)
+    public async Task<IActionResult> AddItem(string productId, string? variantId = null, int quantity = 1)
     {
         try
         {
@@ -59,6 +59,7 @@ public class CartController : Controller
             var request = new AddCartItemRequest
             {
                 ProductId = productId,
+                VariantId = variantId,
                 Quantity = quantity
             };
 

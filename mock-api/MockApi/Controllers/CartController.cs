@@ -40,8 +40,11 @@ public class CartController : ControllerBase
 
         var cart = _store.GetOrCreateCart(sessionId);
 
-        // Check if item already exists
-        var existingItem = cart.Items.FirstOrDefault(i => i.ProductId == request.ProductId);
+        // Check if item already exists (match by both productId and variantId)
+        var existingItem = cart.Items.FirstOrDefault(i =>
+            i.ProductId == request.ProductId &&
+            i.VariantId == request.VariantId);
+
         if (existingItem != null)
         {
             existingItem.Quantity += request.Quantity;
@@ -49,14 +52,40 @@ public class CartController : ControllerBase
         }
         else
         {
-            // Get the effective price (use sale price if available, otherwise regular price)
-            var effectivePrice = product.SalePrice ?? product.Price ?? 0m;
+            decimal effectivePrice;
+            string productName = product.Name;
+
+            // If variant is specified, get price from variant
+            if (!string.IsNullOrEmpty(request.VariantId))
+            {
+                var variant = product.Variants?.FirstOrDefault(v => v.Id == request.VariantId);
+                if (variant == null)
+                {
+                    return NotFound("Variant not found");
+                }
+
+                // Use variant's sale price if available, otherwise variant's regular price
+                effectivePrice = variant.SalePrice ?? variant.Price;
+
+                // Append variant options to product name (e.g., "T-Shirt - Black, Large")
+                if (variant.Options != null && variant.Options.Any())
+                {
+                    var optionsText = string.Join(", ", variant.Options.Values);
+                    productName = $"{product.Name} - {optionsText}";
+                }
+            }
+            else
+            {
+                // No variant specified, use product price
+                effectivePrice = product.SalePrice ?? product.Price ?? 0m;
+            }
 
             var newItem = new CartItem
             {
                 Id = Guid.NewGuid().ToString(),
                 ProductId = product.Id,
-                ProductName = product.Name,
+                VariantId = request.VariantId,
+                ProductName = productName,
                 ProductImageUrl = product.ImageUrl,
                 UnitPrice = effectivePrice,
                 Quantity = request.Quantity,

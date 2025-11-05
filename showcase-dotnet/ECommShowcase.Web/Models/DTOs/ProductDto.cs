@@ -1,5 +1,23 @@
 namespace ECommShowcase.Web.Models.DTOs;
 
+public class VariantOption
+{
+    public string Name { get; set; } = string.Empty;
+    public List<string> Values { get; set; } = new();
+}
+
+public class ProductVariant
+{
+    public string Id { get; set; } = string.Empty;
+    public string Sku { get; set; } = string.Empty;
+    public decimal Price { get; set; }
+    public decimal? SalePrice { get; set; }
+    public int StockQuantity { get; set; }
+    public int LowStockThreshold { get; set; }
+    public Dictionary<string, string> Options { get; set; } = new();
+    public string Status { get; set; } = "active";
+}
+
 public class ProductDto
 {
     public string Id { get; set; } = string.Empty;
@@ -18,6 +36,8 @@ public class ProductDto
     public int? LowStockThreshold { get; set; }
     public string Currency { get; set; } = "USD";
     public bool HasVariants { get; set; } = false;
+    public List<VariantOption>? VariantOptions { get; set; }
+    public List<ProductVariant>? Variants { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 

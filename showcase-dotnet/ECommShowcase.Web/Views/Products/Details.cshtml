@@ -44,25 +44,32 @@
                 </p>
             }
 
-            <div class="my-3">
-                <span class="display-6 text-primary fw-bold">@Model.CurrencySymbol@((Model.Product.Price ?? 0).ToString("N2"))</span>
-            </div>
+            <!-- Price (only show for non-variant products) -->
+            @if (!Model.Product.HasVariants)
+            {
+                <div class="my-3">
+                    <span class="display-6 text-primary fw-bold">@Model.CurrencySymbol@((Model.Product.Price ?? 0).ToString("N2"))</span>
+                </div>
+            }
 
-            <!-- Stock Status -->
-            <div class="mb-3">
-                @if (Model.IsInStock)
-                {
-                    <span class="badge bg-success fs-6">
-                        <i class="bi bi-check-circle"></i> In Stock (@Model.Product.StockQuantity available)
-                    </span>
-                }
-                else
-                {
-                    <span class="badge bg-danger fs-6">
-                        <i class="bi bi-x-circle"></i> Out of Stock
-                    </span>
-                }
-            </div>
+            <!-- Stock Status (only show for non-variant products) -->
+            @if (!Model.Product.HasVariants)
+            {
+                <div class="mb-3">
+                    @if (Model.IsInStock)
+                    {
+                        <span class="badge bg-success fs-6">
+                            <i class="bi bi-check-circle"></i> In Stock (@Model.Product.StockQuantity available)
+                        </span>
+                    }
+                    else
+                    {
+                        <span class="badge bg-danger fs-6">
+                            <i class="bi bi-x-circle"></i> Out of Stock
+                        </span>
+                    }
+                </div>
+            }
 
             <!-- Description -->
             @if (!string.IsNullOrEmpty(Model.Product.Description))
@@ -94,10 +101,22 @@
                             </div>
                         </div>
                     }
-                    <div id="variant-info" class="alert alert-info mt-3" style="display: none;">
-                        <p class="mb-1"><strong>SKU:</strong> <span id="variant-sku"></span></p>
-                        <p class="mb-1"><strong>Price:</strong> <span id="variant-price"></span></p>
-                        <p class="mb-0"><strong>Stock:</strong> <span id="variant-stock"></span></p>
+                    <!-- Selected Variant Info -->
+                    <div id="variant-info" class="mt-3" style="display: none;">
+                        <div class="mb-3">
+                            <span id="variant-price" class="display-6 text-primary fw-bold"></span>
+                        </div>
+                        <div class="mb-3">
+                            <span id="variant-stock-badge" class="badge bg-success fs-6"></span>
+                        </div>
+                        <div class="text-muted small">
+                            <strong>SKU:</strong> <span id="variant-sku"></span>
+                        </div>
+                    </div>
+
+                    <!-- Prompt to select variant -->
+                    <div id="variant-prompt" class="alert alert-warning mt-3">
+                        <i class="bi bi-info-circle"></i> Please select all options to see price and availability
                     </div>
                 </div>
             }
@@ -113,26 +132,44 @@
                 </div>
             </div>
 
-            <!-- Add to Cart -->
-            @if (Model.IsInStock)
-            {
-                <form asp-controller="Cart" asp-action="AddItem" method="post">
-                    <input type="hidden" name="productId" value="@Model.Product.Id" />
-                    <div class="input-group mb-3">
-                        <span class="input-group-text">Quantity</span>
-                        <input type="number" name="quantity" class="form-control" value="1" min="1" max="@Model.Product.StockQuantity" style="max-width: 100px;">
-                        <button type="submit" class="btn btn-primary btn-lg flex-grow-1">
-                            <i class="bi bi-cart-plus"></i> Add to Cart
-                        </button>
-                    </div>
-                </form>
-            }
-            else
-            {
-                <button class="btn btn-secondary btn-lg w-100" disabled>
-                    <i class="bi bi-x-circle"></i> Out of Stock
-                </button>
-            }
+            <!-- Add to Cart (hidden for variant products until selection made) -->
+            <div id="add-to-cart-section" style="@(Model.Product.HasVariants ? "display: none;" : "")">
+                @if (!Model.Product.HasVariants && Model.IsInStock)
+                {
+                    <form asp-controller="Cart" asp-action="AddItem" method="post">
+                        <input type="hidden" name="productId" value="@Model.Product.Id" />
+                        <div class="input-group mb-3">
+                            <span class="input-group-text">Quantity</span>
+                            <input type="number" name="quantity" class="form-control" value="1" min="1" max="@Model.Product.StockQuantity" style="max-width: 100px;">
+                            <button type="submit" class="btn btn-primary btn-lg flex-grow-1">
+                                <i class="bi bi-cart-plus"></i> Add to Cart
+                            </button>
+                        </div>
+                    </form>
+                }
+                else if (!Model.Product.HasVariants)
+                {
+                    <button class="btn btn-secondary btn-lg w-100" disabled>
+                        <i class="bi bi-x-circle"></i> Out of Stock
+                    </button>
+                }
+
+                <!-- For variant products, this will be shown via JavaScript -->
+                @if (Model.Product.HasVariants)
+                {
+                    <form asp-controller="Cart" asp-action="AddItem" method="post" id="variant-cart-form">
+                        <input type="hidden" name="productId" value="@Model.Product.Id" />
+                        <input type="hidden" name="variantId" value="" id="selected-variant-id" />
+                        <div class="input-group mb-3">
+                            <span class="input-group-text">Quantity</span>
+                            <input type="number" name="quantity" class="form-control" value="1" min="1" id="variant-quantity" style="max-width: 100px;">
+                            <button type="submit" class="btn btn-primary btn-lg flex-grow-1" id="variant-add-to-cart">
+                                <i class="bi bi-cart-plus"></i> Add to Cart
+                            </button>
+                        </div>
+                    </form>
+                }
+            </div>
 
             <!-- Additional Actions -->
             <div class="d-grid gap-2 mt-3">
@@ -211,12 +248,34 @@
                     const allOptionsSelected = @Model.Product.VariantOptions.Count === Object.keys(selectedOptions).length;
 
                     if (allOptionsSelected && matchingVariant) {
+                        // Update variant info
                         document.getElementById('variant-sku').textContent = matchingVariant.Sku || 'N/A';
                         document.getElementById('variant-price').textContent = '$' + (matchingVariant.SalePrice || matchingVariant.Price || 0).toFixed(2);
-                        document.getElementById('variant-stock').textContent = matchingVariant.StockQuantity + ' available';
+
+                        // Update stock badge
+                        const stockBadge = document.getElementById('variant-stock-badge');
+                        const isInStock = matchingVariant.StockQuantity > 0;
+                        stockBadge.innerHTML = isInStock
+                            ? '<i class="bi bi-check-circle"></i> In Stock (' + matchingVariant.StockQuantity + ' available)'
+                            : '<i class="bi bi-x-circle"></i> Out of Stock';
+                        stockBadge.className = isInStock ? 'badge bg-success fs-6' : 'badge bg-danger fs-6';
+
+                        // Show/hide elements
                         document.getElementById('variant-info').style.display = 'block';
+                        document.getElementById('variant-prompt').style.display = 'none';
+
+                        // Show add to cart if in stock
+                        if (isInStock) {
+                            document.getElementById('add-to-cart-section').style.display = 'block';
+                            document.getElementById('variant-quantity').max = matchingVariant.StockQuantity;
+                            document.getElementById('selected-variant-id').value = matchingVariant.Id;
+                        } else {
+                            document.getElementById('add-to-cart-section').style.display = 'none';
+                        }
                     } else {
                         document.getElementById('variant-info').style.display = 'none';
+                        document.getElementById('variant-prompt').style.display = 'block';
+                        document.getElementById('add-to-cart-section').style.display = 'none';
                     }
                 });
             });
