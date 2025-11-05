@@ -996,12 +996,14 @@ public class MockDataStore
     }
 
     // Carts
-    public Cart GetOrCreateCart(string sessionId)
+    public Cart GetOrCreateCart(string sessionId, string tenantId, string marketId)
     {
         return _carts.GetOrAdd(sessionId, _ => new Cart
         {
             Id = Guid.NewGuid().ToString(),
             SessionId = sessionId,
+            TenantId = tenantId,
+            MarketId = marketId,
             Items = new List<CartItem>(),
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
@@ -1022,6 +1024,74 @@ public class MockDataStore
         _carts.TryRemove(sessionId, out _);
     }
 
+    /// <summary>
+    /// Syncs a cart to an order with status "new" (displays as "Cart" in admin UI)
+    /// Creates or updates an order matching the cart's session ID
+    /// If cart is empty, deletes the corresponding order
+    /// </summary>
+    public void SyncCartToOrder(Cart cart)
+    {
+        // Find existing order for this session
+        var existingOrder = _orders.Values.FirstOrDefault(o =>
+            o.Id == $"cart-{cart.SessionId}" && o.Status == "new");
+
+        // If cart is empty, delete the order
+        if (cart.Items.Count == 0)
+        {
+            if (existingOrder != null)
+            {
+                _orders.TryRemove(existingOrder.Id, out _);
+            }
+            return;
+        }
+
+        // Create or update order
+        var order = existingOrder ?? new Order
+        {
+            Id = $"cart-{cart.SessionId}",
+            TenantId = cart.TenantId,
+            MarketId = cart.MarketId,
+            OrderNumber = $"CART-{cart.SessionId.Substring(0, Math.Min(8, cart.SessionId.Length)).ToUpper()}",
+            Status = "new",
+            CreatedAt = cart.CreatedAt
+        };
+
+        // Update order details from cart
+        order.Subtotal = cart.Subtotal;
+        order.Tax = cart.Tax;
+        order.ShippingCost = 0m;
+        order.Total = cart.Total;
+        order.UpdatedAt = cart.UpdatedAt;
+
+        // Convert cart items to order items
+        order.Items = cart.Items.Select(ci =>
+        {
+            var product = GetProducts().FirstOrDefault(p => p.Id == ci.ProductId);
+            return new OrderItem
+            {
+                Id = ci.Id,
+                ProductId = ci.ProductId,
+                ProductName = ci.ProductName,
+                Sku = product?.Sku ?? "",
+                ProductImageUrl = ci.ProductImageUrl,
+                UnitPrice = ci.UnitPrice,
+                Quantity = ci.Quantity,
+                Subtotal = ci.Subtotal,
+                Currency = "USD"
+            };
+        }).ToList();
+
+        // Add placeholder customer info (cart doesn't have customer yet)
+        order.Customer = new CustomerInfo
+        {
+            FullName = "Guest",
+            Email = ""
+        };
+
+        // Save order
+        _orders[order.Id] = order;
+    }
+
     // Orders
     public void AddOrder(Order order)
     {
@@ -1037,6 +1107,11 @@ public class MockDataStore
     }
 
     public List<Order> GetAllOrders() => _orders.Values.ToList();
+
+    public void DeleteOrder(string orderId)
+    {
+        _orders.TryRemove(orderId, out _);
+    }
 
     // Tenants
     public List<Tenant> GetTenants() => _tenants;

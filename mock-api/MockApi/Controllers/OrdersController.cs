@@ -11,9 +11,12 @@ public class OrdersController : ControllerBase
     private readonly MockDataStore _store = MockDataStore.Instance;
 
     [HttpPost]
-    public ActionResult<Order> CreateOrder([FromBody] CreateOrderRequest request)
+    public ActionResult<Order> CreateOrder(
+        [FromBody] CreateOrderRequest request,
+        [FromHeader(Name = "X-Tenant-ID")] string? tenantId,
+        [FromHeader(Name = "X-Market-ID")] string? marketId)
     {
-        var cart = _store.GetOrCreateCart(request.SessionId);
+        var cart = _store.GetOrCreateCart(request.SessionId, tenantId ?? "tenant-a", marketId ?? "market-1");
         if (cart.Items.Count == 0)
         {
             return BadRequest("Cart is empty");
@@ -22,8 +25,8 @@ public class OrdersController : ControllerBase
         var order = new Order
         {
             Id = Guid.NewGuid().ToString(),
-            TenantId = "demo-tenant",
-            MarketId = "market-1",
+            TenantId = cart.TenantId,
+            MarketId = cart.MarketId,
             OrderNumber = $"ORD-{DateTime.UtcNow:yyyyMMdd}-{Random.Shared.Next(1000, 9999)}",
             Status = "pending",
             Customer = request.Customer,
@@ -54,6 +57,14 @@ public class OrdersController : ControllerBase
         };
 
         _store.AddOrder(order);
+
+        // Clear both cart and the "new" status cart-order
+        var cartOrderId = $"cart-{request.SessionId}";
+        var cartOrder = _store.GetOrder(cartOrderId);
+        if (cartOrder != null && cartOrder.Status == "new")
+        {
+            _store.DeleteOrder(cartOrderId);
+        }
         _store.ClearCart(request.SessionId);
 
         return Ok(order);

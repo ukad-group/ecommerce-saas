@@ -11,20 +11,25 @@ public class CartController : ControllerBase
     private readonly MockDataStore _store = MockDataStore.Instance;
 
     [HttpGet]
-    public ActionResult<Cart> GetCart([FromHeader(Name = "X-Session-ID")] string? sessionId)
+    public ActionResult<Cart> GetCart(
+        [FromHeader(Name = "X-Session-ID")] string? sessionId,
+        [FromHeader(Name = "X-Tenant-ID")] string? tenantId,
+        [FromHeader(Name = "X-Market-ID")] string? marketId)
     {
         if (string.IsNullOrEmpty(sessionId))
         {
             return BadRequest("Session ID is required");
         }
 
-        var cart = _store.GetOrCreateCart(sessionId);
+        var cart = _store.GetOrCreateCart(sessionId, tenantId ?? "tenant-a", marketId ?? "market-1");
         return Ok(cart);
     }
 
     [HttpPost("items")]
     public ActionResult<CartItem> AddCartItem(
         [FromHeader(Name = "X-Session-ID")] string? sessionId,
+        [FromHeader(Name = "X-Tenant-ID")] string? tenantId,
+        [FromHeader(Name = "X-Market-ID")] string? marketId,
         [FromBody] AddCartItemRequest request)
     {
         if (string.IsNullOrEmpty(sessionId))
@@ -38,7 +43,7 @@ public class CartController : ControllerBase
             return NotFound("Product not found");
         }
 
-        var cart = _store.GetOrCreateCart(sessionId);
+        var cart = _store.GetOrCreateCart(sessionId, tenantId ?? "tenant-a", marketId ?? "market-1");
 
         // Check if item already exists (match by both productId and variantId)
         var existingItem = cart.Items.FirstOrDefault(i =>
@@ -96,6 +101,10 @@ public class CartController : ControllerBase
         }
 
         _store.UpdateCart(cart);
+
+        // Sync cart to order with status "new"
+        _store.SyncCartToOrder(cart);
+
         return Ok(existingItem);
     }
 
@@ -103,6 +112,8 @@ public class CartController : ControllerBase
     public ActionResult<CartItem> UpdateCartItem(
         string itemId,
         [FromHeader(Name = "X-Session-ID")] string? sessionId,
+        [FromHeader(Name = "X-Tenant-ID")] string? tenantId,
+        [FromHeader(Name = "X-Market-ID")] string? marketId,
         [FromBody] UpdateCartItemRequest request)
     {
         if (string.IsNullOrEmpty(sessionId))
@@ -110,7 +121,7 @@ public class CartController : ControllerBase
             return BadRequest("Session ID is required");
         }
 
-        var cart = _store.GetOrCreateCart(sessionId);
+        var cart = _store.GetOrCreateCart(sessionId, tenantId ?? "tenant-a", marketId ?? "market-1");
         var item = cart.Items.FirstOrDefault(i => i.Id == itemId);
         if (item == null)
         {
@@ -121,20 +132,26 @@ public class CartController : ControllerBase
         item.Subtotal = item.Quantity * item.UnitPrice;
 
         _store.UpdateCart(cart);
+
+        // Sync cart to order with status "new"
+        _store.SyncCartToOrder(cart);
+
         return Ok(item);
     }
 
     [HttpDelete("items/{itemId}")]
     public IActionResult DeleteCartItem(
         string itemId,
-        [FromHeader(Name = "X-Session-ID")] string? sessionId)
+        [FromHeader(Name = "X-Session-ID")] string? sessionId,
+        [FromHeader(Name = "X-Tenant-ID")] string? tenantId,
+        [FromHeader(Name = "X-Market-ID")] string? marketId)
     {
         if (string.IsNullOrEmpty(sessionId))
         {
             return BadRequest("Session ID is required");
         }
 
-        var cart = _store.GetOrCreateCart(sessionId);
+        var cart = _store.GetOrCreateCart(sessionId, tenantId ?? "tenant-a", marketId ?? "market-1");
         var item = cart.Items.FirstOrDefault(i => i.Id == itemId);
         if (item == null)
         {
@@ -143,6 +160,9 @@ public class CartController : ControllerBase
 
         cart.Items.Remove(item);
         _store.UpdateCart(cart);
+
+        // Sync cart to order with status "new" (or delete if empty)
+        _store.SyncCartToOrder(cart);
 
         return NoContent();
     }
