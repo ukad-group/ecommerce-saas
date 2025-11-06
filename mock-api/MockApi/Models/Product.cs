@@ -94,6 +94,7 @@ public class Category
     public string? Description { get; set; }
     public string? ParentId { get; set; }
     public int DisplayOrder { get; set; }
+    public int ProductCount { get; set; } = 0;
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 }
