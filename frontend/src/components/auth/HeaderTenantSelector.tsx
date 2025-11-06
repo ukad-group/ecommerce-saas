@@ -16,8 +16,10 @@ import { getActiveTenants } from '../../data/tenants';
  * Displays current tenant and allows switching
  */
 export function HeaderTenantSelector() {
-  const session = useAuthStore((state) => state.session);
-  const setTenant = useAuthStore((state) => state.setTenant);
+  const { session, setTenant } = useAuthStore((state) => ({
+    session: state.session,
+    setTenant: state.setTenant,
+  }));
 
   const tenants = getActiveTenants();
   const currentTenantId = session?.selectedTenantId;
@@ -26,9 +28,13 @@ export function HeaderTenantSelector() {
   // Auto-select first tenant if none is selected
   useEffect(() => {
     if (!currentTenantId && tenants.length > 0) {
-      setTenant(tenants[0].id);
+      // Use setTimeout to defer the state update until after the current render
+      const timer = setTimeout(() => {
+        setTenant(tenants[0].id);
+      }, 0);
+      return () => clearTimeout(timer);
     }
-  }, [currentTenantId, tenants, setTenant]);
+  }, [currentTenantId, tenants.length, setTenant]);
 
   const handleTenantChange = (tenantId: string) => {
     setTenant(tenantId);

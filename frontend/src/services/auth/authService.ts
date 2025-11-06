@@ -8,7 +8,7 @@
 import type { UserSession, UserProfile } from '../../types/auth';
 import { Role } from '../../types/auth';
 import { getProfileById } from '../../data/profiles';
-import { getTenantById } from '../../data/tenants';
+import { getTenantById, getActiveTenants, getMarketsByTenant } from '../../data/tenants';
 
 /**
  * Login request parameters
@@ -47,10 +47,19 @@ export async function login(request: LoginRequest): Promise<LoginResponse> {
 
   // Validate tenant selection based on role
   if (profile.role === Role.SUPERADMIN) {
-    // Superadmin doesn't need tenant selection
+    // Superadmin doesn't need tenant selection but we set a default to prevent auto-selection issues
+    // Get the first active tenant as default
+    const activeTenants = getActiveTenants();
+    const defaultTenantId = activeTenants.length > 0 ? activeTenants[0].id : null;
+
+    // Also set default market for the tenant
+    const defaultMarkets = defaultTenantId ? getMarketsByTenant(defaultTenantId) : [];
+    const defaultMarketId = defaultMarkets.length > 0 ? defaultMarkets[0].id : undefined;
+
     const session: UserSession = {
       profile,
-      selectedTenantId: null,
+      selectedTenantId: defaultTenantId,
+      selectedMarketIds: defaultMarketId ? [defaultMarketId] : undefined,
       createdAt: new Date().toISOString(),
     };
     return {
@@ -84,10 +93,15 @@ export async function login(request: LoginRequest): Promise<LoginResponse> {
     };
   }
 
+  // Get default market for the tenant
+  const tenantMarkets = getMarketsByTenant(tenantId);
+  const defaultMarketId = tenantMarkets.length > 0 ? tenantMarkets[0].id : undefined;
+
   // Create session for tenant-scoped user
   const session: UserSession = {
     profile,
     selectedTenantId: tenantId,
+    selectedMarketIds: defaultMarketId ? [defaultMarketId] : undefined,
     createdAt: new Date().toISOString(),
   };
 

@@ -37,8 +37,10 @@ const ROLE_BADGES: Record<Role, { label: string; bgColor: string; textColor: str
  */
 export function UserInfo() {
   const navigate = useNavigate();
-  const session = useAuthStore((state) => state.session);
-  const logout = useAuthStore((state) => state.logout);
+  const { session, logout } = useAuthStore((state) => ({
+    session: state.session,
+    logout: state.logout,
+  }));
 
   if (!session) {
     return null;

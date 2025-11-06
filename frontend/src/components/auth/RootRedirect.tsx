@@ -13,8 +13,10 @@ import { useAuthStore } from '../../store/authStore';
  * Checks authentication and redirects appropriately
  */
 export function RootRedirect() {
-  const session = useAuthStore((state) => state.session);
-  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const { session, isAuthenticated } = useAuthStore((state) => ({
+    session: state.session,
+    isAuthenticated: state.isAuthenticated,
+  }));
 
   // Check if we have a valid session (not just the flag)
   const hasValidSession = isAuthenticated && session !== null;

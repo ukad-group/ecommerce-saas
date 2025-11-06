@@ -16,10 +16,27 @@ import { getMarketsByTenant } from '../../data/tenants';
  * Displays current market and allows switching within tenant
  */
 export function HeaderMarketSelector() {
-  const session = useAuthStore((state) => state.session);
-  const setMarket = useAuthStore((state) => state.setMarket);
+  const { session, setMarket } = useAuthStore((state) => ({
+    session: state.session,
+    setMarket: state.setMarket,
+  }));
 
   const tenantId = session?.selectedTenantId;
+  const markets = tenantId ? getMarketsByTenant(tenantId) : [];
+  const currentMarketId = session?.selectedMarketIds?.[0];
+  const currentMarket = markets.find((m) => m.id === currentMarketId);
+
+  // Auto-select first market if none is selected
+  // This must be called before any conditional returns to follow Rules of Hooks
+  useEffect(() => {
+    if (tenantId && !currentMarketId && markets.length > 0) {
+      // Use setTimeout to defer the state update until after the current render
+      const timer = setTimeout(() => {
+        setMarket(markets[0].id);
+      }, 0);
+      return () => clearTimeout(timer);
+    }
+  }, [tenantId, currentMarketId, markets.length, setMarket]);
 
   // Show message if no tenant is selected (superadmin only)
   if (!tenantId) {
@@ -30,17 +47,6 @@ export function HeaderMarketSelector() {
       </div>
     );
   }
-
-  const markets = getMarketsByTenant(tenantId);
-  const currentMarketId = session?.selectedMarketIds?.[0];
-  const currentMarket = markets.find((m) => m.id === currentMarketId);
-
-  // Auto-select first market if none is selected
-  useEffect(() => {
-    if (tenantId && !currentMarketId && markets.length > 0) {
-      setMarket(markets[0].id);
-    }
-  }, [tenantId, currentMarketId, markets, setMarket]);
 
   const handleMarketChange = (marketId: string) => {
     setMarket(marketId);
