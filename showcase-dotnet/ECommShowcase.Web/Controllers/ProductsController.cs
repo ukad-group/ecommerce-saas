@@ -30,6 +30,7 @@ public class ProductsController : Controller
             var productsResponse = await _apiClient.GetProductsAsync(
                 categoryId: categoryId,
                 search: search,
+                status: "active", // Only show active products on showcase
                 page: page,
                 pageSize: _settings.ProductsPerPage);
 

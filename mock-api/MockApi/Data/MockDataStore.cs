@@ -285,9 +285,10 @@ public class MockDataStore
             }
         });
 
-        // Seed Categories
+        // Seed Categories (hierarchical structure)
         _categories.AddRange(new[]
         {
+            // Top-level: Electronics
             new Category
             {
                 Id = "cat-1",
@@ -299,6 +300,56 @@ public class MockDataStore
                 CreatedAt = DateTime.UtcNow.AddDays(-30),
                 UpdatedAt = DateTime.UtcNow.AddDays(-30)
             },
+            // Subcategories of Electronics
+            new Category
+            {
+                Id = "cat-1-1",
+                TenantId = "tenant-a",
+                MarketId = "market-1",
+                Name = "Small Electronics",
+                Description = "Portable electronic devices",
+                ParentId = "cat-1",
+                DisplayOrder = 1,
+                CreatedAt = DateTime.UtcNow.AddDays(-30),
+                UpdatedAt = DateTime.UtcNow.AddDays(-30)
+            },
+            new Category
+            {
+                Id = "cat-1-1-1",
+                TenantId = "tenant-a",
+                MarketId = "market-1",
+                Name = "Watches",
+                Description = "Smart watches and wearables",
+                ParentId = "cat-1-1",
+                DisplayOrder = 1,
+                CreatedAt = DateTime.UtcNow.AddDays(-30),
+                UpdatedAt = DateTime.UtcNow.AddDays(-30)
+            },
+            new Category
+            {
+                Id = "cat-1-1-2",
+                TenantId = "tenant-a",
+                MarketId = "market-1",
+                Name = "Headphones",
+                Description = "Wireless and wired headphones",
+                ParentId = "cat-1-1",
+                DisplayOrder = 2,
+                CreatedAt = DateTime.UtcNow.AddDays(-30),
+                UpdatedAt = DateTime.UtcNow.AddDays(-30)
+            },
+            new Category
+            {
+                Id = "cat-1-2",
+                TenantId = "tenant-a",
+                MarketId = "market-1",
+                Name = "Computer Accessories",
+                Description = "Peripherals and accessories for computers",
+                ParentId = "cat-1",
+                DisplayOrder = 2,
+                CreatedAt = DateTime.UtcNow.AddDays(-30),
+                UpdatedAt = DateTime.UtcNow.AddDays(-30)
+            },
+            // Top-level: Clothing
             new Category
             {
                 Id = "cat-2",
@@ -310,6 +361,32 @@ public class MockDataStore
                 CreatedAt = DateTime.UtcNow.AddDays(-30),
                 UpdatedAt = DateTime.UtcNow.AddDays(-30)
             },
+            // Subcategories of Clothing
+            new Category
+            {
+                Id = "cat-2-1",
+                TenantId = "tenant-a",
+                MarketId = "market-1",
+                Name = "Men's Clothing",
+                Description = "Clothing for men",
+                ParentId = "cat-2",
+                DisplayOrder = 1,
+                CreatedAt = DateTime.UtcNow.AddDays(-30),
+                UpdatedAt = DateTime.UtcNow.AddDays(-30)
+            },
+            new Category
+            {
+                Id = "cat-2-2",
+                TenantId = "tenant-a",
+                MarketId = "market-1",
+                Name = "Women's Clothing",
+                Description = "Clothing for women",
+                ParentId = "cat-2",
+                DisplayOrder = 2,
+                CreatedAt = DateTime.UtcNow.AddDays(-30),
+                UpdatedAt = DateTime.UtcNow.AddDays(-30)
+            },
+            // Top-level: Home & Garden
             new Category
             {
                 Id = "cat-3",
@@ -321,6 +398,7 @@ public class MockDataStore
                 CreatedAt = DateTime.UtcNow.AddDays(-30),
                 UpdatedAt = DateTime.UtcNow.AddDays(-30)
             },
+            // Top-level: Sports & Outdoors
             new Category
             {
                 Id = "cat-4",
@@ -332,6 +410,7 @@ public class MockDataStore
                 CreatedAt = DateTime.UtcNow.AddDays(-30),
                 UpdatedAt = DateTime.UtcNow.AddDays(-30)
             },
+            // Top-level: Books
             new Category
             {
                 Id = "cat-5",
@@ -348,7 +427,7 @@ public class MockDataStore
         // Seed Products
         _products.AddRange(new[]
         {
-            // Electronics
+            // Electronics -> Small Electronics -> Headphones
             new Product
             {
                 Id = "prod-1",
@@ -360,7 +439,7 @@ public class MockDataStore
                 Price = 79.99m,
                 Currency = "USD",
                 Images = new List<string> { "https://dummyimage.com/300x300/4A5568/fff.png&text=Headphones" },
-                CategoryIds = new List<string> { "cat-1" },
+                CategoryIds = new List<string> { "cat-1-1-2" },
                 Status = "active",
                 StockQuantity = 50,
                 LowStockThreshold = 10,
@@ -368,6 +447,7 @@ public class MockDataStore
                 CreatedAt = DateTime.UtcNow.AddDays(-20),
                 UpdatedAt = DateTime.UtcNow.AddDays(-5)
             },
+            // Electronics -> Small Electronics -> Watches
             new Product
             {
                 Id = "prod-2",
@@ -379,7 +459,7 @@ public class MockDataStore
                 Price = 199.99m,
                 Currency = "USD",
                 Images = new List<string> { "https://dummyimage.com/300x300/3B82F6/fff.png&text=Smart+Watch" },
-                CategoryIds = new List<string> { "cat-1" },
+                CategoryIds = new List<string> { "cat-1-1-1" },
                 Status = "active",
                 StockQuantity = 30,
                 LowStockThreshold = 10,
@@ -387,6 +467,7 @@ public class MockDataStore
                 CreatedAt = DateTime.UtcNow.AddDays(-18),
                 UpdatedAt = DateTime.UtcNow.AddDays(-3)
             },
+            // Electronics -> Computer Accessories
             new Product
             {
                 Id = "prod-3",
@@ -398,7 +479,7 @@ public class MockDataStore
                 Price = 89.99m,
                 Currency = "USD",
                 Images = new List<string> { "https://dummyimage.com/300x300/6366F1/fff.png&text=4K+Webcam" },
-                CategoryIds = new List<string> { "cat-1" },
+                CategoryIds = new List<string> { "cat-1-2" },
                 Status = "active",
                 StockQuantity = 25,
                 LowStockThreshold = 10,
@@ -968,6 +1049,22 @@ public class MockDataStore
     // Categories
     public List<Category> GetCategories() => _categories;
     public Category? GetCategory(string id) => _categories.FirstOrDefault(c => c.Id == id);
+
+    /// <summary>
+    /// Get all descendant category IDs (including the category itself and all subcategories recursively)
+    /// </summary>
+    public List<string> GetCategoryWithDescendants(string categoryId)
+    {
+        var result = new List<string> { categoryId };
+        var children = _categories.Where(c => c.ParentId == categoryId).ToList();
+
+        foreach (var child in children)
+        {
+            result.AddRange(GetCategoryWithDescendants(child.Id));
+        }
+
+        return result;
+    }
 
     public void AddCategory(Category category)
     {

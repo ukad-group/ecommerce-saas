@@ -30,7 +30,7 @@ public class ECommApiClient : IECommApiClient
     }
 
     // Products
-    public async Task<ProductListResponse> GetProductsAsync(string? categoryId = null, string? search = null, int page = 1, int pageSize = 12)
+    public async Task<ProductListResponse> GetProductsAsync(string? categoryId = null, string? search = null, string? status = null, int page = 1, int pageSize = 12)
     {
         try
         {
@@ -45,6 +45,9 @@ public class ECommApiClient : IECommApiClient
 
             if (!string.IsNullOrEmpty(search))
                 queryParams.Add($"search={Uri.EscapeDataString(search)}");
+
+            if (!string.IsNullOrEmpty(status))
+                queryParams.Add($"status={status}");
 
             var query = string.Join("&", queryParams);
             // Mock API returns List<Product>, not paginated response

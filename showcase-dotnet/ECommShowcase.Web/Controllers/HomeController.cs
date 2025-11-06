@@ -28,8 +28,9 @@ public class HomeController : Controller
     {
         try
         {
-            // Fetch featured products (first page)
+            // Fetch featured products (first page) - only active products
             var productsResponse = await _apiClient.GetProductsAsync(
+                status: "active",
                 page: 1,
                 pageSize: _settings.FeaturedProductCount);
 

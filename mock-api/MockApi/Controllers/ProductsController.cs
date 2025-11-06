@@ -12,6 +12,7 @@ public class ProductsController : ControllerBase
 
     [HttpGet]
     public ActionResult<List<Product>> GetProducts(
+        [FromQuery] string? status = null,
         [FromQuery] string? categoryId = null,
         [FromQuery] string? search = null,
         [FromQuery] string? tenantId = null,
@@ -37,17 +38,34 @@ public class ProductsController : ControllerBase
             products = products.Where(p => p.MarketId == effectiveMarketId);
         }
 
-        // Filter by category (check if product is in this category)
-        if (!string.IsNullOrEmpty(categoryId))
+        // Filter by status - default to "active" only if not specified
+        if (!string.IsNullOrEmpty(status))
         {
-            products = products.Where(p => p.CategoryIds.Contains(categoryId));
+            // If status is explicitly provided, use it (can be "all" to get all statuses)
+            if (!status.Equals("all", StringComparison.OrdinalIgnoreCase))
+            {
+                products = products.Where(p => p.Status.Equals(status, StringComparison.OrdinalIgnoreCase));
+            }
+        }
+        else
+        {
+            // Default behavior: return only active products
+            products = products.Where(p => p.Status.Equals("active", StringComparison.OrdinalIgnoreCase));
         }
 
-        // Search by name
+        // Filter by category (check if product is in this category or any of its subcategories)
+        if (!string.IsNullOrEmpty(categoryId))
+        {
+            var categoryIdsToInclude = _store.GetCategoryWithDescendants(categoryId);
+            products = products.Where(p => p.CategoryIds.Any(cid => categoryIdsToInclude.Contains(cid)));
+        }
+
+        // Search by name or SKU
         if (!string.IsNullOrEmpty(search))
         {
             products = products.Where(p =>
                 p.Name.Contains(search, StringComparison.OrdinalIgnoreCase) ||
+                (p.Sku != null && p.Sku.Contains(search, StringComparison.OrdinalIgnoreCase)) ||
                 (p.Description != null && p.Description.Contains(search, StringComparison.OrdinalIgnoreCase)));
         }
 

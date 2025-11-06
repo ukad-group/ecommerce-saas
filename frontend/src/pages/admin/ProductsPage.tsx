@@ -13,6 +13,7 @@ import {
   useDeleteProduct,
   useUpdateProductStock,
 } from '../../services/hooks/useProducts';
+import { useCategories } from '../../services/hooks/useCategories';
 import { LoadingSpinner } from '../../components/common/LoadingSpinner';
 import { Button } from '../../components/common/Button';
 import { Input } from '../../components/common/Input';
@@ -21,10 +22,13 @@ import type { ProductStatus } from '../../types/product';
 
 export function ProductsPage() {
   const [statusFilter, setStatusFilter] = useState<ProductStatus | 'all'>('all');
+  const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
 
+  const { data: categories } = useCategories();
   const { data: products, isLoading, error } = useProducts({
     status: statusFilter === 'all' ? undefined : statusFilter,
+    categoryId: categoryFilter === 'all' ? undefined : categoryFilter,
     searchQuery: searchQuery || undefined,
   });
 
@@ -53,6 +57,48 @@ export function ProductsPage() {
     { value: 'draft', label: 'Draft' },
   ];
 
+  // Build hierarchical category options
+  const buildCategoryOptions = () => {
+    if (!categories || categories.length === 0) {
+      return [{ value: 'all', label: 'All Categories' }];
+    }
+
+    const options: Array<{ value: string; label: string }> = [
+      { value: 'all', label: 'All Categories' },
+    ];
+
+    // Helper to find children of a category
+    const getChildren = (parentId: string | null | undefined) => {
+      return categories.filter((c) => {
+        // Handle both null and undefined as "no parent"
+        if (parentId === null || parentId === undefined) {
+          return !c.parentId || c.parentId === '';
+        }
+        return c.parentId === parentId;
+      });
+    };
+
+    // Recursive function to build options with indentation
+    const buildHierarchy = (parentId: string | null | undefined, depth: number) => {
+      const children = getChildren(parentId);
+      children.forEach((category) => {
+        const indent = '\u00A0\u00A0'.repeat(depth); // Non-breaking spaces for indentation
+        const prefix = depth > 0 ? '- ' : '';
+        options.push({
+          value: category.id,
+          label: `${indent}${prefix}${category.name}`,
+        });
+        buildHierarchy(category.id, depth + 1);
+      });
+    };
+
+    // Start with top-level categories (those with no parent)
+    buildHierarchy(null, 0);
+    return options;
+  };
+
+  const categoryOptions = buildCategoryOptions();
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -71,12 +117,18 @@ export function ProductsPage() {
 
         {/* Filters */}
         <div className="bg-white rounded-lg shadow p-6 mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Select
               label="Status"
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value as ProductStatus | 'all')}
               options={statusOptions}
+            />
+            <Select
+              label="Category"
+              value={categoryFilter}
+              onChange={(e) => setCategoryFilter(e.target.value)}
+              options={categoryOptions}
             />
             <Input
               label="Search"

@@ -5,7 +5,7 @@ namespace ECommShowcase.Web.Services;
 public interface IECommApiClient
 {
     // Products
-    Task<ProductListResponse> GetProductsAsync(string? categoryId = null, string? search = null, int page = 1, int pageSize = 12);
+    Task<ProductListResponse> GetProductsAsync(string? categoryId = null, string? search = null, string? status = null, int page = 1, int pageSize = 12);
     Task<ProductDto?> GetProductByIdAsync(string productId);
 
     // Categories

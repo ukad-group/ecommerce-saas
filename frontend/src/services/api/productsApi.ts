@@ -25,7 +25,11 @@ export interface ProductsQueryParams {
 export async function getProducts(params?: ProductsQueryParams): Promise<Product[]> {
   const queryParams = new URLSearchParams();
 
-  if (params?.status) queryParams.append('status', params.status);
+  // Backoffice should see all products by default (status=all)
+  // If status is explicitly provided, use it; otherwise use "all"
+  const effectiveStatus = params?.status !== undefined ? params.status : 'all';
+  queryParams.append('status', effectiveStatus);
+
   if (params?.categoryId) queryParams.append('categoryId', params.categoryId);
   if (params?.searchQuery) queryParams.append('search', params.searchQuery);
   if (params?.page) queryParams.append('page', params.page.toString());
