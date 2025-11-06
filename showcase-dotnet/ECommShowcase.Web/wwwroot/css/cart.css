@@ -1,0 +1,22 @@
+/**
+ * Cart page styles - Auto-updating cart quantities
+ */
+
+.quantity-input {
+    transition: all 0.2s ease;
+}
+
+.quantity-input:focus {
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+    border-color: #86b7fe;
+}
+
+.quantity-input:disabled {
+    opacity: 0.6;
+}
+
+.updating-indicator {
+    display: block;
+    margin-top: 2px;
+    font-size: 0.75rem;
+}

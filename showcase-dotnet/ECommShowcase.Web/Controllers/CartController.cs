@@ -28,6 +28,11 @@ public class CartController : Controller
     {
         try
         {
+            // Prevent browser caching of cart page
+            Response.Headers.Append("Cache-Control", "no-cache, no-store, must-revalidate");
+            Response.Headers.Append("Pragma", "no-cache");
+            Response.Headers.Append("Expires", "0");
+
             var sessionId = GetOrCreateSessionId();
             var cart = await _apiClient.GetCartAsync(sessionId);
 
@@ -83,13 +88,18 @@ public class CartController : Controller
         try
         {
             var sessionId = GetOrCreateSessionId();
+            _logger.LogInformation("Updating cart item {ItemId} to quantity {Quantity} for session {SessionId}", itemId, quantity, sessionId);
+
             await _apiClient.UpdateCartItemAsync(sessionId, itemId, quantity);
+
+            _logger.LogInformation("Successfully updated cart item {ItemId}", itemId);
+            TempData["SuccessMessage"] = "Cart updated";
 
             return RedirectToAction(nameof(Index));
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error updating cart item");
+            _logger.LogError(ex, "Error updating cart item {ItemId} to quantity {Quantity}", itemId, quantity);
             TempData["ErrorMessage"] = "Failed to update item";
             return RedirectToAction(nameof(Index));
         }

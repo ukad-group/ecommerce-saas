@@ -3,10 +3,30 @@
     ViewData["Title"] = "Shopping Cart";
 }
 
+@section Styles {
+    <link rel="stylesheet" href="~/css/cart.css" asp-append-version="true" />
+}
+
 <div class="container my-4">
     <h2 class="mb-4">
         <i class="bi bi-cart3"></i> Shopping Cart
     </h2>
+
+    @if (TempData["SuccessMessage"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            @TempData["SuccessMessage"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    }
+
+    @if (TempData["ErrorMessage"] != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            @TempData["ErrorMessage"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    }
 
     @if (Model.IsEmpty)
     {
@@ -55,18 +75,24 @@
                                                 @Model.CurrencySymbol@item.UnitPrice.ToString("N2")
                                             </td>
                                             <td class="align-middle">
-                                                <form asp-controller="Cart" asp-action="UpdateItem" method="post" class="d-inline">
-                                                    <input type="hidden" name="itemId" value="@item.Id" />
-                                                    <div class="input-group" style="max-width: 150px;">
-                                                        <input type="number" name="quantity" class="form-control form-control-sm" value="@item.Quantity" min="1" max="99">
-                                                        <button type="submit" class="btn btn-sm btn-outline-secondary">
-                                                            <i class="bi bi-arrow-repeat"></i>
-                                                        </button>
-                                                    </div>
-                                                </form>
+                                                <div class="quantity-wrapper" data-item-id="@item.Id">
+                                                    <input type="number"
+                                                           name="quantity"
+                                                           class="form-control form-control-sm quantity-input"
+                                                           value="@item.Quantity"
+                                                           min="1"
+                                                           max="99"
+                                                           data-item-id="@item.Id"
+                                                           data-unit-price="@item.UnitPrice"
+                                                           style="max-width: 100px;">
+                                                    <small class="text-muted d-none updating-indicator">
+                                                        <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                                                        Updating...
+                                                    </small>
+                                                </div>
                                             </td>
                                             <td class="align-middle">
-                                                <strong>@Model.CurrencySymbol@item.Subtotal.ToString("N2")</strong>
+                                                <strong class="item-subtotal" data-item-id="@item.Id">@Model.CurrencySymbol@item.Subtotal.ToString("N2")</strong>
                                             </td>
                                             <td class="align-middle">
                                                 <form asp-controller="Cart" asp-action="RemoveItem" method="post" class="d-inline">
@@ -99,16 +125,16 @@
                     <div class="card-body">
                         <div class="d-flex justify-content-between mb-2">
                             <span>Subtotal:</span>
-                            <strong>@Model.CurrencySymbol@Model.Cart.Subtotal.ToString("N2")</strong>
+                            <strong id="cart-subtotal">@Model.CurrencySymbol@Model.Cart.Subtotal.ToString("N2")</strong>
                         </div>
                         <div class="d-flex justify-content-between mb-2">
                             <span>Tax:</span>
-                            <strong>@Model.CurrencySymbol@Model.Cart.Tax.ToString("N2")</strong>
+                            <strong id="cart-tax">@Model.CurrencySymbol@Model.Cart.Tax.ToString("N2")</strong>
                         </div>
                         <hr>
                         <div class="d-flex justify-content-between mb-3">
                             <span class="h5">Total:</span>
-                            <span class="h5 text-primary">@Model.CurrencySymbol@Model.Cart.Total.ToString("N2")</span>
+                            <span class="h5 text-primary" id="cart-total">@Model.CurrencySymbol@Model.Cart.Total.ToString("N2")</span>
                         </div>
 
                         <div class="d-grid gap-2">
@@ -139,3 +165,7 @@
         </div>
     }
 </div>
+
+@section Scripts {
+    <script src="~/js/cart.js" asp-append-version="true"></script>
+}
