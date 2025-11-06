@@ -1,5 +1,11 @@
 namespace ECommShowcase.Web.Models.DTOs;
 
+public class CustomProperty
+{
+    public string Name { get; set; } = string.Empty;
+    public string Value { get; set; } = string.Empty;
+}
+
 public class VariantOption
 {
     public string Name { get; set; } = string.Empty;
@@ -38,6 +44,7 @@ public class ProductDto
     public bool HasVariants { get; set; } = false;
     public List<VariantOption>? VariantOptions { get; set; }
     public List<ProductVariant>? Variants { get; set; }
+    public List<CustomProperty>? CustomProperties { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 

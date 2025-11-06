@@ -28,6 +28,24 @@
                 <img src="@(Model.Product.ImageUrl ?? "https://dummyimage.com/600x400/6c757d/ffffff&text=" + Uri.EscapeDataString(Model.Product.Name))"
                      class="card-img-top" alt="@Model.Product.Name" style="max-height: 500px; object-fit: contain;">
             </div>
+
+            <!-- Custom Properties -->
+            @if (Model.Product.CustomProperties != null && Model.Product.CustomProperties.Any())
+            {
+                <div class="card mt-3">
+                    <div class="card-body">
+                        <h5 class="card-title">Specifications</h5>
+                        <ul class="list-unstyled mb-0">
+                            @foreach (var property in Model.Product.CustomProperties)
+                            {
+                                <li class="mb-2">
+                                    <strong>@property.Name:</strong> @property.Value
+                                </li>
+                            }
+                        </ul>
+                    </div>
+                </div>
+            }
         </div>
 
         <!-- Product Details -->
