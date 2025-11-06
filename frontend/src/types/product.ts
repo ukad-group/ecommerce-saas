@@ -85,6 +85,7 @@ export interface Category {
   name: string;
   description?: string;
   parentId?: string;
+  productCount?: number; // Number of products in this category
   createdAt: string; // ISO 8601
   updatedAt: string; // ISO 8601
 }

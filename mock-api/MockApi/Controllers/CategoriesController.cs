@@ -35,7 +35,16 @@ public class CategoriesController : ControllerBase
             categories = categories.Where(c => c.MarketId == effectiveMarketId);
         }
 
-        return Ok(categories.ToList());
+        var categoriesList = categories.ToList();
+
+        // Calculate product count for each category
+        var allProducts = _store.GetProducts();
+        foreach (var category in categoriesList)
+        {
+            category.ProductCount = allProducts.Count(p => p.CategoryIds.Contains(category.Id));
+        }
+
+        return Ok(categoriesList);
     }
 
     [HttpGet("{id}")]
@@ -46,6 +55,11 @@ public class CategoriesController : ControllerBase
         {
             return NotFound();
         }
+
+        // Calculate product count for this category
+        var allProducts = _store.GetProducts();
+        category.ProductCount = allProducts.Count(p => p.CategoryIds.Contains(category.Id));
+
         return Ok(category);
     }
 

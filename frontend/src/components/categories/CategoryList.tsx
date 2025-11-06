@@ -56,11 +56,18 @@ export function CategoryList({ categories, onDelete }: CategoryListProps) {
                   {category.description}
                 </p>
               )}
-              {hasChildren && (
-                <p className="text-xs text-gray-400 mt-1">
-                  {children.length} subcategor{children.length === 1 ? 'y' : 'ies'}
-                </p>
-              )}
+              <div className="flex items-center gap-3 mt-1">
+                {category.productCount !== undefined && (
+                  <p className="text-xs text-gray-600">
+                    {category.productCount} product{category.productCount === 1 ? '' : 's'}
+                  </p>
+                )}
+                {hasChildren && (
+                  <p className="text-xs text-gray-400">
+                    {children.length} subcategor{children.length === 1 ? 'y' : 'ies'}
+                  </p>
+                )}
+              </div>
             </div>
           </div>
 
