@@ -111,6 +111,27 @@ export async function deleteCategory(categoryId: string): Promise<void> {
 }
 
 /**
+ * Get all versions of a product
+ */
+export async function getProductVersions(productId: string): Promise<Product[]> {
+  return apiClient.get<Product[]>(`/products/${productId}/versions`);
+}
+
+/**
+ * Get a specific version of a product
+ */
+export async function getProductVersion(productId: string, version: number): Promise<Product> {
+  return apiClient.get<Product>(`/products/${productId}/versions/${version}`);
+}
+
+/**
+ * Restore a previous version of a product
+ */
+export async function restoreProductVersion(productId: string, version: number): Promise<Product> {
+  return apiClient.post<Product>(`/products/${productId}/versions/${version}/restore`);
+}
+
+/**
  * Export all product API methods as a namespace
  */
 export const productsApi = {
@@ -124,4 +145,7 @@ export const productsApi = {
   createCategory,
   updateCategory,
   deleteCategory,
+  getProductVersions,
+  getProductVersion,
+  restoreProductVersion,
 };

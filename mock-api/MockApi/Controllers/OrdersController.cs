@@ -92,12 +92,45 @@ public class OrdersController : ControllerBase
             return NotFound();
         }
 
+        var oldStatus = order.Status;
+        var newStatus = request.Status.ToLower();
+
         order.Status = request.Status;
 
         // Generate tracking number when marked as paid
-        if (request.Status.ToLower() == "paid" && string.IsNullOrEmpty(order.TrackingNumber))
+        if (newStatus == "paid" && string.IsNullOrEmpty(order.TrackingNumber))
         {
             order.TrackingNumber = $"TRACK-{order.Id.Substring(0, Math.Min(8, order.Id.Length)).ToUpper()}";
+        }
+
+        // Automatic stock adjustment based on status changes
+        // Decrease stock when order is paid (inventory reserved)
+        if (newStatus == "paid" && oldStatus != "paid")
+        {
+            foreach (var item in order.Items)
+            {
+                var product = _store.GetProducts().FirstOrDefault(p => p.Id == item.ProductId && p.IsCurrentVersion);
+                if (product != null && product.StockQuantity.HasValue)
+                {
+                    var newStock = Math.Max(0, product.StockQuantity.Value - item.Quantity);
+                    _store.UpdateProductStock(item.ProductId, newStock);
+                }
+            }
+        }
+
+        // Increase stock back when order is cancelled (inventory released)
+        // Note: Refunded items are NOT returned to stock as they may be damaged/lost
+        if (newStatus == "cancelled" && oldStatus == "paid")
+        {
+            foreach (var item in order.Items)
+            {
+                var product = _store.GetProducts().FirstOrDefault(p => p.Id == item.ProductId && p.IsCurrentVersion);
+                if (product != null && product.StockQuantity.HasValue)
+                {
+                    var newStock = product.StockQuantity.Value + item.Quantity;
+                    _store.UpdateProductStock(item.ProductId, newStock);
+                }
+            }
         }
 
         _store.UpdateOrder(order);

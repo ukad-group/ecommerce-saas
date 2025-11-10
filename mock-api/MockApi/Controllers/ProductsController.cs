@@ -20,7 +20,8 @@ public class ProductsController : ControllerBase
         [FromHeader(Name = "X-Tenant-ID")] string? headerTenantId = null,
         [FromHeader(Name = "X-Market-ID")] string? headerMarketId = null)
     {
-        var products = _store.GetProducts().AsQueryable();
+        // Only return current versions
+        var products = _store.GetProducts().Where(p => p.IsCurrentVersion).AsQueryable();
 
         // Use header values if query params not provided
         var effectiveTenantId = tenantId ?? headerTenantId;
@@ -77,7 +78,8 @@ public class ProductsController : ControllerBase
     [HttpGet("{id}")]
     public ActionResult<Product> GetProduct(string id)
     {
-        var product = _store.GetProduct(id);
+        // Get current version only
+        var product = _store.GetProducts().FirstOrDefault(p => p.Id == id && p.IsCurrentVersion);
         if (product == null)
         {
             return NotFound();
@@ -121,9 +123,10 @@ public class ProductsController : ControllerBase
     [HttpPut("{id}")]
     public ActionResult<Product> UpdateProduct(
         string id,
-        [FromBody] Product product)
+        [FromBody] Product product,
+        [FromHeader(Name = "X-User-ID")] string? userId = null)
     {
-        var existingProduct = _store.GetProduct(id);
+        var existingProduct = _store.GetProducts().FirstOrDefault(p => p.Id == id && p.IsCurrentVersion);
         if (existingProduct == null)
         {
             return NotFound();
@@ -137,8 +140,12 @@ public class ProductsController : ControllerBase
         product.MarketId = existingProduct.MarketId;
         product.CreatedAt = existingProduct.CreatedAt;
 
-        _store.UpdateProduct(product);
-        return Ok(product);
+        // Update product with versioning
+        _store.UpdateProduct(product, userId ?? "system", product.ChangeNotes);
+
+        // Return the newly created version
+        var updatedProduct = _store.GetProducts().FirstOrDefault(p => p.Id == id && p.IsCurrentVersion);
+        return Ok(updatedProduct);
     }
 
     [HttpDelete("{id}")]
@@ -153,4 +160,64 @@ public class ProductsController : ControllerBase
         _store.DeleteProduct(id);
         return NoContent();
     }
+
+    // Version history endpoints
+
+    [HttpGet("{id}/versions")]
+    public ActionResult<List<Product>> GetProductVersions(string id)
+    {
+        var versions = _store.GetProductVersions(id);
+        if (versions == null || versions.Count == 0)
+        {
+            return NotFound();
+        }
+        return Ok(versions);
+    }
+
+    [HttpGet("{id}/versions/{version}")]
+    public ActionResult<Product> GetProductVersion(string id, int version)
+    {
+        var product = _store.GetProductVersion(id, version);
+        if (product == null)
+        {
+            return NotFound();
+        }
+        return Ok(product);
+    }
+
+    [HttpPost("{id}/versions/{version}/restore")]
+    public ActionResult<Product> RestoreProductVersion(
+        string id,
+        int version,
+        [FromHeader(Name = "X-User-ID")] string? userId = null)
+    {
+        var restoredProduct = _store.RestoreProductVersion(id, version, userId ?? "system");
+        if (restoredProduct == null)
+        {
+            return NotFound();
+        }
+        return Ok(restoredProduct);
+    }
+
+    // Stock management endpoint (does not create versions)
+
+    [HttpPatch("{id}/stock")]
+    public ActionResult UpdateProductStock(
+        string id,
+        [FromBody] UpdateStockRequest request)
+    {
+        var product = _store.GetProducts().FirstOrDefault(p => p.Id == id && p.IsCurrentVersion);
+        if (product == null)
+        {
+            return NotFound();
+        }
+
+        _store.UpdateProductStock(id, request.StockQuantity);
+        return NoContent();
+    }
+}
+
+public class UpdateStockRequest
+{
+    public int StockQuantity { get; set; }
 }

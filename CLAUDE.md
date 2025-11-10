@@ -215,6 +215,16 @@ All features must follow TDD workflow:
 - Product variants and custom properties support
 - Quick stock updates
 - Product status management (Active/Inactive/Draft)
+- **Product versioning** (tracks all changes with full history)
+
+**Product Versioning**:
+Every product update creates a new version instead of overwriting. Features:
+- Sequential version numbers (v1, v2, v3...)
+- Only current version shown in product lists
+- Full version history accessible via API
+- Restore previous versions with one click
+- Track who made changes and when
+- Optional change notes for each version
 
 **Key Components**:
 - ProductsPage, ProductList, ProductForm
@@ -224,6 +234,9 @@ All features must follow TDD workflow:
 **API Endpoints** (Mocked):
 - `GET/POST /api/v1/products`
 - `GET/PUT/DELETE /api/v1/products/:id`
+- `GET /api/v1/products/:id/versions` - Get version history
+- `GET /api/v1/products/:id/versions/:version` - Get specific version
+- `POST /api/v1/products/:id/versions/:version/restore` - Restore version
 - `GET/POST /api/v1/categories`
 - `GET/PUT/DELETE /api/v1/categories/:id`
 
@@ -701,8 +714,9 @@ When production backend is ready:
 - **v1.3** (2025-10-24): Role-based access control feature
 - **v1.4** (2025-10-29): Tenant & Market Management specification (Feature 004)
 - **v2.0** (2025-11-04): **Architecture overhaul** - Replaced MSW with .NET Mock API, added showcase website
+- **v2.1** (2025-11-10): **Product Versioning** - Added version tracking for all product changes
 
 ---
 
-**Last Updated**: 2025-11-04
+**Last Updated**: 2025-11-10
 **Status**: Active Development - MVP Phase

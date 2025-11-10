@@ -24,6 +24,13 @@ public class Product
     public List<ProductVariant>? Variants { get; set; }
     public List<CustomProperty>? CustomProperties { get; set; }
 
+    // Versioning fields
+    public int Version { get; set; } = 1;
+    public bool IsCurrentVersion { get; set; } = true;
+    public DateTime VersionCreatedAt { get; set; }
+    public string VersionCreatedBy { get; set; } = string.Empty; // User ID who created this version
+    public string? ChangeNotes { get; set; } // Optional notes about what changed
+
     // Legacy property for backwards compatibility (maps to CategoryIds[0])
     public string CategoryId
     {

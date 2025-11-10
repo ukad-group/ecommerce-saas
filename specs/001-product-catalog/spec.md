@@ -136,6 +136,26 @@ As a back-office administrator managing hundreds of products, I need to search a
 
 ---
 
+### User Story 8 - Product Version History (Priority: P2)
+
+As a back-office administrator, I need to track all changes made to products and restore previous versions so that I can audit product history and recover from mistakes.
+
+**Why this priority**: Version control provides audit capability and mistake recovery, which are important for production systems but not blocking for initial launch. This feature becomes essential as the catalog matures and multiple administrators make changes.
+
+**Independent Test**: Can be tested by editing a product multiple times, viewing version history, comparing versions, and restoring a previous version. Delivers value by providing change tracking and rollback capability.
+
+**Acceptance Scenarios**:
+
+1. **Given** I am editing a product, **When** I save changes, **Then** a new version is created automatically with incremented version number
+2. **Given** I have edited a product multiple times, **When** I view the product details, **Then** I see a version number badge and "View History" button
+3. **Given** I am viewing a product, **When** I click "View History", **Then** I see a list of all versions with version number, date, user, and change notes
+4. **Given** I am viewing version history, **When** I select a previous version, **Then** I can view its complete details
+5. **Given** I am viewing an old version, **When** I click "Restore", **Then** the old version becomes current and I see a confirmation message
+6. **Given** I am editing a product, **When** I add change notes before saving, **Then** the notes are stored with the new version
+7. **Given** I am viewing version history, **When** I compare two versions, **Then** I see highlighted differences between them (future enhancement)
+
+---
+
 ### Edge Cases
 
 - What happens when an administrator tries to create a product with a duplicate SKU? (System should prevent this and show an error message)
@@ -202,6 +222,20 @@ As a back-office administrator managing hundreds of products, I need to search a
 - **FR-036**: System MUST allow combining multiple filters
 - **FR-037**: System MUST provide clear indication of active filters with ability to clear them
 
+#### Product Versioning
+- **FR-045**: System MUST create a new version automatically whenever a product is updated
+- **FR-046**: System MUST assign sequential version numbers starting from 1
+- **FR-047**: System MUST track version creation timestamp and user who created each version
+- **FR-048**: System MUST allow optional change notes to be added when creating a version
+- **FR-049**: System MUST store complete product data for each version (full snapshot, not diff)
+- **FR-050**: System MUST mark only one version as "current" for each product
+- **FR-051**: System MUST return only current versions in standard product list queries
+- **FR-052**: System MUST provide API endpoint to retrieve all versions of a product
+- **FR-053**: System MUST provide API endpoint to retrieve a specific version by version number
+- **FR-054**: System MUST allow restoring a previous version, making it the current version
+- **FR-055**: System MUST preserve all versions when restoring (no data deletion)
+- **FR-056**: System MUST add automatic change note when a version is restored
+
 #### Multi-Tenancy & Market Isolation
 - **FR-038**: System MUST isolate product data by tenant and market (each market has its own catalog)
 - **FR-039**: System MUST ensure all product operations respect tenant and market boundaries
@@ -215,7 +249,7 @@ As a back-office administrator managing hundreds of products, I need to search a
 
 ### Key Entities
 
-- **Product**: Represents a sellable item with core attributes including unique SKU, name, description, base price, optional sale price, status (Active/Inactive/Draft), stock quantity, low-stock threshold, and timestamps (created, updated). Can be associated with multiple categories and have multiple images. May have variants.
+- **Product**: Represents a sellable item with core attributes including unique SKU, name, description, base price, optional sale price, status (Active/Inactive/Draft), stock quantity, low-stock threshold, and timestamps (created, updated). Can be associated with multiple categories and have multiple images. May have variants. **Each product has versioning fields**: version number, isCurrentVersion flag, versionCreatedAt timestamp, versionCreatedBy user ID, and optional changeNotes.
 
 - **Category**: Represents a product grouping for organization and navigation. Has name, description, and optional parent category for hierarchy. Can contain multiple products. Supports unlimited nesting depth.
 

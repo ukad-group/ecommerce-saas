@@ -688,6 +688,15 @@ public class MockDataStore
             }
         });
 
+        // Initialize versioning fields for all seeded products
+        foreach (var product in _products)
+        {
+            product.Version = 1;
+            product.IsCurrentVersion = true;
+            product.VersionCreatedAt = product.CreatedAt;
+            product.VersionCreatedBy = "system";
+        }
+
         // Seed API Keys
         _apiKeys.AddRange(new[]
         {
@@ -1024,17 +1033,70 @@ public class MockDataStore
     {
         product.CreatedAt = DateTime.UtcNow;
         product.UpdatedAt = DateTime.UtcNow;
+
+        // Initialize versioning fields
+        product.Version = 1;
+        product.IsCurrentVersion = true;
+        product.VersionCreatedAt = DateTime.UtcNow;
+        if (string.IsNullOrEmpty(product.VersionCreatedBy))
+        {
+            product.VersionCreatedBy = "system";
+        }
+
         _products.Add(product);
     }
 
-    public void UpdateProduct(Product product)
+    public void UpdateProduct(Product product, string userId = "system", string? changeNotes = null)
     {
-        var index = _products.FindIndex(p => p.Id == product.Id);
-        if (index >= 0)
+        var existingProduct = _products.FirstOrDefault(p => p.Id == product.Id && p.IsCurrentVersion);
+        if (existingProduct == null) return;
+
+        // Mark existing product as not current
+        existingProduct.IsCurrentVersion = false;
+
+        // Find the maximum version number for this product
+        var maxVersion = _products
+            .Where(p => p.Id == product.Id)
+            .Max(p => p.Version);
+
+        // Create new version
+        var newVersion = new Product
         {
-            product.UpdatedAt = DateTime.UtcNow;
-            _products[index] = product;
-        }
+            // Copy all fields from the updated product
+            Id = product.Id,
+            TenantId = product.TenantId,
+            MarketId = product.MarketId,
+            Name = product.Name,
+            Description = product.Description,
+            Sku = product.Sku,
+            Price = product.Price,
+            SalePrice = product.SalePrice,
+            Status = product.Status,
+            StockQuantity = product.StockQuantity,
+            LowStockThreshold = product.LowStockThreshold,
+            Currency = product.Currency,
+            Images = product.Images,
+            CategoryIds = product.CategoryIds,
+            Metadata = product.Metadata,
+            HasVariants = product.HasVariants,
+            VariantOptions = product.VariantOptions,
+            Variants = product.Variants,
+            CustomProperties = product.CustomProperties,
+
+            // Preserve original creation date
+            CreatedAt = existingProduct.CreatedAt,
+            UpdatedAt = DateTime.UtcNow,
+
+            // Versioning fields - use max version + 1
+            Version = maxVersion + 1,
+            IsCurrentVersion = true,
+            VersionCreatedAt = DateTime.UtcNow,
+            VersionCreatedBy = userId,
+            ChangeNotes = changeNotes
+        };
+
+        // Add new version to the list
+        _products.Add(newVersion);
     }
 
     public void DeleteProduct(string id)
@@ -1044,6 +1106,61 @@ public class MockDataStore
         {
             _products.RemoveAt(index);
         }
+    }
+
+    /// <summary>
+    /// Get all versions of a product
+    /// </summary>
+    public List<Product> GetProductVersions(string productId)
+    {
+        return _products
+            .Where(p => p.Id == productId)
+            .OrderByDescending(p => p.Version)
+            .ToList();
+    }
+
+    /// <summary>
+    /// Get a specific version of a product
+    /// </summary>
+    public Product? GetProductVersion(string productId, int version)
+    {
+        return _products.FirstOrDefault(p => p.Id == productId && p.Version == version);
+    }
+
+    /// <summary>
+    /// Restore a previous version by swapping IsCurrentVersion flags
+    /// </summary>
+    public Product? RestoreProductVersion(string productId, int versionToRestore, string userId = "system")
+    {
+        var oldVersion = GetProductVersion(productId, versionToRestore);
+        if (oldVersion == null) return null;
+
+        var currentVersion = _products.FirstOrDefault(p => p.Id == productId && p.IsCurrentVersion);
+        if (currentVersion == null) return null;
+
+        // Swap current flags
+        currentVersion.IsCurrentVersion = false;
+        oldVersion.IsCurrentVersion = true;
+
+        // Add restore note to the restored version
+        var existingNotes = string.IsNullOrEmpty(oldVersion.ChangeNotes) ? "" : oldVersion.ChangeNotes + " | ";
+        oldVersion.ChangeNotes = $"{existingNotes}Restored by {userId} at {DateTime.UtcNow:yyyy-MM-dd HH:mm:ss}";
+
+        return oldVersion;
+    }
+
+    /// <summary>
+    /// Update only stock quantity without creating a new version
+    /// Used for automatic stock adjustments (e.g., from orders)
+    /// </summary>
+    public void UpdateProductStock(string productId, int newStockQuantity)
+    {
+        var currentProduct = _products.FirstOrDefault(p => p.Id == productId && p.IsCurrentVersion);
+        if (currentProduct == null) return;
+
+        // Update stock directly without creating new version
+        currentProduct.StockQuantity = newStockQuantity;
+        currentProduct.UpdatedAt = DateTime.UtcNow;
     }
 
     // Categories

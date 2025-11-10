@@ -6,12 +6,14 @@
  * Supports both simple products and products with variants.
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { Input } from '../common/Input';
 import { Select } from '../common/Select';
 import { Button } from '../common/Button';
 import { useCategories } from '../../services/hooks/useCategories';
+import { VersionBadge } from './VersionBadge';
+import { VersionHistoryModal } from './VersionHistoryModal';
 import type { Product, ProductStatus, VariantOption, ProductVariant, CustomProperty } from '../../types/product';
 
 interface ProductFormProps {
@@ -58,12 +60,16 @@ export function ProductForm({
     product?.customProperties || []
   );
 
+  // State for version history modal
+  const [isVersionHistoryOpen, setIsVersionHistoryOpen] = useState(false);
+
   const {
     register,
     handleSubmit,
     formState: { errors },
     watch,
     setValue,
+    reset,
   } = useForm<ProductFormData>({
     defaultValues: product
       ? {
@@ -90,6 +96,32 @@ export function ProductForm({
   });
 
   const selectedCategories = watch('categoryIds') || [];
+
+  // Sync state when product changes (e.g., after version restore)
+  useEffect(() => {
+    if (product) {
+      // Update local state for custom properties and variants
+      setCustomProperties(product.customProperties || []);
+      setHasVariants(product.hasVariants || false);
+      setVariantOptions(product.variantOptions || []);
+      setVariants(product.variants || []);
+
+      // Reset form with new product data
+      reset({
+        name: product.name,
+        sku: product.sku,
+        description: product.description,
+        price: product.price,
+        salePrice: product.salePrice,
+        status: product.status,
+        stockQuantity: product.stockQuantity,
+        lowStockThreshold: product.lowStockThreshold,
+        currency: product.currency,
+        categoryIds: product.categoryIds || [],
+        hasVariants: product.hasVariants || false,
+      });
+    }
+  }, [product, reset]);
 
   const statusOptions = [
     { value: 'active', label: 'Active' },
@@ -284,9 +316,17 @@ export function ProductForm({
     <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-6">
       {/* Basic Information */}
       <div className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-lg font-medium text-gray-900 mb-4">
-          Basic Information
-        </h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-medium text-gray-900">
+            Basic Information
+          </h2>
+          {product && (
+            <VersionBadge
+              version={product.version}
+              onViewHistory={() => setIsVersionHistoryOpen(true)}
+            />
+          )}
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Input
             label="Product Name"
@@ -709,6 +749,17 @@ export function ProductForm({
           {isSubmitting ? 'Saving...' : product ? 'Update Product' : 'Create Product'}
         </Button>
       </div>
+
+      {/* Version History Modal */}
+      {product && (
+        <VersionHistoryModal
+          isOpen={isVersionHistoryOpen}
+          onClose={() => setIsVersionHistoryOpen(false)}
+          productId={product.id}
+          productName={product.name}
+          currentVersion={product.version}
+        />
+      )}
     </form>
   );
 }

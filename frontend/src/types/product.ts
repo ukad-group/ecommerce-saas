@@ -46,6 +46,13 @@ export interface Product {
   variantOptions?: VariantOption[]; // Defines available variant options (e.g., Size, Color)
   variants?: ProductVariant[]; // Array of product variants
   customProperties?: CustomProperty[]; // Additional specification fields
+
+  // Versioning fields
+  version: number; // Version number (increments with each update)
+  isCurrentVersion: boolean; // True only for the latest version
+  versionCreatedAt: string; // ISO 8601 - When this specific version was created
+  versionCreatedBy: string; // User ID who created this version
+  changeNotes?: string; // Optional notes about what changed in this version
 }
 
 /**

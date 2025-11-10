@@ -74,10 +74,13 @@ export function useUpdateProduct() {
       productData: Partial<Product>;
     }) => updateProduct(productId, productData),
     onSuccess: (updatedProduct) => {
-      // Invalidate and refetch products list
+      // Invalidate all product-related queries
       queryClient.invalidateQueries({ queryKey: ['products'] });
 
-      // Update the specific product in cache
+      // Invalidate version history for this product
+      queryClient.invalidateQueries({ queryKey: ['product-versions', updatedProduct.id] });
+
+      // Update the specific product in cache with new data
       queryClient.setQueryData(['products', updatedProduct.id], updatedProduct);
     },
   });
