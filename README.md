@@ -30,28 +30,27 @@ See [memory/constitution.md](memory/constitution.md) for complete project princi
 
 New to the project? Start here:
 
-1. **Read [CLAUDE.md](CLAUDE.md)** - Complete project overview, technology stack, and getting started guide
+1. **Read [CLAUDE.md](CLAUDE.md)** - Complete project overview, quick start, and essential info
 2. **Review [memory/constitution.md](memory/constitution.md)** - Core principles and guidelines
-3. **Check [specs/CLAUDE.md](specs/CLAUDE.md)** - Feature specifications overview
+3. **Check [docs/STATUS.md](docs/STATUS.md)** - Implementation status, what works, what's missing
 4. **Explore [frontend/CLAUDE.md](frontend/CLAUDE.md)** - Frontend development guide
 
 ## Project Structure
 
 ```
-/specs/          # Feature specifications (see specs/CLAUDE.md)
-  /001-product-catalog/
-  /002-cart-order-management/
-  /003-role-based-access/
-  /004-tenant-market-management/
-
 /memory/         # Project constitution and core principles
+/docs/           # Reference documentation
+  STATUS.md          # Implementation status - what works, what's missing
+  ARCHITECTURE.md    # Tech stack, data models, design decisions
+  DEVELOPMENT.md     # Workflow, coding standards, spec template
+/.claude/commands/   # Slash commands for feature context
+  ctx-products.md, ctx-orders.md, ctx-rbac.md, ctx-tenants.md
 
 /frontend/       # Admin backoffice React application
   /src/
     /components/ # UI components
     /pages/      # Route pages
     /services/   # API clients and TanStack Query hooks
-    /data/       # Minimal hardcoded data (auth only)
     /store/      # Zustand state management
     /types/      # TypeScript definitions
 
@@ -63,8 +62,6 @@ New to the project? Start here:
 
 /showcase-dotnet/  # Showcase eCommerce website (ASP.NET MVC)
   /ECommShowcase.Web/
-
-/docs/           # Additional documentation
 
 CLAUDE.md        # Main project guide (START HERE)
 README.md        # This file
@@ -215,8 +212,8 @@ See [CLAUDE.md](CLAUDE.md#multi-tenancy--market-isolation) for details.
 
 ## Development Workflow
 
-### 1. Review Specifications
-Check [specs/CLAUDE.md](specs/CLAUDE.md) for features and requirements.
+### 1. Check Status
+Check [docs/STATUS.md](docs/STATUS.md) for what's implemented and what's missing.
 
 ### 2. Create Feature Specification
 Document in `specs/[number]-[feature-name]/spec.md`:
@@ -260,7 +257,9 @@ Document in `plan.md`:
 
 - **[CLAUDE.md](CLAUDE.md)** - Main project guide (START HERE)
 - **[memory/constitution.md](memory/constitution.md)** - Core principles
-- **[specs/CLAUDE.md](specs/CLAUDE.md)** - Feature specifications
+- **[docs/STATUS.md](docs/STATUS.md)** - Implementation status
+- **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** - Tech stack and design
+- **[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)** - Development workflow
 - **[frontend/CLAUDE.md](frontend/CLAUDE.md)** - Frontend guide
 - **[showcase-dotnet/CLAUDE.md](showcase-dotnet/CLAUDE.md)** - Showcase guide
 

@@ -1,503 +1,262 @@
-# Frontend Application Guide
+# Frontend - Admin Backoffice Guide
 
 ## Overview
 
-React + TypeScript admin backoffice for the eCommerce SaaS MVP. Manages markets, products, categories, orders, and role-based access across multiple tenants.
+React + TypeScript admin backoffice for multi-tenant eCommerce SaaS. Manages markets, products, categories, orders, and tenants.
 
-### Market-Based Architecture
+**Port**: http://localhost:5173
 
+## Tech Stack
+
+- React 18 + TypeScript 5 + Vite 5
+- React Router 6 (routing)
+- Zustand 4 (state, localStorage persistence)
+- TanStack Query v5 (data fetching/caching)
+- Tailwind CSS + Headless UI (styling)
+- React Hook Form (forms)
+- Vitest + React Testing Library (testing)
+
+## Quick Start
+
+```bash
+npm install      # First time only
+npm run dev      # Start dev server
+npm run build    # Production build
+npm run test     # Run tests
+npm run type-check  # TypeScript check
 ```
-Tenant (Business Entity)
-└── Markets (Stores/Locations)
-    └── Categories (Product Organization)
-        └── Products (Catalog Items)
+
+**Config** (.env.local):
+```bash
+VITE_TENANT_ID=tenant-a
+VITE_API_BASE_URL=http://localhost:5180/api/v1
+VITE_USE_MOCKS=false
 ```
-
-- Products and categories are market-specific (not tenant-wide)
-- Orders belong to specific markets
-- Users have tenant-level access with optional market restrictions
-- API calls include `X-Tenant-ID` and `X-Market-ID` headers
-
-## Technology Stack
-
-- **React**: 18.x with TypeScript 5.x
-- **Build Tool**: Vite 5.x
-- **Routing**: React Router 6.x
-- **State Management**: Zustand 4.x (localStorage persistence)
-- **Data Fetching**: TanStack Query v5
-- **Styling**: Tailwind CSS + Headless UI
-- **Forms**: React Hook Form
-- **Testing**: Vitest + React Testing Library
-- **Backend**: .NET Mock API (http://localhost:5180)
 
 ## Project Structure
 
 ```
 /src/
-  /components/          # Reusable UI components
-    /admin/            # AdminOrderList, ProductList, ProductForm, etc.
-    /auth/             # LoginPage, ProfileSelector, TenantSelector, UserInfo
-    /cart/             # CartItem, CartSummary, CartIndicator
-    /orders/           # OrderStatusBadge
-    /common/           # Button, Input, Select, LoadingSpinner
-    /layout/           # Navigation, Layout
-    /tenants/          # TenantList, TenantForm, MarketList
+  /components/
+    /admin/      # ProductList, OrderList, etc.
+    /auth/       # LoginPage, ProfileSelector, TenantSelector
+    /cart/       # CartItem, CartSummary
+    /orders/     # OrderStatusBadge
+    /common/     # Button, Input, Select, LoadingSpinner
+    /layout/     # Navigation, Layout
+    /tenants/    # TenantList, MarketList
 
-  /pages/              # Route handlers
-    /admin/            # AdminDashboardPage, AdminOrdersPage, ProductsPage, etc.
+  /pages/        # Route handlers
+    /admin/      # AdminDashboardPage, ProductsPage, etc.
     LoginPage.tsx
     CartPage.tsx
 
-  /services/           # API and data services
-    /api/
-      client.ts        # Base API client (fetch wrapper)
-      cartApi.ts       # Cart endpoints
-      ordersApi.ts     # Orders endpoints
-      adminApi.ts      # Admin endpoints
-      productsApi.ts   # Products endpoints
-      categoriesApi.ts # Categories endpoints
-    /hooks/            # TanStack Query hooks
+  /services/
+    /api/        # API client methods
+      client.ts           # Base fetch wrapper
+      cartApi.ts          # Cart endpoints
+      ordersApi.ts        # Orders endpoints
+      productsApi.ts      # Products endpoints
+      categoriesApi.ts    # Categories endpoints
+      tenantsApi.ts       # Tenants endpoints
+    /hooks/      # TanStack Query hooks
       useCart.ts, useOrders.ts, useProducts.ts, etc.
 
-  /store/              # Zustand state management
-    authStore.ts       # Auth session state (persisted)
-    cartStore.ts       # Cart state (syncs with API)
+  /store/        # Zustand state
+    authStore.ts          # Auth session (persisted)
+    cartStore.ts          # Cart state (syncs with API)
 
-  /data/               # Minimal hardcoded data
-    tenants.ts         # Tenant/market references for auth selectors
-    profiles.ts        # Hardcoded profiles for login
+  /data/         # Minimal hardcoded data
+    tenants.ts            # Tenant/market references
+    profiles.ts           # Hardcoded user profiles
 
-  /types/              # TypeScript interfaces
-    auth.ts, product.ts, order.ts, address.ts, market.ts, api.ts
+  /types/        # TypeScript interfaces
+    auth.ts, product.ts, order.ts, address.ts, market.ts
 
-  /utils/              # Helper functions
-    authGuards.ts, currency.ts, validation.ts, orderHelpers.ts
+  /utils/        # Helper functions
+    authGuards.ts, currency.ts, validation.ts
 
-  /App.tsx
-  /main.tsx            # Entry point
-  /router.tsx          # React Router configuration
-
-/tests/                # Tests
-  setup.ts
-
-/index.html
-/vite.config.ts
-/tsconfig.json
-/tailwind.config.js
+  App.tsx
+  main.tsx       # Entry point
+  router.tsx     # React Router config
 ```
 
-## Getting Started
+## Key Patterns
 
-### Prerequisites
-Start the .NET Mock API first (required):
-```bash
-# In separate terminal
-cd mock-api/MockApi
-dotnet run
-# Runs on http://localhost:5180
-```
-
-### Installation
-```bash
-npm install
-```
-
-### Development Server
-```bash
-npm run dev
-# Opens at http://localhost:5173
-```
-
-### Build for Production
-```bash
-npm run build
-npm run preview
-```
-
-### Testing
-```bash
-npm run test              # Run unit tests
-npm run test:watch        # Watch mode
-npm run test:coverage     # Coverage report
-```
-
-### Type Checking & Linting
-```bash
-npm run type-check
-npm run lint
-npm run lint:fix
-```
-
-## Environment Configuration
-
-Create `.env.local`:
-
-```bash
-# Tenant Configuration
-VITE_TENANT_ID=tenant-a
-
-# API Configuration
-VITE_API_BASE_URL=http://localhost:5180/api/v1
-VITE_USE_MOCKS=false
-```
-
-## Available Routes
-
-### Public
-- `/login` - Login with profile selection
-
-### Protected Admin (Require Authentication)
-- `/admin` - Dashboard with metrics
-- `/admin/products` - Product management
-- `/admin/products/new` - Create product
-- `/admin/products/:id` - Edit product
-- `/admin/categories` - Category management
-- `/admin/orders` - Order list with filtering
-- `/admin/orders/:id` - Order details
-- `/admin/tenants` - Tenant management (superadmin)
-
-### Shopping (Partial)
-- `/cart` - Shopping cart
-- `/checkout` - Not implemented (API ready)
-- `/orders` - Not implemented
-- `/orders/:id` - Not implemented
-
-## .NET Mock API Integration
-
-The frontend communicates with a .NET Mock API server instead of browser-based mocks.
-
-### API Base URL
-- Development: `http://localhost:5180/api/v1`
-- Configured in `.env.local` as `VITE_API_BASE_URL`
-
-### Headers
-```
-Content-Type: application/json
-X-Tenant-ID: {tenantId}    # For tenant-scoped data
-X-Market-ID: {marketId}    # For market-scoped data
-```
-
-### Response Format
+### API Client
 ```typescript
-// Success (varies by endpoint)
-Product[]                   // Products, Categories
-{ data: Tenant[], total, page, limit }  // Paginated (Tenants)
-
-// Error
-{ error: string, details?: any }
+// services/api/client.ts - Base client with headers
+const response = await fetch(url, {
+  headers: {
+    'Content-Type': 'application/json',
+    'X-Tenant-ID': tenantId,
+    'X-Market-ID': marketId
+  }
+});
 ```
 
-### Hardcoded Data
-Minimal hardcoded data exists only for authentication UI:
-- `src/data/tenants.ts` - Tenant/market references for selectors
-- `src/data/profiles.ts` - User profiles for login
-
-All other data comes from .NET Mock API seed data.
-
-## State Management
-
-### Zustand Stores
-
-**authStore** (localStorage):
-- `login(profileId, tenantId?)` - Authenticate
-- `logout()` - Clear session
-- `setTenant(tenantId)` - Switch tenant
-- `setMarket(marketId)` - Switch market
-- `isAuthenticated()` - Check auth
-- `hasPermission(permission)` - Check permissions
-
-**cartStore** (future localStorage):
-- `addItem(product, quantity)`
-- `updateQuantity(lineItemId, quantity)`
-- `removeItem(lineItemId)`
-- `clearCart()`
-
-### TanStack Query
-
-Server state management with caching.
-
-**Key Hooks**:
-- `useCart()` - Current cart
-- `useAddToCart()` - Add mutation
-- `useProducts()` - Product list
-- `useProduct(id)` - Single product
-- `useAdminOrders()` - Orders with filters
-- `useUpdateOrderStatus()` - Status mutation
-- `useTenants()` - Tenant list
-- `useMarkets(tenantId)` - Market list
-
-**Query Keys**:
+### TanStack Query Hooks
 ```typescript
-['cart']
-['products']
-['products', productId]
-['admin', 'orders', filters]
-['tenants', filters]
-['markets', tenantId]
-```
+// services/hooks/useProducts.ts
+export function useProducts() {
+  return useQuery({
+    queryKey: ['products', marketId],
+    queryFn: () => productsApi.getProducts(marketId)
+  });
+}
 
-## API Client
-
-### Base Client
-Located in `src/services/api/client.ts`:
-- Fetch wrapper with error handling
-- Automatic tenant/market context headers
-- Error normalization
-- Base URL from environment
-
-### API Services
-Each feature has dedicated API file:
-- `cartApi.ts` - Cart operations
-- `ordersApi.ts` - Order operations
-- `adminApi.ts` - Admin order management
-- `productsApi.ts` - Product CRUD
-- `categoriesApi.ts` - Category CRUD
-
-Example:
-```typescript
-// src/services/api/productsApi.ts
-import { apiClient } from './client';
-
-export async function getProducts(): Promise<Product[]> {
-  return apiClient.get<Product[]>('/products');
+export function useUpdateProduct() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: productsApi.updateProduct,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+    }
+  });
 }
 ```
 
-## Component Patterns
-
-### Page Components
-Located in `/pages/` - handle routing and data fetching:
+### Zustand Store
 ```typescript
-export function ProductsPage() {
-  const { data: products, isLoading } = useProducts();
-
-  if (isLoading) return <LoadingSpinner />;
-
-  return (
-    <div>
-      <h1>Products</h1>
-      <ProductList products={products} />
-    </div>
-  );
-}
+// store/authStore.ts
+export const useAuthStore = create<AuthState>()(
+  persist(
+    (set) => ({
+      user: null,
+      tenantId: null,
+      marketId: null,
+      login: (user, tenantId, marketId) => set({ user, tenantId, marketId }),
+      logout: () => set({ user: null, tenantId: null, marketId: null }),
+    }),
+    { name: 'auth-storage' }
+  )
+);
 ```
-
-### Feature Components
-Located in `/components/{feature}/` - reusable with props:
-```typescript
-interface ProductListProps {
-  products: Product[];
-  onEdit?: (id: string) => void;
-}
-
-export function ProductList({ products, onEdit }: ProductListProps) {
-  return (
-    <ul>
-      {products.map(product => (
-        <ProductListItem key={product.id} product={product} onEdit={onEdit} />
-      ))}
-    </ul>
-  );
-}
-```
-
-### Common Components
-Located in `/components/common/` - generic UI, no business logic.
-
-## Styling
-
-### Tailwind CSS
-Utility-first framework configured in `tailwind.config.js`.
-
-### Headless UI
-Unstyled, accessible components (Dropdown, Dialog, Tabs) styled with Tailwind.
-
-### Conditional Classes
-```typescript
-import { cn } from '@/utils/cn';
-
-<span className={cn(
-  'px-2 py-1 rounded-full text-xs',
-  status === 'paid' && 'bg-green-100 text-green-800',
-  status === 'pending' && 'bg-yellow-100 text-yellow-800',
-)}>
-  {status}
-</span>
-```
-
-## Authentication Flow
-
-### Login
-1. Navigate to `/login`
-2. Select profile
-3. If not superadmin, select tenant
-4. Click "Login"
-5. `authStore.login()` creates session
-6. Redirect to `/admin`
 
 ### Protected Routes
-1. Access `/admin/*`
-2. `ProtectedRoute` checks `authStore.isAuthenticated()`
-3. Authenticated: render route
-4. Not authenticated: redirect to `/login`
-
-### Logout
-1. Click "Logout" in header
-2. `authStore.logout()` clears session
-3. Redirect to `/login`
-
-## Multi-Tenancy & Market Isolation
-
-### Context
-- Stored in authStore: `selectedTenantId`, `selectedMarketIds`
-- **Superadmin**: See all tenants/markets
-- **Tenant Admin**: Selected tenant, all markets
-- **Tenant User**: Selected tenant, assigned markets
-
-### Data Filtering
 ```typescript
-// API calls include context headers
-const headers = {
-  'X-Tenant-ID': session?.selectedTenantId,
-  'X-Market-ID': session?.selectedMarketIds?.[0],
-};
-
-// Backend filters data accordingly
+// router.tsx
+<Route element={<ProtectedRoute />}>
+  <Route path="/admin" element={<AdminDashboardPage />} />
+  <Route path="/admin/products" element={<ProductsPage />} />
+</Route>
 ```
-
-### Auto-Selection
-When no tenant/market is selected, first available is auto-selected (see [HeaderTenantSelector.tsx](src/components/auth/HeaderTenantSelector.tsx) and [HeaderMarketSelector.tsx](src/components/auth/HeaderMarketSelector.tsx)).
-
-## Testing
-
-### Unit Tests
-```typescript
-import { render, screen } from '@testing-library/react';
-
-test('renders product list', () => {
-  const products = [{ id: '1', name: 'Test', price: 100 }];
-  render(<ProductList products={products} />);
-  expect(screen.getByText('Test')).toBeInTheDocument();
-});
-```
-
-### Integration Tests
-Tests run against .NET Mock API (requires it to be running):
-```typescript
-test('add product to cart', async () => {
-  const { user } = renderWithProviders(<CartPage />);
-  await user.click(screen.getByText('Add to Cart'));
-  expect(await screen.findByText('1 item')).toBeInTheDocument();
-});
-```
-
-## Performance
-
-### Code Splitting
-- Route-based code splitting via `React.lazy()`
-- Component lazy loading for heavy features
-
-### Caching
-- TanStack Query caches API responses
-- Stale-while-revalidate strategy
-- Background refetching
-
-### Bundle Optimization
-- Vite tree-shaking
-- Dynamic imports for large dependencies
 
 ## Common Tasks
 
+### Add New Product Field
+1. Update `types/product.ts` interface
+2. Update `components/admin/ProductForm.tsx` form
+3. Update mock API (mock-api/MockApi/Models/Product.cs)
+4. Backend implementation (future)
+
 ### Add New Page
-1. Create in `/pages/`
+1. Create `pages/NewPage.tsx`
 2. Add route in `router.tsx`
-3. Add navigation link in `Navigation.tsx`
+3. Add navigation link in `components/layout/Navigation.tsx`
 
 ### Add New API Endpoint
-1. Add method in service file (e.g., `productsApi.ts`)
-2. Create TanStack Query hook in `/services/hooks/`
+1. Create method in `services/api/someApi.ts`
+2. Create hook in `services/hooks/useSome.ts`
 3. Use hook in component
-4. Backend must implement endpoint in .NET Mock API
+4. Update mock API
 
-### Add New Feature
-1. Create directory in `/components/{feature}/`
-2. Create page in `/pages/`
-3. Add API service in `/services/api/`
-4. Add route and navigation
-5. Add backend endpoints in mock-api
+### Add Permission Check
+```typescript
+const { user } = useAuthStore();
+const canEdit = user?.role !== 'tenant_user' ||
+                (path === '/admin/products' || path === '/admin/categories');
+```
+
+## State Management
+
+**Auth State** (Zustand + localStorage):
+- User profile, tenant, market
+- Persists across sessions
+- Check before API calls
+
+**API Data** (TanStack Query):
+- Auto-caching, refetching
+- Optimistic updates
+- Error handling
+
+**Cart State** (Zustand + API sync):
+- Syncs with backend
+- Updates on every cart operation
+
+## Styling
+
+**Tailwind CSS**:
+```tsx
+<button className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+  Click me
+</button>
+```
+
+**Headless UI** (accessible components):
+```tsx
+import { Dialog, Menu, Listbox } from '@headlessui/react';
+```
+
+## Testing
+
+```bash
+npm run test           # Run all tests
+npm run test:watch     # Watch mode
+npm run type-check     # TypeScript validation
+```
+
+**Test Pattern**:
+```typescript
+import { render, screen } from '@testing-library/react';
+import { ProductList } from './ProductList';
+
+test('renders product list', () => {
+  render(<ProductList products={mockProducts} />);
+  expect(screen.getByText('Product 1')).toBeInTheDocument();
+});
+```
+
+## Multi-Tenancy
+
+**Headers on every request**:
+```typescript
+{
+  'X-Tenant-ID': 'tenant-a',
+  'X-Market-ID': 'market-1'
+}
+```
+
+**Filtering by role**:
+- Superadmin sees all data
+- Tenant Admin sees their tenant only
+- Tenant User sees their tenant only (limited edit)
+
+## Important Notes
+
+- **Market-scoped**: Products, categories, orders belong to markets (not tenants)
+- **Auth headers**: Always send X-Tenant-ID and X-Market-ID
+- **No real auth**: Hardcoded profiles for now
+- **Mock API**: Data resets on API restart
+- **Optimistic updates**: Use TanStack Query mutations
 
 ## Troubleshooting
 
-### API Not Responding
-- Ensure .NET Mock API is running on http://localhost:5180
-- Check `VITE_API_BASE_URL` in `.env.local`
-- Verify backend endpoint exists
+**API calls failing**: Check mock-api is running on port 5180
 
-### TypeScript Errors
-- Run `npm run type-check`
-- Ensure types match API contracts
-- Check import paths
+**Auth not working**: Clear localStorage and re-login
 
-### Build Errors
-- Clear `node_modules` and reinstall
-- Delete `.vite` cache
-- Check for circular dependencies
+**Types mismatch**: Run `npm run type-check`
 
-### State Not Persisting
-- Check localStorage in DevTools
-- Verify Zustand persist middleware configured
-- Check for quota exceeded
+**Components not updating**: Check TanStack Query cache invalidation
 
-### Route Not Working
-- Verify route defined in `router.tsx`
-- Check if route needs `ProtectedRoute`
-- Ensure authenticated
+## Next Steps
 
-## Best Practices
-
-### Component Design
-- Small, focused components
-- Extract reusable logic into hooks
-- TypeScript for type safety
-- Explicit props interfaces
-
-### State Management
-- Server state → TanStack Query
-- Client state → Zustand or React state
-- Form state → React Hook Form
-- Don't duplicate server state in Zustand
-
-### API Calls
-- Always use TanStack Query hooks
-- Never call API directly in components
-- Handle loading and error states
-- Use optimistic updates for mutations
-
-### Styling
-- Use Tailwind utilities first
-- Extract repeated patterns into components
-- Responsive design
-- Accessibility best practices
-
-## Resources
-
-- [React Documentation](https://react.dev)
-- [Vite Documentation](https://vitejs.dev)
-- [TanStack Query](https://tanstack.com/query)
-- [Zustand](https://github.com/pmndrs/zustand)
-- [Tailwind CSS](https://tailwindcss.com)
-- [React Router](https://reactrouter.com)
-
-## Project Links
-
-- [Main Project Guide](../CLAUDE.md)
-- [Feature Specifications](../specs/CLAUDE.md)
-- [Constitution](../memory/constitution.md)
-- [Mock API Guide](../mock-api/CLAUDE.md)
-- [Showcase Guide](../showcase-dotnet/CLAUDE.md)
+- Complete tenant admin/user login flows
+- Add permission-based UI hiding
+- Implement checkout UI
+- Add cart persistence
 
 ---
 
-**Last Updated**: 2025-11-04
-**Current Version**: MVP Phase - .NET Mock API
-**Next Major Update**: Checkout UI Implementation
+**For detailed feature context, use slash commands**: `/ctx-products`, `/ctx-orders`, `/ctx-rbac`, `/ctx-tenants`
