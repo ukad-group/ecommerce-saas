@@ -54,7 +54,6 @@ temp/
 
 # Don't ignore spec-kit structure
 !specs/
-!memory/
 !scripts/
 !templates/
 !.claude/

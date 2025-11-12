@@ -1,4 +1,11 @@
+using MockApi.Data;
+using Microsoft.EntityFrameworkCore;
+
 var builder = WebApplication.CreateBuilder(args);
+
+// Add DbContext
+builder.Services.AddDbContext<ECommDbContext>(options =>
+    options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 // Add services to the container
 builder.Services.AddControllers();
@@ -40,6 +47,24 @@ builder.Services.AddCors(options =>
 });
 
 var app = builder.Build();
+
+// Initialize database
+using (var scope = app.Services.CreateScope())
+{
+    var context = scope.ServiceProvider.GetRequiredService<ECommDbContext>();
+
+    // Ensure database is created
+    context.Database.EnsureCreated();
+
+    // Seed data
+    DatabaseSeeder.SeedDatabase(context);
+}
+
+// Initialize MockDataStore with DbContextOptions (factory pattern for thread safety)
+var dbContextOptions = new DbContextOptionsBuilder<ECommDbContext>()
+    .UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection"))
+    .Options;
+MockDataStore.Instance.InitializeDatabase(dbContextOptions);
 
 // Configure the HTTP request pipeline
 app.UseSwagger();

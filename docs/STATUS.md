@@ -77,8 +77,7 @@ PUT   /api/v1/admin/orders/:id/status
 ```
 
 ### Known Issues
-- Cart resets when mock-api restarts (in-memory only)
-- No cart persistence for guest users
+- No cart persistence for guest users (carts stored in database but not tied to sessions)
 
 ---
 
@@ -161,7 +160,7 @@ None
 
 **Implementation**: ASP.NET Core 9.0 Web API
 **Port**: http://localhost:5180
-**Data**: In-memory (resets on restart)
+**Data**: SQLite database with Entity Framework Core (persistent storage)
 
 ### Controllers
 1. ProductsController - Product CRUD + versioning
@@ -173,6 +172,14 @@ None
 7. MarketsController - Market management
 8. ApiKeysController - API key generation/revocation
 
+### Database Implementation
+- **SQLite** with Entity Framework Core
+- **Persistent storage** - Data survives API restarts
+- **JSON columns** - Complex types stored as JSON
+- **Composite primary key** for Products: `{Id, Version}` to support versioning
+- **Factory pattern** - Thread-safe DbContext access with scoped contexts
+- **Easy reset** - Delete `ecomm.db` file and restart
+
 ### Seed Data
 - 3 Tenants (A, B, C)
 - 7 Markets across tenants
@@ -182,8 +189,7 @@ None
 - 9 API Keys
 
 ### Known Issues
-- All data resets when API restarts
-- No persistence layer (in-memory only)
+None - Data now persists across restarts
 
 ---
 
@@ -215,7 +221,7 @@ None
 1. **Complete RBAC** - Finish tenant admin/user login flows
 2. **Checkout UI** - Build customer checkout forms (API ready)
 3. **Cart Persistence** - Add localStorage for admin, database for production
-4. **Production Backend** - Replace mock-api with real .NET + PostgreSQL
+4. **Production Backend** - Replace mock-api with real .NET + SQLServer
 
 ---
 

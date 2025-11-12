@@ -71,14 +71,23 @@ interface ProductVersion {
 - **Tenant Admin**: Full access, their markets only
 - **Tenant User**: Full access, their assigned markets
 
+### Database Implementation
+- **Composite primary key**: `{Id, Version}` in Products table
+- **Version tracking**: `IsCurrentVersion` flag marks active version
+- **Thread-safe**: Factory pattern with scoped DbContext per operation
+- **Persistence**: SQLite database, survives API restarts
+- **Query optimization**: `.AsNoTracking()` for read-only queries
+
 ### Important Notes
 - Products are **market-specific** (each market has own catalog)
 - API calls require `X-Market-ID` header
 - Versioning is automatic on every update (can't be disabled)
-- Deleting a product keeps version history
+- All versions persist in database (composite key allows same Id, different Version)
+- Deleting a product keeps version history in database
 
 ### Common Tasks
 **Add new product field**: Update Product type → ProductForm → API mock → backend
 **Change product display**: Edit ProductList component
 **Add product filter**: Update ProductsPage filters
-**Modify version logic**: Check mock-api ProductsController
+**Modify version logic**: Check mock-api ProductsController + MockDataStore.cs
+**Reset database**: Delete `mock-api/MockApi/ecomm.db` file and restart API

@@ -22,9 +22,9 @@ Tenant (Business Entity)
 ## Tech Stack
 
 - **Admin**: React 18 + TypeScript + Vite + TanStack Query + Zustand
-- **Mock API**: ASP.NET Core 9.0 (port 5180)
+- **Mock API**: ASP.NET Core 9.0 + SQLite + EF Core (port 5180)
 - **Showcase**: ASP.NET MVC (port 5025)
-- **Production** (future): .NET 8+ + PostgreSQL + OAuth2 + Redis
+- **Production** (future): .NET 8+ + SQLServer + OAuth2 + Redis
 
 ## Core Principles
 
@@ -107,7 +107,7 @@ dotnet run
 - **Tenant B** (tenant-b) - 2 markets
 - **Tenant C** (tenant-c) - 2 markets
 
-**Data**: 12 products, 5 categories, 6 orders, 9 API keys (resets on API restart)
+**Data**: 12 products, 5 categories, 6 orders, 9 API keys (persists in SQLite database)
 
 ## Routes
 
@@ -144,7 +144,6 @@ dotnet run
 ## Project Structure
 
 ```
-/memory/             # constitution.md - core principles
 /docs/               # Reference documentation
   STATUS.md          # Implementation status - what works, what's missing
   ARCHITECTURE.md    # Tech stack, data models, design decisions
@@ -188,12 +187,12 @@ Load specific context when working on features:
 **Add order status**: Update status type → OrderStatusUpdate → mock API → backend
 **Add permission**: Check authStore.user.role → conditional UI → route protection
 **Add tenant/market**: Update types → forms → mock API → backend
+**Reset database**: Delete `mock-api/MockApi/ecomm.db` file and restart API
 
 ## Current Limitations
 
-- **Mock backend**: In-memory only, resets on restart
+- **SQLite database**: Development-grade persistence (production will use SQLServer)
 - **Hardcoded auth**: No real authentication system
-- **No persistence**: All data lost when API stops
 - **No payments**: Simulated only (auto-pays)
 - **No emails**: Not implemented
 
@@ -202,7 +201,7 @@ Load specific context when working on features:
 1. **Complete RBAC**: Finish tenant admin/user login flows
 2. **Checkout UI**: Build checkout forms (API ready)
 3. **Cart Persistence**: Add localStorage for guest carts
-4. **Production Backend**: .NET + PostgreSQL + OAuth2
+4. **Production Backend**: .NET + SQLServer + OAuth2
 
 ## Troubleshooting
 
@@ -214,10 +213,11 @@ Load specific context when working on features:
 
 **TypeScript errors**: Run `npm run type-check` in frontend
 
+**Database issues**: Delete `mock-api/MockApi/ecomm.db` file and restart API to reset
+
 ## Documentation
 
-- **This file** - Quick start and essentials
-- **[memory/constitution.md](memory/constitution.md)** - Core principles (must-read)
+- **This file** - Quick start, essentials, and core principles
 - **[docs/STATUS.md](docs/STATUS.md)** - Implementation status, what works, what's missing
 - **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** - Deep dive into tech stack
 - **[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)** - Coding standards and workflow
@@ -234,5 +234,5 @@ Load specific context when working on features:
 
 ---
 
-**Last Updated**: 2025-11-11
+**Last Updated**: 2025-11-12
 **Status**: Active Development - MVP Phase

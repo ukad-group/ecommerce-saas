@@ -12,7 +12,8 @@
 
 ### Mock API (mock-api/)
 - ASP.NET Core 9.0 Web API + C# 12
-- In-memory data store (singleton)
+- **SQLite database with Entity Framework Core** (persistent storage)
+- Factory pattern for thread-safe DbContext access
 - 8 Controllers: Products, Categories, Cart, Orders, Tenants, Markets, AdminOrders, ApiKeys
 - Port: http://localhost:5180
 
@@ -23,7 +24,7 @@
 - Port: http://localhost:5025
 
 ### Production Backend (Planned)
-- .NET 8+ with PostgreSQL
+- .NET 8+ with SQLServer
 - OAuth2/OIDC auth
 - Redis caching
 - Docker/Kubernetes
@@ -85,9 +86,11 @@ Tenant (Business Entity - e.g., Retail Chain)
 ## Project Structure
 
 ```
-/specs/              # Feature specifications (not auto-loaded)
-/memory/             # constitution.md - core principles
 /docs/               # Reference documentation (this folder)
+  STATUS.md          # Implementation status
+  ARCHITECTURE.md    # This file - tech stack and design
+  DEVELOPMENT.md     # Coding standards and workflow
+/.claude/commands/   # Slash commands for feature context
 /frontend/           # React admin backoffice
   /src/
     /components/     # Reusable UI components
@@ -105,7 +108,7 @@ When ready:
 1. Keep frontend `.env.local` with `VITE_USE_MOCKS=false`
 2. Update `VITE_API_BASE_URL` to production URL
 3. Replace mock-api with real .NET backend (same contracts)
-4. Add PostgreSQL, OAuth2, Redis, etc.
+4. Add SQLServer, OAuth2, Redis, etc.
 5. Test all flows against production API
 
 ## Why These Choices?

@@ -17,7 +17,7 @@ ASP.NET Core Web API providing mock backend for development and testing. Serves 
 
 - ASP.NET Core 9.0 Web API
 - C# 12
-- In-memory data store (singleton)
+- **SQLite database with Entity Framework Core** (persistent storage)
 - CORS enabled for localhost
 - Swagger/OpenAPI (auto-generated)
 
@@ -51,8 +51,9 @@ dotnet run
     ProductVersion.cs           # Product versioning support
 
   /Data/
-    MockDataStore.cs            # In-memory singleton data store
-    SeedData.cs                 # Initial data seeding
+    ECommDbContext.cs           # EF Core DbContext with JSON column support
+    MockDataStore.cs            # Data access layer (uses EF Core)
+    DatabaseSeeder.cs           # Database seeding on startup
 
   Program.cs                    # API configuration
   appsettings.json             # Configuration
@@ -131,22 +132,47 @@ DELETE /api/v1/api-keys/{id}           // Delete key
 
 ## Data Store
 
-**MockDataStore.cs** - Singleton in-memory storage:
+**SQLite Database** (`ecomm.db`):
+- Persistent storage across API restarts
+- Entity Framework Core with JSON column support
+- Automatic database creation and seeding
+- **Reset capability**: Delete `ecomm.db` file, restart API → fresh database
+
+**MockDataStore.cs** - Data access layer using EF Core:
 ```csharp
 public class MockDataStore
 {
-    // In-memory collections
-    public List<Product> Products { get; set; }
-    public List<ProductVersion> ProductVersions { get; set; }
-    public List<Category> Categories { get; set; }
-    public List<Order> Orders { get; set; }
-    public List<Tenant> Tenants { get; set; }
-    public List<Market> Markets { get; set; }
-    public List<ApiKey> ApiKeys { get; set; }
+    // Factory pattern for thread-safe DbContext access
+    private DbContextOptions<ECommDbContext> _dbOptions;
+
+    private ECommDbContext CreateContext()
+    {
+        return new ECommDbContext(_dbOptions);
+    }
+
+    // Each operation creates a new scoped context
+    public List<Product> GetProducts()
+    {
+        using var context = CreateContext();
+        return context.Products.AsNoTracking().ToList();
+    }
+
+    public void AddProduct(Product product)
+    {
+        using var context = CreateContext();
+        context.Products.Add(product);
+        context.SaveChanges();
+    }
+    // ... etc
 }
 ```
 
-**Important**: All data resets when API restarts!
+**ECommDbContext.cs** - Entity Framework Core DbContext:
+- Stores complex types as JSON (Lists, Dictionaries, nested objects)
+- **Composite primary key for Products**: `{Id, Version}` to support versioning
+- Uses `.AsNoTracking()` for read-only queries to avoid tracking conflicts
+- Optimized indexes for common queries
+- Supports product versioning with full history
 
 ## Seed Data
 
@@ -195,8 +221,8 @@ Controllers filter data based on these headers.
 
 ### Debug Data
 1. Use Swagger UI: http://localhost:5180/swagger
-2. Check `MockDataStore` state (in-memory)
-3. Restart API to reset data
+2. Check SQLite database: `ecomm.db` (use DB Browser for SQLite)
+3. Reset data: Delete `ecomm.db` and restart API
 
 ## CORS Configuration
 
@@ -210,23 +236,33 @@ Add more origins in `Program.cs` if needed.
 
 **Every product update creates a new version**:
 - Sequential version numbers (v1, v2, v3...)
-- Full product snapshot stored
-- Original stays in `Products` list (replaced)
-- History in `ProductVersions` list
-- Restore overwrites current + creates new version
+- Full product snapshot stored in database
+- **Uses composite primary key `{Id, Version}`** in Products table
+- `IsCurrentVersion` flag marks the active version
+- All versions persist in database for complete history
+- Restore creates new version from historical snapshot
 
 ```csharp
 // Update flow
 PUT /api/v1/products/123
-→ Creates ProductVersion with current state
-→ Updates Product with new data
-→ Increments version number
+→ Marks existing product as IsCurrentVersion = false
+→ Creates new Product row with incremented version number
+→ Sets IsCurrentVersion = true on new version
+→ Both versions coexist in database (composite key)
+```
+
+**Database Schema**:
+```sql
+-- Products table uses composite primary key to support versioning
+PRIMARY KEY (Id, Version)
+-- This allows multiple versions of same product (same Id, different Version)
+-- Queries filter by IsCurrentVersion to get active version
 ```
 
 ## Important Notes
 
-- **In-memory only** - Data resets on restart
-- **No persistence** - No database, no files
+- **SQLite persistence** - Data persists across restarts
+- **Easy reset** - Delete `ecomm.db` file to start fresh
 - **No auth validation** - Headers checked but not validated
 - **No rate limiting** - Unlimited requests
 - **Development only** - NOT for production use
@@ -237,15 +273,21 @@ PUT /api/v1/products/123
 
 **CORS errors**: Verify origin in Program.cs CORS config
 
-**Data reset**: Expected behavior (in-memory), restart API
+**Data reset**: Delete `ecomm.db` file and restart API
 
 **404 errors**: Check route in Swagger docs
+
+**Database locked**: Close any SQLite database viewers before restarting API
+
+**Product update errors**: If you see "UNIQUE constraint failed" errors, delete `ecomm.db` and restart. The database will be recreated with the correct composite primary key schema.
+
+**DbContext concurrency errors**: MockDataStore uses factory pattern with scoped contexts per operation. Each method creates its own `using var context = CreateContext()` instance to avoid threading issues.
 
 ## Next Steps (Production Backend)
 
 When replacing with production:
 1. Implement same endpoints (use Swagger as reference)
-2. Add PostgreSQL database
+2. **Migrate from SQLite to SQLServer** (EF Core makes this easy!)
 3. Add real authentication (OAuth2/OIDC)
 4. Add validation and error handling
 5. Add rate limiting

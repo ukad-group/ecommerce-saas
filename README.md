@@ -20,25 +20,25 @@ This project follows a **specification-driven development** approach. We build s
 
 1. **API-First**: Define contracts before implementation
 2. **Mock-First Development**: Build and validate UI against mock backend
-3. **Multi-Platform Ready**: Easy CMS integration
-4. **SaaS-First**: Multi-tenant from day one
-5. **MVP Focus**: Core features only, defer complexity
+3. **YAGNI**: Only build what's explicitly requested
+4. **TDD**: Write tests first, then code
+5. **Keep It Simple**: Prefer simple over clever
+6. **Multi-Tenant**: Data isolation at tenant and market level
 
-See [memory/constitution.md](memory/constitution.md) for complete project principles and guidelines.
+See [CLAUDE.md](CLAUDE.md) for complete project guide and principles.
 
 ## Quick Start
 
 New to the project? Start here:
 
-1. **Read [CLAUDE.md](CLAUDE.md)** - Complete project overview, quick start, and essential info
-2. **Review [memory/constitution.md](memory/constitution.md)** - Core principles and guidelines
-3. **Check [docs/STATUS.md](docs/STATUS.md)** - Implementation status, what works, what's missing
+1. **Read [CLAUDE.md](CLAUDE.md)** - Complete project overview, quick start, core principles, and essential info
+2. **Check [docs/STATUS.md](docs/STATUS.md)** - Implementation status, what works, what's missing
+3. **Review [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** - Tech stack and design decisions
 4. **Explore [frontend/CLAUDE.md](frontend/CLAUDE.md)** - Frontend development guide
 
 ## Project Structure
 
 ```
-/memory/         # Project constitution and core principles
 /docs/           # Reference documentation
   STATUS.md          # Implementation status - what works, what's missing
   ARCHITECTURE.md    # Tech stack, data models, design decisions
@@ -58,7 +58,7 @@ New to the project? Start here:
   /MockApi/
     /Controllers/  # API endpoints
     /Models/       # Data models and DTOs
-    /Data/         # In-memory mock data store
+    /Data/         # SQLite database with EF Core
 
 /showcase-dotnet/  # Showcase eCommerce website (ASP.NET MVC)
   /ECommShowcase.Web/
@@ -106,7 +106,7 @@ README.md        # This file
 
 See [CLAUDE.md](CLAUDE.md) for detailed roadmap:
 1. Production .NET backend implementation
-2. Real database (PostgreSQL)
+2. Real database (SQLServer)
 3. OAuth2/OIDC authentication
 4. Email notifications
 5. Advanced inventory management
@@ -124,7 +124,7 @@ See [CLAUDE.md](CLAUDE.md) for detailed roadmap:
 ### Mock API Server
 - **Framework**: ASP.NET Core 9.0 Web API
 - **Language**: C# 12
-- **Data**: In-memory singleton store
+- **Database**: SQLite with Entity Framework Core
 - **Port**: http://localhost:5180
 
 ### Showcase Website
@@ -134,7 +134,7 @@ See [CLAUDE.md](CLAUDE.md) for detailed roadmap:
 
 ### Production Backend (Planned)
 - **Framework**: .NET 8+ (ASP.NET Core)
-- **Database**: PostgreSQL (multi-tenant)
+- **Database**: SQLServer (multi-tenant)
 - **API**: RESTful with OpenAPI/Swagger
 - **Auth**: OAuth2/OIDC
 - **Caching**: Redis
@@ -255,12 +255,12 @@ Document in `plan.md`:
 
 ## Documentation
 
-- **[CLAUDE.md](CLAUDE.md)** - Main project guide (START HERE)
-- **[memory/constitution.md](memory/constitution.md)** - Core principles
+- **[CLAUDE.md](CLAUDE.md)** - Main project guide with core principles (START HERE)
 - **[docs/STATUS.md](docs/STATUS.md)** - Implementation status
 - **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** - Tech stack and design
 - **[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)** - Development workflow
 - **[frontend/CLAUDE.md](frontend/CLAUDE.md)** - Frontend guide
+- **[mock-api/CLAUDE.md](mock-api/CLAUDE.md)** - Mock API guide
 - **[showcase-dotnet/CLAUDE.md](showcase-dotnet/CLAUDE.md)** - Showcase guide
 
 ## Key Features
@@ -279,10 +279,10 @@ Designed for SaaS from day one with tenant isolation at data and API level.
 
 ## Getting Help
 
-- Review [CLAUDE.md](CLAUDE.md) for comprehensive information
+- Review [CLAUDE.md](CLAUDE.md) for comprehensive information and core principles
 - Check feature-specific CLAUDE.md files for detailed guidance
-- See [memory/constitution.md](memory/constitution.md) for core principles
-- Explore `/specs/` for feature specifications
+- See [docs/STATUS.md](docs/STATUS.md) for current implementation status
+- Explore [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for workflow and standards
 
 ## License
 
@@ -290,6 +290,6 @@ TBD
 
 ---
 
-**Last Updated**: 2025-11-04
-**Status**: MVP Development Phase - Mock API Complete
+**Last Updated**: 2025-11-12
+**Status**: MVP Development Phase - SQLite Database Migration Complete
 **Next Major Milestone**: Production Backend Implementation
