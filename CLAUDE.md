@@ -80,7 +80,7 @@ dotnet run
 ### ✅ Orders & Cart
 - Shopping cart (add/update/remove)
 - Admin order dashboard with filters
-- Order status workflow (new → submitted → paid → completed)
+- Custom order status management (tenant-scoped, custom colors)
 - **Missing**: Checkout UI, cart persistence
 - **Use `/ctx-orders` for details**
 
@@ -119,6 +119,7 @@ dotnet run
 - `/admin/products` - Product management
 - `/admin/categories` - Category management
 - `/admin/orders` - Order management
+- `/admin/order-statuses` - Order status management
 - `/admin/tenants` - Tenant management (superadmin)
 
 **Showcase** (http://localhost:5025):
@@ -186,7 +187,7 @@ Load specific context when working on features:
 ## Common Tasks
 
 **Add product field**: Update Product type → ProductForm → mock API → backend
-**Add order status**: Update status type → OrderStatusUpdate → mock API → backend
+**Manage order statuses**: Go to `/admin/order-statuses` to add/edit/delete custom statuses
 **Add permission**: Check authStore.user.role → conditional UI → route protection
 **Add tenant/market**: Update types → forms → mock API → backend
 **Reset database**: Delete `mock-api/MockApi/ecomm.db` file and restart API

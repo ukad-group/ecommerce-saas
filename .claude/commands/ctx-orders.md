@@ -12,7 +12,7 @@ interface Order {
   marketId: string;
   tenantId: string;
   customerId?: string;
-  status: 'new' | 'submitted' | 'paid' | 'processing' | 'shipped' | 'completed' | 'cancelled';
+  status: string; // Dynamic - defined by OrderStatus entities
   items: OrderLineItem[];
   subtotal: number;
   tax: number;
@@ -23,6 +23,19 @@ interface Order {
   statusHistory: OrderStatusChange[];
   createdAt: Date;
   updatedAt: Date;
+}
+
+interface OrderStatusDefinition {
+  id: string;
+  tenantId: string;
+  name: string;
+  code: string;
+  color: string;
+  sortOrder: number;
+  isSystemDefault: boolean;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt?: Date;
 }
 
 interface OrderLineItem {
@@ -47,8 +60,9 @@ interface OrderStatusChange {
 ### Key Concepts
 - **Cart = Order with "new" status**: No separate cart entity
 - **Market-scoped**: Orders belong to specific markets
-- **Status workflow**: new → submitted → paid → processing → shipped → completed
-- **Can cancel**: At any point before completed
+- **Custom order statuses**: Tenant-scoped, customizable names/colors/order
+- **Default statuses**: Each tenant gets 8 defaults (new, submitted, paid, processing, shipped, completed, cancelled, on-hold, refunded)
+- **Delete protection**: Cannot delete statuses in use or system defaults
 
 ### Implemented Features
 ✅ Shopping cart (add, update, remove items)
@@ -58,6 +72,8 @@ interface OrderStatusChange {
 ✅ Order details view
 ✅ Order status updates with notes
 ✅ Stock warnings in cart
+✅ Custom order status management (create/edit/delete, custom colors)
+✅ Dynamic status filters and badges using custom statuses
 
 ### Not Implemented
 ❌ Checkout UI (forms and pages) - API ready
@@ -79,14 +95,24 @@ interface OrderStatusChange {
 - `GET /api/v1/admin/orders/:id` - Get order details
 - `PUT /api/v1/admin/orders/:id/status` - Update status
 
+**Order Statuses (Admin)**:
+- `GET /api/v1/order-statuses` - List all statuses for tenant
+- `GET /api/v1/order-statuses/active` - List active statuses only
+- `POST /api/v1/order-statuses` - Create custom status
+- `PUT /api/v1/order-statuses/:id` - Update status
+- `DELETE /api/v1/order-statuses/:id` - Delete status (if not in use)
+- `POST /api/v1/order-statuses/reset-defaults` - Reset to defaults
+
 ### Components
 
 **Admin**:
 - **AdminDashboardPage**: `/admin` - Metrics + recent orders
 - **AdminOrdersPage**: `/admin/orders` - Order list with filters
 - **AdminOrderDetailsPage**: `/admin/orders/:id` - Full order view
-- **OrderStatusUpdate**: Status change modal with notes
-- **OrderFilters**: Status, tenant, date range, search
+- **AdminOrderStatusesPage**: `/admin/order-statuses` - Manage custom statuses
+- **OrderStatusUpdate**: Status change modal with notes (uses dynamic statuses)
+- **OrderFilters**: Status, tenant, date range, search (uses dynamic statuses)
+- **OrderStatusBadge**: Displays status with custom colors
 
 **Customer (Showcase)**:
 - **CartPage**: Shopping cart view
@@ -111,6 +137,23 @@ interface OrderStatusChange {
 
 ### Common Tasks
 **Add order field**: Update Order type → OrderDetails component → API mock
-**Change status workflow**: Update status validation logic in OrderStatusUpdate
+**Manage order statuses**: Go to `/admin/order-statuses` to add/edit custom statuses
 **Add order filter**: Update AdminOrdersPage filters
 **Implement checkout**: Create CheckoutPage → multi-step form → submit order
+
+### Order Status Management
+**Default statuses** (seeded for all tenants):
+- new, submitted, paid, processing, shipped, completed, cancelled, on-hold, refunded
+
+**Features**:
+- Tenant-scoped (each tenant has own status definitions)
+- Custom names, colors, and sort order
+- System defaults cannot be deleted
+- Statuses in use cannot be deleted (validated against orders)
+- Active/inactive toggle
+- Reset to defaults button
+
+**Implementation**:
+- Backend: `OrderStatus` entity, `OrderStatusController`, seeded in `DatabaseSeeder`
+- Frontend: `useOrderStatuses` hook, `AdminOrderStatusesPage` component
+- Dynamic: All status dropdowns and badges fetch from API

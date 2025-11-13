@@ -9,26 +9,25 @@ import type { Order, OrderStatus } from '../../types/order';
 import { Button } from '../common/Button';
 import { Select } from '../common/Select';
 import { useUpdateOrderStatus } from '../../services/hooks/useAdminOrders';
+import { useActiveOrderStatuses } from '../../services/hooks/useOrderStatuses';
 
 interface OrderStatusUpdateProps {
   order: Order;
 }
 
-const STATUS_OPTIONS = [
-  { value: 'new', label: 'Cart (New)' },
-  { value: 'submitted', label: 'Submitted' },
-  { value: 'paid', label: 'Paid' },
-  { value: 'processing', label: 'Processing' },
-  { value: 'on-hold', label: 'On Hold' },
-  { value: 'completed', label: 'Completed' },
-  { value: 'cancelled', label: 'Cancelled' },
-  { value: 'refunded', label: 'Refunded' },
-];
-
 export function OrderStatusUpdate({ order }: OrderStatusUpdateProps) {
   const [selectedStatus, setSelectedStatus] = useState<OrderStatus>(order.status);
   const [notes, setNotes] = useState('');
   const updateStatus = useUpdateOrderStatus();
+
+  // Fetch active order statuses from the API
+  const { data: orderStatuses = [], isLoading: isLoadingStatuses } = useActiveOrderStatuses();
+
+  // Convert to options format for Select component
+  const statusOptions = orderStatuses.map(status => ({
+    value: status.code,
+    label: status.name,
+  }));
 
   const handleUpdateStatus = () => {
     if (selectedStatus === order.status && !notes) {
@@ -72,8 +71,17 @@ export function OrderStatusUpdate({ order }: OrderStatusUpdateProps) {
             label="New Status"
             value={selectedStatus}
             onChange={(e) => setSelectedStatus(e.target.value as OrderStatus)}
-            options={STATUS_OPTIONS}
+            options={statusOptions}
+            disabled={isLoadingStatuses || statusOptions.length === 0}
           />
+          {isLoadingStatuses && (
+            <p className="text-xs text-gray-500 mt-1">Loading statuses...</p>
+          )}
+          {!isLoadingStatuses && statusOptions.length === 0 && (
+            <p className="text-xs text-red-500 mt-1">
+              No statuses available. Please configure order statuses first.
+            </p>
+          )}
         </div>
 
         {/* Notes */}
@@ -122,21 +130,14 @@ export function OrderStatusUpdate({ order }: OrderStatusUpdateProps) {
         )}
       </div>
 
-      {/* Status Change Guidelines */}
+      {/* Info */}
       <div className="mt-6 pt-6 border-t border-gray-200">
-        <h3 className="text-sm font-medium text-gray-900 mb-2">
-          Status Guidelines
-        </h3>
-        <ul className="text-xs text-gray-600 space-y-1">
-          <li>• <strong>New:</strong> Active shopping cart</li>
-          <li>• <strong>Submitted:</strong> Order placed, awaiting payment</li>
-          <li>• <strong>Paid:</strong> Payment received</li>
-          <li>• <strong>Processing:</strong> Order being prepared</li>
-          <li>• <strong>On Hold:</strong> Temporary hold (inventory, verification)</li>
-          <li>• <strong>Completed:</strong> Order fulfilled and shipped</li>
-          <li>• <strong>Cancelled:</strong> Order cancelled</li>
-          <li>• <strong>Refunded:</strong> Payment refunded</li>
-        </ul>
+        <p className="text-xs text-gray-600">
+          Available statuses are configured in{' '}
+          <a href="/admin/order-statuses" className="text-blue-600 hover:text-blue-800">
+            Order Status Management
+          </a>
+        </p>
       </div>
     </div>
   );

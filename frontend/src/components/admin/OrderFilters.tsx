@@ -8,6 +8,7 @@
 import { Select } from '../common/Select';
 import { Input } from '../common/Input';
 import type { OrderStatus } from '../../types/order';
+import { useOrderStatuses } from '../../services/hooks/useOrderStatuses';
 
 interface OrderFiltersProps {
   statusFilter: OrderStatus | 'all';
@@ -30,16 +31,16 @@ export function OrderFilters({
   onDateFromChange,
   onDateToChange,
 }: OrderFiltersProps) {
+  // Fetch order statuses from the API
+  const { data: orderStatuses = [] } = useOrderStatuses();
+
+  // Build status options from API data
   const statusOptions = [
     { value: 'all', label: 'All Statuses' },
-    { value: 'new', label: 'Cart (New)' },
-    { value: 'submitted', label: 'Submitted' },
-    { value: 'paid', label: 'Paid' },
-    { value: 'processing', label: 'Processing' },
-    { value: 'completed', label: 'Completed' },
-    { value: 'cancelled', label: 'Cancelled' },
-    { value: 'refunded', label: 'Refunded' },
-    { value: 'on-hold', label: 'On Hold' },
+    ...orderStatuses
+      .filter(s => s.isActive)
+      .sort((a, b) => a.sortOrder - b.sortOrder)
+      .map(s => ({ value: s.code, label: s.name })),
   ];
 
   return (

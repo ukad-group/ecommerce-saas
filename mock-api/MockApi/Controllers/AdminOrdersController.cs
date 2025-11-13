@@ -46,4 +46,23 @@ public class AdminOrdersController : ControllerBase
         }
         return Ok(order);
     }
+
+    [HttpPut("{id}/status")]
+    public ActionResult<Order> UpdateOrderStatus(string id, [FromBody] UpdateOrderStatusRequest request)
+    {
+        var order = _store.GetOrder(id);
+        if (order == null)
+        {
+            return NotFound();
+        }
+
+        // Update the order status
+        order.Status = request.Status;
+        order.UpdatedAt = DateTime.UtcNow;
+
+        // Update the order in the store
+        _store.UpdateOrder(order);
+
+        return Ok(order);
+    }
 }

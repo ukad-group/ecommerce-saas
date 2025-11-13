@@ -90,6 +90,29 @@ public static class DatabaseSeeder
         };
         context.Tenants.AddRange(tenants);
 
+        // Seed Order Statuses for all tenants
+        var orderStatuses = new List<OrderStatus>();
+        foreach (var tenant in tenants)
+        {
+            var defaults = DefaultOrderStatuses.GetDefaults();
+            foreach (var (name, code, color, sortOrder) in defaults)
+            {
+                orderStatuses.Add(new OrderStatus
+                {
+                    Id = $"status-{tenant.Id}-{code}",
+                    TenantId = tenant.Id,
+                    Name = name,
+                    Code = code,
+                    Color = color,
+                    SortOrder = sortOrder,
+                    IsSystemDefault = true,
+                    IsActive = true,
+                    CreatedAt = tenant.CreatedAt
+                });
+            }
+        }
+        context.OrderStatuses.AddRange(orderStatuses);
+
         // Seed Markets
         var markets = new[]
         {

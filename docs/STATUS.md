@@ -53,7 +53,12 @@ None
 - Order details view
 - Order status updates with notes
 - Stock warnings in cart
-- Order status workflow: new → submitted → paid → processing → shipped → completed
+- **Custom order status management** (tenant-scoped)
+  - Default status preset per tenant
+  - Create/edit/delete custom statuses
+  - Custom colors and sort order
+  - Delete protection (statuses in use)
+  - Dynamic status filters and badges
 
 ### Missing
 - ❌ Checkout UI (forms and pages) - **API infrastructure ready**
@@ -74,6 +79,14 @@ DELETE   /api/v1/cart/items/:id
 GET   /api/v1/admin/orders
 GET   /api/v1/admin/orders/:id
 PUT   /api/v1/admin/orders/:id/status
+
+# Order Statuses (Admin)
+GET   /api/v1/order-statuses
+GET   /api/v1/order-statuses/active
+POST   /api/v1/order-statuses
+PUT   /api/v1/order-statuses/:id
+DELETE   /api/v1/order-statuses/:id
+POST   /api/v1/order-statuses/reset-defaults
 ```
 
 ### Known Issues
@@ -168,9 +181,10 @@ None
 3. CartController - Shopping cart operations
 4. OrdersController - Customer orders
 5. AdminOrdersController - Admin order management
-6. TenantsController - Tenant management
-7. MarketsController - Market management
-8. ApiKeysController - API key generation/revocation
+6. OrderStatusController - Custom order status management
+7. TenantsController - Tenant management
+8. MarketsController - Market management
+9. ApiKeysController - API key generation/revocation
 
 ### Database Implementation
 - **SQLite** with Entity Framework Core

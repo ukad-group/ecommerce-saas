@@ -17,6 +17,7 @@ public class ECommDbContext : DbContext
     public DbSet<Tenant> Tenants => Set<Tenant>();
     public DbSet<Market> Markets => Set<Market>();
     public DbSet<ApiKey> ApiKeys => Set<ApiKey>();
+    public DbSet<OrderStatus> OrderStatuses => Set<OrderStatus>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -204,6 +205,20 @@ public class ECommDbContext : DbContext
             entity.HasIndex(e => new { e.TenantId, e.MarketId });
             entity.HasIndex(e => e.KeyHash);
             entity.HasIndex(e => e.Status);
+        });
+
+        // Configure OrderStatus entity
+        modelBuilder.Entity<OrderStatus>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).IsRequired();
+            entity.Property(e => e.TenantId).IsRequired();
+            entity.Property(e => e.Name).IsRequired();
+            entity.Property(e => e.Code).IsRequired();
+            entity.Property(e => e.Color).IsRequired();
+
+            entity.HasIndex(e => e.TenantId);
+            entity.HasIndex(e => new { e.TenantId, e.Code }).IsUnique();
         });
     }
 }

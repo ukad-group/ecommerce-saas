@@ -20,6 +20,7 @@ import { CategoryEditPage } from './pages/admin/CategoryEditPage';
 import { TenantsPage } from './pages/admin/tenants/TenantsPage';
 import { MarketsPage } from './pages/admin/markets/MarketsPage';
 import { ApiKeysPage } from './pages/admin/markets/ApiKeysPage';
+import { AdminOrderStatusesPage } from './pages/AdminOrderStatusesPage';
 import { Role } from './types/auth';
 
 // Placeholder components - will be implemented in later tasks
@@ -66,6 +67,14 @@ export const router = createBrowserRouter([
         element: (
           <ProtectedRoute>
             <AdminOrderDetailsPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'admin/order-statuses',
+        element: (
+          <ProtectedRoute allowedRoles={[Role.SUPERADMIN, Role.TENANT_ADMIN]}>
+            <AdminOrderStatusesPage />
           </ProtectedRoute>
         ),
       },
