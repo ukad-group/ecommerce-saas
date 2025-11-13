@@ -43,6 +43,8 @@ interface ProductVersion {
 - **Stock**: Quick stock updates, low-stock warnings
 - **Search & Filter**: By name, SKU, status, category
 - **Restore**: Restore any previous version with one click
+- **Image Upload**: Multiple images per product with drag-and-drop reordering
+- **Image Gallery**: Showcase displays all images with clickable thumbnails
 
 ### API Endpoints
 - `GET /api/v1/products` - List products (market-scoped)
@@ -53,11 +55,14 @@ interface ProductVersion {
 - `GET /api/v1/products/:id/versions` - Get version history
 - `GET /api/v1/products/:id/versions/:version` - Get specific version
 - `POST /api/v1/products/:id/versions/:version/restore` - Restore version
+- `POST /api/v1/files/upload` - Upload product images (requires X-User-ID auth)
+- `DELETE /api/v1/files/:filename` - Delete uploaded image
 
 ### Components
 - **ProductsPage**: `/admin/products` - Main product list
 - **ProductList**: Table with search, filters, pagination
 - **ProductForm**: Create/edit modal with validation
+- **ImageUpload**: Drag-and-drop image upload with reordering
 - **QuickStockUpdate**: Inline stock editing
 - **ProductVersionHistory**: Version list with restore
 
@@ -84,6 +89,9 @@ interface ProductVersion {
 - Versioning is automatic on every update (can't be disabled)
 - All versions persist in database (composite key allows same Id, different Version)
 - Deleting a product keeps version history in database
+- **Image uploads**: Stored locally at `mock-api/MockApi/uploads/{tenantId}/{marketId}/`
+- **Images array**: First image is primary, order maintained via drag-and-drop
+- **Showcase gallery**: Displays all images with thumbnail navigation
 
 ### Common Tasks
 **Add new product field**: Update Product type → ProductForm → API mock → backend

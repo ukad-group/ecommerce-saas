@@ -88,8 +88,13 @@
                     {
                         <div class="col-md-6 col-lg-4">
                             <div class="card h-100 hover-shadow">
+                                @{
+                                    var thumbnailImage = product.Images != null && product.Images.Any()
+                                        ? product.Images.First()
+                                        : (product.ImageUrl ?? "https://dummyimage.com/300x200/6c757d/ffffff&text=" + Uri.EscapeDataString(product.Name));
+                                }
                                 <a asp-controller="Products" asp-action="Details" asp-route-id="@product.Id">
-                                    <img src="@(product.ImageUrl ?? "https://dummyimage.com/300x200/6c757d/ffffff&text=" + Uri.EscapeDataString(product.Name))"
+                                    <img src="@thumbnailImage"
                                          class="card-img-top" alt="@product.Name" style="height: 200px; object-fit: cover;">
                                 </a>
                                 <div class="card-body d-flex flex-column">

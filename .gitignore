@@ -43,6 +43,9 @@ coverage/
 *.sqlite
 *.sqlite3
 
+# Uploaded files
+mock-api/MockApi/uploads/
+
 # OS
 Thumbs.db
 .DS_Store

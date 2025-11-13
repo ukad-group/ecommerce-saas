@@ -22,12 +22,42 @@
     </nav>
 
     <div class="row">
-        <!-- Product Image -->
+        <!-- Product Images -->
         <div class="col-md-6">
-            <div class="card">
-                <img src="@(Model.Product.ImageUrl ?? "https://dummyimage.com/600x400/6c757d/ffffff&text=" + Uri.EscapeDataString(Model.Product.Name))"
-                     class="card-img-top" alt="@Model.Product.Name" style="max-height: 500px; object-fit: contain;">
+            @{
+                var productImages = Model.Product.Images != null && Model.Product.Images.Any()
+                    ? Model.Product.Images
+                    : new List<string> { Model.Product.ImageUrl ?? "https://dummyimage.com/600x400/6c757d/ffffff&text=" + Uri.EscapeDataString(Model.Product.Name) };
+                var mainImage = productImages.First();
+            }
+
+            <!-- Main Image -->
+            <div class="card mb-3">
+                <img id="mainImage"
+                     src="@mainImage"
+                     class="card-img-top"
+                     alt="@Model.Product.Name"
+                     style="max-height: 500px; object-fit: contain;">
             </div>
+
+            <!-- Thumbnail Gallery -->
+            @if (productImages.Count > 1)
+            {
+                <div class="d-flex gap-2 flex-wrap">
+                    @for (int i = 0; i < productImages.Count; i++)
+                    {
+                        var image = productImages[i];
+                        var isActive = i == 0 ? "active" : "";
+                        <div class="thumbnail-item @isActive" style="cursor: pointer; position: relative;">
+                            <img src="@image"
+                                 alt="@Model.Product.Name thumbnail @(i + 1)"
+                                 class="img-thumbnail"
+                                 style="width: 80px; height: 80px; object-fit: cover;"
+                                 onclick="changeMainImage('@image', this)" />
+                        </div>
+                    }
+                </div>
+            }
 
             <!-- Custom Properties -->
             @if (Model.Product.CustomProperties != null && Model.Product.CustomProperties.Any())
@@ -231,72 +261,14 @@
 </div>
 
 @section Scripts {
+    <script src="~/js/product.js" asp-append-version="true"></script>
+
     @if (Model.Product.HasVariants && Model.Product.Variants != null)
     {
         <script>
+            // Initialize variant selection with product data
             const variants = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Product.Variants));
-            const selectedOptions = {};
-
-            document.querySelectorAll('.variant-option').forEach(button => {
-                button.addEventListener('click', function() {
-                    const option = this.dataset.option;
-                    const value = this.dataset.value;
-
-                    // Remove active class from siblings
-                    document.querySelectorAll(`[data-option="${option}"]`).forEach(btn => {
-                        btn.classList.remove('active');
-                        btn.classList.replace('btn-primary', 'btn-outline-primary');
-                    });
-
-                    // Add active class to clicked button
-                    this.classList.add('active');
-                    this.classList.replace('btn-outline-primary', 'btn-primary');
-
-                    // Store selection
-                    selectedOptions[option] = value;
-
-                    // Find matching variant
-                    const matchingVariant = variants.find(v => {
-                        return Object.keys(selectedOptions).every(key =>
-                            v.Options && v.Options[key] === selectedOptions[key]
-                        );
-                    });
-
-                    // Show variant info if all options selected
-                    const allOptionsSelected = @Model.Product.VariantOptions.Count === Object.keys(selectedOptions).length;
-
-                    if (allOptionsSelected && matchingVariant) {
-                        // Update variant info
-                        document.getElementById('variant-sku').textContent = matchingVariant.Sku || 'N/A';
-                        document.getElementById('variant-price').textContent = '$' + (matchingVariant.SalePrice || matchingVariant.Price || 0).toFixed(2);
-
-                        // Update stock badge
-                        const stockBadge = document.getElementById('variant-stock-badge');
-                        const isInStock = matchingVariant.StockQuantity > 0;
-                        stockBadge.innerHTML = isInStock
-                            ? '<i class="bi bi-check-circle"></i> In Stock (' + matchingVariant.StockQuantity + ' available)'
-                            : '<i class="bi bi-x-circle"></i> Out of Stock';
-                        stockBadge.className = isInStock ? 'badge bg-success fs-6' : 'badge bg-danger fs-6';
-
-                        // Show/hide elements
-                        document.getElementById('variant-info').style.display = 'block';
-                        document.getElementById('variant-prompt').style.display = 'none';
-
-                        // Show add to cart if in stock
-                        if (isInStock) {
-                            document.getElementById('add-to-cart-section').style.display = 'block';
-                            document.getElementById('variant-quantity').max = matchingVariant.StockQuantity;
-                            document.getElementById('selected-variant-id').value = matchingVariant.Id;
-                        } else {
-                            document.getElementById('add-to-cart-section').style.display = 'none';
-                        }
-                    } else {
-                        document.getElementById('variant-info').style.display = 'none';
-                        document.getElementById('variant-prompt').style.display = 'block';
-                        document.getElementById('add-to-cart-section').style.display = 'none';
-                    }
-                });
-            });
+            initializeVariantSelection(variants);
         </script>
     }
 }

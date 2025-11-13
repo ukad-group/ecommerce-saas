@@ -37,6 +37,7 @@ interface ApiClientConfig {
   getAuthToken: () => string | null;
   getTenantId: () => string | null;
   getMarketId: () => string | null;
+  getUserId: () => string | null;
 }
 
 /**
@@ -48,12 +49,14 @@ export class ApiClient {
   private getAuthToken: () => string | null;
   private getTenantId: () => string | null;
   private getMarketId: () => string | null;
+  private getUserId: () => string | null;
 
   constructor(config: ApiClientConfig) {
     this.baseURL = config.baseURL;
     this.getAuthToken = config.getAuthToken;
     this.getTenantId = config.getTenantId;
     this.getMarketId = config.getMarketId;
+    this.getUserId = config.getUserId;
   }
 
   /**
@@ -83,15 +86,26 @@ export class ApiClient {
       headers['X-Market-ID'] = marketId;
     }
 
+    // Add user ID header if available (used for authentication)
+    const userId = this.getUserId();
+    if (userId) {
+      headers['X-User-ID'] = userId;
+    }
+
     // Add authorization header if token is available
     const token = this.getAuthToken();
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
     }
 
-    // Merge with provided headers
+    // Merge with provided headers (provided headers can override defaults)
     if (options.headers) {
       Object.assign(headers, options.headers);
+    }
+
+    // Remove Content-Type header if body is FormData (browser will set it with boundary)
+    if (options.body instanceof FormData) {
+      delete headers['Content-Type'];
     }
 
     // Make request
@@ -148,10 +162,13 @@ export class ApiClient {
     data?: any,
     options?: RequestInit
   ): Promise<T> {
+    // Handle FormData specially (don't stringify it)
+    const body = data instanceof FormData ? data : (data ? JSON.stringify(data) : undefined);
+
     return this.request<T>(endpoint, {
       ...options,
       method: 'POST',
-      body: data ? JSON.stringify(data) : undefined,
+      body,
     });
   }
 
@@ -183,7 +200,7 @@ export class ApiClient {
 
 /**
  * Singleton API client instance
- * Dynamically retrieves tenant/market context from auth store
+ * Dynamically retrieves tenant/market/user context from auth store
  */
 export const apiClient = new ApiClient({
   baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api',
@@ -200,5 +217,10 @@ export const apiClient = new ApiClient({
     // Get market ID from auth store
     const state = useAuthStore.getState();
     return state.getMarketId();
+  },
+  getUserId: () => {
+    // Get user ID from auth store
+    const state = useAuthStore.getState();
+    return state.session?.profile.id || null;
   },
 });

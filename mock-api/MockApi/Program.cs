@@ -76,6 +76,15 @@ app.UseSwaggerUI(options =>
 });
 
 app.UseCors();
+
+// Enable static file serving for uploaded images
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(
+        Path.Combine(builder.Environment.ContentRootPath, "uploads")),
+    RequestPath = "/uploads"
+});
+
 app.MapControllers();
 
 app.Run();

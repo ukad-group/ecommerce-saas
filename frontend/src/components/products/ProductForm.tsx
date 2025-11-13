@@ -11,6 +11,7 @@ import { useForm } from 'react-hook-form';
 import { Input } from '../common/Input';
 import { Select } from '../common/Select';
 import { Button } from '../common/Button';
+import { ImageUpload } from '../common/ImageUpload';
 import { useCategories } from '../../services/hooks/useCategories';
 import { VersionBadge } from './VersionBadge';
 import { VersionHistoryModal } from './VersionHistoryModal';
@@ -60,6 +61,9 @@ export function ProductForm({
     product?.customProperties || []
   );
 
+  // State for images management
+  const [images, setImages] = useState<string[]>(product?.images || []);
+
   // State for version history modal
   const [isVersionHistoryOpen, setIsVersionHistoryOpen] = useState(false);
 
@@ -100,11 +104,12 @@ export function ProductForm({
   // Sync state when product changes (e.g., after version restore)
   useEffect(() => {
     if (product) {
-      // Update local state for custom properties and variants
+      // Update local state for custom properties, variants, and images
       setCustomProperties(product.customProperties || []);
       setHasVariants(product.hasVariants || false);
       setVariantOptions(product.variantOptions || []);
       setVariants(product.variants || []);
+      setImages(product.images || []);
 
       // Reset form with new product data
       reset({
@@ -281,6 +286,7 @@ export function ProductForm({
       variantOptions: hasVariants ? variantOptions : undefined,
       variants: hasVariants ? variants : undefined,
       customProperties: customProperties.length > 0 ? customProperties : undefined,
+      images: images.length > 0 ? images : [],
     };
 
     // If has variants, don't include base price/stock fields
@@ -406,27 +412,21 @@ export function ProductForm({
         </div>
       </div>
 
-      {/* Product Image */}
+      {/* Product Images */}
       <div className="bg-white rounded-lg shadow p-6">
         <h2 className="text-lg font-medium text-gray-900 mb-4">
-          Product Image
+          Product Images
         </h2>
-        <div className="mt-4 flex flex-wrap gap-2">
-          {product?.images && product.images.length > 0 ? (
-            product.images.map((image, index) => (
-              <img
-                key={index}
-                src={image}
-                alt={`${product.name} Image ${index + 1}`}
-                className="h-32 w-32 object-cover rounded-md"
-              />
-            ))
-          ) : (
-            <div className="h-32 w-32 bg-gray-200 rounded-md flex items-center justify-center text-gray-500 text-sm">
-              No Image
-            </div>
-          )}
-        </div>
+        <p className="text-sm text-gray-500 mb-4">
+          Upload product images. The first image will be used as the primary image.
+          Maximum 10 images, 5MB each. Supported formats: JPG, PNG, GIF, WebP.
+        </p>
+        <ImageUpload
+          images={images}
+          onChange={setImages}
+          maxImages={10}
+          disabled={isSubmitting}
+        />
       </div>
 
       {/* Product Variants Toggle */}

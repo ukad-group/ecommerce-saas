@@ -70,6 +70,8 @@ dotnet run
 
 ### ✅ Product Catalog
 - CRUD operations with **versioning** (full history tracked)
+- Multiple image upload with drag-and-drop reordering
+- Image gallery on showcase with thumbnail navigation
 - Hierarchical categories
 - Quick stock updates
 - Market-scoped catalogs
