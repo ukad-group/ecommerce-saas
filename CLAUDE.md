@@ -151,11 +151,13 @@ dotnet run
   STATUS.md          # Implementation status - what works, what's missing
   ARCHITECTURE.md    # Tech stack, data models, design decisions
   DEVELOPMENT.md     # Workflow, coding standards, troubleshooting, spec template
+  TEST-SCENARIOS.md  # Automated test scenarios for Playwright MCP
 /.claude/commands/   # Slash commands for context loading
   ctx-products.md    # Product catalog context
   ctx-orders.md      # Orders & cart context
   ctx-rbac.md        # RBAC context
   ctx-tenants.md     # Tenants & markets context
+/.mcp.json           # Playwright MCP configuration for automated testing
 /frontend/           # React admin (see frontend/CLAUDE.md)
 /mock-api/           # .NET Mock API (see mock-api/CLAUDE.md)
 /showcase-dotnet/    # Demo storefront (see showcase-dotnet/CLAUDE.md)
@@ -176,13 +178,28 @@ Load specific context when working on features:
 1. Most features: just start coding (YAGNI)
 2. Complex features: create minimal spec (see `docs/DEVELOPMENT.md` template)
 3. Implement UI against mock API first
-4. Update `docs/STATUS.md` when done
-5. Delete spec if created (keep repo clean)
+4. **Run happy path tests** using Playwright MCP (see below)
+5. Update `docs/STATUS.md` when done
+6. Delete spec if created (keep repo clean)
 
 ### For Bug Fixes
 1. Write failing test
 2. Fix bug
 3. Verify test passes
+
+### Automated Testing with Playwright MCP
+
+**Setup**: Playwright MCP is configured in `.mcp.json` for browser automation testing.
+
+**Test Scenarios**: See [docs/TEST-SCENARIOS.md](docs/TEST-SCENARIOS.md) for all happy path tests.
+
+**How it works**:
+- When implementing features, I can use Playwright MCP to automatically test the UI
+- Tests run in Microsoft Edge with vision capabilities enabled
+- Validates happy paths to ensure features work end-to-end
+- Test scenarios cover: products, categories, orders, cart, checkout, images, tenants, and RBAC
+
+**Manual Testing**: You can also run tests manually or ask me to validate specific scenarios.
 
 ## Common Tasks
 
@@ -224,6 +241,7 @@ Load specific context when working on features:
 - **[docs/STATUS.md](docs/STATUS.md)** - Implementation status, what works, what's missing
 - **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** - Deep dive into tech stack
 - **[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)** - Coding standards and workflow
+- **[docs/TEST-SCENARIOS.md](docs/TEST-SCENARIOS.md)** - Automated test scenarios for Playwright MCP
 - **[frontend/CLAUDE.md](frontend/CLAUDE.md)** - Frontend-specific guide
 - **[mock-api/CLAUDE.md](mock-api/CLAUDE.md)** - Mock API backend guide
 - **[showcase-dotnet/CLAUDE.md](showcase-dotnet/CLAUDE.md)** - Showcase-specific guide

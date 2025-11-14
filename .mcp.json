@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "playwright": {
+      "command": "npx",
+      "args": [
+        "@playwright/mcp@latest",
+        "--browser",
+        "msedge",
+        "--caps",
+        "vision"
+      ],
+      "env": {}
+    }
+  }
+}

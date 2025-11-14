@@ -7,13 +7,18 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { PlusIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline';
-import type { Tenant, TenantStatus, TenantsResponse } from '../../../types/tenant';
+import type { Tenant, TenantStatus, TenantsResponse, UpdateTenantInput } from '../../../types/tenant';
 import { apiClient } from '../../../services/api/client';
+import { Modal } from '../../../components/common/Modal';
+import { TenantForm } from '../../../components/tenants/TenantForm';
+import { Toast } from '../../../components/common/Toast';
 
 export function TenantsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<TenantStatus | 'all'>('all');
   const [page, setPage] = useState(1);
+  const [editingTenant, setEditingTenant] = useState<Tenant | null>(null);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const queryClient = useQueryClient();
 
   // Fetch tenants
@@ -52,6 +57,21 @@ export function TenantsPage() {
     },
   });
 
+  // Update tenant mutation
+  const updateMutation = useMutation({
+    mutationFn: async ({ tenantId, data }: { tenantId: string; data: UpdateTenantInput }) => {
+      return apiClient.put(`/admin/tenants/${tenantId}`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tenants'] });
+      setEditingTenant(null);
+      setToast({ message: 'Tenant updated successfully!', type: 'success' });
+    },
+    onError: () => {
+      setToast({ message: 'Failed to update tenant. Please try again.', type: 'error' });
+    },
+  });
+
   const handleStatusToggle = (tenant: Tenant) => {
     if (tenant.status === 'active') {
       if (confirm(`Are you sure you want to deactivate "${tenant.displayName}"? All associated markets will also be deactivated.`)) {
@@ -59,6 +79,16 @@ export function TenantsPage() {
       }
     } else {
       reactivateMutation.mutate(tenant.id);
+    }
+  };
+
+  const handleEditTenant = (tenant: Tenant) => {
+    setEditingTenant(tenant);
+  };
+
+  const handleUpdateTenant = (data: UpdateTenantInput) => {
+    if (editingTenant) {
+      updateMutation.mutate({ tenantId: editingTenant.id, data });
     }
   };
 
@@ -207,7 +237,10 @@ export function TenantsPage() {
                           >
                             Markets
                           </a>
-                          <button className="text-indigo-600 hover:text-indigo-900">
+                          <button
+                            onClick={() => handleEditTenant(tenant)}
+                            className="text-indigo-600 hover:text-indigo-900"
+                          >
                             Edit
                           </button>
                         </td>
@@ -269,6 +302,32 @@ export function TenantsPage() {
           </div>
         </div>
       </div>
+
+      {/* Edit Tenant Modal */}
+      {editingTenant && (
+        <Modal
+          isOpen={true}
+          onClose={() => setEditingTenant(null)}
+          title="Edit Tenant"
+          maxWidth="lg"
+        >
+          <TenantForm
+            tenant={editingTenant}
+            onSubmit={handleUpdateTenant}
+            onCancel={() => setEditingTenant(null)}
+            isSubmitting={updateMutation.isPending}
+          />
+        </Modal>
+      )}
+
+      {/* Toast Notification */}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
     </div>
   );
 }

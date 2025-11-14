@@ -60,4 +60,75 @@ public class TenantsController : ControllerBase
         }
         return Ok(tenant);
     }
+
+    [HttpPut("{id}")]
+    public ActionResult<Tenant> UpdateTenant(string id, [FromBody] UpdateTenantRequest request)
+    {
+        var tenant = _store.GetTenant(id);
+        if (tenant == null)
+        {
+            return NotFound();
+        }
+
+        // Update tenant properties
+        if (!string.IsNullOrEmpty(request.DisplayName))
+        {
+            tenant.DisplayName = request.DisplayName;
+        }
+
+        if (!string.IsNullOrEmpty(request.ContactEmail))
+        {
+            tenant.ContactEmail = request.ContactEmail;
+        }
+
+        if (request.ContactPhone != null)
+        {
+            tenant.ContactPhone = request.ContactPhone;
+        }
+
+        tenant.UpdatedAt = DateTime.UtcNow;
+
+        _store.UpdateTenant(tenant);
+
+        return Ok(tenant);
+    }
+
+    [HttpDelete("{id}")]
+    public IActionResult DeactivateTenant(string id)
+    {
+        var tenant = _store.GetTenant(id);
+        if (tenant == null)
+        {
+            return NotFound();
+        }
+
+        tenant.Status = "inactive";
+        tenant.UpdatedAt = DateTime.UtcNow;
+        _store.UpdateTenant(tenant);
+
+        return NoContent();
+    }
+
+    [HttpPost("{id}/reactivate")]
+    public ActionResult<Tenant> ReactivateTenant(string id)
+    {
+        var tenant = _store.GetTenant(id);
+        if (tenant == null)
+        {
+            return NotFound();
+        }
+
+        tenant.Status = "active";
+        tenant.UpdatedAt = DateTime.UtcNow;
+        _store.UpdateTenant(tenant);
+
+        return Ok(tenant);
+    }
+}
+
+public class UpdateTenantRequest
+{
+    public string? DisplayName { get; set; }
+    public string? ContactEmail { get; set; }
+    public string? ContactPhone { get; set; }
 }

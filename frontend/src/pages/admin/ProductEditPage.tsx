@@ -4,6 +4,7 @@
  * Admin page for creating and editing products.
  */
 
+import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ProductForm } from '../../components/products/ProductForm';
 import {
@@ -12,12 +13,14 @@ import {
   useUpdateProduct,
 } from '../../services/hooks/useProducts';
 import { LoadingSpinner } from '../../components/common/LoadingSpinner';
+import { Toast } from '../../components/common/Toast';
 import type { Product } from '../../types/product';
 
 export function ProductEditPage() {
   const navigate = useNavigate();
   const { productId } = useParams<{ productId: string }>();
   const isEdit = !!productId;
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
   const { data: product, isLoading } = useProduct(productId || '');
   const createProduct = useCreateProduct();
@@ -27,13 +30,16 @@ export function ProductEditPage() {
     try {
       if (isEdit && productId) {
         await updateProduct.mutateAsync({ productId, productData: data });
+        // Stay on the same page after updating
+        setToast({ message: 'Product updated successfully!', type: 'success' });
       } else {
         await createProduct.mutateAsync(data);
+        // Navigate to list after creating new product
+        navigate('/admin/products');
       }
-      navigate('/admin/products');
     } catch (err) {
       console.error('Failed to save product:', err);
-      alert('Failed to save product. Please try again.');
+      setToast({ message: 'Failed to save product. Please try again.', type: 'error' });
     }
   };
 
@@ -73,6 +79,15 @@ export function ProductEditPage() {
           images={product?.images}
         />
       </div>
+
+      {/* Toast Notification */}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
     </div>
   );
 }

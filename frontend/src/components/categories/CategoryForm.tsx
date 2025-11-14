@@ -110,8 +110,13 @@ export function CategoryForm({
 
       {/* Form Actions */}
       <div className="flex justify-end gap-4">
-        <Button type="button" onClick={onCancel} disabled={isSubmitting}>
-          Cancel
+        <Button
+          type="button"
+          onClick={onCancel}
+          disabled={isSubmitting}
+          title="Cancel and go back to categories list"
+        >
+          Go Back
         </Button>
         <Button type="submit" disabled={isSubmitting}>
           {isSubmitting

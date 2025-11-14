@@ -37,9 +37,23 @@ coverage/
 *.coverage
 .nyc_output/
 .pytest_cache/
+tests/playwright/*.png
+tests/playwright/*.jpg
+tests/playwright/*.jpeg
+tests/playwright/screenshots/
+tests/playwright/videos/
+test-results/
+test-screenshots/
+test-*.png
+test-*.jpg
+TEST-REPORT-*.md
+playwright.config.js
+test-*.spec.js
 
 # Database
 *.db
+*.db-shm
+*.db-wal
 *.sqlite
 *.sqlite3
 

@@ -10,15 +10,20 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { PlusIcon, MagnifyingGlassIcon, KeyIcon } from '@heroicons/react/24/outline';
-import type { Market, MarketStatus, MarketType } from '../../../types/market';
+import type { Market, MarketStatus, MarketType, UpdateMarketInput } from '../../../types/market';
 import { useAuthStore } from '../../../store/authStore';
 import { Role } from '../../../types/auth';
+import { Modal } from '../../../components/common/Modal';
+import { MarketForm } from '../../../components/markets/MarketForm';
+import { Toast } from '../../../components/common/Toast';
 
 export function MarketsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<MarketStatus | 'all'>('all');
   const [typeFilter, setTypeFilter] = useState<MarketType | 'all'>('all');
   const [page, setPage] = useState(1);
+  const [editingMarket, setEditingMarket] = useState<Market | null>(null);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const queryClient = useQueryClient();
 
   const session = useAuthStore((state) => state.session);
@@ -88,6 +93,29 @@ export function MarketsPage() {
     },
   });
 
+  // Update market mutation
+  const updateMutation = useMutation({
+    mutationFn: async ({ marketId, data }: { marketId: string; data: UpdateMarketInput }) => {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/admin/markets/${marketId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      if (!response.ok) {
+        throw new Error('Failed to update market');
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['markets'] });
+      setEditingMarket(null);
+      setToast({ message: 'Market updated successfully!', type: 'success' });
+    },
+    onError: () => {
+      setToast({ message: 'Failed to update market. Please try again.', type: 'error' });
+    },
+  });
+
   const handleStatusToggle = (market: Market) => {
     if (market.status === 'active') {
       if (confirm(`Are you sure you want to deactivate "${market.name}"? This will prevent new orders from being placed.`)) {
@@ -95,6 +123,16 @@ export function MarketsPage() {
       }
     } else {
       reactivateMutation.mutate(market.id);
+    }
+  };
+
+  const handleEditMarket = (market: Market) => {
+    setEditingMarket(market);
+  };
+
+  const handleUpdateMarket = (data: UpdateMarketInput) => {
+    if (editingMarket) {
+      updateMutation.mutate({ marketId: editingMarket.id, data });
     }
   };
 
@@ -285,7 +323,10 @@ export function MarketsPage() {
                           >
                             API Keys
                           </Link>
-                          <button className="text-indigo-600 hover:text-indigo-900">
+                          <button
+                            onClick={() => handleEditMarket(market)}
+                            className="text-indigo-600 hover:text-indigo-900"
+                          >
                             Edit
                           </button>
                         </td>
@@ -331,6 +372,32 @@ export function MarketsPage() {
           </div>
         </div>
       </div>
+
+      {/* Edit Market Modal */}
+      {editingMarket && (
+        <Modal
+          isOpen={true}
+          onClose={() => setEditingMarket(null)}
+          title="Edit Market"
+          maxWidth="lg"
+        >
+          <MarketForm
+            market={editingMarket}
+            onSubmit={handleUpdateMarket}
+            onCancel={() => setEditingMarket(null)}
+            isSubmitting={updateMutation.isPending}
+          />
+        </Modal>
+      )}
+
+      {/* Toast Notification */}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
     </div>
   );
 }

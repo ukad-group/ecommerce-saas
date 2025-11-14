@@ -280,8 +280,17 @@ export function ProductForm({
   };
 
   const handleFormSubmit = (data: ProductFormData) => {
-    const submitData: Partial<Product> = {
+    // Clean up empty string values for numeric fields
+    const cleanData = {
       ...data,
+      price: data.price || undefined,
+      salePrice: data.salePrice || undefined,
+      stockQuantity: data.stockQuantity ?? undefined,
+      lowStockThreshold: data.lowStockThreshold ?? undefined,
+    };
+
+    const submitData: Partial<Product> = {
+      ...cleanData,
       hasVariants,
       variantOptions: hasVariants ? variantOptions : undefined,
       variants: hasVariants ? variants : undefined,
@@ -342,9 +351,9 @@ export function ProductForm({
           />
           <Input
             label="SKU"
-            {...register('sku', { required: 'SKU is required' })}
+            {...register('sku', { required: !hasVariants ? 'SKU is required' : false })}
             error={errors.sku?.message}
-            required
+            required={!hasVariants}
           />
         </div>
         <div className="mt-4">
@@ -742,8 +751,13 @@ export function ProductForm({
 
       {/* Form Actions */}
       <div className="flex justify-end gap-4">
-        <Button type="button" onClick={onCancel} disabled={isSubmitting}>
-          Cancel
+        <Button
+          type="button"
+          onClick={onCancel}
+          disabled={isSubmitting}
+          title="Cancel and go back to products list"
+        >
+          Go Back
         </Button>
         <Button type="submit" disabled={isSubmitting}>
           {isSubmitting ? 'Saving...' : product ? 'Update Product' : 'Create Product'}

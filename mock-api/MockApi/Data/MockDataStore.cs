@@ -440,6 +440,22 @@ public class MockDataStore
         return context.Tenants.AsNoTracking().FirstOrDefault(t => t.Id == id);
     }
 
+    public void UpdateTenant(Tenant tenant)
+    {
+        using var context = CreateContext();
+        var existing = context.Tenants.FirstOrDefault(t => t.Id == tenant.Id);
+        if (existing != null)
+        {
+            context.Entry(existing).CurrentValues.SetValues(tenant);
+
+            // Handle complex properties
+            existing.Address = tenant.Address;
+            existing.Settings = tenant.Settings;
+
+            context.SaveChanges();
+        }
+    }
+
     // Markets
     public List<Market> GetMarkets()
     {

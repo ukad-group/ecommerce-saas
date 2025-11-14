@@ -19,9 +19,9 @@ export function CategoryList({ categories, onDelete }: CategoryListProps) {
   const buildTree = (parentId?: string | null): Category[] => {
     return categories
       .filter((cat) => {
-        // Match null and undefined as the same (root level)
+        // Match null, undefined, and empty string as the same (root level)
         if (parentId === undefined || parentId === null) {
-          return cat.parentId === null || cat.parentId === undefined;
+          return cat.parentId === null || cat.parentId === undefined || cat.parentId === '';
         }
         return cat.parentId === parentId;
       })
@@ -35,9 +35,7 @@ export function CategoryList({ categories, onDelete }: CategoryListProps) {
     return (
       <div key={category.id}>
         <div
-          className={`flex items-center justify-between py-3 px-4 hover:bg-gray-50 ${
-            level > 0 ? `ml-${level * 8}` : ''
-          }`}
+          className="flex items-center justify-between py-3 px-4 hover:bg-gray-50"
           style={{ paddingLeft: `${level * 2 + 1}rem` }}
         >
           <div className="flex items-center flex-1">

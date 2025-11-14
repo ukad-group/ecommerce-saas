@@ -67,4 +67,87 @@ public class MarketsController : ControllerBase
         }
         return Ok(market);
     }
+
+    [HttpPut("{id}")]
+    public ActionResult<Market> UpdateMarket(string id, [FromBody] UpdateMarketRequest request)
+    {
+        var market = _store.GetMarket(id);
+        if (market == null)
+        {
+            return NotFound();
+        }
+
+        // Update market properties
+        if (!string.IsNullOrEmpty(request.Name))
+        {
+            market.Name = request.Name;
+        }
+
+        if (!string.IsNullOrEmpty(request.Code))
+        {
+            market.Code = request.Code;
+        }
+
+        if (!string.IsNullOrEmpty(request.Type))
+        {
+            market.Type = request.Type;
+        }
+
+        if (!string.IsNullOrEmpty(request.Currency))
+        {
+            market.Currency = request.Currency;
+        }
+
+        if (!string.IsNullOrEmpty(request.Timezone))
+        {
+            market.Timezone = request.Timezone;
+        }
+
+        market.UpdatedAt = DateTime.UtcNow;
+
+        _store.UpdateMarket(market);
+
+        return Ok(market);
+    }
+
+    [HttpDelete("{id}")]
+    public IActionResult DeactivateMarket(string id)
+    {
+        var market = _store.GetMarket(id);
+        if (market == null)
+        {
+            return NotFound();
+        }
+
+        market.Status = "inactive";
+        market.UpdatedAt = DateTime.UtcNow;
+        _store.UpdateMarket(market);
+
+        return NoContent();
+    }
+
+    [HttpPost("{id}/reactivate")]
+    public ActionResult<Market> ReactivateMarket(string id)
+    {
+        var market = _store.GetMarket(id);
+        if (market == null)
+        {
+            return NotFound();
+        }
+
+        market.Status = "active";
+        market.UpdatedAt = DateTime.UtcNow;
+        _store.UpdateMarket(market);
+
+        return Ok(market);
+    }
+}
+
+public class UpdateMarketRequest
+{
+    public string? Name { get; set; }
+    public string? Code { get; set; }
+    public string? Type { get; set; }
+    public string? Currency { get; set; }
+    public string? Timezone { get; set; }
 }
