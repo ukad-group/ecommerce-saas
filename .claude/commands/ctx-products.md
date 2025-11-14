@@ -45,6 +45,7 @@ interface ProductVersion {
 - **Restore**: Restore any previous version with one click
 - **Image Upload**: Multiple images per product with drag-and-drop reordering
 - **Image Gallery**: Showcase displays all images with clickable thumbnails
+- **Responsive Images**: Automatic resizing with browser caching (thumbnails: 150px, cards: 300px, detail: 600px)
 
 ### API Endpoints
 - `GET /api/v1/products` - List products (market-scoped)
@@ -56,6 +57,7 @@ interface ProductVersion {
 - `GET /api/v1/products/:id/versions/:version` - Get specific version
 - `POST /api/v1/products/:id/versions/:version/restore` - Restore version
 - `POST /api/v1/files/upload` - Upload product images (requires X-User-ID auth)
+- `GET /api/v1/files/resize/{tenantId}/{marketId}/{fileName}?width={w}&height={h}` - Get resized image (cached 7 days)
 - `DELETE /api/v1/files/:filename` - Delete uploaded image
 
 ### Components
@@ -88,10 +90,16 @@ interface ProductVersion {
 - API calls require `X-Market-ID` header
 - Versioning is automatic on every update (can't be disabled)
 - All versions persist in database (composite key allows same Id, different Version)
-- Deleting a product keeps version history in database
+- **CRITICAL**: All product queries MUST filter by `IsCurrentVersion` to get the active version
+- Deleting a product removes ALL versions (not just current)
 - **Image uploads**: Stored locally at `mock-api/MockApi/uploads/{tenantId}/{marketId}/`
-- **Images array**: First image is primary, order maintained via drag-and-drop
+- **Images array**: First image (`Images[0]`) is ALWAYS the primary image
+- **NO legacy ImageUrl**: System uses ONLY the `Images` array (first = primary)
+- **Image reordering**: Drag images in admin - position 0 is primary
+- **Cart/Orders**: Store snapshot of `Images[0]` as `ProductImageUrl` at creation time
 - **Showcase gallery**: Displays all images with thumbnail navigation
+- **Image optimization**: Uses ImageSharp for on-the-fly resizing, cached for 7 days
+- **ImageHelper**: Utility classes in showcase and frontend for generating resize URLs
 
 ### Common Tasks
 **Add new product field**: Update Product type → ProductForm → API mock → backend

@@ -43,19 +43,6 @@ public class Product
             }
         }
     }
-
-    // Legacy property for backwards compatibility (maps to Images[0])
-    public string? ImageUrl
-    {
-        get => Images.Count > 0 ? Images[0] : null;
-        set
-        {
-            if (!string.IsNullOrEmpty(value) && !Images.Contains(value))
-            {
-                Images.Add(value);
-            }
-        }
-    }
 }
 
 public class VariantOption

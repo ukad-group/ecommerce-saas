@@ -77,12 +77,18 @@ app.UseSwaggerUI(options =>
 
 app.UseCors();
 
-// Enable static file serving for uploaded images
+// Enable static file serving for uploaded images with caching
 app.UseStaticFiles(new StaticFileOptions
 {
     FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(
         Path.Combine(builder.Environment.ContentRootPath, "uploads")),
-    RequestPath = "/uploads"
+    RequestPath = "/uploads",
+    OnPrepareResponse = ctx =>
+    {
+        // Cache images for 7 days (604800 seconds)
+        ctx.Context.Response.Headers.Append("Cache-Control", "public,max-age=604800");
+        ctx.Context.Response.Headers.Append("Expires", DateTime.UtcNow.AddDays(7).ToString("R"));
+    }
 });
 
 app.MapControllers();

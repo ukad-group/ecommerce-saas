@@ -1,4 +1,5 @@
 @model ECommShowcase.Web.Models.ViewModels.ProductDetailViewModel
+@using ECommShowcase.Web.Helpers
 @{
     ViewData["Title"] = Model.Product.Name;
 }
@@ -34,8 +35,11 @@
             <!-- Main Image -->
             <div class="card mb-3">
                 <img id="mainImage"
-                     src="@mainImage"
-                     class="card-img-top"
+                     src="@ImageHelper.GetMediumUrl(mainImage)"
+                     data-large="@ImageHelper.GetLargeUrl(mainImage)"
+                     srcset="@ImageHelper.GetMediumUrl(mainImage) 600w, @ImageHelper.GetLargeUrl(mainImage) 1200w"
+                     sizes="(max-width: 768px) 100vw, 600px"
+                     class="card-img-top product-main-image"
                      alt="@Model.Product.Name"
                      style="max-height: 500px; object-fit: contain;">
             </div>
@@ -48,12 +52,17 @@
                     {
                         var image = productImages[i];
                         var isActive = i == 0 ? "active" : "";
+                        var thumbnailUrl = ImageHelper.GetThumbnailUrl(image);
+                        var mediumUrl = ImageHelper.GetMediumUrl(image);
+                        var largeUrl = ImageHelper.GetLargeUrl(image);
+
                         <div class="thumbnail-item @isActive" style="cursor: pointer; position: relative;">
-                            <img src="@image"
+                            <img src="@thumbnailUrl"
+                                 data-medium="@mediumUrl"
+                                 data-large="@largeUrl"
                                  alt="@Model.Product.Name thumbnail @(i + 1)"
-                                 class="img-thumbnail"
-                                 style="width: 80px; height: 80px; object-fit: cover;"
-                                 onclick="changeMainImage('@image', this)" />
+                                 class="img-thumbnail gallery-thumbnail"
+                                 style="width: 80px; height: 80px; object-fit: cover;" />
                         </div>
                     }
                 </div>

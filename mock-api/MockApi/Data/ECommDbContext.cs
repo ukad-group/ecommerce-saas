@@ -68,7 +68,6 @@ public class ECommDbContext : DbContext
 
             // Ignore computed properties
             entity.Ignore(e => e.CategoryId);
-            entity.Ignore(e => e.ImageUrl);
 
             // Create indexes for common queries
             entity.HasIndex(e => new { e.TenantId, e.MarketId, e.IsCurrentVersion });

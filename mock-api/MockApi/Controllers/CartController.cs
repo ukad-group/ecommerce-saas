@@ -91,7 +91,7 @@ public class CartController : ControllerBase
                 ProductId = product.Id,
                 VariantId = request.VariantId,
                 ProductName = productName,
-                ProductImageUrl = product.ImageUrl,
+                ProductImageUrl = product.Images?.FirstOrDefault(),
                 UnitPrice = effectivePrice,
                 Quantity = request.Quantity,
                 Subtotal = effectivePrice * request.Quantity

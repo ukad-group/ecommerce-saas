@@ -44,13 +44,13 @@ public class MockDataStore
     public List<Product> GetProducts()
     {
         using var context = CreateContext();
-        return context.Products.AsNoTracking().ToList();
+        return context.Products.AsNoTracking().Where(p => p.IsCurrentVersion).ToList();
     }
 
     public Product? GetProduct(string id)
     {
         using var context = CreateContext();
-        return context.Products.AsNoTracking().FirstOrDefault(p => p.Id == id);
+        return context.Products.AsNoTracking().FirstOrDefault(p => p.Id == id && p.IsCurrentVersion);
     }
 
     public void AddProduct(Product product)
@@ -138,10 +138,11 @@ public class MockDataStore
     public void DeleteProduct(string id)
     {
         using var context = CreateContext();
-        var product = context.Products.FirstOrDefault(p => p.Id == id);
-        if (product != null)
+        // Delete ALL versions of the product
+        var products = context.Products.Where(p => p.Id == id).ToList();
+        if (products.Any())
         {
-            context.Products.Remove(product);
+            context.Products.RemoveRange(products);
             context.SaveChanges();
         }
     }

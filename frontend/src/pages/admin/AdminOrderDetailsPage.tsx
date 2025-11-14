@@ -12,6 +12,7 @@ import { Button } from '../../components/common/Button';
 import { OrderStatusBadge } from '../../components/orders/OrderStatusBadge';
 import { OrderStatusUpdate } from '../../components/admin/OrderStatusUpdate';
 import { formatCurrency } from '../../utils/currency';
+import { getSmallImageUrl } from '../../utils/imageHelper';
 
 export function AdminOrderDetailsPage() {
   const { orderId } = useParams<{ orderId: string }>();
@@ -83,8 +84,9 @@ export function AdminOrderDetailsPage() {
                     <div className="flex-shrink-0 w-20 h-20">
                       <img
                         src={
-                          item.productImage ||
-                          'https://dummyimage.com/80x80/AAA/fff.png&text=No+Image'
+                          (item as any).productImageUrl
+                            ? getSmallImageUrl((item as any).productImageUrl)
+                            : 'https://dummyimage.com/80x80/AAA/fff.png&text=No+Image'
                         }
                         alt={item.productName}
                         className="w-full h-full object-cover rounded"

@@ -45,6 +45,7 @@ dotnet run
     TenantsController.cs        # Tenant management
     MarketsController.cs        # Market management
     ApiKeysController.cs        # API key generation/revocation
+    FilesController.cs          # File upload & image resizing
 
   /Models/
     Product.cs, Category.cs, Order.cs, Tenant.cs, Market.cs, etc.
@@ -55,11 +56,13 @@ dotnet run
     MockDataStore.cs            # Data access layer (uses EF Core)
     DatabaseSeeder.cs           # Database seeding on startup
 
+  /uploads/                     # Uploaded product images (tenant/market scoped)
+
   Program.cs                    # API configuration
   appsettings.json             # Configuration
 ```
 
-## 8 Controllers
+## 9 Controllers
 
 ### 1. ProductsController
 ```csharp
@@ -129,6 +132,19 @@ POST   /api/v1/api-keys                // Generate new key (shows once!)
 PUT    /api/v1/api-keys/{id}/revoke    // Revoke key
 DELETE /api/v1/api-keys/{id}           // Delete key
 ```
+
+### 9. FilesController
+```csharp
+POST   /api/v1/files/upload                                    // Upload product images (multipart/form-data)
+GET    /api/v1/files/resize/{tenant}/{market}/{file}?width={w}&height={h} // Get resized image (cached 7 days)
+DELETE /api/v1/files/{filename}                                // Delete uploaded image
+```
+**Features**:
+- Uses SixLabors.ImageSharp for high-quality resizing
+- Maintains aspect ratio with ResizeMode.Max
+- Automatic browser caching (7 days via Cache-Control headers)
+- Stores files at `/uploads/{tenantId}/{marketId}/`
+- Supports: jpg, jpeg, png, gif, webp (max 5MB per file)
 
 ## Data Store
 
@@ -266,6 +282,9 @@ PRIMARY KEY (Id, Version)
 - **No auth validation** - Headers checked but not validated
 - **No rate limiting** - Unlimited requests
 - **Development only** - NOT for production use
+- **Image storage** - Files stored locally at `/uploads/{tenantId}/{marketId}/`
+- **Image caching** - Static files and resized images cached for 7 days
+- **Image optimization** - SixLabors.ImageSharp package for on-the-fly resizing
 
 ## Troubleshooting
 

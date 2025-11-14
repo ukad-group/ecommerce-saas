@@ -68,7 +68,10 @@ dotnet run
       _ProductCard.cshtml      # Reusable product card
 
   /wwwroot/
-    /css/, /js/cart.js
+    /css/, /js/cart.js, /js/product.js
+
+  /Helpers/
+    ImageHelper.cs               # Responsive image URL generation
 
   appsettings.json
   Program.cs
@@ -152,7 +155,10 @@ builder.Services.AddSession(options =>
 ## Features
 
 ✅ Product browsing and search
-✅ Product details page
+✅ Product details page with image gallery
+✅ Responsive image optimization (thumbnails, cards, full-size)
+✅ Browser caching for images (7 days)
+✅ Smooth image transitions with preloading
 ✅ Add to cart
 ✅ Cart management (update quantities, remove items)
 ✅ Session-based cart persistence
@@ -204,6 +210,8 @@ if (string.IsNullOrEmpty(cartId))
 - **Fake checkout**: Auto-submits and auto-pays orders
 - **Mock API dependency**: Requires mock-api running on port 5180
 - **No real payments**: Demo purposes only
+- **Image optimization**: Uses resize endpoint with automatic caching (150px thumbnails, 300px cards, 600px details)
+- **ImageHelper**: Static helper class for generating resized image URLs
 
 ## Troubleshooting
 

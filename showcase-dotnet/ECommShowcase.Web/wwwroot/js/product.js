@@ -4,13 +4,45 @@
  */
 
 // Image Gallery Functionality
-function changeMainImage(imageSrc, thumbnailElement) {
+function changeMainImage(mediumUrl, largeUrl, thumbnailElement) {
     const mainImage = document.getElementById('mainImage');
     if (mainImage) {
-        mainImage.src = imageSrc;
+        // Check if we're already showing this image
+        const currentSrc = mainImage.src.split('?')[0]; // Compare base URL without params
+        const newSrc = mediumUrl.split('?')[0];
+
+        if (currentSrc === newSrc) {
+            // Just update the active thumbnail without re-loading the image
+            updateActiveThumbnail(thumbnailElement);
+            return;
+        }
+
+        // Add fade effect for image transition
+        mainImage.style.opacity = '0.5';
+
+        // Update src and remove srcset to use only the medium version
+        // This prevents the browser from trying to load the large version
+        mainImage.src = mediumUrl;
+        mainImage.removeAttribute('srcset');
+        mainImage.removeAttribute('sizes');
+        mainImage.setAttribute('data-large', largeUrl);
+
+        // Use cached image if available
+        if (window.imageCache && window.imageCache[mediumUrl]) {
+            mainImage.style.opacity = '1';
+        } else {
+            mainImage.onload = function() {
+                mainImage.style.opacity = '1';
+            };
+        }
     }
 
     // Update active thumbnail styling
+    updateActiveThumbnail(thumbnailElement);
+}
+
+// Helper function to update active thumbnail
+function updateActiveThumbnail(thumbnailElement) {
     document.querySelectorAll('.thumbnail-item').forEach(item => {
         item.classList.remove('active');
         item.style.border = '';
@@ -22,6 +54,21 @@ function changeMainImage(imageSrc, thumbnailElement) {
     }
 }
 
+// Preload all product images
+function preloadProductImages(imageUrls) {
+    window.imageCache = window.imageCache || {};
+
+    imageUrls.forEach(url => {
+        if (!window.imageCache[url]) {
+            const img = new Image();
+            img.onload = function() {
+                window.imageCache[url] = true;
+            };
+            img.src = url;
+        }
+    });
+}
+
 // Initialize thumbnail gallery on page load
 document.addEventListener('DOMContentLoaded', function() {
     // Set initial active state for first thumbnail
@@ -29,6 +76,24 @@ document.addEventListener('DOMContentLoaded', function() {
     if (firstThumbnail) {
         firstThumbnail.style.border = '2px solid #0d6efd';
     }
+
+    // Preload all gallery images (medium-sized versions)
+    const thumbnails = document.querySelectorAll('.thumbnail-item img');
+    const imageUrls = Array.from(thumbnails).map(img => img.getAttribute('data-medium'));
+    if (imageUrls.length > 0) {
+        preloadProductImages(imageUrls);
+    }
+
+    // Add click event listeners to thumbnails using event delegation
+    document.querySelectorAll('.gallery-thumbnail').forEach(thumbnail => {
+        thumbnail.addEventListener('click', function() {
+            const mediumUrl = this.getAttribute('data-medium');
+            const largeUrl = this.getAttribute('data-large');
+            if (mediumUrl && largeUrl) {
+                changeMainImage(mediumUrl, largeUrl, this);
+            }
+        });
+    });
 });
 
 // Product Variant Selection

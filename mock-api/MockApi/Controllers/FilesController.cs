@@ -1,4 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.Processing;
+using SixLabors.ImageSharp.Formats.Jpeg;
 
 namespace MockApi.Controllers;
 
@@ -111,6 +114,63 @@ public class FilesController : ControllerBase
     }
 
     /// <summary>
+    /// Get a resized image with specified dimensions
+    /// </summary>
+    /// <param name="tenantId">Tenant ID</param>
+    /// <param name="marketId">Market ID</param>
+    /// <param name="fileName">File name</param>
+    /// <param name="width">Maximum width (optional)</param>
+    /// <param name="height">Maximum height (optional)</param>
+    /// <returns>Resized image</returns>
+    [HttpGet("resize/{tenantId}/{marketId}/{fileName}")]
+    [ResponseCache(Duration = 604800)] // Cache for 7 days
+    public async Task<IActionResult> GetResizedImage(
+        string tenantId,
+        string marketId,
+        string fileName,
+        [FromQuery] int? width = null,
+        [FromQuery] int? height = null)
+    {
+        var filePath = Path.Combine(_environment.ContentRootPath, "uploads", tenantId, marketId, fileName);
+
+        if (!System.IO.File.Exists(filePath))
+        {
+            return NotFound(new { message = "File not found" });
+        }
+
+        // If no dimensions specified, return original file
+        if (!width.HasValue && !height.HasValue)
+        {
+            var originalBytes = await System.IO.File.ReadAllBytesAsync(filePath);
+            return File(originalBytes, GetContentType(fileName));
+        }
+
+        try
+        {
+            using var image = await Image.LoadAsync(filePath);
+
+            // Calculate resize dimensions maintaining aspect ratio
+            var resizeOptions = new ResizeOptions
+            {
+                Mode = ResizeMode.Max,
+                Size = new Size(width ?? image.Width, height ?? image.Height)
+            };
+
+            image.Mutate(x => x.Resize(resizeOptions));
+
+            using var memoryStream = new MemoryStream();
+            await image.SaveAsJpegAsync(memoryStream, new JpegEncoder { Quality = 85 });
+            memoryStream.Position = 0;
+
+            return File(memoryStream.ToArray(), "image/jpeg");
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = $"Error resizing image: {ex.Message}" });
+        }
+    }
+
+    /// <summary>
     /// Delete an uploaded file
     /// </summary>
     /// <param name="fileName">File name to delete</param>
@@ -151,6 +211,19 @@ public class FilesController : ControllerBase
         {
             return StatusCode(500, new { message = $"Error deleting file: {ex.Message}" });
         }
+    }
+
+    private string GetContentType(string fileName)
+    {
+        var extension = Path.GetExtension(fileName).ToLowerInvariant();
+        return extension switch
+        {
+            ".jpg" or ".jpeg" => "image/jpeg",
+            ".png" => "image/png",
+            ".gif" => "image/gif",
+            ".webp" => "image/webp",
+            _ => "application/octet-stream"
+        };
     }
 }
 
