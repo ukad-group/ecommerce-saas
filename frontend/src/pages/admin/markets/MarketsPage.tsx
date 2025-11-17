@@ -53,7 +53,9 @@ export function MarketsPage() {
       if (statusFilter !== 'all') params.append('status', statusFilter);
       if (typeFilter !== 'all') params.append('type', typeFilter);
 
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/admin/markets?${params}`);
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/admin/markets?${params}`, {
+        credentials: 'include', // Send JWT cookie
+      });
       if (!response.ok) {
         throw new Error('Failed to fetch markets');
       }
@@ -66,6 +68,7 @@ export function MarketsPage() {
     mutationFn: async (marketId: string) => {
       const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/admin/markets/${marketId}`, {
         method: 'DELETE',
+        credentials: 'include', // Send JWT cookie
       });
       if (!response.ok) {
         throw new Error('Failed to deactivate market');
@@ -82,6 +85,7 @@ export function MarketsPage() {
     mutationFn: async (marketId: string) => {
       const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/admin/markets/${marketId}/reactivate`, {
         method: 'POST',
+        credentials: 'include', // Send JWT cookie
       });
       if (!response.ok) {
         throw new Error('Failed to reactivate market');
@@ -99,6 +103,7 @@ export function MarketsPage() {
       const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/admin/markets/${marketId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include', // Send JWT cookie
         body: JSON.stringify(data),
       });
       if (!response.ok) {

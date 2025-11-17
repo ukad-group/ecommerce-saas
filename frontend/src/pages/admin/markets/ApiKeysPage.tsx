@@ -31,7 +31,9 @@ export function ApiKeysPage() {
   const { data: market } = useQuery<Market>({
     queryKey: ['market', marketId],
     queryFn: async () => {
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/admin/markets/${marketId}`);
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/admin/markets/${marketId}`, {
+        credentials: 'include', // Send JWT cookie
+      });
       if (!response.ok) {
         throw new Error('Failed to fetch market');
       }
@@ -44,7 +46,9 @@ export function ApiKeysPage() {
   const { data: apiKeys, isLoading, error } = useQuery<ApiKeyListItem[]>({
     queryKey: ['apiKeys', marketId],
     queryFn: async () => {
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/markets/${marketId}/api-keys`);
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/markets/${marketId}/api-keys`, {
+        credentials: 'include', // Send JWT cookie
+      });
       if (!response.ok) {
         throw new Error('Failed to fetch API keys');
       }
@@ -61,6 +65,7 @@ export function ApiKeysPage() {
         headers: {
           'Content-Type': 'application/json',
         },
+        credentials: 'include', // Send JWT cookie
         body: JSON.stringify(input),
       });
       if (!response.ok) {
@@ -82,6 +87,7 @@ export function ApiKeysPage() {
     mutationFn: async (keyId: string) => {
       const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/markets/${marketId}/api-keys/${keyId}`, {
         method: 'DELETE',
+        credentials: 'include', // Send JWT cookie
       });
       if (!response.ok) {
         throw new Error('Failed to revoke API key');

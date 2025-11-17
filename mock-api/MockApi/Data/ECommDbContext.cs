@@ -13,11 +13,11 @@ public class ECommDbContext : DbContext
     public DbSet<Product> Products => Set<Product>();
     public DbSet<Category> Categories => Set<Category>();
     public DbSet<Order> Orders => Set<Order>();
-    public DbSet<Cart> Carts => Set<Cart>();
     public DbSet<Tenant> Tenants => Set<Tenant>();
     public DbSet<Market> Markets => Set<Market>();
     public DbSet<ApiKey> ApiKeys => Set<ApiKey>();
     public DbSet<OrderStatus> OrderStatuses => Set<OrderStatus>();
+    public DbSet<User> Users => Set<User>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -125,28 +125,6 @@ public class ECommDbContext : DbContext
             entity.HasIndex(e => e.OrderNumber);
         });
 
-        // Configure Cart entity
-        modelBuilder.Entity<Cart>(entity =>
-        {
-            entity.HasKey(e => e.Id);
-            entity.Property(e => e.Id).IsRequired();
-            entity.Property(e => e.SessionId).IsRequired();
-            entity.Property(e => e.TenantId).IsRequired();
-            entity.Property(e => e.MarketId).IsRequired();
-            entity.Property(e => e.Subtotal).HasColumnType("decimal(18,2)");
-            entity.Property(e => e.Tax).HasColumnType("decimal(18,2)");
-            entity.Property(e => e.Total).HasColumnType("decimal(18,2)");
-
-            // Store items as JSON
-            entity.Property(e => e.Items)
-                .HasConversion(
-                    v => JsonSerializer.Serialize(v, (JsonSerializerOptions?)null),
-                    v => JsonSerializer.Deserialize<List<CartItem>>(v, (JsonSerializerOptions?)null) ?? new List<CartItem>());
-
-            entity.HasIndex(e => e.SessionId).IsUnique();
-            entity.HasIndex(e => new { e.TenantId, e.MarketId });
-        });
-
         // Configure Tenant entity
         modelBuilder.Entity<Tenant>(entity =>
         {
@@ -218,6 +196,27 @@ public class ECommDbContext : DbContext
 
             entity.HasIndex(e => e.TenantId);
             entity.HasIndex(e => new { e.TenantId, e.Code }).IsUnique();
+        });
+
+        // Configure User entity
+        modelBuilder.Entity<User>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).IsRequired();
+            entity.Property(e => e.Email).IsRequired();
+            entity.Property(e => e.DisplayName).IsRequired();
+            entity.Property(e => e.PasswordHash).IsRequired();
+            entity.Property(e => e.Role).IsRequired();
+
+            // Store AssignedMarketIds as JSON
+            entity.Property(e => e.AssignedMarketIds)
+                .HasConversion(
+                    v => v == null ? null : JsonSerializer.Serialize(v, (JsonSerializerOptions?)null),
+                    v => v == null ? null : JsonSerializer.Deserialize<List<string>>(v, (JsonSerializerOptions?)null));
+
+            entity.HasIndex(e => e.Email).IsUnique();
+            entity.HasIndex(e => e.TenantId);
+            entity.HasIndex(e => e.IsActive);
         });
     }
 }

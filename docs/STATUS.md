@@ -90,13 +90,13 @@ POST   /api/v1/order-statuses/reset-defaults
 ```
 
 ### Known Issues
-- No cart persistence for guest users (carts stored in database but not tied to sessions)
+- No cart persistence for guest users (carts stored in-memory, synced to Orders with "new" status)
 
 ---
 
 ## Feature 003: Role-Based Access Control
 
-**Status**: ⚠️ Partially Complete
+**Status**: ✅ Complete (JWT Authentication)
 
 ### Roles
 - **Superadmin**: All tenants, all markets, full access
@@ -104,31 +104,37 @@ POST   /api/v1/order-statuses/reset-defaults
 - **Tenant User**: Their tenant only, view all + edit products/categories
 
 ### Implemented
-- Login page with profile selector
-- **Superadmin login flow** (complete)
-- Tenant selector for scoped roles (UI only)
-- Auth state management (Zustand + localStorage)
-- Protected routes
-- Session persistence
+- **JWT Authentication** with httpOnly cookies (XSS protection)
+- **Dual authentication**: JWT for admin, API Key for integrations/showcase
+- Email/password login (BCrypt hashed passwords)
+- Auth state management (Zustand + API)
+- Protected routes with auto-redirect on 401
+- Backend authorization on all admin endpoints
+- User database entity with role management
+- Session persistence with 1-hour JWT expiry
 - User info display with logout
 
 ### Missing
-- ❌ **Tenant Admin login flow** (selector shown but not functional)
-- ❌ **Tenant User login flow** (selector shown but not functional)
-- ❌ Permission-based UI hiding/disabling
-- ❌ Tenant filtering in all API calls (headers sent but not fully enforced)
+- ❌ Permission-based UI hiding/disabling (all logged-in users see same UI)
+- ❌ Full tenant filtering in API calls (headers sent but not fully enforced)
 
-### Mock Users (Hardcoded)
+### Test Users (Password: "password123")
 ```
-- Super Admin (admin@system.com) → All tenants
-- Admin (Demo Store) (admin@demo.com) → tenant-a
-- Catalog Manager (Demo Store) (manager@demo.com) → tenant-a, limited
+- admin@platform.com → SUPERADMIN → All tenants
+- admin@demostore.com → TENANT_ADMIN → tenant-a
+- catalog@demostore.com → TENANT_USER → tenant-a, market-1 only
 ```
+
+### Authentication Architecture
+- **Frontend**: httpOnly cookies for JWT storage
+- **Backend**: JWT Bearer + API Key dual authentication
+- **Admin endpoints**: `[Authorize(Policy = "AdminOnly")]` - JWT only
+- **Public endpoints**: `[Authorize]` - JWT or API Key accepted
+- **CORS**: Configured for credentials with explicit origins
 
 ### Known Issues
-- Only superadmin login fully works
-- Tenant admin/user can select tenant but filtering not complete
-- Some API calls don't enforce tenant filtering
+- All logged-in users see same UI (no role-based hiding yet)
+- Tenant filtering not fully enforced on backend
 
 ---
 
@@ -176,15 +182,21 @@ None
 **Data**: SQLite database with Entity Framework Core (persistent storage)
 
 ### Controllers
-1. ProductsController - Product CRUD + versioning
-2. CategoriesController - Category hierarchy
-3. CartController - Shopping cart operations
-4. OrdersController - Customer orders
-5. AdminOrdersController - Admin order management
-6. OrderStatusController - Custom order status management
-7. TenantsController - Tenant management
-8. MarketsController - Market management
-9. ApiKeysController - API key generation/revocation
+1. AuthController - Login/logout/me endpoints with JWT
+2. ProductsController - Product CRUD + versioning
+3. CategoriesController - Category hierarchy
+4. CartController - Shopping cart operations
+5. OrdersController - Customer orders
+6. AdminOrdersController - Admin order management
+7. OrderStatusController - Custom order status management
+8. TenantsController - Tenant management
+9. MarketsController - Market management
+10. ApiKeysController - API key generation/revocation
+
+### Authentication
+- **JWT**: 1-hour expiry, httpOnly cookies, BCrypt password hashing
+- **API Keys**: Market-scoped, SHA256 hashing
+- **Dual Auth Handler**: Supports both JWT and API Key authentication
 
 ### Database Implementation
 - **SQLite** with Entity Framework Core
@@ -195,12 +207,14 @@ None
 - **Easy reset** - Delete `ecomm.db` file and restart
 
 ### Seed Data
+- 3 Users (1 superadmin, 1 tenant admin, 1 tenant user)
 - 3 Tenants (A, B, C)
 - 7 Markets across tenants
 - 12 Products (market-1 only)
 - 5 Categories
 - 6 Orders (various statuses)
 - 9 API Keys
+- Default order statuses for all tenants
 
 ### Known Issues
 None - Data now persists across restarts
