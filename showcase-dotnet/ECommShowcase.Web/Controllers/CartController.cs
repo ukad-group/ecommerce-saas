@@ -93,13 +93,41 @@ public class CartController : Controller
             await _apiClient.UpdateCartItemAsync(sessionId, itemId, quantity);
 
             _logger.LogInformation("Successfully updated cart item {ItemId}", itemId);
-            TempData["SuccessMessage"] = "Cart updated";
 
+            // For AJAX requests, return success without redirect
+            if (Request.Headers["X-Requested-With"] == "XMLHttpRequest" || Request.Headers["Accept"].ToString().Contains("application/json"))
+            {
+                return Ok();
+            }
+
+            TempData["SuccessMessage"] = "Cart updated";
+            return RedirectToAction(nameof(Index));
+        }
+        catch (HttpRequestException httpEx) when (httpEx.StatusCode == System.Net.HttpStatusCode.BadRequest)
+        {
+            // Stock validation failed - return error message for AJAX
+            var errorMessage = httpEx.Message;
+            _logger.LogWarning("Stock validation failed: {Error}", errorMessage);
+
+            if (Request.Headers["X-Requested-With"] == "XMLHttpRequest" || Request.Headers["Accept"].ToString().Contains("application/json"))
+            {
+                return BadRequest(errorMessage);
+            }
+
+            TempData["ErrorMessage"] = errorMessage.Contains("Insufficient stock")
+                ? errorMessage.Substring(errorMessage.IndexOf("Insufficient stock"))
+                : "Failed to update item";
             return RedirectToAction(nameof(Index));
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error updating cart item {ItemId} to quantity {Quantity}", itemId, quantity);
+
+            if (Request.Headers["X-Requested-With"] == "XMLHttpRequest" || Request.Headers["Accept"].ToString().Contains("application/json"))
+            {
+                return StatusCode(500, "Failed to update item");
+            }
+
             TempData["ErrorMessage"] = "Failed to update item";
             return RedirectToAction(nameof(Index));
         }

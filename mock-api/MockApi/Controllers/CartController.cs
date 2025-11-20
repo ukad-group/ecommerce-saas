@@ -50,6 +50,39 @@ public class CartController : ControllerBase
             i.ProductId == request.ProductId &&
             i.VariantId == request.VariantId);
 
+        // Calculate the requested total quantity (existing + new)
+        int requestedTotalQuantity = request.Quantity + (existingItem?.Quantity ?? 0);
+
+        // Validate stock availability
+        int availableStock;
+        string itemIdentifier;
+
+        if (!string.IsNullOrEmpty(request.VariantId))
+        {
+            var variant = product.Variants?.FirstOrDefault(v => v.Id == request.VariantId);
+            if (variant == null)
+            {
+                return NotFound("Variant not found");
+            }
+            availableStock = variant.StockQuantity;
+            itemIdentifier = product.Name;
+        }
+        else
+        {
+            if (!product.StockQuantity.HasValue)
+            {
+                return BadRequest($"Product '{product.Name}' has no stock information");
+            }
+            availableStock = product.StockQuantity.Value;
+            itemIdentifier = product.Name;
+        }
+
+        // Check if requested quantity exceeds available stock
+        if (requestedTotalQuantity > availableStock)
+        {
+            return BadRequest($"Insufficient stock for '{itemIdentifier}'. Requested: {requestedTotalQuantity}, Available: {availableStock}");
+        }
+
         if (existingItem != null)
         {
             existingItem.Quantity += request.Quantity;
@@ -126,6 +159,42 @@ public class CartController : ControllerBase
         if (item == null)
         {
             return NotFound("Cart item not found");
+        }
+
+        // Validate stock availability before updating quantity
+        var product = _store.GetProduct(item.ProductId);
+        if (product == null)
+        {
+            return NotFound("Product not found");
+        }
+
+        int availableStock;
+        string itemIdentifier;
+
+        if (!string.IsNullOrEmpty(item.VariantId))
+        {
+            var variant = product.Variants?.FirstOrDefault(v => v.Id == item.VariantId);
+            if (variant == null)
+            {
+                return NotFound("Variant not found");
+            }
+            availableStock = variant.StockQuantity;
+            itemIdentifier = item.ProductName;
+        }
+        else
+        {
+            if (!product.StockQuantity.HasValue)
+            {
+                return BadRequest($"Product '{item.ProductName}' has no stock information");
+            }
+            availableStock = product.StockQuantity.Value;
+            itemIdentifier = item.ProductName;
+        }
+
+        // Check if requested quantity exceeds available stock
+        if (request.Quantity > availableStock)
+        {
+            return BadRequest($"Insufficient stock for '{itemIdentifier}'. Requested: {request.Quantity}, Available: {availableStock}");
         }
 
         item.Quantity = request.Quantity;

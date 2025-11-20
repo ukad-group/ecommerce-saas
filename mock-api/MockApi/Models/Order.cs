@@ -31,6 +31,7 @@ public class OrderItem
 {
     public string Id { get; set; } = string.Empty;
     public string ProductId { get; set; } = string.Empty;
+    public string? VariantId { get; set; }
     public string ProductName { get; set; } = string.Empty;
     public string Sku { get; set; } = string.Empty;
     public string? ProductImageUrl { get; set; }

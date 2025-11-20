@@ -615,7 +615,7 @@ export function ProductForm({
                 Manage Variants ({variants.length})
               </h2>
               <div className="space-y-4">
-                {variants.map((variant) => (
+                {variants.map((variant, index) => (
                   <div key={variant.id} className="p-4 border rounded-md">
                     <div className="flex justify-between items-start mb-3">
                       <div className="flex gap-2 flex-wrap">
@@ -636,6 +636,27 @@ export function ProductForm({
                         Remove
                       </button>
                     </div>
+
+                    {/* Column headers - only show on first variant */}
+                    {index === 0 && (
+                      <div className="grid grid-cols-1 md:grid-cols-5 gap-3 mb-2">
+                        <label className="text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                          SKU
+                        </label>
+                        <label className="text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                          Price
+                        </label>
+                        <label className="text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                          Sale Price
+                        </label>
+                        <label className="text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                          Stock
+                        </label>
+                        <label className="text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                          Status
+                        </label>
+                      </div>
+                    )}
 
                     <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
                       <input

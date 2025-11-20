@@ -156,10 +156,22 @@ public class ECommApiClient : IECommApiClient
 
             var request = new UpdateCartItemRequest { Quantity = quantity };
             var response = await _httpClient.PutAsJsonAsync($"cart/items/{itemId}", request);
-            response.EnsureSuccessStatusCode();
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var errorContent = await response.Content.ReadAsStringAsync();
+                _logger.LogError("API error updating cart item {ItemId}: {StatusCode} - {Error}",
+                    itemId, response.StatusCode, errorContent);
+
+                throw new HttpRequestException($"API Error: {errorContent}", null, response.StatusCode);
+            }
 
             var item = await response.Content.ReadFromJsonAsync<CartItemDto>();
             return item ?? throw new Exception("Failed to update cart item");
+        }
+        catch (HttpRequestException)
+        {
+            throw;
         }
         catch (Exception ex)
         {
@@ -214,10 +226,25 @@ public class ECommApiClient : IECommApiClient
             };
 
             var response = await _httpClient.PutAsJsonAsync($"orders/{orderId}/status", request);
-            response.EnsureSuccessStatusCode();
+
+            if (!response.IsSuccessStatusCode)
+            {
+                // Try to extract error message from response
+                var errorContent = await response.Content.ReadAsStringAsync();
+                _logger.LogError("API error updating order status for {OrderId}: {StatusCode} - {Error}",
+                    orderId, response.StatusCode, errorContent);
+
+                // Throw exception with the API error message
+                throw new HttpRequestException($"API Error: {errorContent}", null, response.StatusCode);
+            }
 
             var order = await response.Content.ReadFromJsonAsync<OrderDto>();
             return order ?? throw new Exception("Failed to update order status");
+        }
+        catch (HttpRequestException)
+        {
+            // Re-throw HttpRequestException with API error details
+            throw;
         }
         catch (Exception ex)
         {

@@ -1,5 +1,6 @@
 /**
- * Cart page functionality - Auto-updating cart quantities with AJAX
+ * Enhanced Cart page functionality with real-time validation and header updates
+ * Version: 2025-11-19
  */
 
 (function () {
@@ -12,7 +13,6 @@
         const subtotalElement = document.querySelector('#cart-subtotal');
         if (subtotalElement) {
             const text = subtotalElement.textContent.trim();
-            // Extract currency symbol (first character before numbers)
             const match = text.match(/^([^\d]+)/);
             return match ? match[1] : '$';
         }
@@ -20,6 +20,28 @@
     };
 
     const currencySymbol = getCurrencySymbol();
+
+    /**
+     * Update cart badge in header
+     */
+    function updateCartBadge() {
+        const quantityInputs = document.querySelectorAll('.quantity-input');
+        const totalItems = Array.from(quantityInputs).reduce((sum, input) => {
+            return sum + parseInt(input.value || 0);
+        }, 0);
+
+        // Update header badge (if it exists)
+        const cartBadge = document.querySelector('.navbar .badge, .cart-count');
+        if (cartBadge) {
+            cartBadge.textContent = totalItems;
+        }
+
+        // Update page header
+        const pageHeader = document.querySelector('.card-header h5');
+        if (pageHeader) {
+            pageHeader.textContent = `Cart Items (${totalItems} items)`;
+        }
+    }
 
     /**
      * Initialize cart quantity inputs
@@ -32,20 +54,22 @@
         }
 
         quantityInputs.forEach(input => {
-            // Update on change (when user presses Enter or uses arrows)
-            input.addEventListener('change', function () {
-                updateCartItem(this);
-            });
+            // Store the initial quantity as valid
+            input.dataset.validQuantity = input.value;
 
-            // Update on blur (when user leaves the field)
-            input.addEventListener('blur', function () {
-                if (this.dataset.changed === 'true') {
-                    updateCartItem(this);
-                }
-            });
-
-            // Track changes and debounce updates
+            // Enforce max on input
             input.addEventListener('input', function () {
+                const max = parseInt(this.getAttribute('max') || 99);
+                const value = parseInt(this.value || 0);
+
+                if (value > max) {
+                    this.value = max;
+                    showStockWarning(this, max);
+                }
+
+                // Update header in real-time
+                updateCartBadge();
+
                 this.dataset.changed = 'true';
 
                 // Clear existing timeout
@@ -58,7 +82,43 @@
                     updateCartItem(this);
                 }, 1000);
             });
+
+            // Update on change (when user presses Enter or uses arrows)
+            input.addEventListener('change', function () {
+                updateCartItem(this);
+            });
+
+            // Update on blur (when user leaves the field)
+            input.addEventListener('blur', function () {
+                if (this.dataset.changed === 'true') {
+                    updateCartItem(this);
+                }
+            });
         });
+
+        // Initialize header badge
+        updateCartBadge();
+    }
+
+    /**
+     * Show stock warning
+     */
+    function showStockWarning(inputElement, maxStock) {
+        const wrapper = inputElement.closest('.quantity-wrapper');
+        let errorDiv = wrapper.querySelector('.stock-error');
+        if (!errorDiv) {
+            errorDiv = document.createElement('small');
+            errorDiv.className = 'stock-error text-warning d-block mt-1';
+            wrapper.appendChild(errorDiv);
+        }
+        errorDiv.textContent = `Only ${maxStock} available in stock`;
+
+        // Auto-hide after 3 seconds
+        setTimeout(() => {
+            if (errorDiv.parentNode) {
+                errorDiv.remove();
+            }
+        }, 3000);
     }
 
     /**
@@ -101,6 +161,9 @@
             });
 
             if (response.ok) {
+                // Store this as the valid quantity for future rollback
+                inputElement.dataset.validQuantity = quantity.toString();
+
                 // Calculate new item subtotal immediately for instant feedback
                 const itemSubtotal = quantity * unitPrice;
                 const subtotalElement = document.querySelector(`.item-subtotal[data-item-id="${itemId}"]`);
@@ -108,8 +171,57 @@
                     subtotalElement.textContent = currencySymbol + itemSubtotal.toFixed(2);
                 }
 
+                // Clear any existing error message for this item
+                const errorMsg = wrapper.querySelector('.stock-error');
+                if (errorMsg) {
+                    errorMsg.remove();
+                }
+
                 // Fetch updated cart totals from server
                 await updateCartTotals();
+
+                // Update header badge
+                updateCartBadge();
+            } else if (response.status === 400) {
+                // Stock validation failed - extract stock limit and update max attribute
+                const errorText = await response.text();
+                console.error('Stock validation failed:', errorText);
+
+                // Extract available stock from error message
+                // Format: "Insufficient stock for 'Product'. Requested: X, Available: Y"
+                let availableStock = null;
+                const availableMatch = errorText.match(/Available:\s*(\d+)/);
+                if (availableMatch) {
+                    availableStock = parseInt(availableMatch[1]);
+                    // Update the max attribute for future validation
+                    inputElement.setAttribute('max', availableStock);
+                    inputElement.dataset.availableStock = availableStock;
+                }
+
+                // Extract the error message
+                let errorMessage = 'Insufficient stock available';
+                if (errorText.includes('Insufficient stock')) {
+                    const match = errorText.match(/Insufficient stock[^"]*/);
+                    if (match) {
+                        errorMessage = match[0];
+                    }
+                }
+
+                // Show error message below the input
+                let errorDiv = wrapper.querySelector('.stock-error');
+                if (!errorDiv) {
+                    errorDiv = document.createElement('small');
+                    errorDiv.className = 'stock-error text-danger d-block mt-1 fw-bold';
+                    wrapper.appendChild(errorDiv);
+                }
+                errorDiv.textContent = errorMessage;
+
+                // Reset to previous valid quantity
+                const previousQty = inputElement.dataset.validQuantity || '1';
+                inputElement.value = previousQty;
+
+                // Update header badge to correct value
+                updateCartBadge();
             } else {
                 console.error('Failed to update cart item');
                 alert('Failed to update cart. Please try again.');

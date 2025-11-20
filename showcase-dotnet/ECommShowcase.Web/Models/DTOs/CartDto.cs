@@ -21,6 +21,8 @@ public class CartItemDto
     public decimal UnitPrice { get; set; }
     public int Quantity { get; set; }
     public decimal Subtotal { get; set; }
+    public int? AvailableStock { get; set; } // For client-side validation
+    public string? VariantId { get; set; } // For variant stock lookup
 }
 
 public class AddCartItemRequest

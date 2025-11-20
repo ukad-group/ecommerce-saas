@@ -121,7 +121,42 @@ public class CheckoutController : Controller
             await Task.Delay(1000);
 
             // Fake payment - automatically mark as paid
-            order = await _apiClient.UpdateOrderStatusAsync(order.Id, "paid", "Payment processed (fake)");
+            try
+            {
+                order = await _apiClient.UpdateOrderStatusAsync(order.Id, "paid", "Payment processed (fake)");
+            }
+            catch (HttpRequestException httpEx) when (httpEx.StatusCode == System.Net.HttpStatusCode.BadRequest)
+            {
+                // Stock validation failed - extract the error message
+                var errorMessage = httpEx.Message;
+                if (errorMessage.Contains("Insufficient stock"))
+                {
+                    // Extract the clean error message
+                    var startIndex = errorMessage.IndexOf("Insufficient stock");
+                    if (startIndex >= 0)
+                    {
+                        errorMessage = errorMessage.Substring(startIndex);
+                        // Remove any trailing JSON artifacts
+                        var endIndex = errorMessage.IndexOf("\",");
+                        if (endIndex > 0)
+                        {
+                            errorMessage = errorMessage.Substring(0, endIndex);
+                        }
+                    }
+                }
+
+                _logger.LogWarning("Stock validation failed during checkout: {Error}", errorMessage);
+
+                // Provide helpful error message that explains what happened
+                var friendlyMessage = errorMessage.Contains("Insufficient stock")
+                    ? $"We're sorry, but {errorMessage.Replace("Insufficient stock for ", "").Split('.')[0]} went out of stock while you were completing your order."
+                    : errorMessage;
+
+                TempData["ErrorMessage"] = $"{friendlyMessage} Your cart has been preserved. Please review and adjust quantities below.";
+
+                // Redirect back to cart with error message
+                return RedirectToAction("Index", "Cart");
+            }
 
             // Generate fake tracking number
             if (string.IsNullOrEmpty(order.TrackingNumber))
@@ -141,10 +176,10 @@ public class CheckoutController : Controller
             _logger.LogError(ex, "Error completing checkout");
             TempData["ErrorMessage"] = "An error occurred while processing your order. Please try again.";
 
-            var sessionId = GetSessionId();
-            if (!string.IsNullOrEmpty(sessionId))
+            var currentSessionId = GetSessionId();
+            if (!string.IsNullOrEmpty(currentSessionId))
             {
-                model.Cart = await _apiClient.GetCartAsync(sessionId) ?? new CartDto();
+                model.Cart = await _apiClient.GetCartAsync(currentSessionId) ?? new CartDto();
             }
             model.CurrencySymbol = _settings.CurrencySymbol;
             return View("Index", model);

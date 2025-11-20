@@ -210,6 +210,38 @@ public class MockDataStore
         context.SaveChanges();
     }
 
+    /// <summary>
+    /// Update variant stock quantity without creating a new version
+    /// Used for automatic stock adjustments (e.g., from orders)
+    /// </summary>
+    public void UpdateVariantStock(string productId, string variantId, int quantityChange, bool decrease = true)
+    {
+        using var context = CreateContext();
+        var currentProduct = context.Products.FirstOrDefault(p => p.Id == productId && p.IsCurrentVersion);
+        if (currentProduct == null || currentProduct.Variants == null) return;
+
+        var variant = currentProduct.Variants.FirstOrDefault(v => v.Id == variantId);
+        if (variant == null) return;
+
+        // Update variant stock
+        if (decrease)
+        {
+            variant.StockQuantity = Math.Max(0, variant.StockQuantity - quantityChange);
+        }
+        else
+        {
+            variant.StockQuantity += quantityChange;
+        }
+
+        currentProduct.UpdatedAt = DateTime.UtcNow;
+
+        // CRITICAL: Mark the Variants property as modified so EF Core saves the JSON changes
+        // Without this, changes to the Variants collection are not persisted!
+        context.Entry(currentProduct).Property(p => p.Variants).IsModified = true;
+
+        context.SaveChanges();
+    }
+
     // Categories
     public List<Category> GetCategories()
     {
@@ -348,12 +380,24 @@ public class MockDataStore
         order.Items = cart.Items.Select(ci =>
         {
             var product = products.FirstOrDefault(p => p.Id == ci.ProductId);
+            string sku = "";
+            if (!string.IsNullOrEmpty(ci.VariantId))
+            {
+                var variant = product?.Variants?.FirstOrDefault(v => v.Id == ci.VariantId);
+                sku = variant?.Sku ?? "";
+            }
+            else
+            {
+                sku = product?.Sku ?? "";
+            }
+
             return new OrderItem
             {
                 Id = ci.Id,
                 ProductId = ci.ProductId,
+                VariantId = ci.VariantId,
                 ProductName = ci.ProductName,
-                Sku = product?.Sku ?? "",
+                Sku = sku,
                 ProductImageUrl = ci.ProductImageUrl,
                 UnitPrice = ci.UnitPrice,
                 Quantity = ci.Quantity,

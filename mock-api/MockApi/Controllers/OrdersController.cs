@@ -34,13 +34,25 @@ public class OrdersController : ControllerBase
             BillingAddress = request.BillingAddress,
             Items = cart.Items.Select(ci =>
             {
-                var product = _store.GetProducts().FirstOrDefault(p => p.Id == ci.ProductId);
+                var product = _store.GetProducts().FirstOrDefault(p => p.Id == ci.ProductId && p.IsCurrentVersion);
+                string sku = "";
+                if (!string.IsNullOrEmpty(ci.VariantId))
+                {
+                    var variant = product?.Variants?.FirstOrDefault(v => v.Id == ci.VariantId);
+                    sku = variant?.Sku ?? "";
+                }
+                else
+                {
+                    sku = product?.Sku ?? "";
+                }
+
                 return new OrderItem
                 {
                     Id = Guid.NewGuid().ToString(),
                     ProductId = ci.ProductId,
+                    VariantId = ci.VariantId,  // CRITICAL: Include VariantId
                     ProductName = ci.ProductName,
-                    Sku = product?.Sku ?? "",
+                    Sku = sku,
                     ProductImageUrl = ci.ProductImageUrl,
                     UnitPrice = ci.UnitPrice,
                     Quantity = ci.Quantity,
@@ -58,14 +70,15 @@ public class OrdersController : ControllerBase
 
         _store.AddOrder(order);
 
-        // Clear both cart and the "new" status cart-order
+        // DON'T clear cart here - payment might fail due to stock validation
+        // Cart will be cleared when order is successfully paid
+        // Delete the "new" status cart-order though (it's been replaced by this pending order)
         var cartOrderId = $"cart-{request.SessionId}";
         var cartOrder = _store.GetOrder(cartOrderId);
         if (cartOrder != null && cartOrder.Status == "new")
         {
             _store.DeleteOrder(cartOrderId);
         }
-        _store.ClearCart(request.SessionId);
 
         return Ok(order);
     }
@@ -95,6 +108,51 @@ public class OrdersController : ControllerBase
         var oldStatus = order.Status;
         var newStatus = request.Status.ToLower();
 
+        // CRITICAL: Validate stock availability before transitioning to "paid"
+        // This prevents overselling when stock changes between cart creation and payment
+        if (newStatus == "paid" && oldStatus != "paid")
+        {
+            foreach (var item in order.Items)
+            {
+                var product = _store.GetProducts().FirstOrDefault(p => p.Id == item.ProductId && p.IsCurrentVersion);
+                if (product == null)
+                {
+                    return BadRequest($"Product '{item.ProductName}' not found");
+                }
+
+                int availableStock;
+                string itemIdentifier;
+
+                // Check variant stock if variant is specified
+                if (!string.IsNullOrEmpty(item.VariantId))
+                {
+                    var variant = product.Variants?.FirstOrDefault(v => v.Id == item.VariantId);
+                    if (variant == null)
+                    {
+                        return BadRequest($"Variant for product '{item.ProductName}' not found");
+                    }
+                    availableStock = variant.StockQuantity;
+                    itemIdentifier = $"{item.ProductName} (SKU: {variant.Sku})";
+                }
+                else
+                {
+                    // Check product stock
+                    if (!product.StockQuantity.HasValue)
+                    {
+                        return BadRequest($"Product '{item.ProductName}' has no stock information");
+                    }
+                    availableStock = product.StockQuantity.Value;
+                    itemIdentifier = $"{item.ProductName} (SKU: {product.Sku})";
+                }
+
+                // Validate sufficient stock
+                if (item.Quantity > availableStock)
+                {
+                    return BadRequest($"Insufficient stock for {itemIdentifier}. Requested: {item.Quantity}, Available: {availableStock}. Please return to cart to adjust quantities.");
+                }
+            }
+        }
+
         order.Status = request.Status;
 
         // Generate tracking number when marked as paid
@@ -110,12 +168,26 @@ public class OrdersController : ControllerBase
             foreach (var item in order.Items)
             {
                 var product = _store.GetProducts().FirstOrDefault(p => p.Id == item.ProductId && p.IsCurrentVersion);
-                if (product != null && product.StockQuantity.HasValue)
+                if (product != null)
                 {
-                    var newStock = Math.Max(0, product.StockQuantity.Value - item.Quantity);
-                    _store.UpdateProductStock(item.ProductId, newStock);
+                    if (!string.IsNullOrEmpty(item.VariantId))
+                    {
+                        // Reduce variant stock
+                        _store.UpdateVariantStock(item.ProductId, item.VariantId, item.Quantity, decrease: true);
+                    }
+                    else if (product.StockQuantity.HasValue)
+                    {
+                        // Reduce product stock
+                        var newStock = Math.Max(0, product.StockQuantity.Value - item.Quantity);
+                        _store.UpdateProductStock(item.ProductId, newStock);
+                    }
                 }
             }
+
+            // Clear the cart now that payment succeeded
+            // Extract session ID from order ID if it follows the pattern
+            // For showcase orders, we need to clear by session somehow
+            // For now, this is handled by the showcase calling Clear after successful payment
         }
 
         // Increase stock back when order is cancelled (inventory released)
@@ -125,10 +197,19 @@ public class OrdersController : ControllerBase
             foreach (var item in order.Items)
             {
                 var product = _store.GetProducts().FirstOrDefault(p => p.Id == item.ProductId && p.IsCurrentVersion);
-                if (product != null && product.StockQuantity.HasValue)
+                if (product != null)
                 {
-                    var newStock = product.StockQuantity.Value + item.Quantity;
-                    _store.UpdateProductStock(item.ProductId, newStock);
+                    if (!string.IsNullOrEmpty(item.VariantId))
+                    {
+                        // Restore variant stock
+                        _store.UpdateVariantStock(item.ProductId, item.VariantId, item.Quantity, decrease: false);
+                    }
+                    else if (product.StockQuantity.HasValue)
+                    {
+                        // Restore product stock
+                        var newStock = product.StockQuantity.Value + item.Quantity;
+                        _store.UpdateProductStock(item.ProductId, newStock);
+                    }
                 }
             }
         }
