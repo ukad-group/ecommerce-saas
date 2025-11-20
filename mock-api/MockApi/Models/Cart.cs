@@ -24,6 +24,7 @@ public class CartItem
     public decimal UnitPrice { get; set; }
     public int Quantity { get; set; }
     public decimal Subtotal { get; set; }
+    public int? AvailableStock { get; set; }
 }
 
 public class AddCartItemRequest
