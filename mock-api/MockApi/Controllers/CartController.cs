@@ -22,6 +22,25 @@ public class CartController : ControllerBase
         }
 
         var cart = _store.GetOrCreateCart(sessionId, tenantId ?? "tenant-a", marketId ?? "market-1");
+
+        // Populate AvailableStock for each cart item for client-side validation
+        foreach (var item in cart.Items)
+        {
+            var product = _store.GetProduct(item.ProductId);
+            if (product != null)
+            {
+                if (!string.IsNullOrEmpty(item.VariantId))
+                {
+                    var variant = product.Variants?.FirstOrDefault(v => v.Id == item.VariantId);
+                    item.AvailableStock = variant?.StockQuantity;
+                }
+                else
+                {
+                    item.AvailableStock = product.StockQuantity;
+                }
+            }
+        }
+
         return Ok(cart);
     }
 
@@ -87,6 +106,7 @@ public class CartController : ControllerBase
         {
             existingItem.Quantity += request.Quantity;
             existingItem.Subtotal = existingItem.Quantity * existingItem.UnitPrice;
+            existingItem.AvailableStock = availableStock;
         }
         else
         {
@@ -127,7 +147,8 @@ public class CartController : ControllerBase
                 ProductImageUrl = product.Images?.FirstOrDefault(),
                 UnitPrice = effectivePrice,
                 Quantity = request.Quantity,
-                Subtotal = effectivePrice * request.Quantity
+                Subtotal = effectivePrice * request.Quantity,
+                AvailableStock = availableStock
             };
             cart.Items.Add(newItem);
             existingItem = newItem;
@@ -199,6 +220,7 @@ public class CartController : ControllerBase
 
         item.Quantity = request.Quantity;
         item.Subtotal = item.Quantity * item.UnitPrice;
+        item.AvailableStock = availableStock;
 
         _store.UpdateCart(cart);
 

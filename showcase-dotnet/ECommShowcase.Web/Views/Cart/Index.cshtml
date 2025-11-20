@@ -65,7 +65,7 @@
                                                            class="form-control form-control-sm quantity-input"
                                                            value="@item.Quantity"
                                                            min="1"
-                                                           max="99"
+                                                           max="@(item.AvailableStock ?? 99)"
                                                            data-item-id="@item.Id"
                                                            data-unit-price="@item.UnitPrice"
                                                            style="max-width: 100px;">
