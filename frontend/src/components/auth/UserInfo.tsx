@@ -50,8 +50,8 @@ export function UserInfo() {
   const roleBadge = ROLE_BADGES[profile.role];
   const tenant = selectedTenantId ? getTenantById(selectedTenantId) : null;
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await logout();
     navigate('/login');
   };
 

@@ -1,21 +1,22 @@
 /**
  * Authentication Service
  *
- * Handles login logic, profile validation, and session creation
- * Works with hardcoded profiles for MVP (development/staging only)
+ * Handles login/logout with JWT authentication via backend API
+ * Uses httpOnly cookies for secure token storage
  */
 
 import type { UserSession, UserProfile } from '../../types/auth';
 import { Role } from '../../types/auth';
-import { getProfileById } from '../../data/profiles';
-import { getTenantById, getActiveTenants, getMarketsByTenant } from '../../data/tenants';
+import { getActiveTenants, getMarketsByTenant } from '../../data/tenants';
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5180/api/v1';
 
 /**
  * Login request parameters
  */
 export interface LoginRequest {
-  profileId: string;
-  tenantId?: string;
+  email: string;
+  password: string;
 }
 
 /**
@@ -28,107 +29,110 @@ export interface LoginResponse {
 }
 
 /**
- * Authenticates a user with the given profile and optional tenant
+ * Authenticates a user with email and password via backend API
+ * Token is stored in httpOnly cookie automatically by the backend
  *
- * @param request - Login request with profileId and optional tenantId
+ * @param request - Login request with email and password
  * @returns Login response with session or error
  */
 export async function login(request: LoginRequest): Promise<LoginResponse> {
-  const { profileId, tenantId } = request;
+  const { email, password } = request;
 
-  // Validate profile exists
-  const profile = getProfileById(profileId);
-  if (!profile) {
-    return {
-      success: false,
-      error: 'Invalid profile selected',
+  try {
+    // Call backend login API
+    const response = await fetch(`${API_BASE_URL}/auth/login`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include', // Important: Include cookies in request
+      body: JSON.stringify({ email, password }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ error: 'Login failed' }));
+      return {
+        success: false,
+        error: errorData.error || 'Invalid email or password',
+      };
+    }
+
+    const data = await response.json();
+    const user = data.user;
+
+    // Build UserProfile from API response
+    const profile: UserProfile = {
+      id: user.id,
+      displayName: user.displayName,
+      email: user.email,
+      role: user.role as Role,
+      defaultTenantId: user.tenantId,
+      assignedMarketIds: user.assignedMarketIds,
     };
-  }
 
-  // Validate tenant selection based on role
-  if (profile.role === Role.SUPERADMIN) {
-    // Superadmin doesn't need tenant selection but we set a default to prevent auto-selection issues
-    // Get the first active tenant as default
-    const activeTenants = getActiveTenants();
-    const defaultTenantId = activeTenants.length > 0 ? activeTenants[0].id : null;
+    // Determine default tenant and market based on user role
+    let selectedTenantId: string | null = null;
+    let selectedMarketIds: string[] | undefined = undefined;
 
-    // Also set default market for the tenant
-    const defaultMarkets = defaultTenantId ? getMarketsByTenant(defaultTenantId) : [];
-    const defaultMarketId = defaultMarkets.length > 0 ? defaultMarkets[0].id : undefined;
+    if (profile.role === Role.SUPERADMIN) {
+      // Superadmin: Set first active tenant as default
+      const activeTenants = getActiveTenants();
+      selectedTenantId = activeTenants.length > 0 ? activeTenants[0].id : null;
 
+      if (selectedTenantId) {
+        const markets = getMarketsByTenant(selectedTenantId);
+        selectedMarketIds = markets.length > 0 ? [markets[0].id] : undefined;
+      }
+    } else {
+      // Tenant Admin or User: Use their assigned tenant
+      selectedTenantId = profile.defaultTenantId;
+
+      if (selectedTenantId) {
+        if (profile.role === Role.TENANT_ADMIN) {
+          // Tenant admin: Use first market of their tenant
+          const markets = getMarketsByTenant(selectedTenantId);
+          selectedMarketIds = markets.length > 0 ? [markets[0].id] : undefined;
+        } else {
+          // Tenant user: Use their assigned markets
+          selectedMarketIds = profile.assignedMarketIds || undefined;
+        }
+      }
+    }
+
+    // Create session
     const session: UserSession = {
       profile,
-      selectedTenantId: defaultTenantId,
-      selectedMarketIds: defaultMarketId ? [defaultMarketId] : undefined,
+      selectedTenantId,
+      selectedMarketIds,
       createdAt: new Date().toISOString(),
     };
+
     return {
       success: true,
       session,
     };
-  }
-
-  // Non-superadmin roles require tenant selection
-  if (!tenantId) {
+  } catch (error) {
+    console.error('Login error:', error);
     return {
       success: false,
-      error: 'Tenant selection is required for this role',
+      error: 'Network error. Please check your connection and try again.',
     };
   }
-
-  // Validate tenant exists
-  const tenant = getTenantById(tenantId);
-  if (!tenant) {
-    return {
-      success: false,
-      error: 'Invalid tenant selected',
-    };
-  }
-
-  // Validate tenant is active
-  if (tenant.status !== 'active') {
-    return {
-      success: false,
-      error: 'Selected tenant is not active',
-    };
-  }
-
-  // Get default market for the tenant
-  const tenantMarkets = getMarketsByTenant(tenantId);
-  const defaultMarketId = tenantMarkets.length > 0 ? tenantMarkets[0].id : undefined;
-
-  // Create session for tenant-scoped user
-  const session: UserSession = {
-    profile,
-    selectedTenantId: tenantId,
-    selectedMarketIds: defaultMarketId ? [defaultMarketId] : undefined,
-    createdAt: new Date().toISOString(),
-  };
-
-  return {
-    success: true,
-    session,
-  };
 }
 
 /**
- * Logs out the current user
- * (Client-side only for MVP - no server-side session to invalidate)
+ * Logs out the current user and clears the httpOnly cookie
  */
 export async function logout(): Promise<void> {
-  // In production, this would call a server endpoint to invalidate the session
-  // For MVP with hardcoded profiles, this is client-side only
-  return Promise.resolve();
-}
-
-/**
- * Validates if a profile requires tenant selection
- *
- * @param profile - User profile to check
- * @returns True if tenant selection is required
- */
-export function requiresTenantSelection(profile: UserProfile): boolean {
-  return profile.role !== Role.SUPERADMIN;
+  try {
+    await fetch(`${API_BASE_URL}/auth/logout`, {
+      method: 'POST',
+      credentials: 'include', // Important: Include cookies
+    });
+  } catch (error) {
+    console.error('Logout error:', error);
+    // Even if API call fails, we'll clear client-side state
+  }
 }
 
 /**

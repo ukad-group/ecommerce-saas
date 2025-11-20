@@ -108,14 +108,26 @@ export class ApiClient {
       delete headers['Content-Type'];
     }
 
-    // Make request
+    // Make request (include credentials for httpOnly cookies)
     const response = await fetch(url, {
       ...options,
       headers,
+      credentials: 'include', // Important: Send cookies with every request
     });
 
     // Handle non-OK responses
     if (!response.ok) {
+      // Handle 401 Unauthorized - clear session and redirect to login
+      if (response.status === 401) {
+        const { useAuthStore } = await import('../../store/authStore');
+        useAuthStore.getState().clearSession();
+
+        // Only redirect if not already on login page
+        if (!window.location.pathname.includes('/login')) {
+          window.location.href = '/login';
+        }
+      }
+
       let errorData: ApiError;
       try {
         errorData = await response.json();

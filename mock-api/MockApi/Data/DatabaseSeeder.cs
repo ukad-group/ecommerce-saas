@@ -15,6 +15,52 @@ public static class DatabaseSeeder
             return; // Database already has data
         }
 
+        // Seed Users (before tenants, as we'll reference tenant IDs)
+        // Password for all test users: "password123" (hashed with BCrypt)
+        var users = new[]
+        {
+            new User
+            {
+                Id = "user-1",
+                Email = "admin@platform.com",
+                DisplayName = "Super Admin",
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword("password123"),
+                Role = "SUPERADMIN",
+                TenantId = null, // Superadmin has access to all tenants
+                AssignedMarketIds = null,
+                IsActive = true,
+                CreatedAt = new DateTime(2024, 1, 1),
+                CreatedBy = "system"
+            },
+            new User
+            {
+                Id = "user-2",
+                Email = "admin@demostore.com",
+                DisplayName = "Admin (Demo Store)",
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword("password123"),
+                Role = "TENANT_ADMIN",
+                TenantId = "tenant-a",
+                AssignedMarketIds = null, // Tenant admin has access to all markets in tenant
+                IsActive = true,
+                CreatedAt = new DateTime(2024, 1, 1),
+                CreatedBy = "system"
+            },
+            new User
+            {
+                Id = "user-3",
+                Email = "catalog@demostore.com",
+                DisplayName = "Catalog Manager (Demo Store)",
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword("password123"),
+                Role = "TENANT_USER",
+                TenantId = "tenant-a",
+                AssignedMarketIds = new List<string> { "market-1" },
+                IsActive = true,
+                CreatedAt = new DateTime(2024, 1, 1),
+                CreatedBy = "system"
+            }
+        };
+        context.Users.AddRange(users);
+
         // Seed Tenants
         var tenants = new[]
         {

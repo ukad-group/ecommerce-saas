@@ -1,9 +1,11 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using MockApi.Data;
 using MockApi.Models;
 
 namespace MockApi.Controllers;
 
+[Authorize] // Require authentication for all product endpoints
 [ApiController]
 [Route("api/v1/[controller]")]
 public class ProductsController : ControllerBase

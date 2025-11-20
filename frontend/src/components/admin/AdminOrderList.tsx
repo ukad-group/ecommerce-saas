@@ -68,8 +68,13 @@ export function AdminOrderList({ orders }: AdminOrderListProps) {
               <td className="px-6 py-4 whitespace-nowrap">
                 <OrderStatusBadge status={order.status} />
               </td>
-              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                {order.lineItems?.length || 0} items
+              <td className="px-6 py-4 text-sm text-gray-500">
+                <div className="flex flex-col">
+                  <span>{order.lineItems?.length || 0} SKU{order.lineItems?.length !== 1 ? 's' : ''}</span>
+                  <span className="text-gray-400">
+                    {order.lineItems?.reduce((sum, item) => sum + item.quantity, 0) || 0} item{order.lineItems?.reduce((sum, item) => sum + item.quantity, 0) !== 1 ? 's' : ''}
+                  </span>
+                </div>
               </td>
               <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                 {formatCurrency(order.total, order.currency)}

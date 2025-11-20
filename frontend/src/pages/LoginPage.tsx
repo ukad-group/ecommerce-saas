@@ -1,45 +1,36 @@
 /**
  * LoginPage Component
  *
- * Admin login page with profile selector and conditional tenant selector
- * Uses hardcoded profiles for MVP (development/staging only)
+ * Admin login page with email/password authentication
+ * Supports JWT authentication with httpOnly cookies
  */
 
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ProfileSelector } from '../components/auth/ProfileSelector';
-import { TenantSelector } from '../components/auth/TenantSelector';
 import { useAuthStore } from '../store/authStore';
-import { login, requiresTenantSelection } from '../services/auth/authService';
-import { getProfileById } from '../data/profiles';
-import type { UserProfile } from '../types/auth';
+import { login } from '../services/auth/authService';
 
 /**
  * Admin login page
- * Allows selection of hardcoded profile and tenant (if required)
+ * Email/password authentication with backend API
  */
 export function LoginPage() {
   const navigate = useNavigate();
   const setSession = useAuthStore((state) => state.setSession);
 
-  const [selectedProfileId, setSelectedProfileId] = useState<string>('');
-  const [selectedTenantId, setSelectedTenantId] = useState<string>('');
+  const [email, setEmail] = useState<string>('admin@platform.com');
+  const [password, setPassword] = useState<string>('password123'); // Pre-filled for testing
   const [error, setError] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
-
-  // Get selected profile to check if tenant selection is needed
-  const selectedProfile: UserProfile | undefined = selectedProfileId
-    ? getProfileById(selectedProfileId)
-    : undefined;
-
-  const showTenantSelector = selectedProfile && requiresTenantSelection(selectedProfile);
 
   /**
    * Handle login submission
    */
-  const handleLogin = async () => {
-    if (!selectedProfileId) {
-      setError('Please select a profile');
+  const handleLogin = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+
+    if (!email || !password) {
+      setError('Please enter both email and password');
       return;
     }
 
@@ -47,10 +38,7 @@ export function LoginPage() {
     setIsLoading(true);
 
     try {
-      const response = await login({
-        profileId: selectedProfileId,
-        tenantId: selectedTenantId || undefined,
-      });
+      const response = await login({ email, password });
 
       if (response.success && response.session) {
         setSession(response.session);
@@ -66,24 +54,6 @@ export function LoginPage() {
     }
   };
 
-  /**
-   * Handle profile selection change
-   */
-  const handleProfileChange = (profileId: string) => {
-    setSelectedProfileId(profileId);
-    setSelectedTenantId(''); // Reset tenant selection when profile changes
-    setError('');
-  };
-
-  /**
-   * Handle Enter key press
-   */
-  const handleKeyPress = (event: React.KeyboardEvent) => {
-    if (event.key === 'Enter') {
-      handleLogin();
-    }
-  };
-
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
@@ -91,37 +61,52 @@ export function LoginPage() {
           Admin Login
         </h2>
         <p className="mt-2 text-center text-sm text-gray-600">
-          Select a profile to access the admin panel
+          Sign in to access the admin panel
         </p>
       </div>
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
         <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
-          <div className="space-y-6" onKeyPress={handleKeyPress}>
-            {/* Profile Selector */}
+          <form className="space-y-6" onSubmit={handleLogin}>
+            {/* Email Input */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Select Profile
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+                Email
               </label>
-              <ProfileSelector
-                selectedProfileId={selectedProfileId}
-                onProfileChange={handleProfileChange}
-              />
-            </div>
-
-            {/* Tenant Selector (conditional) */}
-            {showTenantSelector && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Select Tenant
-                </label>
-                <TenantSelector
-                  profileId={selectedProfileId}
-                  selectedTenantId={selectedTenantId}
-                  onTenantChange={setSelectedTenantId}
+              <div className="mt-1">
+                <input
+                  id="email"
+                  name="email"
+                  type="email"
+                  autoComplete="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                  placeholder="admin@platform.com"
                 />
               </div>
-            )}
+            </div>
+
+            {/* Password Input */}
+            <div>
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+                Password
+              </label>
+              <div className="mt-1">
+                <input
+                  id="password"
+                  name="password"
+                  type="password"
+                  autoComplete="current-password"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                  placeholder="••••••••"
+                />
+              </div>
+            </div>
 
             {/* Error Message */}
             {error && (
@@ -150,15 +135,14 @@ export function LoginPage() {
             {/* Login Button */}
             <div>
               <button
-                type="button"
-                onClick={handleLogin}
-                disabled={isLoading || !selectedProfileId}
+                type="submit"
+                disabled={isLoading}
                 className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-gray-300 disabled:cursor-not-allowed"
               >
                 {isLoading ? 'Logging in...' : 'Login'}
               </button>
             </div>
-          </div>
+          </form>
 
           {/* Development Notice */}
           <div className="mt-6">
@@ -167,14 +151,15 @@ export function LoginPage() {
                 <div className="w-full border-t border-gray-300" />
               </div>
               <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-white text-gray-500">Development Mode</span>
+                <span className="px-2 bg-white text-gray-500">Test Accounts</span>
               </div>
             </div>
-            <p className="mt-3 text-xs text-center text-gray-500">
-              This uses hardcoded profiles for development.
-              <br />
-              Production will use real authentication.
-            </p>
+            <div className="mt-3 space-y-1 text-xs text-gray-500">
+              <p className="font-medium">All test users: password123</p>
+              <p>• admin@platform.com (Superadmin)</p>
+              <p>• admin@demostore.com (Tenant Admin)</p>
+              <p>• catalog@demostore.com (Catalog Manager)</p>
+            </div>
           </div>
         </div>
       </div>

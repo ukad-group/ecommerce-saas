@@ -11,22 +11,54 @@ Before running tests:
 
 ## Test User Credentials
 
+All test users have password: `password123` (pre-filled in login form)
+
 ### Super Admin
-- **Login**: Select "Super Admin" profile
+- **Email**: `admin@platform.com`
+- **Password**: `password123`
 - **Access**: All tenants, all markets
 - **Test URLs**: All admin routes
 
 ### Admin (Demo Store)
-- **Login**: Select "Admin (Demo Store)" profile
+- **Email**: `admin@demostore.com`
+- **Password**: `password123`
 - **Access**: tenant-a only
 - **Test URLs**: All admin routes except `/admin/tenants`
 
 ### Catalog Manager (Demo Store)
-- **Login**: Select "Catalog Manager (Demo Store)" profile
+- **Email**: `catalog@demostore.com`
+- **Password**: `password123`
 - **Access**: tenant-a, limited permissions
 - **Test URLs**: `/admin/products`, `/admin/categories`
 
 ## Happy Path Scenarios
+
+### 0. Authentication Flow (Admin UI)
+
+**Test ID**: `AUTH-001`
+**User**: Super Admin
+**Steps**:
+1. Navigate to `http://localhost:5173/login`
+2. Verify login form displays with:
+   - Email input field
+   - Password input field (pre-filled with "password123")
+   - Login button
+   - Test accounts information
+3. Enter email: `admin@platform.com`
+4. Click "Login" button
+5. Verify redirect to `/admin` (dashboard)
+6. Verify user info displayed in header:
+   - Display name: "Super Admin"
+   - Role badge: "Superadmin" with purple background
+7. Verify navigation menu accessible
+8. Click "Logout" button
+9. Verify redirect to `/login`
+10. Try to access `/admin/products` directly
+11. Verify auto-redirect to `/login` (unauthorized)
+
+**Expected**: Complete authentication flow works with JWT cookies
+
+---
 
 ### 1. Product Management (Admin UI)
 

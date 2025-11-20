@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using MockApi.Data;
 using MockApi.Models;
@@ -8,6 +9,7 @@ namespace MockApi.Controllers;
 /// <summary>
 /// API controller for managing order status definitions per tenant
 /// </summary>
+[Authorize(Policy = "AdminOnly")]
 [ApiController]
 [Route("api/v1/order-statuses")]
 public class OrderStatusController : ControllerBase

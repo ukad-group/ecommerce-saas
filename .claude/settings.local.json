@@ -20,7 +20,10 @@
       "Bash(dotnet build)",
       "Bash(dotnet run)",
       "Bash(timeout:*)",
-      "Bash(npm run type-check:*)"
+      "Bash(npm run type-check:*)",
+      "Bash(npx @playwright/mcp-cli@latest browser navigate:*)",
+      "Bash(dotnet ef migrations:*)",
+      "Bash(./setup-and-test-cart.bat)"
     ],
     "deny": [],
     "ask": []

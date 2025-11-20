@@ -20,7 +20,7 @@ interface AuthState {
   // Actions
   setSession: (session: UserSession) => void;
   clearSession: () => void;
-  logout: () => void;
+  logout: () => Promise<void>;
   setTenant: (tenantId: string) => void;
   setMarket: (marketId: string) => void;
 
@@ -103,9 +103,22 @@ export const useAuthStore = create<AuthState>()(
 
       /**
        * Logs out and clears session
+       * Calls backend to clear httpOnly cookie
        * Note: Redirect to /login should be handled by the component calling this
        */
-      logout: () => {
+      logout: async () => {
+        try {
+          // Call backend logout API to clear httpOnly cookie
+          await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5180/api/v1'}/auth/logout`, {
+            method: 'POST',
+            credentials: 'include',
+          });
+        } catch (error) {
+          console.error('Logout API error:', error);
+          // Continue with client-side logout even if API call fails
+        }
+
+        // Clear client-side session
         get().clearSession();
       },
 
