@@ -160,8 +160,35 @@ export function ApiKeysPage() {
         </div>
       </div>
 
+      {/* API Configuration Info */}
+      <div className="mt-6 rounded-md bg-blue-50 p-4">
+        <div className="flex">
+          <div className="flex-shrink-0">
+            <KeyIcon className="h-5 w-5 text-blue-400" aria-hidden="true" />
+          </div>
+          <div className="ml-3 flex-1">
+            <h3 className="text-sm font-medium text-blue-800">API Configuration</h3>
+            <div className="mt-2 text-sm text-blue-700 space-y-2">
+              <div>
+                <span className="font-semibold">Base URL:</span>
+                <span className="ml-2 font-mono">{import.meta.env.VITE_API_BASE_URL}</span>
+              </div>
+              <div>
+                <span className="font-semibold">Tenant ID:</span>
+                <span className="ml-2 font-mono">{market?.tenantId || 'Loading...'}</span>
+              </div>
+              <div>
+                <span className="font-semibold">Market ID:</span>
+                <span className="ml-2 font-mono">{marketId}</span>
+              </div>
+              <p className="mt-2 text-xs">Use these values to configure external integrations with your API keys.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Security warning */}
-      <div className="mt-6 rounded-md bg-yellow-50 p-4">
+      <div className="mt-4 rounded-md bg-yellow-50 p-4">
         <div className="flex">
           <div className="flex-shrink-0">
             <ExclamationTriangleIcon className="h-5 w-5 text-yellow-400" aria-hidden="true" />

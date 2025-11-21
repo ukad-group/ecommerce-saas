@@ -8,6 +8,7 @@ Headless eCommerce SaaS platform with multi-tenant, market-based architecture.
 1. **Admin Backoffice** (frontend/) - React admin UI
 2. **Mock API** (mock-api/) - ASP.NET Core Web API
 3. **Showcase Website** (showcase-dotnet/) - ASP.NET MVC demo storefront
+4. **Umbraco Integration** (umbraco/) - CMS plugin for content management (planned)
 
 **Data Hierarchy**:
 ```
@@ -161,6 +162,7 @@ dotnet run
 /frontend/           # React admin (see frontend/CLAUDE.md)
 /mock-api/           # .NET Mock API (see mock-api/CLAUDE.md)
 /showcase-dotnet/    # Demo storefront (see showcase-dotnet/CLAUDE.md)
+/umbraco/            # Umbraco CMS plugin (see umbraco/CLAUDE.md)
 ```
 
 ## Slash Commands
@@ -245,6 +247,7 @@ Load specific context when working on features:
 - **[frontend/CLAUDE.md](frontend/CLAUDE.md)** - Frontend-specific guide
 - **[mock-api/CLAUDE.md](mock-api/CLAUDE.md)** - Mock API backend guide
 - **[showcase-dotnet/CLAUDE.md](showcase-dotnet/CLAUDE.md)** - Showcase-specific guide
+- **[umbraco/CLAUDE.md](umbraco/CLAUDE.md)** - Umbraco CMS plugin architecture and planning
 
 ## Git Workflow
 
@@ -255,5 +258,5 @@ Load specific context when working on features:
 
 ---
 
-**Last Updated**: 2025-11-12
+**Last Updated**: 2025-11-21
 **Status**: Active Development - MVP Phase
