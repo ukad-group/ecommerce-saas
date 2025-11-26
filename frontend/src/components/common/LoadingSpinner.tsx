@@ -4,8 +4,6 @@
  * Simple loading spinner with customizable size
  */
 
-import React from 'react';
-
 export interface LoadingSpinnerProps {
   size?: 'sm' | 'md' | 'lg';
   className?: string;

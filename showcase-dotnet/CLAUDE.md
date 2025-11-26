@@ -84,7 +84,7 @@ dotnet run
          |
          | HTTP/REST + API Key
          v
-[.NET Mock API :5180]
+[.NET API Backend :5180]
          |
          v
 [In-Memory Data Store]
@@ -208,14 +208,14 @@ if (string.IsNullOrEmpty(cartId))
 - **API Key authentication**: Market-scoped key in header
 - **Session-based cart**: Cart ID persists in session
 - **Fake checkout**: Auto-submits and auto-pays orders
-- **Mock API dependency**: Requires mock-api running on port 5180
+- **API dependency**: Requires API backend running on port 5180
 - **No real payments**: Demo purposes only
 - **Image optimization**: Uses resize endpoint with automatic caching (150px thumbnails, 300px cards, 600px details)
 - **ImageHelper**: Static helper class for generating resized image URLs
 
 ## Troubleshooting
 
-**No products showing**: Check mock-api is running on port 5180
+**No products showing**: Check API backend is running on port 5180
 
 **Cart not persisting**: Verify session is enabled in Program.cs
 

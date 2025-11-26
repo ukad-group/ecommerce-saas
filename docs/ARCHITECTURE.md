@@ -10,7 +10,7 @@
 - Forms: React Hook Form
 - Port: http://localhost:5173
 
-### Mock API (mock-api/)
+### API Backend (api/)
 - ASP.NET Core 9.0 Web API + C# 12
 - **SQLite database with Entity Framework Core** (persistent storage)
 - Factory pattern for thread-safe DbContext access
@@ -64,7 +64,7 @@ Tenant (Business Entity - e.g., Retail Chain)
 
 ## API Integration Pattern
 
-**Frontend → Mock API**:
+**Frontend → API**:
 ```typescript
 // Headers on every request
 {
@@ -74,7 +74,7 @@ Tenant (Business Entity - e.g., Retail Chain)
 }
 ```
 
-**Showcase → Mock API**:
+**Showcase → API**:
 ```csharp
 // API Key in header
 {
@@ -98,7 +98,7 @@ Tenant (Business Entity - e.g., Retail Chain)
     /services/       # API clients + TanStack Query hooks
     /store/          # Zustand state (auth, cart)
     /types/          # TypeScript interfaces
-/mock-api/           # .NET Mock API
+/api/                # .NET API Backend
 /showcase-dotnet/    # Demo storefront
 ```
 
@@ -107,13 +107,13 @@ Tenant (Business Entity - e.g., Retail Chain)
 When ready:
 1. Keep frontend `.env.local` with `VITE_USE_MOCKS=false`
 2. Update `VITE_API_BASE_URL` to production URL
-3. Replace mock-api with real .NET backend (same contracts)
+3. Replace SQLite with SQLServer for production
 4. Add SQLServer, OAuth2, Redis, etc.
 5. Test all flows against production API
 
 ## Why These Choices?
 
-**Why .NET Mock API vs MSW?**
+**Why .NET API Backend vs MSW?**
 - Real HTTP calls (visible in Network tab)
 - Cross-platform (admin + showcase both use it)
 - Same stack as production backend

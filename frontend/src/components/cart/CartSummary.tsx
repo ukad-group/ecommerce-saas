@@ -4,7 +4,6 @@
  * Displays order totals including subtotal, tax, shipping, and total.
  */
 
-import React from 'react';
 import type { Order } from '../../types/order';
 import { formatCurrency } from '../../utils/currency';
 

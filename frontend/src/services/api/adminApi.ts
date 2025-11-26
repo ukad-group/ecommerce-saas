@@ -127,11 +127,11 @@ export async function exportOrders(
   const endpoint = `/admin/orders/export${query ? `?${query}` : ''}`;
 
   // This would typically return a blob for file download
-  // For now, returning as a simple fetch call
-  const response = await fetch(`${apiClient['baseURL']}${endpoint}`, {
-    headers: {
-      'X-Tenant-ID': apiClient['tenantId'],
-    },
+  // For now, returning as a simple fetch call using the apiClient's get method
+  // Note: In production, this should use a proper blob download method
+  const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api';
+  const response = await fetch(`${baseURL}${endpoint}`, {
+    credentials: 'include',
   });
 
   return response.blob();

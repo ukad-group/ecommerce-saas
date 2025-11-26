@@ -1,12 +1,14 @@
-# eCommerce SaaS MVP - Quick Start Guide
+# eCommerce SaaS Platform - Developer Guide
+
+> This file provides context for AI assistants (like Claude) and developers working on the codebase.
 
 ## Project Overview
 
-Headless eCommerce SaaS platform with multi-tenant, market-based architecture.
+Open-source headless eCommerce platform with multi-tenant, market-based architecture. Licensed under Apache 2.0 - free to use, modify, and build upon.
 
 **Components**:
 1. **Admin Backoffice** (frontend/) - React admin UI
-2. **Mock API** (mock-api/) - ASP.NET Core Web API
+2. **API Backend** (api/) - ASP.NET Core Web API
 3. **Showcase Website** (showcase-dotnet/) - ASP.NET MVC demo storefront
 4. **Umbraco Integration** (umbraco/) - CMS plugin for content management (planned)
 
@@ -23,24 +25,22 @@ Tenant (Business Entity)
 ## Tech Stack
 
 - **Admin**: React 18 + TypeScript + Vite + TanStack Query + Zustand
-- **Mock API**: ASP.NET Core 9.0 + SQLite + EF Core (port 5180)
+- **API**: ASP.NET Core 9.0 + SQLite + EF Core (port 5180)
 - **Showcase**: ASP.NET MVC (port 5025)
-- **Production** (future): .NET 8+ + SQLServer + OAuth2 + Redis
+- **Production-ready**: Swap SQLite for SQLServer when scaling
 
 ## Core Principles
 
 1. **API-First**: Define contracts before implementation
-2. **Mock-First**: UI validated against mocks before backend work
-3. **YAGNI**: Only build what's explicitly requested
-4. **TDD**: Write tests first, then code
-5. **Keep It Simple**: Prefer simple over clever
-6. **Multi-Tenant**: Data isolation at tenant and market level
+2. **YAGNI**: Only build what's explicitly requested
+3. **Keep It Simple**: Prefer simple over clever
+4. **Multi-Tenant**: Data isolation at tenant and market level
 
 ## Running the Application
 
-### 1. Mock API (Required)
+### 1. API Backend (Required)
 ```bash
-cd mock-api/MockApi
+cd api/EComm.Api
 dotnet run
 # http://localhost:5180
 ```
@@ -69,7 +69,7 @@ dotnet run
 
 ## Current Features
 
-### ✅ Product Catalog
+### Product Catalog
 - CRUD operations with **versioning** (full history tracked)
 - Multiple image upload with drag-and-drop reordering
 - Image gallery on showcase with thumbnail navigation
@@ -78,39 +78,34 @@ dotnet run
 - Market-scoped catalogs
 - **Use `/ctx-products` for details**
 
-### ✅ Orders & Cart
+### Orders & Cart
 - Shopping cart (add/update/remove)
 - Admin order dashboard with filters
 - Custom order status management (tenant-scoped, custom colors)
 - **Missing**: Checkout UI, cart persistence
 - **Use `/ctx-orders` for details**
 
-### ✅ Role-Based Access
+### Role-Based Access
 - Three roles: Superadmin, Tenant Admin, Tenant User
-- Hardcoded profiles (no real auth)
+- JWT authentication with httpOnly cookies
 - Protected routes
-- **Missing**: Full tenant admin/user login flows
 - **Use `/ctx-rbac` for details**
 
-### ✅ Tenants & Markets
+### Tenants & Markets
 - Tenant CRUD (superadmin only)
 - Market CRUD within tenant
 - API key generation per market
 - **Use `/ctx-tenants` for details**
 
-## Mock Data
+## Test Users
 
-**Users** (Login credentials):
-- **Super Admin** → All tenants, all markets
-- **Admin (Demo Store)** → tenant-a only
-- **Catalog Manager (Demo Store)** → tenant-a, limited permissions
+| Email | Password | Role | Access |
+|-------|----------|------|--------|
+| admin@platform.com | password123 | Superadmin | All tenants |
+| admin@demostore.com | password123 | Tenant Admin | tenant-a only |
+| catalog@demostore.com | password123 | Catalog Manager | tenant-a, limited |
 
-**Tenants**:
-- **Tenant A** (tenant-a) - 3 markets
-- **Tenant B** (tenant-b) - 2 markets
-- **Tenant C** (tenant-c) - 2 markets
-
-**Data**: 12 products, 5 categories, 6 orders, 9 API keys (persists in SQLite database)
+**Seed Data**: 3 tenants, 7 markets, 12 products, 5 categories, 6 orders, 9 API keys
 
 ## Routes
 
@@ -151,16 +146,15 @@ dotnet run
 /docs/               # Reference documentation
   STATUS.md          # Implementation status - what works, what's missing
   ARCHITECTURE.md    # Tech stack, data models, design decisions
-  DEVELOPMENT.md     # Workflow, coding standards, troubleshooting, spec template
+  DEVELOPMENT.md     # Workflow, coding standards, troubleshooting
   TEST-SCENARIOS.md  # Automated test scenarios for Playwright MCP
 /.claude/commands/   # Slash commands for context loading
   ctx-products.md    # Product catalog context
   ctx-orders.md      # Orders & cart context
   ctx-rbac.md        # RBAC context
   ctx-tenants.md     # Tenants & markets context
-/.mcp.json           # Playwright MCP configuration for automated testing
 /frontend/           # React admin (see frontend/CLAUDE.md)
-/mock-api/           # .NET Mock API (see mock-api/CLAUDE.md)
+/api/                # .NET API Backend (see api/CLAUDE.md)
 /showcase-dotnet/    # Demo storefront (see showcase-dotnet/CLAUDE.md)
 /umbraco/            # Umbraco CMS plugin (see umbraco/CLAUDE.md)
 ```
@@ -179,10 +173,8 @@ Load specific context when working on features:
 ### For New Features
 1. Most features: just start coding (YAGNI)
 2. Complex features: create minimal spec (see `docs/DEVELOPMENT.md` template)
-3. Implement UI against mock API first
-4. **Run happy path tests** using Playwright MCP (see below)
-5. Update `docs/STATUS.md` when done
-6. Delete spec if created (keep repo clean)
+3. Implement UI against API first
+4. Update `docs/STATUS.md` when done
 
 ### For Bug Fixes
 1. Write failing test
@@ -195,39 +187,24 @@ Load specific context when working on features:
 
 **Test Scenarios**: See [docs/TEST-SCENARIOS.md](docs/TEST-SCENARIOS.md) for all happy path tests.
 
-**How it works**:
-- When implementing features, I can use Playwright MCP to automatically test the UI
-- Tests run in Microsoft Edge with vision capabilities enabled
-- Validates happy paths to ensure features work end-to-end
-- Test scenarios cover: products, categories, orders, cart, checkout, images, tenants, and RBAC
-
-**Manual Testing**: You can also run tests manually or ask me to validate specific scenarios.
-
 ## Common Tasks
 
-**Add product field**: Update Product type → ProductForm → mock API → backend
+**Add product field**: Update Product type → ProductForm → API model → frontend
 **Manage order statuses**: Go to `/admin/order-statuses` to add/edit/delete custom statuses
 **Add permission**: Check authStore.user.role → conditional UI → route protection
-**Add tenant/market**: Update types → forms → mock API → backend
-**Reset database**: Delete `mock-api/MockApi/ecomm.db` file and restart API
+**Add tenant/market**: Update types → forms → API → frontend
+**Reset database**: Delete `api/EComm.Api/ecomm.db` file and restart API
 
-## Current Limitations
+## Scaling to Production
 
-- **SQLite database**: Development-grade persistence (production will use SQLServer)
-- **Hardcoded auth**: No real authentication system
-- **No payments**: Simulated only (auto-pays)
-- **No emails**: Not implemented
-
-## Next Steps
-
-1. **Complete RBAC**: Finish tenant admin/user login flows
-2. **Checkout UI**: Build checkout forms (API ready)
-3. **Cart Persistence**: Add localStorage for guest carts
-4. **Production Backend**: .NET + SQLServer + OAuth2
+1. **Database**: Swap SQLite for SQLServer (EF Core makes this easy)
+2. **Authentication**: Add OAuth2/OIDC
+3. **Caching**: Add Redis
+4. **Deployment**: Docker/Kubernetes
 
 ## Troubleshooting
 
-**Mock API not responding**: Check it's running on port 5180
+**API not responding**: Check it's running on port 5180
 
 **Frontend can't connect**: Verify VITE_API_BASE_URL in .env.local
 
@@ -235,7 +212,7 @@ Load specific context when working on features:
 
 **TypeScript errors**: Run `npm run type-check` in frontend
 
-**Database issues**: Delete `mock-api/MockApi/ecomm.db` file and restart API to reset
+**Database issues**: Delete `api/EComm.Api/ecomm.db` file and restart API to reset
 
 ## Documentation
 
@@ -245,7 +222,7 @@ Load specific context when working on features:
 - **[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)** - Coding standards and workflow
 - **[docs/TEST-SCENARIOS.md](docs/TEST-SCENARIOS.md)** - Automated test scenarios for Playwright MCP
 - **[frontend/CLAUDE.md](frontend/CLAUDE.md)** - Frontend-specific guide
-- **[mock-api/CLAUDE.md](mock-api/CLAUDE.md)** - Mock API backend guide
+- **[api/CLAUDE.md](api/CLAUDE.md)** - API backend guide
 - **[showcase-dotnet/CLAUDE.md](showcase-dotnet/CLAUDE.md)** - Showcase-specific guide
 - **[umbraco/CLAUDE.md](umbraco/CLAUDE.md)** - Umbraco CMS plugin architecture and planning
 
@@ -256,7 +233,12 @@ Load specific context when working on features:
 - No direct commits to main
 - PR requires review and passing tests
 
+## License
+
+This project is licensed under the **Apache License 2.0**. You are free to use, modify, and distribute this code. See [LICENSE](LICENSE) for details.
+
 ---
 
-**Last Updated**: 2025-11-21
-**Status**: Active Development - MVP Phase
+**Last Updated**: 2025-11-26
+**Status**: Open Source Release
+**Built by**: [UKAD](https://ukad-group.com)

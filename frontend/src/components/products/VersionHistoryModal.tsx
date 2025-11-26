@@ -25,8 +25,9 @@ export function VersionHistoryModal({
   onClose,
   productId,
   productName,
-  currentVersion,
+  currentVersion: _currentVersion,
 }: VersionHistoryModalProps) {
+  void _currentVersion; // Reserved for future enhancements
   const [selectedVersion, setSelectedVersion] = useState<Product | null>(null);
   const queryClient = useQueryClient();
 

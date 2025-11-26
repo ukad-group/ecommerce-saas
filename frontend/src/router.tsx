@@ -4,7 +4,7 @@
  * Defines application routes and navigation structure.
  */
 
-import { createBrowserRouter, Navigate } from 'react-router-dom';
+import { createBrowserRouter } from 'react-router-dom';
 import { Layout } from './components/layout/Layout';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { RootRedirect } from './components/auth/RootRedirect';

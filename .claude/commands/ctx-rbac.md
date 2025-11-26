@@ -125,7 +125,7 @@ const filteredData = user.role === 'superadmin'
 
 ### Important Notes
 - **Hardcoded auth**: No real passwords, just profile selection
-- **No API auth**: Mock API doesn't validate tokens
+- **No API auth**: API doesn't validate tokens (prototype)
 - **Headers sent**: `X-Tenant-ID` and `X-Market-ID` sent but not always enforced
 - **Future**: Replace with OAuth2/OIDC
 

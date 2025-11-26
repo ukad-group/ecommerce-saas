@@ -7,7 +7,6 @@
 
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
-import { getTenantById } from '../../data/tenants';
 import { Role } from '../../types/auth';
 
 /**
@@ -46,9 +45,10 @@ export function UserInfo() {
     return null;
   }
 
-  const { profile, selectedTenantId } = session;
+  const { profile, selectedTenantId: _selectedTenantId } = session;
   const roleBadge = ROLE_BADGES[profile.role];
-  const tenant = selectedTenantId ? getTenantById(selectedTenantId) : null;
+  // Tenant lookup reserved for future use
+  void _selectedTenantId;
 
   const handleLogout = async () => {
     await logout();

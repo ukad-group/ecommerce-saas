@@ -2,9 +2,9 @@
 
 ## Running the Application
 
-### 1. Mock API (Required)
+### 1. API Backend (Required)
 ```bash
-cd mock-api/MockApi
+cd api/EComm.Api
 dotnet run
 # http://localhost:5180
 ```
@@ -144,19 +144,19 @@ npm run type-check     # TypeScript check
 
 **Backend**:
 ```bash
-cd mock-api/MockApi
+cd api/EComm.Api
 dotnet test
 ```
 
 ## Troubleshooting
 
-**Mock API not responding**:
+**API not responding**:
 - Check it's running on port 5180
 - Verify CORS enabled in Program.cs
 
 **Frontend can't connect**:
 - Verify VITE_API_BASE_URL in .env.local
-- Ensure mock-api is running first
+- Ensure API backend is running first
 - Check browser console for CORS errors
 
 **Auth not working**:

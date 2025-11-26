@@ -144,7 +144,7 @@ Tenant C (Sample Corp) - tenant-c
 - **Security**: Keys hashed in DB, only last 4 chars stored for display
 
 ### Common Tasks
-**Add tenant field**: Update Tenant type → TenantForm → API mock
+**Add tenant field**: Update Tenant type → TenantForm → API
 **Change market display**: Edit MarketList component
-**Modify API key generation**: Check ApiKeysController in mock-api
+**Modify API key generation**: Check ApiKeysController in api
 **Add tenant filter**: Update TenantsPage filters

@@ -4,7 +4,6 @@
  * Full shopping cart page with cart items, summary, and checkout button.
  */
 
-import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCart } from '../services/hooks/useCart';
 import { useUpdateCartItem } from '../services/hooks/useUpdateCartItem';

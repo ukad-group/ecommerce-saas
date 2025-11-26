@@ -5,7 +5,7 @@ This document defines the happy path test scenarios that should be validated whe
 ## Prerequisites
 
 Before running tests:
-1. Mock API running on `http://localhost:5180`
+1. API running on `http://localhost:5180`
 2. Admin UI running on `http://localhost:5173`
 3. Showcase running on `http://localhost:5025`
 

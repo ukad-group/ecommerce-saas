@@ -6,7 +6,7 @@ A reference implementation of a customer-facing eCommerce storefront built with 
 
 ### Prerequisites
 - .NET 9.0 SDK or later
-- eCommerce SaaS Platform running at `http://localhost:5176` (with mock APIs)
+- eCommerce API running at `http://localhost:5180`
 
 ### Running the Application
 

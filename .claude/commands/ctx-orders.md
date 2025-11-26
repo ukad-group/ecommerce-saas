@@ -136,7 +136,7 @@ interface OrderStatusChange {
 - API requires `X-Market-ID` header
 
 ### Common Tasks
-**Add order field**: Update Order type → OrderDetails component → API mock
+**Add order field**: Update Order type → OrderDetails component → API
 **Manage order statuses**: Go to `/admin/order-statuses` to add/edit custom statuses
 **Add order filter**: Update AdminOrdersPage filters
 **Implement checkout**: Create CheckoutPage → multi-step form → submit order

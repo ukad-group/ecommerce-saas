@@ -92,7 +92,7 @@ interface ProductVersion {
 - All versions persist in database (composite key allows same Id, different Version)
 - **CRITICAL**: All product queries MUST filter by `IsCurrentVersion` to get the active version
 - Deleting a product removes ALL versions (not just current)
-- **Image uploads**: Stored locally at `mock-api/MockApi/uploads/{tenantId}/{marketId}/`
+- **Image uploads**: Stored locally at `api/EComm.Api/uploads/{tenantId}/{marketId}/`
 - **Images array**: First image (`Images[0]`) is ALWAYS the primary image
 - **NO legacy ImageUrl**: System uses ONLY the `Images` array (first = primary)
 - **Image reordering**: Drag images in admin - position 0 is primary
@@ -102,8 +102,8 @@ interface ProductVersion {
 - **ImageHelper**: Utility classes in showcase and frontend for generating resize URLs
 
 ### Common Tasks
-**Add new product field**: Update Product type → ProductForm → API mock → backend
+**Add new product field**: Update Product type → ProductForm → API → backend
 **Change product display**: Edit ProductList component
 **Add product filter**: Update ProductsPage filters
-**Modify version logic**: Check mock-api ProductsController + MockDataStore.cs
-**Reset database**: Delete `mock-api/MockApi/ecomm.db` file and restart API
+**Modify version logic**: Check api ProductsController + DataStore.cs
+**Reset database**: Delete `api/EComm.Api/ecomm.db` file and restart API

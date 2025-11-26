@@ -58,7 +58,7 @@ test-*.spec.js
 *.sqlite3
 
 # Uploaded files
-mock-api/MockApi/uploads/
+api/EComm.Api/uploads/
 
 # OS
 Thumbs.db

@@ -5,7 +5,6 @@
  * Includes a call-to-action to continue shopping.
  */
 
-import React from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '../common/Button';
 

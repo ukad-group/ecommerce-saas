@@ -50,7 +50,7 @@ public class ECommApiClient : IECommApiClient
                 queryParams.Add($"status={status}");
 
             var query = string.Join("&", queryParams);
-            // Mock API returns List<Product>, not paginated response
+            // API returns List<Product>, not paginated response
             var products = await _httpClient.GetFromJsonAsync<List<ProductDto>>($"products?{query}");
 
             return new ProductListResponse
@@ -86,7 +86,7 @@ public class ECommApiClient : IECommApiClient
     {
         try
         {
-            // Mock API returns List<Category>, not CategoryListResponse
+            // API returns List<Category>, not CategoryListResponse
             var categories = await _httpClient.GetFromJsonAsync<List<CategoryDto>>("categories");
             return categories ?? new List<CategoryDto>();
         }

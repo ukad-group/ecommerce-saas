@@ -7,8 +7,6 @@
 
 import { useState } from 'react';
 import type { Product } from '../../types/product';
-import { Button } from '../common/Button';
-import { Input } from '../common/Input';
 
 interface QuickStockUpdateProps {
   product: Product;

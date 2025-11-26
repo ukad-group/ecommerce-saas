@@ -13,8 +13,10 @@ describe('ApiClient', () => {
   beforeEach(() => {
     client = new ApiClient({
       baseURL: 'http://localhost:3000/api',
-      tenantId: 'test-tenant',
       getAuthToken: () => 'test-token',
+      getTenantId: () => 'test-tenant',
+      getMarketId: () => 'test-market',
+      getUserId: () => 'test-user',
     });
   });
 

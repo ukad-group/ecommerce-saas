@@ -147,7 +147,7 @@ export const useAuthStore = create<AuthState>()(
 ### Add New Product Field
 1. Update `types/product.ts` interface
 2. Update `components/admin/ProductForm.tsx` form
-3. Update mock API (mock-api/MockApi/Models/Product.cs)
+3. Update API backend (api/EComm.Api/Models/Product.cs)
 4. Backend implementation (future)
 
 ### Add New Page
@@ -159,7 +159,7 @@ export const useAuthStore = create<AuthState>()(
 1. Create method in `services/api/someApi.ts`
 2. Create hook in `services/hooks/useSome.ts`
 3. Use hook in component
-4. Update mock API
+4. Update API
 
 ### Add Permission Check
 ```typescript
@@ -237,12 +237,12 @@ test('renders product list', () => {
 - **Market-scoped**: Products, categories, orders belong to markets (not tenants)
 - **Auth headers**: Always send X-Tenant-ID and X-Market-ID
 - **No real auth**: Hardcoded profiles for now
-- **Mock API**: Data resets on API restart
+- **SQLite Database**: Data persists across restarts (delete ecomm.db to reset)
 - **Optimistic updates**: Use TanStack Query mutations
 
 ## Troubleshooting
 
-**API calls failing**: Check mock-api is running on port 5180
+**API calls failing**: Check API backend is running on port 5180
 
 **Auth not working**: Clear localStorage and re-login
 

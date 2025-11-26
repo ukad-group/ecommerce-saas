@@ -175,7 +175,7 @@ None
 
 ---
 
-## Mock API Status
+## API Backend Status
 
 **Implementation**: ASP.NET Core 9.0 Web API
 **Port**: http://localhost:5180
@@ -249,13 +249,13 @@ None - Data now persists across restarts
 1. **Complete RBAC** - Finish tenant admin/user login flows
 2. **Checkout UI** - Build customer checkout forms (API ready)
 3. **Cart Persistence** - Add localStorage for admin, database for production
-4. **Production Backend** - Replace mock-api with real .NET + SQLServer
+4. **Production Backend** - Replace SQLite with SQLServer for production use
 
 ---
 
 ## Migration Notes
 
-### From Mock API to Production
+### From Development to Production
 1. Keep frontend `.env.local` with `VITE_USE_MOCKS=false`
 2. Update `VITE_API_BASE_URL` to production backend
 3. Implement same API contracts in production

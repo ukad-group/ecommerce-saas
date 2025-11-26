@@ -24,7 +24,7 @@ npm install  # First time only
 npm run dev
 ```
 
-The platform will start at `http://localhost:5176` with mock APIs enabled.
+The admin panel will start at `http://localhost:5173`.
 
 ### Step 2: Run the Showcase Website
 

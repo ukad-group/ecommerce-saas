@@ -5,8 +5,6 @@
  * Typically placed in header/navigation.
  */
 
-import React from 'react';
-
 export interface CartIndicatorProps {
   itemCount: number;
   onClick: () => void;

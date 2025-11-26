@@ -5,11 +5,9 @@
  * Shows product details, quantity selector, and remove button.
  */
 
-import React from 'react';
 import type { OrderLineItem } from '../../types/order';
 import { formatCurrency } from '../../utils/currency';
 import { Button } from '../common/Button';
-import { Input } from '../common/Input';
 
 export interface CartItemProps {
   item: OrderLineItem;

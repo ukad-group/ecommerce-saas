@@ -106,7 +106,7 @@ Home
                             │
                             ▼ HTTP/REST
 ┌─────────────────────────────────────────────────────────┐
-│              eCommerce API (Mock API)                   │
+│              eCommerce API (EComm.Api)                  │
 │   /api/v1/tenants/{tenantId}/markets/{marketId}/...    │
 └─────────────────────────────────────────────────────────┘
 ```
@@ -566,7 +566,7 @@ Site B (US Store)           │
 
 ### Integration Tests
 - Settings CRUD operations
-- API communication with Mock API
+- API communication with eCommerce API
 - Category picker data loading
 
 ### E2E Tests (Manual/Automated)
