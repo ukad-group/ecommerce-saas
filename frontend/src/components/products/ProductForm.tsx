@@ -6,16 +6,25 @@
  * Supports both simple products and products with variants.
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
+import { Link } from 'react-router-dom';
 import { Input } from '../common/Input';
 import { Select } from '../common/Select';
 import { Button } from '../common/Button';
 import { ImageUpload } from '../common/ImageUpload';
 import { useCategories } from '../../services/hooks/useCategories';
+import { useMarketPropertyTemplates } from '../../services/hooks/useMarketPropertyTemplates';
+import { useAuthStore } from '../../store/authStore';
+import { Role } from '../../types/auth';
 import { VersionBadge } from './VersionBadge';
 import { VersionHistoryModal } from './VersionHistoryModal';
 import type { Product, ProductStatus, VariantOption, ProductVariant, CustomProperty } from '../../types/product';
+
+// Extended property type for merged display
+interface MergedCustomProperty extends CustomProperty {
+  isMarketTemplate: boolean;
+}
 
 interface ProductFormProps {
   product?: Product;
@@ -46,6 +55,9 @@ export function ProductForm({
   isSubmitting = false,
 }: ProductFormProps) {
   const { data: categories } = useCategories();
+  const { data: marketTemplates = [] } = useMarketPropertyTemplates();
+  const role = useAuthStore((state) => state.getRole());
+  const isAdmin = role === Role.SUPERADMIN || role === Role.TENANT_ADMIN;
 
   // State for variant management
   const [hasVariants, setHasVariants] = useState(product?.hasVariants || false);
@@ -260,9 +272,48 @@ export function ProductForm({
     setVariants(variants.filter((v) => v.id !== variantId));
   };
 
+  // Merge product properties with market templates
+  const mergedProperties = useMemo((): MergedCustomProperty[] => {
+    // Create a set of market template names for quick lookup
+    const marketTemplateNames = new Set(
+      marketTemplates.map((t) => t.name.toLowerCase())
+    );
+
+    // Start with product properties (sorted by sortOrder)
+    // Mark as market template if name matches a template
+    const productProps = (customProperties || []).map((p, idx) => ({
+      ...p,
+      sortOrder: p.sortOrder ?? idx + 1,
+      isMarketTemplate: marketTemplateNames.has(p.name.toLowerCase()),
+    }));
+
+    // Find market templates not yet in product properties
+    const existingNames = new Set(productProps.map((p) => p.name.toLowerCase()));
+    const unfilledTemplates = marketTemplates
+      .filter((t) => !existingNames.has(t.name.toLowerCase()))
+      .map((t) => ({
+        name: t.name,
+        value: t.defaultValue || '',
+        sortOrder: t.sortOrder + 1000, // Append after product properties
+        isMarketTemplate: true,
+      }));
+
+    // Combine and sort
+    return [...productProps, ...unfilledTemplates].sort(
+      (a, b) => a.sortOrder - b.sortOrder
+    );
+  }, [customProperties, marketTemplates]);
+
   // Custom properties handlers
   const handleAddCustomProperty = () => {
-    setCustomProperties([...customProperties, { name: '', value: '' }]);
+    const maxSortOrder = customProperties.reduce(
+      (max, p) => Math.max(max, p.sortOrder ?? 0),
+      0
+    );
+    setCustomProperties([
+      ...customProperties,
+      { name: '', value: '', sortOrder: maxSortOrder + 1 },
+    ]);
   };
 
   const handleUpdateCustomProperty = (
@@ -270,13 +321,81 @@ export function ProductForm({
     field: 'name' | 'value',
     value: string
   ) => {
-    const updated = [...customProperties];
-    updated[index] = { ...updated[index], [field]: value };
-    setCustomProperties(updated);
+    const mergedProp = mergedProperties[index];
+
+    // Check if this property already exists in customProperties
+    const actualIndex = customProperties.findIndex(
+      (p) => p.name.toLowerCase() === mergedProp.name.toLowerCase()
+    );
+
+    if (actualIndex !== -1) {
+      // Update existing product property
+      const updated = [...customProperties];
+      updated[actualIndex] = { ...updated[actualIndex], [field]: value };
+      setCustomProperties(updated);
+    } else {
+      // Add new property (converting from unfilled market template)
+      const maxSortOrder = customProperties.reduce(
+        (max, p) => Math.max(max, p.sortOrder ?? 0),
+        0
+      );
+      setCustomProperties([
+        ...customProperties,
+        {
+          name: mergedProp.name,
+          value: field === 'value' ? value : mergedProp.value,
+          sortOrder: maxSortOrder + 1,
+        },
+      ]);
+    }
   };
 
   const handleRemoveCustomProperty = (index: number) => {
-    setCustomProperties(customProperties.filter((_, i) => i !== index));
+    const mergedProp = mergedProperties[index];
+    // Only allow removing non-market-template properties
+    if (!mergedProp.isMarketTemplate) {
+      setCustomProperties(
+        customProperties.filter(
+          (p) => p.name.toLowerCase() !== mergedProp.name.toLowerCase()
+        )
+      );
+    }
+  };
+
+  const handleMovePropertyUp = (index: number) => {
+    if (index === 0) return;
+    const mergedProp = mergedProperties[index];
+    const prevProp = mergedProperties[index - 1];
+
+    // Swap sort orders in the original customProperties array
+    const updated = customProperties.map((p) => {
+      if (p.name.toLowerCase() === mergedProp.name.toLowerCase()) {
+        return { ...p, sortOrder: prevProp.sortOrder };
+      }
+      if (p.name.toLowerCase() === prevProp.name.toLowerCase()) {
+        return { ...p, sortOrder: mergedProp.sortOrder };
+      }
+      return p;
+    });
+    setCustomProperties(updated);
+  };
+
+  const handleMovePropertyDown = (index: number) => {
+    if (index === mergedProperties.length - 1) return;
+    const mergedProp = mergedProperties[index];
+    const nextProp = mergedProperties[index + 1];
+
+    // Swap sort orders in the original customProperties array
+    const updated = customProperties.map((p) => {
+      if (p.name.toLowerCase() === mergedProp.name.toLowerCase()) {
+        return { ...p, sortOrder: nextProp.sortOrder };
+      }
+      if (p.name.toLowerCase() === nextProp.name.toLowerCase()) {
+        return { ...p, sortOrder: mergedProp.sortOrder };
+      }
+      return p;
+    });
+    setCustomProperties(updated);
   };
 
   const handleFormSubmit = (data: ProductFormData) => {
@@ -289,12 +408,21 @@ export function ProductForm({
       lowStockThreshold: data.lowStockThreshold ?? undefined,
     };
 
+    // Prepare custom properties: filter out empty market template properties
+    // and ensure all properties have sortOrder
+    const preparedProperties = customProperties
+      .filter((p) => p.name.trim() !== '' && p.value.trim() !== '')
+      .map((p, idx) => ({
+        ...p,
+        sortOrder: p.sortOrder ?? idx + 1,
+      }));
+
     const submitData: Partial<Product> = {
       ...cleanData,
       hasVariants,
       variantOptions: hasVariants ? variantOptions : undefined,
       variants: hasVariants ? variants : undefined,
-      customProperties: customProperties.length > 0 ? customProperties : undefined,
+      customProperties: preparedProperties.length > 0 ? preparedProperties : undefined,
       images: images.length > 0 ? images : [],
     };
 
@@ -373,18 +501,69 @@ export function ProductForm({
             <label className="block text-sm font-medium text-gray-700">
               Custom Properties
             </label>
-            <Button
-              type="button"
-              onClick={handleAddCustomProperty}
-              className="text-sm"
-            >
-              + Property
-            </Button>
+            <div className="flex items-center gap-2">
+              {isAdmin && (
+                <Link
+                  to="/admin/products/property-templates"
+                  className="text-sm text-primary-600 hover:text-primary-800 flex items-center gap-1"
+                  onClick={(e) => {
+                    if (customProperties.some((p) => p.name || p.value)) {
+                      if (!window.confirm('You have unsaved changes. Navigate to templates page?')) {
+                        e.preventDefault();
+                      }
+                    }
+                  }}
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                  Edit Templates
+                </Link>
+              )}
+              <Button
+                type="button"
+                onClick={handleAddCustomProperty}
+                className="text-sm"
+              >
+                + Property
+              </Button>
+            </div>
           </div>
-          {customProperties.length > 0 && (
+          {mergedProperties.length > 0 && (
             <div className="space-y-3">
-              {customProperties.map((property, index) => (
-                <div key={index} className="flex gap-2 items-start">
+              {mergedProperties.map((property, index) => (
+                <div
+                  key={property.name || `new-${index}`}
+                  className={`flex gap-2 items-start p-3 rounded-md ${
+                    property.isMarketTemplate ? 'bg-blue-50 border border-blue-200' : 'bg-gray-50'
+                  }`}
+                >
+                  {/* Reorder buttons */}
+                  <div className="flex flex-col gap-1">
+                    <button
+                      type="button"
+                      onClick={() => handleMovePropertyUp(index)}
+                      disabled={index === 0}
+                      className="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-30"
+                      title="Move up"
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                      </svg>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleMovePropertyDown(index)}
+                      disabled={index === mergedProperties.length - 1}
+                      className="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-30"
+                      title="Move down"
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </button>
+                  </div>
                   <div className="flex-1">
                     <input
                       type="text"
@@ -393,7 +572,12 @@ export function ProductForm({
                       onChange={(e) =>
                         handleUpdateCustomProperty(index, 'name', e.target.value)
                       }
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm"
+                      disabled={property.isMarketTemplate}
+                      className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm ${
+                        property.isMarketTemplate
+                          ? 'bg-blue-100 border-blue-300 text-blue-800'
+                          : 'border-gray-300'
+                      }`}
                     />
                   </div>
                   <div className="flex-1">
@@ -407,16 +591,42 @@ export function ProductForm({
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm"
                     />
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveCustomProperty(index)}
-                    className="px-3 py-2 text-red-600 hover:text-red-800 text-sm font-medium"
-                  >
-                    Remove
-                  </button>
+                  {property.isMarketTemplate ? (
+                    <div
+                      className="px-3 py-2 text-blue-600 text-sm flex items-center gap-1"
+                      title="This property is defined at the market level. Edit templates to remove."
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                      </svg>
+                      Market
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveCustomProperty(index)}
+                      className="px-3 py-2 text-red-600 hover:text-red-800 text-sm font-medium"
+                    >
+                      Remove
+                    </button>
+                  )}
                 </div>
               ))}
             </div>
+          )}
+          {marketTemplates.length > 0 && (
+            <p className="mt-3 text-xs text-gray-500">
+              Properties marked with "Market" are defined at the market level and cannot be removed here.
+              {isAdmin && ' '}
+              {isAdmin && (
+                <Link
+                  to="/admin/products/property-templates"
+                  className="text-primary-600 hover:text-primary-800"
+                >
+                  Edit templates
+                </Link>
+              )}
+            </p>
           )}
         </div>
       </div>

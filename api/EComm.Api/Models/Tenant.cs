@@ -44,6 +44,14 @@ public class MarketSettings
     public string? OrderPrefix { get; set; }
     public decimal TaxRate { get; set; }
     public List<string>? ShippingZones { get; set; }
+    public List<CustomPropertyTemplate>? CustomPropertyTemplates { get; set; }
+}
+
+public class CustomPropertyTemplate
+{
+    public string Name { get; set; } = string.Empty;
+    public string? DefaultValue { get; set; }
+    public int SortOrder { get; set; }
 }
 
 public class TenantsResponse

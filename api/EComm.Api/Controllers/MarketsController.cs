@@ -143,6 +143,41 @@ public class MarketsController : ControllerBase
 
         return Ok(market);
     }
+
+    [HttpGet("{id}/property-templates")]
+    [AllowAnonymous] // Allow all authenticated users to read
+    public ActionResult GetPropertyTemplates(string id)
+    {
+        var market = _store.GetMarket(id);
+        if (market == null)
+        {
+            return NotFound();
+        }
+
+        var templates = market.Settings?.CustomPropertyTemplates ?? new List<CustomPropertyTemplate>();
+        return Ok(new { templates });
+    }
+
+    [HttpPut("{id}/property-templates")]
+    public ActionResult UpdatePropertyTemplates(string id, [FromBody] UpdatePropertyTemplatesRequest request)
+    {
+        var market = _store.GetMarket(id);
+        if (market == null)
+        {
+            return NotFound();
+        }
+
+        // Initialize Settings if null
+        market.Settings ??= new MarketSettings();
+
+        // Update property templates
+        market.Settings.CustomPropertyTemplates = request.Templates;
+        market.UpdatedAt = DateTime.UtcNow;
+
+        _store.UpdateMarket(market);
+
+        return Ok(new { templates = market.Settings.CustomPropertyTemplates });
+    }
 }
 
 public class UpdateMarketRequest
@@ -152,4 +187,9 @@ public class UpdateMarketRequest
     public string? Type { get; set; }
     public string? Currency { get; set; }
     public string? Timezone { get; set; }
+}
+
+public class UpdatePropertyTemplatesRequest
+{
+    public List<CustomPropertyTemplate> Templates { get; set; } = new();
 }

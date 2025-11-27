@@ -1,6 +1,6 @@
 # Implementation Status
 
-**Last Updated**: 2025-11-11
+**Last Updated**: 2025-11-27
 
 ## Quick Reference
 
@@ -24,6 +24,11 @@
 - Product status (active/inactive/draft)
 - Search and filtering
 - Market-scoped catalogs
+- **Custom property templates** (market-level)
+  - Define reusable property templates per market
+  - Templates auto-appear on all products
+  - Properties with "Market" badge cannot be removed
+  - SortOrder support with drag reordering
 
 ### API Endpoints
 ```
@@ -34,6 +39,7 @@ GET   /api/v1/products/:id/versions/:version
 POST  /api/v1/products/:id/versions/:version/restore
 GET/POST   /api/v1/categories
 GET/PUT/DELETE   /api/v1/categories/:id
+GET/PUT   /api/v1/admin/markets/:id/property-templates
 ```
 
 ### Known Issues

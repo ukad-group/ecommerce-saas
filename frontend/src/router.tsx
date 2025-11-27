@@ -15,6 +15,7 @@ import { AdminOrdersPage } from './pages/admin/AdminOrdersPage';
 import { AdminOrderDetailsPage } from './pages/admin/AdminOrderDetailsPage';
 import { ProductsPage } from './pages/admin/ProductsPage';
 import { ProductEditPage } from './pages/admin/ProductEditPage';
+import { ProductPropertyTemplatesPage } from './pages/admin/ProductPropertyTemplatesPage';
 import { CategoriesPage } from './pages/admin/CategoriesPage';
 import { CategoryEditPage } from './pages/admin/CategoryEditPage';
 import { TenantsPage } from './pages/admin/tenants/TenantsPage';
@@ -99,6 +100,14 @@ export const router = createBrowserRouter([
         element: (
           <ProtectedRoute>
             <ProductEditPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'admin/products/property-templates',
+        element: (
+          <ProtectedRoute>
+            <ProductPropertyTemplatesPage />
           </ProtectedRoute>
         ),
       },

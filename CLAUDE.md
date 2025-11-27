@@ -76,6 +76,7 @@ dotnet run
 - Hierarchical categories
 - Quick stock updates
 - Market-scoped catalogs
+- **Custom property templates** - Define market-level property templates that appear on all products
 - **Use `/ctx-products` for details**
 
 ### Orders & Cart
@@ -113,6 +114,7 @@ dotnet run
 - `/login` - Profile selection
 - `/admin` - Dashboard
 - `/admin/products` - Product management
+- `/admin/products/property-templates` - Market property templates
 - `/admin/categories` - Category management
 - `/admin/orders` - Order management
 - `/admin/order-statuses` - Order status management
@@ -239,6 +241,6 @@ This project is licensed under the **Apache License 2.0**. You are free to use, 
 
 ---
 
-**Last Updated**: 2025-11-26
+**Last Updated**: 2025-11-27
 **Status**: Open Source Release
 **Built by**: [UKAD](https://ukad-group.com)

@@ -18,6 +18,7 @@ export type ProductStatus = 'active' | 'inactive' | 'draft';
 export interface CustomProperty {
   name: string;
   value: string;
+  sortOrder: number;
 }
 
 /**

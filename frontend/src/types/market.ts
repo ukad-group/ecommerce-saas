@@ -3,10 +3,17 @@ import type { Address } from './address';
 export type MarketType = 'physical' | 'online' | 'hybrid';
 export type MarketStatus = 'active' | 'inactive';
 
+export interface CustomPropertyTemplate {
+  name: string;
+  defaultValue?: string;
+  sortOrder: number;
+}
+
 export interface MarketSettings {
   orderPrefix?: string;   // Prefix for order numbers
   taxRate?: number;       // Default tax rate
   shippingZones?: string[];
+  customPropertyTemplates?: CustomPropertyTemplate[];
 }
 
 export interface Market {
