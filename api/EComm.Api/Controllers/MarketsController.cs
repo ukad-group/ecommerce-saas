@@ -1,7 +1,9 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
-using EComm.Api.Data;
-using EComm.Api.Models;
+using EComm.Data;
+using EComm.Data.Entities;
+using EComm.Data.ValueObjects.Tenant;
+using EComm.Api.DTOs.Requests.Markets;
 
 namespace EComm.Api.Controllers;
 
@@ -178,18 +180,4 @@ public class MarketsController : ControllerBase
 
         return Ok(new { templates = market.Settings.CustomPropertyTemplates });
     }
-}
-
-public class UpdateMarketRequest
-{
-    public string? Name { get; set; }
-    public string? Code { get; set; }
-    public string? Type { get; set; }
-    public string? Currency { get; set; }
-    public string? Timezone { get; set; }
-}
-
-public class UpdatePropertyTemplatesRequest
-{
-    public List<CustomPropertyTemplate> Templates { get; set; } = new();
 }

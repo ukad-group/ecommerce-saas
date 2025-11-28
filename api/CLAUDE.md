@@ -35,34 +35,43 @@ dotnet run
 ## Project Structure
 
 ```
-/EComm.Api/
-  /Controllers/
-    ProductsController.cs       # Product CRUD + versioning
-    CategoriesController.cs     # Category hierarchy
-    CartController.cs           # Shopping cart operations
-    OrdersController.cs         # Customer orders
-    AdminOrdersController.cs    # Admin order management
-    TenantsController.cs        # Tenant management
-    MarketsController.cs        # Market management
-    ApiKeysController.cs        # API key generation/revocation
-    FilesController.cs          # File upload & image resizing
+/api/
+  EComm.sln                     # Solution file
 
-  /Models/
-    Product.cs, Category.cs, Order.cs, Tenant.cs, Market.cs, etc.
-    ProductVersion.cs           # Product versioning support
-
-  /Data/
+  /EComm.Data/                  # Data Access Layer (separate project)
+    /Entities/                  # Domain entities
+      Product.cs, Category.cs, Order.cs, Cart.cs,
+      Tenant.cs, Market.cs, ApiKey.cs, OrderStatus.cs, User.cs
+    /ValueObjects/              # Nested types organized by domain
+      /Common/Address.cs        # Shared address type
+      /Product/                 # ProductVariant, VariantOption, CustomProperty
+      /Order/                   # OrderItem, CustomerInfo
+      /Cart/                    # CartItem
+      /Tenant/                  # TenantSettings, MarketSettings, CustomPropertyTemplate
+      /ApiKey/                  # ApiKeyListItem
     ECommDbContext.cs           # EF Core DbContext with JSON column support
     DataStore.cs                # Data access layer (uses EF Core)
     DatabaseSeeder.cs           # Database seeding on startup
 
-  /uploads/                     # Uploaded product images (tenant/market scoped)
-
-  Program.cs                    # API configuration
-  appsettings.json             # Configuration
+  /EComm.Api/                   # Web API project
+    /Controllers/               # 11 API controllers
+      ProductsController.cs, CategoriesController.cs, CartController.cs,
+      OrdersController.cs, AdminOrdersController.cs, OrderStatusController.cs,
+      TenantsController.cs, MarketsController.cs, ApiKeysController.cs,
+      AuthController.cs, FilesController.cs
+    /DTOs/                      # Data Transfer Objects
+      /Requests/                # Request DTOs by domain
+        /Auth/, /Products/, /Orders/, /Cart/, /Tenants/, /Markets/,
+        /ApiKeys/, /OrderStatuses/
+      /Responses/               # Response DTOs by domain
+        /Products/, /Categories/, /Tenants/, /Markets/, /ApiKeys/, /Files/
+    /Authentication/            # API Key auth handler
+    /uploads/                   # Uploaded product images (tenant/market scoped)
+    Program.cs                  # API configuration
+    appsettings.json           # Configuration
 ```
 
-## 9 Controllers
+## 11 Controllers
 
 ### 1. ProductsController
 ```csharp
@@ -225,8 +234,8 @@ Controllers filter data based on these headers.
 4. Test with Swagger
 
 ### Add New Entity Field
-1. Update model class in `/Models/`
-2. Update seed data in `SeedData.cs`
+1. Update entity class in `EComm.Data/Entities/`
+2. Update seed data in `EComm.Data/DatabaseSeeder.cs`
 3. Frontend will auto-pick up changes
 
 ### Change API Contract

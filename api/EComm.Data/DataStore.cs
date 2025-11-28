@@ -1,8 +1,10 @@
-using EComm.Api.Models;
+using EComm.Data.Entities;
+using EComm.Data.ValueObjects.Cart;
+using EComm.Data.ValueObjects.Order;
 using Microsoft.EntityFrameworkCore;
 using System.Collections.Concurrent;
 
-namespace EComm.Api.Data;
+namespace EComm.Data;
 
 /// <summary>
 /// EF Core-based data store with SQLite persistence.

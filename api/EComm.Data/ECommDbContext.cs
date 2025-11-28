@@ -1,8 +1,12 @@
 using Microsoft.EntityFrameworkCore;
-using EComm.Api.Models;
+using EComm.Data.Entities;
+using EComm.Data.ValueObjects.Common;
+using EComm.Data.ValueObjects.Order;
+using EComm.Data.ValueObjects.Product;
+using EComm.Data.ValueObjects.Tenant;
 using System.Text.Json;
 
-namespace EComm.Api.Data;
+namespace EComm.Data;
 
 public class ECommDbContext : DbContext
 {

@@ -12,9 +12,10 @@
 
 ### API Backend (api/)
 - ASP.NET Core 9.0 Web API + C# 12
+- **Two-project architecture**: EComm.Api (controllers, DTOs) + EComm.Data (entities, data access)
 - **SQLite database with Entity Framework Core** (persistent storage)
 - Factory pattern for thread-safe DbContext access
-- 8 Controllers: Products, Categories, Cart, Orders, Tenants, Markets, AdminOrders, ApiKeys
+- 11 Controllers: Products, Categories, Cart, Orders, AdminOrders, OrderStatus, Tenants, Markets, ApiKeys, Auth, Files
 - Port: http://localhost:5180
 
 ### Showcase Website (showcase-dotnet/)
@@ -98,7 +99,7 @@ Tenant (Business Entity - e.g., Retail Chain)
     /services/       # API clients + TanStack Query hooks
     /store/          # Zustand state (auth, cart)
     /types/          # TypeScript interfaces
-/api/                # .NET API Backend
+/api/                # .NET API Backend (EComm.Api + EComm.Data projects)
 /showcase-dotnet/    # Demo storefront
 ```
 

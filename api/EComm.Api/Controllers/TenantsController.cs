@@ -1,7 +1,9 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
-using EComm.Api.Data;
-using EComm.Api.Models;
+using EComm.Data;
+using EComm.Data.Entities;
+using EComm.Api.DTOs.Requests.Tenants;
+using EComm.Api.DTOs.Responses.Tenants;
 
 namespace EComm.Api.Controllers;
 
@@ -126,11 +128,4 @@ public class TenantsController : ControllerBase
 
         return Ok(tenant);
     }
-}
-
-public class UpdateTenantRequest
-{
-    public string? DisplayName { get; set; }
-    public string? ContactEmail { get; set; }
-    public string? ContactPhone { get; set; }
 }

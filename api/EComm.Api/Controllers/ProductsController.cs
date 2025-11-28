@@ -1,7 +1,8 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
-using EComm.Api.Data;
-using EComm.Api.Models;
+using EComm.Data;
+using EComm.Data.Entities;
+using EComm.Api.DTOs.Requests.Products;
 
 namespace EComm.Api.Controllers;
 
@@ -217,9 +218,4 @@ public class ProductsController : ControllerBase
         _store.UpdateProductStock(id, request.StockQuantity);
         return NoContent();
     }
-}
-
-public class UpdateStockRequest
-{
-    public int StockQuantity { get; set; }
 }

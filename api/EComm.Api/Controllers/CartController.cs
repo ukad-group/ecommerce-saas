@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Mvc;
-using EComm.Api.Data;
-using EComm.Api.Models;
+using EComm.Data;
+using EComm.Data.Entities;
+using EComm.Data.ValueObjects.Cart;
+using EComm.Api.DTOs.Requests.Cart;
 
 namespace EComm.Api.Controllers;
 

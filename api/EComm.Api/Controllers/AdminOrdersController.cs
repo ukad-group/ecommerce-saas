@@ -1,7 +1,8 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
-using EComm.Api.Data;
-using EComm.Api.Models;
+using EComm.Data;
+using EComm.Data.Entities;
+using EComm.Api.DTOs.Requests.Orders;
 
 namespace EComm.Api.Controllers;
 

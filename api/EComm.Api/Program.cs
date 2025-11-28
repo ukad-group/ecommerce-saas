@@ -1,4 +1,4 @@
-using EComm.Api.Data;
+using EComm.Data;
 using EComm.Api.Authentication;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authentication;

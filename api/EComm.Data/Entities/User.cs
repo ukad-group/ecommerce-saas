@@ -1,4 +1,4 @@
-namespace EComm.Api.Models;
+namespace EComm.Data.Entities;
 
 /// <summary>
 /// User entity for authentication and authorization

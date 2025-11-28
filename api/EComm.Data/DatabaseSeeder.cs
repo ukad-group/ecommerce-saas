@@ -1,6 +1,11 @@
-using EComm.Api.Models;
+using EComm.Data.Common;
+using EComm.Data.Entities;
+using EComm.Data.ValueObjects.Common;
+using EComm.Data.ValueObjects.Order;
+using EComm.Data.ValueObjects.Product;
+using EComm.Data.ValueObjects.Tenant;
 
-namespace EComm.Api.Data;
+namespace EComm.Data;
 
 /// <summary>
 /// Seeds the database with initial mock data
@@ -488,7 +493,7 @@ public static class DatabaseSeeder
         };
         context.Categories.AddRange(categories);
 
-        // Seed Products (truncated for brevity - showing first few products)
+        // Seed Products
         var products = new[]
         {
             // Electronics -> Small Electronics -> Headphones

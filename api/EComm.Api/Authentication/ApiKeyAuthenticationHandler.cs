@@ -3,7 +3,7 @@ using System.Text.Encodings.Web;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
-using EComm.Api.Data;
+using EComm.Data;
 
 namespace EComm.Api.Authentication;
 

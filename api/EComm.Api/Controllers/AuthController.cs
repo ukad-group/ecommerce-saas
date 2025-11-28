@@ -4,8 +4,9 @@ using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
-using EComm.Api.Data;
-using EComm.Api.Models;
+using EComm.Data;
+using EComm.Data.Entities;
+using EComm.Api.DTOs.Requests.Auth;
 
 namespace EComm.Api.Controllers;
 
@@ -177,13 +178,4 @@ public class AuthController : ControllerBase
 
         return new JwtSecurityTokenHandler().WriteToken(token);
     }
-}
-
-/// <summary>
-/// Login request model
-/// </summary>
-public class LoginRequest
-{
-    public required string Email { get; set; }
-    public required string Password { get; set; }
 }

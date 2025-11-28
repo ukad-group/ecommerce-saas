@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Processing;
 using SixLabors.ImageSharp.Formats.Jpeg;
+using EComm.Api.DTOs.Responses.Files;
 
 namespace EComm.Api.Controllers;
 
@@ -225,10 +226,4 @@ public class FilesController : ControllerBase
             _ => "application/octet-stream"
         };
     }
-}
-
-public class UploadResponse
-{
-    public List<string> Urls { get; set; } = new();
-    public List<string>? Errors { get; set; }
 }

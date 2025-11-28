@@ -1,4 +1,6 @@
-namespace EComm.Api.Models;
+using EComm.Data.ValueObjects.Product;
+
+namespace EComm.Data.Entities;
 
 public class Product
 {
@@ -43,58 +45,4 @@ public class Product
             }
         }
     }
-}
-
-public class VariantOption
-{
-    public string Name { get; set; } = string.Empty;
-    public List<string> Values { get; set; } = new();
-}
-
-public class ProductVariant
-{
-    public string Id { get; set; } = string.Empty;
-    public string Sku { get; set; } = string.Empty;
-    public decimal Price { get; set; }
-    public decimal? SalePrice { get; set; }
-    public int StockQuantity { get; set; }
-    public int LowStockThreshold { get; set; }
-    public List<string>? Images { get; set; }
-    public Dictionary<string, string> Options { get; set; } = new();
-    public string Status { get; set; } = "active";
-    public bool IsDefault { get; set; } = false;
-}
-
-public class CustomProperty
-{
-    public string Name { get; set; } = string.Empty;
-    public string Value { get; set; } = string.Empty;
-    public int SortOrder { get; set; }
-}
-
-public class ProductListResponse
-{
-    public List<Product> Data { get; set; } = new();
-    public int Total { get; set; }
-    public int Page { get; set; }
-    public int PageSize { get; set; }
-}
-
-public class Category
-{
-    public string Id { get; set; } = string.Empty;
-    public string TenantId { get; set; } = string.Empty;
-    public string MarketId { get; set; } = string.Empty;
-    public string Name { get; set; } = string.Empty;
-    public string? Description { get; set; }
-    public string? ParentId { get; set; }
-    public int DisplayOrder { get; set; }
-    public int ProductCount { get; set; } = 0;
-    public DateTime CreatedAt { get; set; }
-    public DateTime UpdatedAt { get; set; }
-}
-
-public class CategoryListResponse
-{
-    public List<Category> Data { get; set; } = new();
 }
