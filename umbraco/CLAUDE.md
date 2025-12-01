@@ -4,9 +4,11 @@
 
 This document outlines the architecture and implementation plan for an Umbraco plugin that integrates with the headless eCommerce SaaS platform. The plugin enables Umbraco sites to leverage the eCommerce API while maintaining full content management control in Umbraco.
 
-**Target Umbraco Version**: 14+ (Bellissima - Modern backoffice with Lit/Web Components)
+**Target Umbraco Version**: 17.0.0 (LTS - Long Term Support with .NET 10)
 
-**Last Updated**: 2025-11-21
+**Status**: Phase 1-3 Core Implementation Complete, Upgraded to Umbraco 17
+
+**Last Updated**: 2025-11-28
 
 ---
 
@@ -14,11 +16,25 @@ This document outlines the architecture and implementation plan for an Umbraco p
 
 ```
 /umbraco/
-├── CLAUDE.md                    # This file - Architecture and planning
-├── plugin/                      # Plugin package project (future)
-│   └── YourBrand.Umbraco.Commerce/
-└── sample-site/                 # Sample Umbraco site for testing (future)
-    └── YourBrand.Commerce.Demo/
+├── CLAUDE.md                           # This file - Architecture and planning
+├── EComm.Umbraco.sln                   # Solution file
+├── plugin/
+│   └── EComm.Umbraco.Commerce/         # Plugin package project
+│       ├── EComm.Umbraco.Commerce.csproj
+│       ├── Models/                     # DTOs for API communication
+│       ├── Services/                   # API client and settings service
+│       ├── Controllers/                # Backoffice API controllers
+│       ├── ContentFinders/             # Product URL routing
+│       ├── Composers/                  # DI registration
+│       └── wwwroot/App_Plugins/        # Lit components for backoffice
+│           └── ECommCommerce/
+│               ├── umbraco-package.json
+│               ├── components/settings/    # Settings dashboard
+│               ├── components/propertyEditors/  # Category picker
+│               └── lang/                   # Localization
+└── sample-site/
+    └── EComm.Commerce.Demo/            # Sample Umbraco 14 site
+        └── EComm.Commerce.Demo.csproj
 ```
 
 ---
@@ -66,19 +82,21 @@ Home
 
 | Component | Technology | Version |
 |-----------|-----------|---------|
-| **Umbraco CMS** | Umbraco CMS | 14.x+ |
+| **Umbraco CMS** | Umbraco CMS | 17.0.0 (LTS) |
 | **Backoffice UI** | Lit (Web Components) | Latest |
-| **Backend** | .NET | 8+ |
+| **Backend** | .NET | 10 |
 | **API Client** | HttpClient | Built-in |
 | **Package Distribution** | NuGet | - |
 
-### Why Umbraco 14+?
+### Why Umbraco 17?
 
-- Modern, future-proof architecture
+- **Long Term Support (LTS)** release with extended support until November 2027
+- Modern, future-proof architecture (Bellissima backoffice)
 - Web Components (Lit) replace legacy AngularJS
 - Better TypeScript support
 - Improved performance and developer experience
-- Active development and long-term support
+- .NET 10 support with latest framework features
+- Active development and commercial backing
 
 ---
 
@@ -273,45 +291,142 @@ Allowed At Root: false
 
 ---
 
+## Running the Umbraco Demo
+
+### Prerequisites
+- .NET 10 SDK
+- The main eCommerce API running (see root CLAUDE.md)
+
+### Quick Start
+
+```bash
+# From the umbraco folder
+cd umbraco
+
+# Build the solution
+dotnet build EComm.Umbraco.sln
+
+# Run the sample site
+cd sample-site/EComm.Commerce.Demo
+dotnet run
+# http://localhost:5000 (or check console output for actual port)
+```
+
+### First Run Setup
+1. Navigate to http://localhost:5000
+2. Umbraco will run the installer (first time only)
+3. Login with admin@example.com / Admin123!
+4. Go to Settings → Commerce Settings
+5. Configure API connection:
+   - API Base URL: http://localhost:5180/api/v1
+   - Tenant ID: tenant-a
+   - Market ID: market-us-east
+6. Click "Test Connection" to verify
+
+---
+
 ## Implementation Phases
 
-### Phase 1: Foundation (Week 1-2)
-- [ ] Create plugin project structure
-- [ ] Implement CommerceSettings model and service (database storage)
-- [ ] Build Settings Dashboard (Lit component)
-- [ ] Create CommerceApiClient service
-- [ ] Implement "Test Connection" functionality
-- [ ] Basic error handling and logging
+### Phase 1: Foundation ✅ COMPLETE
+- [x] Create plugin project structure
+- [x] Implement CommerceSettings model and service (database storage)
+- [x] Build Settings Dashboard (Lit component)
+- [x] Create CommerceApiClient service
+- [x] Implement "Test Connection" functionality
+- [x] Basic error handling and logging
 
 **Deliverable**: Admin can configure API settings in Umbraco backoffice
 
-### Phase 2: Content Integration (Week 3-4)
-- [ ] Create Category Picker property editor (Lit component)
-- [ ] Implement category fetching from API
-- [ ] Create Category Page and Product Page document types
+### Phase 2: Content Integration ✅ COMPLETE
+- [x] Create Category Picker property editor (Lit component)
+- [x] Implement category fetching from API
+- [ ] Create Category Page and Product Page document types (manual in backoffice)
 - [ ] Build category listing template
 - [ ] Basic styling and layout
 
 **Deliverable**: Editors can create category nodes and map to eCommerce categories
 
-### Phase 3: Product Routing (Week 5-6)
-- [ ] Implement ProductContentFinder
+### Phase 3: Product Routing ✅ COMPLETE (Core)
+- [x] Implement ProductContentFinder
 - [ ] Create product detail template
-- [ ] Add product data fetching by slug
-- [ ] Handle 404s for non-existent products
-- [ ] Implement caching strategy
+- [x] Add product data fetching by slug
+- [x] Handle 404s for non-existent products
+- [x] Implement caching strategy
 
 **Deliverable**: Product pages render dynamically with eCommerce data
 
-### Phase 4: Polish & Features (Week 7-8)
+### Phase 4: Polish & Features (TODO)
 - [ ] Add Commerce Dashboard (order stats, quick links)
 - [ ] Implement cart integration (if needed)
 - [ ] Add image optimization/CDN support
 - [ ] Performance optimization and caching
-- [ ] Documentation and sample site
+- [x] Documentation and sample site
 - [ ] Unit tests
 
 **Deliverable**: Production-ready plugin package
+
+---
+
+## Umbraco 17 Migration Notes
+
+### API Changes from Umbraco 14 → 17
+
+The following API changes were made to ensure compatibility with Umbraco 17:
+
+#### 1. Content Routing API
+
+**Old (Umbraco 14):**
+```csharp
+var categoryNode = content.GetByRoute(categoryPath);
+```
+
+**New (Umbraco 17):**
+```csharp
+// Inject IDocumentUrlService in constructor
+var documentKey = _documentUrlService.GetDocumentKeyByRoute(
+    categoryPath,
+    culture: null,
+    documentStartNodeId: null,
+    isDraft: false
+);
+if (documentKey.HasValue)
+{
+    var categoryNode = content.GetById(documentKey.Value);
+}
+```
+
+#### 2. Content Finder Registration
+
+**Old (Umbraco 14):**
+```csharp
+builder.ContentFinders()
+    .InsertBefore<ContentFinderByUrl, ProductContentFinder>();
+```
+
+**New (Umbraco 17):**
+```csharp
+builder.ContentFinders()
+    .InsertBefore<ContentFinderByUrlNew, ProductContentFinder>();
+```
+
+#### 3. Children Property
+
+**Old (Umbraco 14):**
+```csharp
+var child = node.Children?.FirstOrDefault();
+```
+
+**New (Umbraco 17):**
+```csharp
+using Umbraco.Extensions;
+var child = node.Children().FirstOrDefault();
+```
+
+### References
+
+- [Umbraco Forum: GetByRoute Replacement](https://discord-chats.umbraco.com/t/26768105/solved-getbyroute)
+- [Umbraco Documentation: IContentFinder](https://docs.umbraco.com/umbraco-cms/17.latest/reference/routing/request-pipeline/icontentfinder.md)
+- [GitHub Issue: ContentFinderByUrlAndTemplate](https://github.com/umbraco/Umbraco-CMS/issues/18129)
 
 ---
 

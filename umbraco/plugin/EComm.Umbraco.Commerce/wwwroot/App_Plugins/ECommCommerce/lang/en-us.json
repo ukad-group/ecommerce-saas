@@ -1,0 +1,31 @@
+{
+  "ecommCommerce": {
+    "settings": {
+      "headline": "Commerce Settings",
+      "description": "Configure the connection to your eCommerce API",
+      "apiBaseUrl": "API Base URL",
+      "apiBaseUrlDescription": "The base URL of the eCommerce API",
+      "tenantId": "Tenant ID",
+      "tenantIdDescription": "The tenant identifier from your eCommerce platform",
+      "marketId": "Market ID",
+      "marketIdDescription": "The market identifier for this site's catalog",
+      "apiKey": "API Key",
+      "apiKeyDescription": "Optional API key for authenticated requests",
+      "testConnection": "Test Connection",
+      "save": "Save Settings",
+      "testing": "Testing...",
+      "saving": "Saving..."
+    },
+    "categoryPicker": {
+      "label": "Category Picker",
+      "selectPlaceholder": "Select a category",
+      "loading": "Loading categories...",
+      "error": "Failed to load categories"
+    },
+    "messages": {
+      "settingsSaved": "Settings saved successfully!",
+      "connectionSuccess": "Connection successful!",
+      "connectionFailed": "Connection failed"
+    }
+  }
+}
