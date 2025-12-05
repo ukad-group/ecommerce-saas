@@ -1,4 +1,4 @@
-import { LitElement, html, css } from 'https://cdn.jsdelivr.net/gh/nicholasxjy/lit-cdn@latest/lit.min.js';
+import { LitElement, html, css } from '@umbraco-cms/backoffice/external/lit';
 
 class ECommSettingsDashboard extends LitElement {
   static properties = {
@@ -35,7 +35,7 @@ class ECommSettingsDashboard extends LitElement {
     this.error = null;
 
     try {
-      const response = await fetch('/api/v1/commerce/settings', {
+      const response = await fetch('/umbraco/management/api/ecomm-commerce/settings', {
         credentials: 'include'
       });
 
@@ -56,7 +56,7 @@ class ECommSettingsDashboard extends LitElement {
     this.error = null;
 
     try {
-      const response = await fetch('/api/v1/commerce/settings', {
+      const response = await fetch('/umbraco/management/api/ecomm-commerce/settings', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -85,7 +85,7 @@ class ECommSettingsDashboard extends LitElement {
     this.error = null;
 
     try {
-      const response = await fetch('/api/v1/commerce/settings/test', {
+      const response = await fetch('/umbraco/management/api/ecomm-commerce/settings/test', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

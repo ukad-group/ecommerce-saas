@@ -10,7 +10,7 @@ Open-source headless eCommerce platform with multi-tenant, market-based architec
 1. **Admin Backoffice** (frontend/) - React admin UI
 2. **API Backend** (api/) - ASP.NET Core Web API
 3. **Showcase Website** (showcase-dotnet/) - ASP.NET MVC demo storefront
-4. **Umbraco Integration** (umbraco/) - CMS plugin for content management (planned)
+4. **Umbraco Integration** (umbraco/) - CMS plugin for content management
 
 **Data Hierarchy**:
 ```
@@ -155,6 +155,7 @@ dotnet run
   ctx-orders.md      # Orders & cart context
   ctx-rbac.md        # RBAC context
   ctx-tenants.md     # Tenants & markets context
+  ctx-umbraco.md     # Umbraco CMS plugin context
 /frontend/           # React admin (see frontend/CLAUDE.md)
 /api/                # .NET API Backend (see api/CLAUDE.md)
 /showcase-dotnet/    # Demo storefront (see showcase-dotnet/CLAUDE.md)
@@ -169,6 +170,7 @@ Load specific context when working on features:
 - **`/ctx-orders`** - Orders and cart implementation details
 - **`/ctx-rbac`** - Role-based access control details
 - **`/ctx-tenants`** - Tenant and market management details
+- **`/ctx-umbraco`** - Umbraco CMS plugin implementation details
 
 ## Development Workflow
 

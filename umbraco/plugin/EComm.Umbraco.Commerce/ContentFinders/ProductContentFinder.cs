@@ -1,4 +1,5 @@
 using EComm.Umbraco.Commerce.Services;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Umbraco.Cms.Core.Models.PublishedContent;
 using Umbraco.Cms.Core.Routing;
@@ -21,7 +22,7 @@ public class ProductContentFinder : IContentFinder
 {
     private readonly IUmbracoContextAccessor _umbracoContextAccessor;
     private readonly IDocumentUrlService _documentUrlService;
-    private readonly ICommerceApiClient _apiClient;
+    private readonly IServiceScopeFactory _serviceScopeFactory;
     private readonly ILogger<ProductContentFinder> _logger;
 
     // Document type aliases
@@ -32,12 +33,12 @@ public class ProductContentFinder : IContentFinder
     public ProductContentFinder(
         IUmbracoContextAccessor umbracoContextAccessor,
         IDocumentUrlService documentUrlService,
-        ICommerceApiClient apiClient,
+        IServiceScopeFactory serviceScopeFactory,
         ILogger<ProductContentFinder> logger)
     {
         _umbracoContextAccessor = umbracoContextAccessor;
         _documentUrlService = documentUrlService;
-        _apiClient = apiClient;
+        _serviceScopeFactory = serviceScopeFactory;
         _logger = logger;
     }
 
@@ -110,8 +111,12 @@ public class ProductContentFinder : IContentFinder
             return false;
         }
 
-        // Fetch the product from the API
-        var product = await _apiClient.GetProductBySlugAsync(categoryId, productSlug);
+        // Fetch the product from the API using a scoped service
+        // Note: Using IServiceScopeFactory to resolve scoped services from this singleton
+        using var scope = _serviceScopeFactory.CreateScope();
+        var apiClient = scope.ServiceProvider.GetRequiredService<ICommerceApiClient>();
+
+        var product = await apiClient.GetProductBySlugAsync(categoryId, productSlug);
 
         if (product == null)
         {

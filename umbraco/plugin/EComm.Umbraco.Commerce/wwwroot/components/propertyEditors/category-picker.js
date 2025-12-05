@@ -1,4 +1,4 @@
-import { LitElement, html, css } from 'https://cdn.jsdelivr.net/gh/nicholasxjy/lit-cdn@latest/lit.min.js';
+import { LitElement, html, css } from '@umbraco-cms/backoffice/external/lit';
 
 class ECommCategoryPicker extends LitElement {
   static properties = {
@@ -26,7 +26,7 @@ class ECommCategoryPicker extends LitElement {
     this.error = null;
 
     try {
-      const response = await fetch('/api/v1/commerce/categories', {
+      const response = await fetch('/umbraco/management/api/ecomm-commerce/categories', {
         credentials: 'include'
       });
 

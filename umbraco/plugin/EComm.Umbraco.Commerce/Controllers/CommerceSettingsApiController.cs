@@ -14,7 +14,7 @@ namespace EComm.Umbraco.Commerce.Controllers;
 [ApiController]
 [MapToApi("ecomm-commerce")]
 [Authorize(Policy = AuthorizationPolicies.BackOfficeAccess)]
-[Route("api/v1/commerce/settings")]
+[Route("settings")]
 public class CommerceSettingsApiController : ControllerBase
 {
     private readonly ICommerceSettingsService _settingsService;

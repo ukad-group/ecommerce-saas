@@ -23,7 +23,18 @@
       "Bash(npm run type-check:*)",
       "Bash(npx @playwright/mcp-cli@latest browser navigate:*)",
       "Bash(dotnet ef migrations:*)",
-      "Bash(./setup-and-test-cart.bat)"
+      "Bash(./setup-and-test-cart.bat)",
+      "Bash(dir:*)",
+      "Bash(dotnet new install:*)",
+      "Bash(dotnet restore:*)",
+      "Bash(dotnet build:*)",
+      "Bash(npm install:*)",
+      "Bash(git checkout:*)",
+      "SlashCommand(/ctx-umbraco)",
+      "Bash(dotnet clean:*)",
+      "Bash(taskkill:*)",
+      "Bash(netstat:*)",
+      "Bash(findstr:*)"
     ],
     "deny": [],
     "ask": []

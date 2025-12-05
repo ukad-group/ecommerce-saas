@@ -14,7 +14,7 @@ namespace EComm.Umbraco.Commerce.Controllers;
 [ApiController]
 [MapToApi("ecomm-commerce")]
 [Authorize(Policy = AuthorizationPolicies.BackOfficeAccess)]
-[Route("api/v1/commerce/categories")]
+[Route("categories")]
 public class CategoryPickerApiController : ControllerBase
 {
     private readonly ICommerceApiClient _apiClient;
