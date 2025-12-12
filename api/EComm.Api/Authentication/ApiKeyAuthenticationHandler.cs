@@ -78,21 +78,32 @@ public class ApiKeyAuthenticationHandler : AuthenticationHandler<AuthenticationS
 
     /// <summary>
     /// Validates the provided API key against the stored hash
-    /// For MVP: simple comparison. Production: use BCrypt or similar
+    /// Supports both seed format (hash_of_<key>) and SHA256 hashed keys
     /// </summary>
     private bool ValidateKey(string storedKeyHash, string providedKey)
     {
-        // For MVP, the "hash" in seed data is just "hash_of_<key>"
-        // So we'll extract the key part and compare
-        // In production, this would use BCrypt.Verify or similar
-
+        // Check seed format first (for backwards compatibility)
         if (storedKeyHash.StartsWith("hash_of_"))
         {
             string expectedKey = storedKeyHash.Substring("hash_of_".Length);
             return expectedKey == providedKey;
         }
 
-        return false;
+        // Check SHA256 hash (for keys created through admin UI)
+        string providedKeyHash = HashApiKey(providedKey);
+        return storedKeyHash.Equals(providedKeyHash, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// Hash API key using SHA256 (matches DataStore.HashApiKey)
+    /// </summary>
+    private string HashApiKey(string key)
+    {
+        using (var sha256 = System.Security.Cryptography.SHA256.Create())
+        {
+            var hashBytes = sha256.ComputeHash(System.Text.Encoding.UTF8.GetBytes(key));
+            return BitConverter.ToString(hashBytes).Replace("-", "").ToLower();
+        }
     }
 }
 

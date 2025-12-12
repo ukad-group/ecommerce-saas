@@ -150,8 +150,8 @@ YourBrand.Umbraco.Commerce/
 │       └── lang/
 │           └── en-us.json
 ├── Controllers/
-│   ├── CommerceSettingsApiController.cs   # Settings CRUD
-│   ├── CategoryPickerApiController.cs     # Fetch categories
+│   ├── CommerceSettingsApiController.cs   # Settings CRUD (Management API)
+│   ├── CategoryPickerApiController.cs     # Fetch categories (Management API)
 │   └── ProductRouteController.cs          # Handle product URLs
 ├── Services/
 │   ├── ICommerceSettingsService.cs
@@ -372,6 +372,45 @@ dotnet run
 ### API Changes from Umbraco 14 → 17
 
 The following API changes were made to ensure compatibility with Umbraco 17:
+
+#### 0. Management API Controller Routing (CRITICAL!)
+
+When using `[MapToApi]` attribute in Umbraco 17, you **must** add an explicit `[Route]` attribute at the controller level:
+
+```csharp
+[ApiController]
+[MapToApi("ecomm-commerce")]
+[Route("umbraco/management/api/ecomm-commerce")]  // REQUIRED!
+[Authorize(Policy = AuthorizationPolicies.BackOfficeAccess)]
+public class CommerceSettingsApiController : ManagementApiControllerBase
+{
+    [HttpGet("settings")]
+    public async Task<IActionResult> GetSettings() { ... }
+}
+```
+
+**Without this**: All endpoints return 404 even though `[MapToApi]` is present.
+
+**Authentication**: Use `UMB_AUTH_CONTEXT` with `consumeContext()` in Lit components for Bearer token authentication:
+
+```javascript
+import { UMB_AUTH_CONTEXT } from '@umbraco-cms/backoffice/auth';
+
+constructor() {
+  super();
+  this.consumeContext(UMB_AUTH_CONTEXT, (authContext) => {
+    this._authContext = authContext;
+  });
+}
+
+async getAuthHeaders() {
+  const token = await this._authContext?.getLatestToken();
+  return {
+    'Authorization': `Bearer ${token}`,
+    'Content-Type': 'application/json'
+  };
+}
+```
 
 #### 1. Content Routing API
 

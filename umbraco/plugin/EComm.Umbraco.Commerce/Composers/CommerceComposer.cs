@@ -26,9 +26,8 @@ public class CommerceComposer : IComposer
         builder.Services.AddScoped<ICommerceSettingsService, CommerceSettingsService>();
         builder.Services.AddScoped<ICommerceApiClient, CommerceApiClient>();
 
-        // Register API controllers
-        builder.Services.AddControllers()
-            .AddApplicationPart(typeof(CommerceSettingsApiController).Assembly);
+        // Note: API controllers with [MapToApi] attribute are automatically discovered by Umbraco
+        // No manual registration needed
 
         // Register content finder for product URL routing
         // Note: ContentFinderByUrl is obsolete in Umbraco 17, using ContentFinderByUrlNew

@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Umbraco.Cms.Api.Common.Attributes;
+using Umbraco.Cms.Api.Management.Controllers;
 using Umbraco.Cms.Web.Common.Authorization;
 
 namespace EComm.Umbraco.Commerce.Controllers;
@@ -13,9 +14,9 @@ namespace EComm.Umbraco.Commerce.Controllers;
 /// </summary>
 [ApiController]
 [MapToApi("ecomm-commerce")]
+[Route("umbraco/management/api/ecomm-commerce")]
 [Authorize(Policy = AuthorizationPolicies.BackOfficeAccess)]
-[Route("settings")]
-public class CommerceSettingsApiController : ControllerBase
+public class CommerceSettingsApiController : ManagementApiControllerBase
 {
     private readonly ICommerceSettingsService _settingsService;
 
@@ -27,7 +28,7 @@ public class CommerceSettingsApiController : ControllerBase
     /// <summary>
     /// Gets the current commerce settings
     /// </summary>
-    [HttpGet]
+    [HttpGet("settings")]
     [ProducesResponseType(typeof(CommerceSettings), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetSettings()
     {
@@ -38,7 +39,7 @@ public class CommerceSettingsApiController : ControllerBase
     /// <summary>
     /// Saves commerce settings
     /// </summary>
-    [HttpPost]
+    [HttpPost("settings")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> SaveSettings([FromBody] CommerceSettings settings)
@@ -55,7 +56,7 @@ public class CommerceSettingsApiController : ControllerBase
     /// <summary>
     /// Tests the connection to the eCommerce API
     /// </summary>
-    [HttpPost("test")]
+    [HttpPost("settings/test")]
     [ProducesResponseType(typeof(ConnectionTestResult), StatusCodes.Status200OK)]
     public async Task<IActionResult> TestConnection([FromBody] CommerceSettings settings)
     {

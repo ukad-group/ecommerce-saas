@@ -67,9 +67,9 @@ public class CommerceSettingsService : ICommerceSettingsService
 
             // Build the API URL
             var baseUrl = settings.ApiBaseUrl.TrimEnd('/');
-            var marketsUrl = $"{baseUrl}/tenants/{settings.TenantId}/markets";
+            var tenantUrl = $"{baseUrl}/tenants/{settings.TenantId}";
 
-            var request = new HttpRequestMessage(HttpMethod.Get, marketsUrl);
+            var request = new HttpRequestMessage(HttpMethod.Get, tenantUrl);
 
             // Add API key header if provided
             if (!string.IsNullOrEmpty(settings.ApiKey))
@@ -82,16 +82,18 @@ public class CommerceSettingsService : ICommerceSettingsService
             if (response.IsSuccessStatusCode)
             {
                 var content = await response.Content.ReadAsStringAsync();
-                var markets = JsonSerializer.Deserialize<List<MarketInfo>>(content, new JsonSerializerOptions
+                var result = JsonSerializer.Deserialize<TenantInfoResponse>(content, new JsonSerializerOptions
                 {
                     PropertyNameCaseInsensitive = true
                 });
 
+                var marketName = result?.Markets?.FirstOrDefault()?.Name ?? "Unknown Market";
                 return new ConnectionTestResult
                 {
                     Success = true,
-                    Message = $"Connection successful! Found {markets?.Count ?? 0} market(s).",
-                    Markets = markets
+                    Message = $"Connection successful! Connected to '{result?.TenantName}' - Market: '{marketName}'",
+                    TenantName = result?.TenantName,
+                    Markets = result?.Markets
                 };
             }
 
@@ -119,5 +121,13 @@ public class CommerceSettingsService : ICommerceSettingsService
                 Message = $"Unexpected error: {ex.Message}"
             };
         }
+    }
+
+    // Response model for tenant info endpoint
+    private class TenantInfoResponse
+    {
+        public string? TenantId { get; set; }
+        public string? TenantName { get; set; }
+        public List<MarketInfo>? Markets { get; set; }
     }
 }

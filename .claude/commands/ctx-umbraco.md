@@ -60,6 +60,26 @@ umbraco/
 **Storage**: Settings tree in Umbraco database
 **API Route**: `/umbraco/management/api/ecomm-commerce/settings`
 
+**Authentication Pattern**: Uses `UMB_AUTH_CONTEXT` for Bearer token authentication
+```javascript
+import { UMB_AUTH_CONTEXT } from '@umbraco-cms/backoffice/auth';
+
+constructor() {
+  super();
+  this.consumeContext(UMB_AUTH_CONTEXT, (authContext) => {
+    this._authContext = authContext;
+  });
+}
+
+async getAuthHeaders() {
+  const token = await this._authContext?.getLatestToken();
+  return {
+    'Authorization': `Bearer ${token}`,
+    'Content-Type': 'application/json'
+  };
+}
+```
+
 #### 2. Category Picker Property Editor
 **Alias**: `EComm.PropertyEditorUi.CategoryPicker`
 **File**: `wwwroot/components/propertyEditors/category-picker.js`
@@ -86,6 +106,17 @@ umbraco/
 - In-memory caching (categories: 5min, products: 2min)
 - Settings integration (reads from CommerceSettingsService)
 - Methods: `GetCategoriesAsync`, `GetCategoryAsync`, `GetProductsAsync`, `GetProductBySlugAsync`
+
+**Connection Testing**: Uses dedicated TenantInfo endpoint for connectivity validation
+```csharp
+// CommerceSettingsService.TestConnectionAsync()
+var tenantUrl = $"{baseUrl}/tenants/{settings.TenantId}";
+var request = new HttpRequestMessage(HttpMethod.Get, tenantUrl);
+request.Headers.Add("X-API-Key", settings.ApiKey);
+// Returns tenant info + available markets list
+```
+
+**eCommerce API Endpoint**: `GET /api/v1/tenants/{tenantId}` (requires API key authentication)
 
 #### 5. Commerce Settings Service
 **File**: `Services/CommerceSettingsService.cs`
@@ -163,6 +194,26 @@ using var scope = _serviceScopeFactory.CreateScope();
 var apiClient = scope.ServiceProvider.GetRequiredService<ICommerceApiClient>();
 var product = await apiClient.GetProductBySlugAsync(categoryId, productSlug);
 ```
+
+#### 5. Management API Controller Routing
+**Problem**: Controllers with `[MapToApi]` attribute require explicit `[Route]` at controller level
+**Solution**: Add explicit route attribute to controllers
+```csharp
+[ApiController]
+[MapToApi("ecomm-commerce")]
+[Route("umbraco/management/api/ecomm-commerce")]  // REQUIRED in Umbraco 17!
+[Authorize(Policy = AuthorizationPolicies.BackOfficeAccess)]
+public class CommerceSettingsApiController : ManagementApiControllerBase
+{
+    [HttpGet("settings")]
+    public async Task<IActionResult> GetSettings() { ... }
+
+    [HttpPost("settings")]
+    public async Task<IActionResult> SaveSettings([FromBody] CommerceSettings settings) { ... }
+}
+```
+
+**Important**: Without the explicit `[Route]` attribute, endpoints will return 404 even though `[MapToApi]` is present.
 
 ### Running the Sample Site
 

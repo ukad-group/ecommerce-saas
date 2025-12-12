@@ -1,6 +1,8 @@
 import { LitElement, html, css } from '@umbraco-cms/backoffice/external/lit';
+import { UmbElementMixin } from '@umbraco-cms/backoffice/element-api';
+import { UMB_AUTH_CONTEXT } from '@umbraco-cms/backoffice/auth';
 
-class ECommSettingsDashboard extends LitElement {
+class ECommSettingsDashboard extends UmbElementMixin(LitElement) {
   static properties = {
     settings: { type: Object },
     loading: { type: Boolean },
@@ -23,6 +25,11 @@ class ECommSettingsDashboard extends LitElement {
     this.testing = false;
     this.testResult = null;
     this.error = null;
+
+    // Consume auth context
+    this.consumeContext(UMB_AUTH_CONTEXT, (authContext) => {
+      this._authContext = authContext;
+    });
   }
 
   connectedCallback() {
@@ -30,12 +37,23 @@ class ECommSettingsDashboard extends LitElement {
     this.loadSettings();
   }
 
+  async getAuthHeaders() {
+    const token = await this._authContext?.getLatestToken();
+
+    return {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    };
+  }
+
   async loadSettings() {
     this.loading = true;
     this.error = null;
 
     try {
+      const headers = await this.getAuthHeaders();
       const response = await fetch('/umbraco/management/api/ecomm-commerce/settings', {
+        headers: headers,
         credentials: 'include'
       });
 
@@ -56,11 +74,10 @@ class ECommSettingsDashboard extends LitElement {
     this.error = null;
 
     try {
+      const headers = await this.getAuthHeaders();
       const response = await fetch('/umbraco/management/api/ecomm-commerce/settings', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
+        headers: headers,
         credentials: 'include',
         body: JSON.stringify(this.settings)
       });
@@ -85,11 +102,10 @@ class ECommSettingsDashboard extends LitElement {
     this.error = null;
 
     try {
+      const headers = await this.getAuthHeaders();
       const response = await fetch('/umbraco/management/api/ecomm-commerce/settings/test', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
+        headers: headers,
         credentials: 'include',
         body: JSON.stringify(this.settings)
       });
@@ -226,6 +242,11 @@ class ECommSettingsDashboard extends LitElement {
     :host {
       display: block;
       padding: var(--uui-size-space-5);
+      overflow: visible;
+    }
+
+    uui-box {
+      overflow: visible;
     }
 
     .loading {
@@ -268,7 +289,11 @@ class ECommSettingsDashboard extends LitElement {
     }
 
     uui-badge {
-      margin-bottom: var(--uui-size-space-4);
+      display: block;
+      margin: 15px;
+      max-width: calc(100% - 30px);
+      word-wrap: break-word;
+      white-space: normal;
     }
 
     .markets-list {
