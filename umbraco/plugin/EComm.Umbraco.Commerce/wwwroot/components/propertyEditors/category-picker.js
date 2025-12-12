@@ -1,6 +1,8 @@
 import { LitElement, html, css } from '@umbraco-cms/backoffice/external/lit';
+import { UmbElementMixin } from '@umbraco-cms/backoffice/element-api';
+import { UMB_AUTH_CONTEXT } from '@umbraco-cms/backoffice/auth';
 
-class ECommCategoryPicker extends LitElement {
+class ECommCategoryPicker extends UmbElementMixin(LitElement) {
   static properties = {
     value: { type: String },
     categories: { type: Array },
@@ -14,6 +16,11 @@ class ECommCategoryPicker extends LitElement {
     this.categories = [];
     this.loading = true;
     this.error = null;
+
+    // Consume auth context
+    this.consumeContext(UMB_AUTH_CONTEXT, (authContext) => {
+      this._authContext = authContext;
+    });
   }
 
   connectedCallback() {
@@ -21,12 +28,23 @@ class ECommCategoryPicker extends LitElement {
     this.loadCategories();
   }
 
+  async getAuthHeaders() {
+    const token = await this._authContext?.getLatestToken();
+
+    return {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    };
+  }
+
   async loadCategories() {
     this.loading = true;
     this.error = null;
 
     try {
+      const headers = await this.getAuthHeaders();
       const response = await fetch('/umbraco/management/api/ecomm-commerce/categories', {
+        headers: headers,
         credentials: 'include'
       });
 
@@ -106,19 +124,22 @@ class ECommCategoryPicker extends LitElement {
 
     const flatCategories = this.flattenCategories(this.categories);
 
+    // Convert to options format expected by uui-select
+    const options = [
+      { name: '-- Select a category --', value: '', selected: !this.value },
+      ...flatCategories.map(cat => ({
+        name: cat.displayName,
+        value: cat.id,
+        selected: this.value === cat.id
+      }))
+    ];
+
     return html`
       <uui-select
         .value=${this.value}
+        .options=${options}
         @change=${this.handleChange}
         placeholder="Select a category">
-        <uui-select-option value="">-- Select a category --</uui-select-option>
-        ${flatCategories.map(cat => html`
-          <uui-select-option
-            value=${cat.id}
-            ?selected=${this.value === cat.id}>
-            ${cat.displayName}
-          </uui-select-option>
-        `)}
       </uui-select>
 
       ${this.value ? html`

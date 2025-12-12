@@ -26,14 +26,43 @@ public class CategoryPickerApiController : ManagementApiControllerBase
     }
 
     /// <summary>
-    /// Gets all categories from the eCommerce API
+    /// Gets all categories from the eCommerce API as a hierarchical tree
     /// </summary>
     [HttpGet("categories")]
     [ProducesResponseType(typeof(List<Category>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetCategories()
     {
-        var categories = await _apiClient.GetCategoriesAsync();
-        return Ok(categories);
+        var flatCategories = await _apiClient.GetCategoriesAsync();
+
+        // Build hierarchical tree structure
+        var categoryTree = BuildCategoryTree(flatCategories);
+
+        return Ok(categoryTree);
+    }
+
+    /// <summary>
+    /// Converts flat category list to hierarchical tree structure
+    /// </summary>
+    private List<Category> BuildCategoryTree(List<Category> flatCategories)
+    {
+        var lookup = flatCategories.ToDictionary(c => c.Id);
+        var rootCategories = new List<Category>();
+
+        foreach (var category in flatCategories)
+        {
+            if (string.IsNullOrEmpty(category.ParentId))
+            {
+                // Root level category
+                rootCategories.Add(category);
+            }
+            else if (lookup.TryGetValue(category.ParentId, out var parent))
+            {
+                // Add to parent's children
+                parent.Children.Add(category);
+            }
+        }
+
+        return rootCategories.OrderBy(c => c.DisplayOrder).ToList();
     }
 
     /// <summary>

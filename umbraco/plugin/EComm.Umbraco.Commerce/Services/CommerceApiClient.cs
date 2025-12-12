@@ -56,7 +56,7 @@ public class CommerceApiClient : ICommerceApiClient
         try
         {
             var client = await CreateClientAsync(settings);
-            var url = $"/tenants/{settings.TenantId}/markets/{settings.MarketId}/categories";
+            var url = $"/api/v1/categories?tenantId={settings.TenantId}&marketId={settings.MarketId}";
 
             var response = await client.GetAsync(url);
             response.EnsureSuccessStatusCode();
@@ -93,7 +93,7 @@ public class CommerceApiClient : ICommerceApiClient
         try
         {
             var client = await CreateClientAsync(settings);
-            var url = $"/tenants/{settings.TenantId}/markets/{settings.MarketId}/categories/{categoryId}";
+            var url = $"/api/v1/categories/{categoryId}";
 
             var response = await client.GetAsync(url);
 
@@ -129,7 +129,7 @@ public class CommerceApiClient : ICommerceApiClient
         try
         {
             var client = await CreateClientAsync(settings);
-            var url = $"/tenants/{settings.TenantId}/markets/{settings.MarketId}/products?categoryId={categoryId}&page={page}&pageSize={pageSize}";
+            var url = $"/api/v1/products?tenantId={settings.TenantId}&marketId={settings.MarketId}&categoryId={categoryId}&page={page}&pageSize={pageSize}";
 
             var response = await client.GetAsync(url);
             response.EnsureSuccessStatusCode();
@@ -162,7 +162,7 @@ public class CommerceApiClient : ICommerceApiClient
         try
         {
             var client = await CreateClientAsync(settings);
-            var url = $"/tenants/{settings.TenantId}/markets/{settings.MarketId}/products/by-slug/{slug}?categoryId={categoryId}";
+            var url = $"/api/v1/products/by-slug/{slug}?tenantId={settings.TenantId}&marketId={settings.MarketId}&categoryId={categoryId}";
 
             var response = await client.GetAsync(url);
 
@@ -205,7 +205,7 @@ public class CommerceApiClient : ICommerceApiClient
         try
         {
             var client = await CreateClientAsync(settings);
-            var url = $"/tenants/{settings.TenantId}/markets/{settings.MarketId}/products/{productId}";
+            var url = $"/api/v1/products/{productId}";
 
             var response = await client.GetAsync(url);
 
