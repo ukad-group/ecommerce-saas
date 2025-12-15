@@ -31,6 +31,24 @@
         "group": "commerce",
         "propertyEditorSchemaAlias": "Umbraco.Plain.String"
       }
+    },
+    {
+      "type": "workspaceView",
+      "alias": "ecomm.workspaceView.products",
+      "name": "eCommerce Products View",
+      "element": "/App_Plugins/ECommCommerce/components/workspaceViews/products-workspace-view.js",
+      "weight": -200,
+      "meta": {
+        "label": "eCommerce",
+        "pathname": "ecommerce",
+        "icon": "icon-shopping-basket"
+      },
+      "conditions": [
+        {
+          "alias": "Umb.Condition.WorkspaceAlias",
+          "match": "Umb.Workspace.Document"
+        }
+      ]
     }
   ]
 }

@@ -6,9 +6,9 @@ This document outlines the architecture and implementation plan for an Umbraco p
 
 **Target Umbraco Version**: 17.0.0 (LTS - Long Term Support with .NET 10)
 
-**Status**: Phase 1-3 Core Implementation Complete, Upgraded to Umbraco 17
+**Status**: Phase 1-4 Complete - Core Implementation + Products Workspace View, Upgraded to Umbraco 17
 
-**Last Updated**: 2025-11-28
+**Last Updated**: 2025-12-12
 
 ---
 
@@ -31,6 +31,7 @@ This document outlines the architecture and implementation plan for an Umbraco p
 │               ├── umbraco-package.json
 │               ├── components/settings/    # Settings dashboard
 │               ├── components/propertyEditors/  # Category picker
+│               ├── components/workspaceViews/   # Products workspace view
 │               └── lang/                   # Localization
 └── sample-site/
     └── EComm.Commerce.Demo/            # Sample Umbraco 14 site
@@ -105,13 +106,13 @@ Home
 ### High-Level Components
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│                   Umbraco Backoffice                    │
-│  ┌────────────────┐  ┌──────────────┐  ┌─────────────┐ │
-│  │ Settings Panel │  │  Category    │  │  Dashboard  │ │
-│  │  (Lit)         │  │  Picker (Lit)│  │  (Lit)      │ │
-│  └────────────────┘  └──────────────┘  └─────────────┘ │
-└─────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────┐
+│                       Umbraco Backoffice                             │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  ┌─────────┐ │
+│  │   Settings   │  │   Category   │  │   Products   │  │Dashboard│ │
+│  │  Panel (Lit) │  │ Picker (Lit) │  │Workspace View│  │  (Lit)  │ │
+│  └──────────────┘  └──────────────┘  └──────────────┘  └─────────┘ │
+└──────────────────────────────────────────────────────────────────────┘
                             │
                             ▼
 ┌─────────────────────────────────────────────────────────┐

@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace EComm.Umbraco.Commerce.Models;
 
 /// <summary>
@@ -9,16 +11,15 @@ public class Product
     public string Name { get; set; } = string.Empty;
     public string? Slug { get; set; }
     public string? Description { get; set; }
-    public decimal Price { get; set; }
-    public string? CategoryId { get; set; }
-    public int StockQuantity { get; set; }
-    public List<ProductImage> Images { get; set; } = new();
-    public Dictionary<string, string> CustomProperties { get; set; } = new();
-}
 
-public class ProductImage
-{
-    public string Url { get; set; } = string.Empty;
-    public string? AltText { get; set; }
-    public int DisplayOrder { get; set; }
+    [JsonNumberHandling(JsonNumberHandling.AllowReadingFromString)]
+    public decimal? Price { get; set; }
+
+    public string? CategoryId { get; set; }
+
+    [JsonNumberHandling(JsonNumberHandling.AllowReadingFromString)]
+    public int? StockQuantity { get; set; }
+
+    public List<string> Images { get; set; } = new();
+    public Dictionary<string, string> CustomProperties { get; set; } = new();
 }

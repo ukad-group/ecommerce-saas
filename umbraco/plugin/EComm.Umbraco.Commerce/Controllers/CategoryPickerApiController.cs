@@ -45,6 +45,12 @@ public class CategoryPickerApiController : ManagementApiControllerBase
     /// </summary>
     private List<Category> BuildCategoryTree(List<Category> flatCategories)
     {
+        // Clear children collections to avoid accumulation from cached objects
+        foreach (var category in flatCategories)
+        {
+            category.Children.Clear();
+        }
+
         var lookup = flatCategories.ToDictionary(c => c.Id);
         var rootCategories = new List<Category>();
 
@@ -81,5 +87,17 @@ public class CategoryPickerApiController : ManagementApiControllerBase
         }
 
         return Ok(category);
+    }
+
+    /// <summary>
+    /// Gets products for a specific category (for workspace view)
+    /// </summary>
+    [HttpGet("products/{categoryId}")]
+    [ProducesResponseType(typeof(ProductListResult), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetProductsForCategory(string categoryId)
+    {
+        var result = await _apiClient.GetProductsAsync(categoryId, page: 1, pageSize: 100);
+        return Ok(result);
     }
 }

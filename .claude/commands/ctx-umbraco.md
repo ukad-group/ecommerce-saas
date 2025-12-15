@@ -41,6 +41,8 @@ umbraco/
 │           └── components/
 │               ├── propertyEditors/
 │               │   └── category-picker.js  # Category picker UI
+│               ├── workspaceViews/
+│               │   └── products-workspace-view.js  # Product list view
 │               └── settings/
 │                   └── settings-dashboard.js  # Settings UI
 │
@@ -87,7 +89,43 @@ async getAuthHeaders() {
 **Usage**: Add to document type properties (stores category ID as string)
 **API Route**: `/umbraco/management/api/ecomm-commerce/categories`
 
-#### 3. Product Content Finder
+#### 3. Products Workspace View
+**Alias**: `ecomm.workspaceView.products`
+**File**: `wwwroot/components/workspaceViews/products-workspace-view.js`
+**Purpose**: Display eCommerce products as a tab in the document editor
+**Location**: Appears as "eCommerce" tab (next to Content/Info tabs) on document nodes
+**API Route**: `/umbraco/management/api/ecomm-commerce/products/{categoryId}`
+
+**How it works**:
+1. Consumes `UMB_PROPERTY_DATASET_CONTEXT` to reactively observe `categoryId` property
+2. When categoryId changes, automatically fetches products from eCommerce API
+3. Displays products in a table with: Image, Name, Slug, Price, Stock quantity
+4. Read-only view (MVP) - future versions may support editing
+
+**Context Pattern**: Uses Umbraco's property dataset context for reactive updates
+```javascript
+import { UMB_PROPERTY_DATASET_CONTEXT } from '@umbraco-cms/backoffice/property';
+
+this.consumeContext(UMB_PROPERTY_DATASET_CONTEXT, async (datasetContext) => {
+  this.observe(
+    await datasetContext.propertyValueByAlias('categoryId'),
+    (value) => {
+      this.categoryId = value;
+      if (value) this.loadProducts();
+    }
+  );
+});
+```
+
+**States handled**:
+- Loading: Spinner with "Loading products..." message
+- No categoryId: Info message guiding user to Content tab
+- API not configured: Error with instructions to configure settings
+- Empty category: Friendly empty state message
+- Network error: Error message with retry button
+- Success: Table view with product count
+
+#### 4. Product Content Finder
 **File**: `ContentFinders/ProductContentFinder.cs`
 **Purpose**: Dynamic URL routing for products within categories
 **Pattern**: `/category-path/product-slug` → routes to Product template node
@@ -99,7 +137,7 @@ async getAuthHeaders() {
 5. Fetches product from API: `GET /products/by-slug/{slug}?categoryId={categoryId}`
 6. Routes to child node with alias `productPage` (the template)
 
-#### 4. Commerce API Client
+#### 5. Commerce API Client
 **File**: `Services/CommerceApiClient.cs`
 **Features**:
 - HttpClient factory pattern
@@ -118,7 +156,15 @@ request.Headers.Add("X-API-Key", settings.ApiKey);
 
 **eCommerce API Endpoint**: `GET /api/v1/tenants/{tenantId}` (requires API key authentication)
 
-#### 5. Commerce Settings Service
+#### 6. CategoryPicker API Controller
+**File**: `Controllers/CategoryPickerApiController.cs`
+**Purpose**: Proxy endpoints for category and product data from eCommerce API
+**Endpoints**:
+- `GET /umbraco/management/api/ecomm-commerce/categories` - Get all categories (hierarchical tree)
+- `GET /umbraco/management/api/ecomm-commerce/categories/{id}` - Get specific category
+- `GET /umbraco/management/api/ecomm-commerce/products/{categoryId}` - Get products for workspace view (max 100)
+
+#### 7. Commerce Settings Service
 **File**: `Services/CommerceSettingsService.cs`
 **Storage**: Umbraco settings tree (`/umbraco/settings/commerce`)
 **Methods**: `GetSettingsAsync`, `SaveSettingsAsync`
@@ -422,6 +468,32 @@ import { LitElement, html, css } from '@umbraco-cms/backoffice/external/lit';
    }
    ```
 
+#### Add New Workspace View
+1. Create Lit component in `wwwroot/App_Plugins/ECommCommerce/components/workspaceViews/`
+2. Register in `umbraco-package.json`:
+   ```json
+   {
+     "type": "workspaceView",
+     "alias": "ecomm.workspaceView.myView",
+     "element": "/App_Plugins/ECommCommerce/components/workspaceViews/my-view.js",
+     "weight": 800,
+     "meta": {
+       "label": "My View",
+       "pathname": "myview",
+       "icon": "icon-box"
+     },
+     "conditions": [
+       {
+         "alias": "Umb.Condition.WorkspaceAlias",
+         "match": "Umb.Workspace.Document"
+       }
+     ]
+   }
+   ```
+3. Use `UMB_PROPERTY_DATASET_CONTEXT` to access document properties
+4. Use `UMB_AUTH_CONTEXT` for authenticated API calls
+5. Rebuild and test
+
 #### Modify API Integration
 1. Update models in `Models/`
 2. Update API client methods in `Services/CommerceApiClient.cs`
@@ -446,6 +518,9 @@ curl -k https://localhost:44371/App_Plugins/ECommCommerce/components/propertyEdi
 
 # 3. Check dashboard file
 curl -k https://localhost:44371/App_Plugins/ECommCommerce/components/settings/settings-dashboard.js
+
+# 4. Check workspace view file
+curl -k https://localhost:44371/App_Plugins/ECommCommerce/components/workspaceViews/products-workspace-view.js
 ```
 
 #### Test Settings API
@@ -470,6 +545,7 @@ curl -k -X POST https://localhost:44371/umbraco/backoffice/api/commercesettings/
 | `CommerceSettingsController.cs` | Backoffice API for settings CRUD |
 | `umbraco-package.json` | Plugin manifest (extensions registration) |
 | `category-picker.js` | Category dropdown property editor |
+| `products-workspace-view.js` | Products list workspace view (eCommerce tab) |
 | `settings-dashboard.js` | Settings UI with save/test functionality |
 | `Program.cs` | **CRITICAL**: Must enable static web assets |
 | `appsettings.json` | Database connection (SQLite) |

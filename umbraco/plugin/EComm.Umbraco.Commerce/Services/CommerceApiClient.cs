@@ -1,5 +1,6 @@
 using System.Net.Http.Json;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using EComm.Umbraco.Commerce.Models;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
@@ -18,7 +19,8 @@ public class CommerceApiClient : ICommerceApiClient
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
-        PropertyNameCaseInsensitive = true
+        PropertyNameCaseInsensitive = true,
+        NumberHandling = JsonNumberHandling.AllowReadingFromString
     };
 
     // Cache durations
@@ -134,8 +136,16 @@ public class CommerceApiClient : ICommerceApiClient
             var response = await client.GetAsync(url);
             response.EnsureSuccessStatusCode();
 
-            var result = await response.Content.ReadFromJsonAsync<ProductListResult>(JsonOptions);
-            return result ?? new ProductListResult();
+            // API returns a plain array, not a ProductListResult object
+            var products = await response.Content.ReadFromJsonAsync<List<Product>>(JsonOptions);
+
+            return new ProductListResult
+            {
+                Products = products ?? new List<Product>(),
+                TotalCount = products?.Count ?? 0,
+                Page = page,
+                PageSize = pageSize
+            };
         }
         catch (Exception ex)
         {
