@@ -1,0 +1,56 @@
+@using Umbraco.Cms.Core.Models.PublishedContent
+@using System.Collections.Generic
+@model IPublishedContent
+
+@{
+    var currentPageId = (int)ViewBag.CurrentPageId;
+    var currentPath = (List<int>)ViewBag.CurrentPath;
+
+    var hasChildren = Model.Children().Any(x => x.ContentType.Alias == "categoryPage");
+    var isActive = Model.Id == currentPageId;
+    var isExpanded = currentPath.Contains(Model.Id);
+    var childCategories = Model.Children().Where(x => x.ContentType.Alias == "categoryPage").ToList();
+    var uniqueId = $"collapse-{Model.Id}";
+}
+
+<li class="list-group-item p-0 border-0">
+    <div class="d-flex align-items-center">
+        @if (hasChildren)
+        {
+            <button class="btn btn-link btn-sm text-decoration-none p-1 me-1"
+                    type="button"
+                    data-bs-toggle="collapse"
+                    data-bs-target="#@uniqueId"
+                    aria-expanded="@(isExpanded ? "true" : "false")">
+                <i class="bi @(isExpanded ? "bi-chevron-down" : "bi-chevron-right")"></i>
+            </button>
+        }
+        else
+        {
+            <span class="ms-3"></span>
+        }
+
+        <a href="@Model.Url()"
+           class="flex-grow-1 text-decoration-none d-block py-2 px-2 rounded @(isActive ? "bg-primary text-white" : "text-dark hover-bg-light")">
+            <i class="bi bi-tag me-1"></i> @Model.Name
+        </a>
+    </div>
+
+    @if (hasChildren)
+    {
+        <div class="collapse @(isExpanded ? "show" : "")" id="@uniqueId">
+            <ul class="list-group list-group-flush ms-3">
+                @foreach (var child in childCategories)
+                {
+                    @await Html.PartialAsync("CategoryTree", child)
+                }
+            </ul>
+        </div>
+    }
+</li>
+
+<style>
+    .hover-bg-light:hover {
+        background-color: #f8f9fa !important;
+    }
+</style>

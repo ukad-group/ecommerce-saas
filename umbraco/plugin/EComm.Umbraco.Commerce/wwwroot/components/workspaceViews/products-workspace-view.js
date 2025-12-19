@@ -39,7 +39,7 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
             // Extract categoryId from data.values array
             let newCategoryId = null;
             if (data.values && Array.isArray(data.values)) {
-              const categoryIdProp = data.values.find(v => v?.alias === 'eCommerceCategory');
+              const categoryIdProp = data.values.find(v => v?.alias === 'categoryId');
               if (categoryIdProp) {
                 newCategoryId = categoryIdProp.value;
               }
