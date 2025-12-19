@@ -23,6 +23,11 @@ public interface ICommerceApiClient
     Task<ProductListResult> GetProductsAsync(string categoryId, int page = 1, int pageSize = 20);
 
     /// <summary>
+    /// Gets all products across all categories with pagination
+    /// </summary>
+    Task<ProductListResult> GetAllProductsAsync(int page = 1, int pageSize = 100);
+
+    /// <summary>
     /// Gets a product by its slug within a category
     /// </summary>
     Task<Product?> GetProductBySlugAsync(string categoryId, string slug);

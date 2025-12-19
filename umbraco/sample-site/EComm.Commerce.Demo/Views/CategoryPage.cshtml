@@ -12,12 +12,6 @@
             <i class="bi bi-exclamation-triangle"></i> @Model.ErrorMessage
         </div>
     }
-    else if (string.IsNullOrEmpty(Model.CategoryId))
-    {
-        <div class="alert alert-info">
-            <i class="bi bi-info-circle"></i> Please select a category in the Umbraco backoffice to display products.
-        </div>
-    }
     else
     {
         <!-- Page Header -->

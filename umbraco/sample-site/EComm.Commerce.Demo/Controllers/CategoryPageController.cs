@@ -48,10 +48,10 @@ public class CategoryPageController : RenderController
             CategoryId = categoryId
         };
 
-        // If categoryId is set, fetch products from the API
-        if (!string.IsNullOrEmpty(categoryId))
+        try
         {
-            try
+            // If categoryId is set, fetch products for that category
+            if (!string.IsNullOrEmpty(categoryId))
             {
                 // Get category details (synchronous call)
                 var category = _commerceApiClient.GetCategoryAsync(categoryId).GetAwaiter().GetResult();
@@ -62,11 +62,21 @@ public class CategoryPageController : RenderController
                 viewModel.Products = productsResult.Products;
                 viewModel.TotalProducts = productsResult.TotalCount;
             }
-            catch (Exception ex)
+            else
             {
-                _logger.LogError(ex, "Error fetching products for category {CategoryId}", categoryId);
-                viewModel.ErrorMessage = "Unable to load products. Please check the Commerce Settings configuration.";
+                // No category selected - show all products
+                viewModel.CategoryName = "All Products";
+
+                // Get all products (first page, 100 items)
+                var productsResult = _commerceApiClient.GetAllProductsAsync(page: 1, pageSize: 100).GetAwaiter().GetResult();
+                viewModel.Products = productsResult.Products;
+                viewModel.TotalProducts = productsResult.TotalCount;
             }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error fetching products for category {CategoryId}", categoryId ?? "all");
+            viewModel.ErrorMessage = "Unable to load products. Please check the Commerce Settings configuration.";
         }
 
         return View("CategoryPage", viewModel);

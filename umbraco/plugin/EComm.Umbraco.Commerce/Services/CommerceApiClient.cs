@@ -154,6 +154,40 @@ public class CommerceApiClient : ICommerceApiClient
         }
     }
 
+    public async Task<ProductListResult> GetAllProductsAsync(int page = 1, int pageSize = 100)
+    {
+        var settings = await _settingsService.GetSettingsAsync();
+        if (settings == null || !settings.IsValid)
+        {
+            return new ProductListResult();
+        }
+
+        try
+        {
+            var client = await CreateClientAsync(settings);
+            var url = $"/api/v1/products?tenantId={settings.TenantId}&marketId={settings.MarketId}&page={page}&pageSize={pageSize}";
+
+            var response = await client.GetAsync(url);
+            response.EnsureSuccessStatusCode();
+
+            // API returns a plain array, not a ProductListResult object
+            var products = await response.Content.ReadFromJsonAsync<List<Product>>(JsonOptions);
+
+            return new ProductListResult
+            {
+                Products = products ?? new List<Product>(),
+                TotalCount = products?.Count ?? 0,
+                Page = page,
+                PageSize = pageSize
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to fetch all products");
+            return new ProductListResult();
+        }
+    }
+
     public async Task<Product?> GetProductBySlugAsync(string categoryId, string slug)
     {
         var cacheKey = $"EComm_Product_{categoryId}_{slug}";
