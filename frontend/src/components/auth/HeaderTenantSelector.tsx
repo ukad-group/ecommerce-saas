@@ -8,8 +8,9 @@
 import { Fragment, useEffect } from 'react';
 import { Menu, Transition } from '@headlessui/react';
 import { ChevronDownIcon, BuildingOfficeIcon } from '@heroicons/react/20/solid';
+import { useQuery } from '@tanstack/react-query';
 import { useAuthStore } from '../../store/authStore';
-import { getActiveTenants } from '../../data/tenants';
+import type { Tenant } from '../../types/tenant';
 
 /**
  * Tenant selector dropdown for superadmin in header
@@ -21,8 +22,35 @@ export function HeaderTenantSelector() {
     setTenant: state.setTenant,
   }));
 
-  const tenants = getActiveTenants();
   const currentTenantId = session?.selectedTenantId;
+
+  // Fetch tenants from API
+  const { data: tenantsData } = useQuery<{
+    data: Tenant[];
+    total: number;
+  }>({
+    queryKey: ['tenants'],
+    queryFn: async () => {
+      const params = new URLSearchParams({
+        status: 'active', // Only show active tenants
+      });
+
+      const response = await fetch(
+        `${import.meta.env.VITE_API_BASE_URL}/admin/tenants?${params}`,
+        {
+          credentials: 'include', // Send JWT cookie
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch tenants');
+      }
+
+      return response.json();
+    },
+  });
+
+  const tenants = tenantsData?.data ?? [];
   const currentTenant = tenants.find((t) => t.id === currentTenantId);
 
   // Auto-select first tenant if none is selected

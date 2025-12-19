@@ -4,7 +4,7 @@
  * Top navigation bar for the admin backoffice with role-based menu visibility.
  */
 
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { UserInfo } from '../auth/UserInfo';
 import { HeaderTenantSelector } from '../auth/HeaderTenantSelector';
 import { HeaderMarketSelector } from '../auth/HeaderMarketSelector';
@@ -14,6 +14,11 @@ import { Role } from '../../types/auth';
 export function Navigation() {
   const session = useAuthStore((state) => state.session);
   const userRole = session?.profile.role;
+  const location = useLocation();
+
+  // Hide context selectors on tenant detail routes (e.g., /admin/tenants/:tenantId/markets)
+  // since the tenant is already specified in the URL
+  const isOnTenantDetailRoute = /^\/admin\/tenants\/[^/]+/.test(location.pathname);
 
   return (
     <nav className="bg-white shadow-sm border-b border-gray-200">
@@ -74,16 +79,18 @@ export function Navigation() {
           </div>
         </div>
 
-        {/* Context Selectors Row */}
-        <div className="flex items-center gap-3 py-3 border-t border-gray-100">
-          <span className="text-sm font-medium text-gray-700">Context:</span>
+        {/* Context Selectors Row - Hidden on tenant detail routes */}
+        {!isOnTenantDetailRoute && (
+          <div className="flex items-center gap-3 py-3 border-t border-gray-100">
+            <span className="text-sm font-medium text-gray-700">Context:</span>
 
-          {/* Tenant Selector - Only for Superadmin */}
-          {userRole === Role.SUPERADMIN && <HeaderTenantSelector />}
+            {/* Tenant Selector - Only for Superadmin */}
+            {userRole === Role.SUPERADMIN && <HeaderTenantSelector />}
 
-          {/* Market Selector - For all roles */}
-          <HeaderMarketSelector />
-        </div>
+            {/* Market Selector - For all roles */}
+            <HeaderMarketSelector />
+          </div>
+        )}
       </div>
     </nav>
   );

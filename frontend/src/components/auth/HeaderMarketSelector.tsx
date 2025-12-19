@@ -8,8 +8,9 @@
 import { Fragment, useEffect } from 'react';
 import { Menu, Transition } from '@headlessui/react';
 import { ChevronDownIcon, MapPinIcon } from '@heroicons/react/20/solid';
+import { useQuery } from '@tanstack/react-query';
 import { useAuthStore } from '../../store/authStore';
-import { getMarketsByTenant } from '../../data/tenants';
+import type { Market } from '../../types/market';
 
 /**
  * Market selector dropdown for all roles in header
@@ -22,8 +23,39 @@ export function HeaderMarketSelector() {
   }));
 
   const tenantId = session?.selectedTenantId;
-  const markets = tenantId ? getMarketsByTenant(tenantId) : [];
   const currentMarketId = session?.selectedMarketIds?.[0];
+
+  // Fetch markets from API
+  const { data: marketsData } = useQuery<{
+    data: Market[];
+    total: number;
+  }>({
+    queryKey: ['markets', { tenantId }],
+    queryFn: async () => {
+      if (!tenantId) return { data: [], total: 0 };
+
+      const params = new URLSearchParams({
+        tenantId,
+        status: 'active', // Only show active markets in the dropdown
+      });
+
+      const response = await fetch(
+        `${import.meta.env.VITE_API_BASE_URL}/admin/markets?${params}`,
+        {
+          credentials: 'include', // Send JWT cookie
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch markets');
+      }
+
+      return response.json();
+    },
+    enabled: !!tenantId, // Only fetch when tenantId is available
+  });
+
+  const markets = marketsData?.data ?? [];
   const currentMarket = markets.find((m) => m.id === currentMarketId);
 
   // Auto-select first market if none is selected

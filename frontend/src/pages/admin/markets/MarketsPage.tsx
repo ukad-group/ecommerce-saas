@@ -6,9 +6,9 @@
  * - Tenant Admin: Can see and manage only their tenant's markets
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Link } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { PlusIcon, MagnifyingGlassIcon, KeyIcon } from '@heroicons/react/24/outline';
 import type { Market, MarketStatus, MarketType, UpdateMarketInput } from '../../../types/market';
 import { useAuthStore } from '../../../store/authStore';
@@ -26,9 +26,16 @@ export function MarketsPage() {
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const queryClient = useQueryClient();
 
+  // Use specific selectors to ensure reactivity when tenant changes
+  // Access the entire session to ensure Zustand detects changes to nested properties
   const session = useAuthStore((state) => state.session);
   const userRole = session?.profile.role;
-  const tenantId = session?.selectedTenantId;
+  const selectedTenantId = session?.selectedTenantId;
+
+  // Get tenantId from URL params (for /admin/tenants/:tenantId/markets route)
+  // or from selected context (for /admin/markets route)
+  const { tenantId: urlTenantId } = useParams<{ tenantId: string }>();
+  const tenantId = urlTenantId || selectedTenantId;
 
   // Fetch markets
   const { data, isLoading, error } = useQuery<{
@@ -44,8 +51,10 @@ export function MarketsPage() {
         limit: '10',
       });
 
-      // Tenant admins only see their tenant's markets
-      if (userRole === Role.TENANT_ADMIN && tenantId) {
+      // Filter by tenant if:
+      // - URL has tenantId param (superadmin viewing specific tenant's markets)
+      // - Selected tenant in context (both superadmin and tenant admin)
+      if (tenantId) {
         params.append('tenantId', tenantId);
       }
 
@@ -62,6 +71,13 @@ export function MarketsPage() {
       return response.json();
     },
   });
+
+  // Reset to page 1 and invalidate query when tenant changes
+  useEffect(() => {
+    setPage(1);
+    // Force refetch when tenant changes
+    queryClient.invalidateQueries({ queryKey: ['markets'] });
+  }, [tenantId, queryClient]);
 
   // Deactivate market mutation
   const deactivateMutation = useMutation({
@@ -159,9 +175,9 @@ export function MarketsPage() {
         <div className="sm:flex-auto">
           <h1 className="text-2xl font-semibold text-gray-900">Markets</h1>
           <p className="mt-2 text-sm text-gray-700">
-            {userRole === Role.SUPERADMIN
-              ? 'Manage all markets across all tenants.'
-              : 'Manage markets for your tenant.'}
+            {tenantId
+              ? `Manage markets for ${urlTenantId ? 'the selected' : 'your'} tenant.`
+              : 'Manage all markets across all tenants.'}
           </p>
         </div>
         <div className="mt-4 sm:ml-16 sm:mt-0 sm:flex-none">
