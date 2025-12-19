@@ -21,5 +21,12 @@ public class Product
     public int? StockQuantity { get; set; }
 
     public List<string> Images { get; set; } = new();
-    public Dictionary<string, string> CustomProperties { get; set; } = new();
+    public List<CustomProperty>? CustomProperties { get; set; }
+}
+
+public class CustomProperty
+{
+    public string Name { get; set; } = string.Empty;
+    public string Value { get; set; } = string.Empty;
+    public int SortOrder { get; set; }
 }

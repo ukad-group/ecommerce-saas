@@ -39,8 +39,12 @@ public class CategoryPageController : RenderController
             return NotFound();
         }
 
-        // Get the categoryId property from the current page
-        var categoryId = content.Value<string>("categoryId");
+        // Check query string first, then fall back to the categoryId property
+        var categoryId = Request.Query["categoryId"].ToString();
+        if (string.IsNullOrEmpty(categoryId))
+        {
+            categoryId = content.Value<string>("categoryId");
+        }
 
         // Create the view model
         var viewModel = new CategoryPageViewModel(content, _publishedValueFallback)
@@ -50,6 +54,10 @@ public class CategoryPageController : RenderController
 
         try
         {
+            // Fetch all categories for navigation
+            var categories = _commerceApiClient.GetCategoriesAsync().GetAwaiter().GetResult();
+            viewModel.Categories = categories ?? new List<EComm.Umbraco.Commerce.Models.Category>();
+
             // If categoryId is set, fetch products for that category
             if (!string.IsNullOrEmpty(categoryId))
             {

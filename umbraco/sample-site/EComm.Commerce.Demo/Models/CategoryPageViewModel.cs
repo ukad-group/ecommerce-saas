@@ -15,5 +15,6 @@ public class CategoryPageViewModel : PublishedContentWrapped
     public string? CategoryName { get; set; }
     public List<Product> Products { get; set; } = new();
     public int TotalProducts { get; set; }
+    public List<Category> Categories { get; set; } = new();
     public string? ErrorMessage { get; set; }
 }

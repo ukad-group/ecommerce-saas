@@ -14,16 +14,44 @@
     }
     else
     {
-        <!-- Page Header -->
-        <div class="mb-4">
-            <h1>@Model.CategoryName</h1>
-            <p class="text-muted">@Model.TotalProducts products found</p>
-        </div>
+        <div class="row">
+            <!-- Category Navigation Sidebar -->
+            <div class="col-md-3 mb-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">Categories</h5>
+                    </div>
+                    <div class="list-group list-group-flush">
+                        <!-- All Products link -->
+                        <a href="@Model.Url()"
+                           class="list-group-item list-group-item-action @(string.IsNullOrEmpty(Model.CategoryId) ? "active" : "")">
+                            <i class="bi bi-grid"></i> All Products
+                        </a>
 
-        <!-- Products Grid -->
-        @if (Model.Products.Any())
-        {
-            <div class="row g-4">
+                        <!-- Individual category links -->
+                        @foreach (var category in Model.Categories)
+                        {
+                            <a href="@Model.Url()?categoryId=@category.Id"
+                               class="list-group-item list-group-item-action @(Model.CategoryId == category.Id ? "active" : "")">
+                                <i class="bi bi-tag"></i> @category.Name
+                            </a>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <!-- Products Section -->
+            <div class="col-md-9">
+                <!-- Page Header -->
+                <div class="mb-4">
+                    <h1>@Model.CategoryName</h1>
+                    <p class="text-muted">@Model.TotalProducts products found</p>
+                </div>
+
+                <!-- Products Grid -->
+                @if (Model.Products.Any())
+                {
+                    <div class="row g-4">
                 @foreach (var product in Model.Products)
                 {
                     <div class="col-md-6 col-lg-4 col-xl-3">
@@ -75,13 +103,15 @@
                         </div>
                     </div>
                 }
+                    </div>
+                }
+                else
+                {
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle"></i> No products found in this category.
+                    </div>
+                }
             </div>
-        }
-        else
-        {
-            <div class="alert alert-info">
-                <i class="bi bi-info-circle"></i> No products found in this category.
-            </div>
-        }
+        </div>
     }
 </div>
