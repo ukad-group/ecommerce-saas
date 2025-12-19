@@ -116,11 +116,18 @@ public class ProductContentFinder : IContentFinder
         using var scope = _serviceScopeFactory.CreateScope();
         var apiClient = scope.ServiceProvider.GetRequiredService<ICommerceApiClient>();
 
-        var product = await apiClient.GetProductBySlugAsync(categoryId, productSlug);
+        // Try to get product by ID first (since slugs may not be populated)
+        var product = await apiClient.GetProductAsync(productSlug);
+
+        // If not found by ID, try by slug
+        if (product == null)
+        {
+            product = await apiClient.GetProductBySlugAsync(categoryId, productSlug);
+        }
 
         if (product == null)
         {
-            _logger.LogDebug("Product {Slug} not found in category {CategoryId}", productSlug, categoryId);
+            _logger.LogDebug("Product {Identifier} not found in category {CategoryId}", productSlug, categoryId);
             return false; // Let Umbraco handle 404
         }
 

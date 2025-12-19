@@ -1,0 +1,93 @@
+﻿@using EComm.Commerce.Demo.Controllers
+@inherits Umbraco.Cms.Web.Common.Views.UmbracoViewPage<CategoryPageViewModel>
+@{
+    Layout = "master.cshtml";
+    ViewData["Title"] = Model.CategoryName ?? "Products";
+}
+
+<div class="container my-4">
+    @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+    {
+        <div class="alert alert-danger">
+            <i class="bi bi-exclamation-triangle"></i> @Model.ErrorMessage
+        </div>
+    }
+    else if (string.IsNullOrEmpty(Model.CategoryId))
+    {
+        <div class="alert alert-info">
+            <i class="bi bi-info-circle"></i> Please select a category in the Umbraco backoffice to display products.
+        </div>
+    }
+    else
+    {
+        <!-- Page Header -->
+        <div class="mb-4">
+            <h1>@Model.CategoryName</h1>
+            <p class="text-muted">@Model.TotalProducts products found</p>
+        </div>
+
+        <!-- Products Grid -->
+        @if (Model.Products.Any())
+        {
+            <div class="row g-4">
+                @foreach (var product in Model.Products)
+                {
+                    <div class="col-md-6 col-lg-4 col-xl-3">
+                        <div class="card h-100 hover-shadow">
+                            @{
+                                var thumbnailImage = product.Images != null && product.Images.Any()
+                                    ? product.Images.First()
+                                    : "https://via.placeholder.com/300x300?text=" + Uri.EscapeDataString(product.Name ?? "Product");
+                            }
+                            @{
+                                var productSlug = !string.IsNullOrEmpty(product.Slug) ? product.Slug : product.Id;
+                                var productUrl = $"{Model.Url().TrimEnd('/')}/{productSlug}";
+                            }
+                            <a href="@productUrl">
+                                <img src="@thumbnailImage"
+                                     class="card-img-top"
+                                     alt="@product.Name"
+                                     style="height: 200px; object-fit: cover;">
+                            </a>
+                            <div class="card-body d-flex flex-column">
+                                <h5 class="card-title">
+                                    <a href="@productUrl" class="text-decoration-none text-dark">
+                                        @product.Name
+                                    </a>
+                                </h5>
+                                @if (!string.IsNullOrEmpty(product.Description))
+                                {
+                                    <p class="card-text text-muted small flex-grow-1">
+                                        @(product.Description.Length > 100 ? product.Description.Substring(0, 100) + "..." : product.Description)
+                                    </p>
+                                }
+                                <div class="d-flex justify-content-between align-items-center mt-2">
+                                    <span class="h5 mb-0 text-primary">£@((product.Price ?? 0).ToString("N2"))</span>
+
+                                    @{
+                                        var hasStock = (product.StockQuantity ?? 0) > 0;
+                                    }
+
+                                    @if (hasStock)
+                                    {
+                                        <span class="badge bg-success">In Stock (@product.StockQuantity)</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-danger">Out of Stock</span>
+                                    }
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+        else
+        {
+            <div class="alert alert-info">
+                <i class="bi bi-info-circle"></i> No products found in this category.
+            </div>
+        }
+    }
+</div>
