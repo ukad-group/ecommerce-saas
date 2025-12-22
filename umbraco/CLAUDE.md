@@ -6,9 +6,9 @@ This document outlines the architecture and implementation plan for an Umbraco p
 
 **Target Umbraco Version**: 17.0.0 (LTS - Long Term Support with .NET 10)
 
-**Status**: Phase 1-4 Complete - Core Implementation + Products Workspace View, Upgraded to Umbraco 17
+**Status**: Phase 1-4 Complete - Core Implementation + Products Workspace View, Upgraded to Umbraco 17, Configurable Defaults
 
-**Last Updated**: 2025-12-12
+**Last Updated**: 2025-12-22
 
 ---
 
@@ -265,10 +265,11 @@ public class ProductContentFinder : IContentFinder
 
 #### **Category Page**
 ```
-Alias: categoryPage
+Alias: categoryPage (configurable in Settings → Commerce Settings → Defaults)
 Allowed Templates: CategoryPage
 Properties:
 - categoryId (Category Picker) - Maps to eCommerce category
+  (Property alias configurable in Settings → Defaults)
 - description (Rich Text Editor) - Category description/SEO
 - bannerImage (Media Picker) - Category banner
 - productsPerPage (Numeric) - Pagination settings
@@ -277,9 +278,11 @@ Properties:
 Allowed Child Types: categoryPage, productPage
 ```
 
+**Note**: The `categoryPage` document type alias and `categoryId` property alias are now configurable defaults. Change them in Settings → Commerce Settings → Defaults tab if integrating with existing Umbraco sites.
+
 #### **Product Page** (Template Node)
 ```
-Alias: productPage
+Alias: productPage (configurable in Settings → Commerce Settings → Defaults)
 Allowed Templates: ProductPage
 Properties:
 - seoOverrides (Composition) - Optional SEO overrides
@@ -289,6 +292,8 @@ Properties:
 Allowed Child Types: None
 Allowed At Root: false
 ```
+
+**Note**: The `productPage` document type alias is configurable for sites with custom naming conventions.
 
 ---
 
@@ -318,11 +323,16 @@ dotnet run
 2. Umbraco will run the installer (first time only)
 3. Login with admin@example.com / Admin123!
 4. Go to Settings → Commerce Settings
-5. Configure API connection:
+5. **Connection Tab** - Configure API connection:
    - API Base URL: http://localhost:5180/api/v1
    - Tenant ID: tenant-a
    - Market ID: market-us-east
-6. Click "Test Connection" to verify
+   - Click "Test Connection" to verify
+6. **Defaults Tab** (optional) - Configure document type aliases:
+   - Category Page Alias: categoryPage (default)
+   - Product Page Alias: productPage (default)
+   - Category ID Property Alias: categoryId (default)
+   - Only change these if integrating with existing Umbraco sites
 
 ---
 

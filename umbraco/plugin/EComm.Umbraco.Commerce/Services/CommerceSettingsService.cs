@@ -33,6 +33,11 @@ public class CommerceSettingsService : ICommerceSettingsService
         var marketId = _keyValueService.GetValue($"{SettingsKeyPrefix}MarketId");
         var apiKey = _keyValueService.GetValue($"{SettingsKeyPrefix}ApiKey");
 
+        // Load default aliases with fallback values for backward compatibility
+        var categoryPageAlias = _keyValueService.GetValue($"{SettingsKeyPrefix}CategoryPageAlias") ?? "categoryPage";
+        var productPageAlias = _keyValueService.GetValue($"{SettingsKeyPrefix}ProductPageAlias") ?? "productPage";
+        var categoryIdPropertyAlias = _keyValueService.GetValue($"{SettingsKeyPrefix}CategoryIdPropertyAlias") ?? "categoryId";
+
         if (string.IsNullOrEmpty(apiBaseUrl))
         {
             return Task.FromResult<CommerceSettings?>(null);
@@ -43,7 +48,10 @@ public class CommerceSettingsService : ICommerceSettingsService
             ApiBaseUrl = apiBaseUrl,
             TenantId = tenantId ?? string.Empty,
             MarketId = marketId ?? string.Empty,
-            ApiKey = apiKey ?? string.Empty
+            ApiKey = apiKey ?? string.Empty,
+            CategoryPageAlias = categoryPageAlias,
+            ProductPageAlias = productPageAlias,
+            CategoryIdPropertyAlias = categoryIdPropertyAlias
         });
     }
 
@@ -53,6 +61,11 @@ public class CommerceSettingsService : ICommerceSettingsService
         _keyValueService.SetValue($"{SettingsKeyPrefix}TenantId", settings.TenantId);
         _keyValueService.SetValue($"{SettingsKeyPrefix}MarketId", settings.MarketId);
         _keyValueService.SetValue($"{SettingsKeyPrefix}ApiKey", settings.ApiKey);
+
+        // Save default aliases
+        _keyValueService.SetValue($"{SettingsKeyPrefix}CategoryPageAlias", settings.CategoryPageAlias);
+        _keyValueService.SetValue($"{SettingsKeyPrefix}ProductPageAlias", settings.ProductPageAlias);
+        _keyValueService.SetValue($"{SettingsKeyPrefix}CategoryIdPropertyAlias", settings.CategoryIdPropertyAlias);
 
         _logger.LogInformation("Commerce settings saved successfully");
 

@@ -24,26 +24,30 @@ public class ProductContentFinder : IContentFinder
     private readonly IDocumentUrlService _documentUrlService;
     private readonly IServiceScopeFactory _serviceScopeFactory;
     private readonly ILogger<ProductContentFinder> _logger;
-
-    // Document type aliases
-    private const string CategoryPageAlias = "categoryPage";
-    private const string ProductPageAlias = "productPage";
-    private const string CategoryIdPropertyAlias = "categoryId";
+    private readonly ICommerceSettingsService _settingsService;
 
     public ProductContentFinder(
         IUmbracoContextAccessor umbracoContextAccessor,
         IDocumentUrlService documentUrlService,
         IServiceScopeFactory serviceScopeFactory,
-        ILogger<ProductContentFinder> logger)
+        ILogger<ProductContentFinder> logger,
+        ICommerceSettingsService settingsService)
     {
         _umbracoContextAccessor = umbracoContextAccessor;
         _documentUrlService = documentUrlService;
         _serviceScopeFactory = serviceScopeFactory;
         _logger = logger;
+        _settingsService = settingsService;
     }
 
     public async Task<bool> TryFindContent(IPublishedRequestBuilder request)
     {
+        // Load settings to get configurable aliases
+        var settings = await _settingsService.GetSettingsAsync();
+        var categoryPageAlias = settings?.CategoryPageAlias ?? "categoryPage";
+        var productPageAlias = settings?.ProductPageAlias ?? "productPage";
+        var categoryIdPropertyAlias = settings?.CategoryIdPropertyAlias ?? "categoryId";
+
         // Get the Umbraco context
         if (!_umbracoContextAccessor.TryGetUmbracoContext(out var umbracoContext))
         {
@@ -85,25 +89,25 @@ public class ProductContentFinder : IContentFinder
 
         var categoryNode = content.GetById(documentKey.Value);
 
-        if (categoryNode == null || categoryNode.ContentType.Alias != CategoryPageAlias)
+        if (categoryNode == null || categoryNode.ContentType.Alias != categoryPageAlias)
         {
             return false;
         }
 
         // Get the category ID from the node
-        var categoryId = categoryNode.Value<string>(CategoryIdPropertyAlias);
+        var categoryId = categoryNode.Value<string>(categoryIdPropertyAlias);
 
         if (string.IsNullOrEmpty(categoryId))
         {
-            _logger.LogWarning("Category node {NodeId} at {Path} has no categoryId configured",
-                categoryNode.Id, categoryPath);
+            _logger.LogWarning("Category node {NodeId} at {Path} has no {PropertyAlias} configured",
+                categoryNode.Id, categoryPath, categoryIdPropertyAlias);
             return false;
         }
 
         // Find the Product template child node
         // Note: Using Children() extension method instead of obsolete Children property
         var productTemplateNode = categoryNode.Children()
-            .FirstOrDefault(c => c.ContentType.Alias == ProductPageAlias);
+            .FirstOrDefault(c => c.ContentType.Alias == productPageAlias);
 
         if (productTemplateNode == null)
         {

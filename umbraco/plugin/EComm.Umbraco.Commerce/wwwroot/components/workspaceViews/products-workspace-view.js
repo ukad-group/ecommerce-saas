@@ -8,7 +8,8 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
     categoryId: { type: String },
     products: { type: Array },
     loading: { type: Boolean },
-    error: { type: String }
+    error: { type: String },
+    defaultAliases: { type: Object }
   };
 
   constructor() {
@@ -17,6 +18,7 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
     this.products = [];
     this.loading = false;
     this.error = null;
+    this.defaultAliases = null;
 
     // Consume auth context for API calls
     this.consumeContext(UMB_AUTH_CONTEXT, (authContext) => {
@@ -36,10 +38,11 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
           (data) => {
             if (!data) return;
 
-            // Extract categoryId from data.values array
+            // Extract categoryId from data.values array using dynamic alias
             let newCategoryId = null;
             if (data.values && Array.isArray(data.values)) {
-              const categoryIdProp = data.values.find(v => v?.alias === 'categoryId');
+              const aliasToUse = this.defaultAliases?.categoryIdPropertyAlias || 'categoryId';
+              const categoryIdProp = data.values.find(v => v?.alias === aliasToUse);
               if (categoryIdProp) {
                 newCategoryId = categoryIdProp.value;
               }
@@ -59,6 +62,36 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
         );
       }
     });
+  }
+
+  connectedCallback() {
+    super.connectedCallback();
+    this.loadDefaultAliases();
+  }
+
+  async loadDefaultAliases() {
+    try {
+      const headers = await this.getAuthHeaders();
+      const response = await fetch(
+        '/umbraco/management/api/ecomm-commerce/settings/defaults',
+        {
+          headers: headers,
+          credentials: 'include'
+        }
+      );
+
+      if (response.ok) {
+        this.defaultAliases = await response.json();
+      }
+    } catch (err) {
+      console.error('Failed to load default aliases:', err);
+      // Use hardcoded fallbacks if fetch fails
+      this.defaultAliases = {
+        categoryPageAlias: 'categoryPage',
+        productPageAlias: 'productPage',
+        categoryIdPropertyAlias: 'categoryId'
+      };
+    }
   }
 
   async getAuthHeaders() {

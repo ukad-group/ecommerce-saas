@@ -27,6 +27,21 @@ public class CommerceSettings
     public string ApiKey { get; set; } = string.Empty;
 
     /// <summary>
+    /// Document type alias for category nodes (default: "categoryPage")
+    /// </summary>
+    public string CategoryPageAlias { get; set; } = "categoryPage";
+
+    /// <summary>
+    /// Document type alias for product template nodes (default: "productPage")
+    /// </summary>
+    public string ProductPageAlias { get; set; } = "productPage";
+
+    /// <summary>
+    /// Property alias for storing category ID on category nodes (default: "categoryId")
+    /// </summary>
+    public string CategoryIdPropertyAlias { get; set; } = "categoryId";
+
+    /// <summary>
     /// Validates that all required settings are configured
     /// </summary>
     public bool IsValid =>
