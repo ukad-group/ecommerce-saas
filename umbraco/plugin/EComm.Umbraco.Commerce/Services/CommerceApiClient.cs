@@ -1,4 +1,5 @@
 using System.Net.Http.Json;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using EComm.Umbraco.Commerce.Models;
@@ -270,6 +271,72 @@ public class CommerceApiClient : ICommerceApiClient
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to fetch product {ProductId}", productId);
+            return null;
+        }
+    }
+
+    public async Task<Product?> UpdateProductAsync(string productId, Product product, string? changeNotes = null)
+    {
+        var settings = await _settingsService.GetSettingsAsync();
+        if (settings == null || !settings.IsValid)
+        {
+            _logger.LogWarning("Cannot update product: API settings not configured");
+            return null;
+        }
+
+        try
+        {
+            var client = await CreateClientAsync(settings);
+            var url = $"/api/v1/products/{productId}";
+
+            // Include change notes if provided
+            if (!string.IsNullOrEmpty(changeNotes))
+            {
+                product.ChangeNotes = changeNotes;
+            }
+
+            var json = JsonSerializer.Serialize(product, JsonOptions);
+            var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+            var request = new HttpRequestMessage(HttpMethod.Put, url)
+            {
+                Content = content
+            };
+
+            request.Headers.Add("X-Tenant-ID", settings.TenantId);
+            request.Headers.Add("X-Market-ID", settings.MarketId);
+
+            var response = await client.SendAsync(request);
+
+            if (response.IsSuccessStatusCode)
+            {
+                var responseContent = await response.Content.ReadAsStringAsync();
+                var updated = JsonSerializer.Deserialize<Product>(responseContent, JsonOptions);
+
+                if (updated != null)
+                {
+                    // Clear cache for this product and its category products list
+                    _cache.Remove($"EComm_Product_{productId}");
+                    if (!string.IsNullOrEmpty(product.CategoryId))
+                    {
+                        _cache.Remove($"EComm_Products_{product.CategoryId}");
+                    }
+
+                    _logger.LogInformation("Product {ProductId} updated successfully (new version {Version})",
+                        productId, updated.Version);
+                }
+
+                return updated;
+            }
+
+            var error = await response.Content.ReadAsStringAsync();
+            _logger.LogError("Failed to update product {ProductId}: {StatusCode} - {Error}",
+                productId, response.StatusCode, error);
+            return null;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to update product {ProductId}", productId);
             return null;
         }
     }

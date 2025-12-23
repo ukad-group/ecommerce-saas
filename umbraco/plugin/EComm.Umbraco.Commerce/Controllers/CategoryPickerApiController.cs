@@ -100,4 +100,58 @@ public class CategoryPickerApiController : ManagementApiControllerBase
         var result = await _apiClient.GetProductsAsync(categoryId, page: 1, pageSize: 100);
         return Ok(result);
     }
+
+    /// <summary>
+    /// Updates a product (creates new version)
+    /// </summary>
+    [HttpPut("products/{id}")]
+    [ProducesResponseType(typeof(Product), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> UpdateProduct(string id, [FromBody] UpdateProductRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(id))
+        {
+            return BadRequest("Product ID is required");
+        }
+
+        if (request?.Product == null)
+        {
+            return BadRequest("Product data is required");
+        }
+
+        // Basic validation
+        if (string.IsNullOrWhiteSpace(request.Product.Name))
+        {
+            return BadRequest("Product name is required");
+        }
+
+        if (request.Product.Price == null || request.Product.Price < 0)
+        {
+            return BadRequest("Valid price is required");
+        }
+
+        if (request.Product.StockQuantity == null || request.Product.StockQuantity < 0)
+        {
+            return BadRequest("Stock quantity must be 0 or greater");
+        }
+
+        var updated = await _apiClient.UpdateProductAsync(id, request.Product, request.ChangeNotes);
+
+        if (updated == null)
+        {
+            return NotFound($"Product {id} not found or update failed");
+        }
+
+        return Ok(updated);
+    }
+}
+
+/// <summary>
+/// DTO for product update requests
+/// </summary>
+public class UpdateProductRequest
+{
+    public Product Product { get; set; } = null!;
+    public string? ChangeNotes { get; set; }
 }

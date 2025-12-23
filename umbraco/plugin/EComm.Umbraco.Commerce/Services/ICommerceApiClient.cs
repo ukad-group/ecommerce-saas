@@ -36,6 +36,11 @@ public interface ICommerceApiClient
     /// Gets a product by ID
     /// </summary>
     Task<Product?> GetProductAsync(string productId);
+
+    /// <summary>
+    /// Updates a product (creates new version in API)
+    /// </summary>
+    Task<Product?> UpdateProductAsync(string productId, Product product, string? changeNotes = null);
 }
 
 public class ProductListResult

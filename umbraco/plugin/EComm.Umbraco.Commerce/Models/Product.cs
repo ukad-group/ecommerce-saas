@@ -22,6 +22,22 @@ public class Product
 
     public List<string> Images { get; set; } = new();
     public List<CustomProperty>? CustomProperties { get; set; }
+
+    // Product metadata
+    public string? Sku { get; set; }
+    public string Status { get; set; } = "active";
+    public string Currency { get; set; } = "USD";
+
+    // Versioning fields
+    public int Version { get; set; } = 1;
+    public bool IsCurrentVersion { get; set; } = true;
+    public DateTime? VersionCreatedAt { get; set; }
+    public string? VersionCreatedBy { get; set; }
+    public string? ChangeNotes { get; set; }
+
+    // Timestamps
+    public DateTime? CreatedAt { get; set; }
+    public DateTime? UpdatedAt { get; set; }
 }
 
 public class CustomProperty
