@@ -28,6 +28,11 @@ public class Product
     public string Status { get; set; } = "active";
     public string Currency { get; set; } = "USD";
 
+    // Variant support
+    public bool HasVariants { get; set; } = false;
+    public List<VariantOption>? VariantOptions { get; set; }
+    public List<ProductVariant>? Variants { get; set; }
+
     // Versioning fields
     public int Version { get; set; } = 1;
     public bool IsCurrentVersion { get; set; } = true;

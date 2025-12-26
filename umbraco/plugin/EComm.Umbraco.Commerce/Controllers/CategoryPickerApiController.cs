@@ -126,17 +126,43 @@ public class CategoryPickerApiController : ManagementApiControllerBase
             return BadRequest("Product name is required");
         }
 
-        if (request.Product.Price == null || request.Product.Price < 0)
+        // For products with variants, skip master product price/stock validation
+        if (!request.Product.HasVariants)
         {
-            return BadRequest("Valid price is required");
+            if (request.Product.Price == null || request.Product.Price < 0)
+            {
+                return BadRequest("Valid price is required");
+            }
+
+            if (request.Product.StockQuantity == null || request.Product.StockQuantity < 0)
+            {
+                return BadRequest("Stock quantity must be 0 or greater");
+            }
+        }
+        else
+        {
+            // Validate variants if product has them
+            if (request.Product.Variants != null && request.Product.Variants.Any())
+            {
+                foreach (var variant in request.Product.Variants)
+                {
+                    if (variant.Price < 0)
+                    {
+                        return BadRequest($"Variant {variant.Sku}: Valid price is required");
+                    }
+
+                    if (variant.StockQuantity < 0)
+                    {
+                        return BadRequest($"Variant {variant.Sku}: Stock quantity must be 0 or greater");
+                    }
+                }
+            }
         }
 
-        if (request.Product.StockQuantity == null || request.Product.StockQuantity < 0)
-        {
-            return BadRequest("Stock quantity must be 0 or greater");
-        }
+        // Extract user ID from product for version tracking
+        var userId = request.Product.VersionCreatedBy ?? "system";
 
-        var updated = await _apiClient.UpdateProductAsync(id, request.Product, request.ChangeNotes);
+        var updated = await _apiClient.UpdateProductAsync(id, request.Product, userId, request.ChangeNotes);
 
         if (updated == null)
         {

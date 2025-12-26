@@ -125,6 +125,14 @@ this.consumeContext(UMB_PROPERTY_DATASET_CONTEXT, async (datasetContext) => {
 - Network error: Error message with retry button
 - Success: Table view with product count
 
+**CRITICAL - User Tracking**: Use `UMB_CURRENT_USER_CONTEXT` (NOT `UMB_AUTH_CONTEXT`) to access current user:
+```javascript
+import { UMB_CURRENT_USER_CONTEXT } from '@umbraco-cms/backoffice/current-user';
+// Use currentUser.email for user identification
+```
+
+**Product Variants**: Supports inline editing of variants. Validation: skip master product price/stock when `HasVariants=true`
+
 #### 4. Product Content Finder
 **File**: `ContentFinders/ProductContentFinder.cs`
 **Purpose**: Dynamic URL routing for products within categories

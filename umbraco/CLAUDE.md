@@ -6,9 +6,9 @@ This document outlines the architecture and implementation plan for an Umbraco p
 
 **Target Umbraco Version**: 17.0.0 (LTS - Long Term Support with .NET 10)
 
-**Status**: Phase 1-4 Complete - Core Implementation + Products Workspace View, Upgraded to Umbraco 17, Configurable Defaults
+**Status**: Phase 1-4 Complete - Core Implementation + Products Workspace View, Upgraded to Umbraco 17, Configurable Defaults, Product Variant Support
 
-**Last Updated**: 2025-12-22
+**Last Updated**: 2025-12-26
 
 ---
 
@@ -294,6 +294,113 @@ Allowed At Root: false
 ```
 
 **Note**: The `productPage` document type alias is configurable for sites with custom naming conventions.
+
+---
+
+## Products Workspace View - Advanced Features
+
+### User Authentication & Version Tracking
+
+The products workspace view properly tracks which Umbraco user makes product edits using Umbraco's `UMB_CURRENT_USER_CONTEXT`.
+
+**Implementation**:
+```javascript
+import { UMB_CURRENT_USER_CONTEXT } from '@umbraco-cms/backoffice/current-user';
+
+// In workspace view element constructor
+this.consumeContext(UMB_CURRENT_USER_CONTEXT, (currentUserContext) => {
+  if (currentUserContext?.currentUser) {
+    this.observe(currentUserContext.currentUser, (user) => {
+      this.currentUser = user;
+    });
+  }
+});
+
+// When saving product
+const userName = this.currentUser?.email || this.currentUser?.name || 'system';
+product.versionCreatedBy = userName;
+```
+
+**API Integration**:
+- Frontend sends `versionCreatedBy` in product payload
+- CategoryPickerApiController extracts user ID: `var userId = request.Product.VersionCreatedBy ?? "system"`
+- CommerceApiClient forwards as `X-User-ID` header to eCommerce API
+- Version history shows actual user (e.g., "admin@example.com")
+
+### Product Variant Support
+
+The workspace view supports products with variants, allowing inline editing of variant-specific properties.
+
+**Data Models**:
+```csharp
+// Product.cs
+public class Product
+{
+    // ... standard fields
+
+    // Variant support
+    public bool HasVariants { get; set; } = false;
+    public List<VariantOption>? VariantOptions { get; set; }
+    public List<ProductVariant>? Variants { get; set; }
+}
+
+// ProductVariant.cs
+public class ProductVariant
+{
+    public string Id { get; set; }
+    public string Sku { get; set; }
+    public decimal Price { get; set; }
+    public decimal? SalePrice { get; set; }
+    public int StockQuantity { get; set; }
+    public int LowStockThreshold { get; set; }
+    public List<string>? Images { get; set; }
+    public Dictionary<string, string> Options { get; set; }  // e.g., {"Size": "Large", "Color": "Red"}
+    public string Status { get; set; } = "active";
+    public bool IsDefault { get; set; }
+}
+
+// VariantOption.cs
+public class VariantOption
+{
+    public string Name { get; set; }      // e.g., "Size"
+    public List<string> Values { get; set; }  // e.g., ["Small", "Medium", "Large"]
+}
+```
+
+**UI Features**:
+- Products with variants display badge showing variant count (e.g., "5 variants")
+- Expandable variant list with inline editing for each variant
+- Edit variant price, stock quantity, and status individually
+- Version information displays at product level (not per-variant)
+- Master product fields (price/stock) show "Varies" for variant products
+
+**Validation**:
+- **Non-variant products**: Validate master product price and stock quantity
+- **Variant products**: Skip master validation, validate each variant's price and stock
+- Implemented on both client-side (JavaScript) and server-side (C#)
+
+**Server-side Validation** (CategoryPickerApiController.cs):
+```csharp
+// For products with variants, skip master product price/stock validation
+if (!request.Product.HasVariants)
+{
+    // Validate master product
+    if (request.Product.Price == null || request.Product.Price < 0)
+        return BadRequest("Valid price is required");
+}
+else
+{
+    // Validate each variant
+    if (request.Product.Variants != null && request.Product.Variants.Any())
+    {
+        foreach (var variant in request.Product.Variants)
+        {
+            if (variant.Price < 0)
+                return BadRequest($"Variant {variant.Sku}: Valid price is required");
+        }
+    }
+}
+```
 
 ---
 
@@ -802,41 +909,30 @@ Site B (US Store)           │
 
 ## Development Workflow
 
-### Git Commit & Push Policy
+### Umbraco-Specific Testing
 
-**IMPORTANT**: Always follow this workflow when making changes:
+Before committing Umbraco plugin changes:
 
-1. **Implement and Test First**
-   - Complete all code changes
-   - Build the project successfully
-   - Test functionality locally before committing
-   - Verify all features work as expected
+1. **Build the plugin**
+   ```bash
+   cd umbraco/plugin/EComm.Umbraco.Commerce
+   dotnet build
+   ```
 
-2. **Commit Changes**
-   - Update any relevant documentation to reflect **important** updates: CLAUDE.md, custom commands, files in docs folder
-   - Stage only the relevant files (exclude auto-generated files)
-   - Write descriptive commit messages following conventional commits format, don't mention Claude
-   - **Always ask the user for approval before committing**
+2. **Test in the sample site**
+   ```bash
+   cd ../../sample-site/EComm.Commerce.Demo
+   dotnet run
+   # Navigate to http://localhost:5000 and test functionality
+   ```
 
-3. **Push to Remote**
-   - **Always ask the user for approval before pushing**
-   - Never push untested code to the remote repository
+3. **Verify backoffice components**
+   - Test Settings Dashboard (Settings → Commerce Settings)
+   - Test Category Picker property editor
+   - Test Products Workspace View
+   - Check browser console for errors
 
-**Example Workflow**:
-```bash
-# 1. Build and test locally first
-dotnet build
-# ... test functionality ...
-
-# 2. Ask user: "Ready to commit changes?"
-git add <relevant-files>
-git commit -m "feat: descriptive message"
-
-# 3. Ask user: "Ready to push to remote?"
-git push
-```
-
-**Rationale**: This ensures all code is tested and verified before it enters the remote repository, preventing broken builds and ensuring code quality.
+**Git Workflow**: See the main [CLAUDE.md](../CLAUDE.md#git-workflow) for the project-wide Git Commit & Push Policy.
 
 ---
 

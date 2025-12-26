@@ -1,6 +1,7 @@
 import { LitElement, html, css } from '@umbraco-cms/backoffice/external/lit';
 import { UmbElementMixin } from '@umbraco-cms/backoffice/element-api';
 import { UMB_AUTH_CONTEXT } from '@umbraco-cms/backoffice/auth';
+import { UMB_CURRENT_USER_CONTEXT } from '@umbraco-cms/backoffice/current-user';
 import { UMB_DOCUMENT_WORKSPACE_CONTEXT } from '@umbraco-cms/backoffice/document';
 
 class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
@@ -12,6 +13,7 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
     defaultAliases: { type: Object },
     expandedProductId: { type: String },
     editedProduct: { type: Object },
+    editedVariantId: { type: String },
     saving: { type: Boolean },
     saveSuccess: { type: String },
     validationErrors: { type: Object },
@@ -27,6 +29,7 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
     this.defaultAliases = null;
     this.expandedProductId = null;
     this.editedProduct = null;
+    this.editedVariantId = null;
     this.saving = false;
     this.saveSuccess = null;
     this.validationErrors = {};
@@ -35,10 +38,12 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
     // Consume auth context for API calls
     this.consumeContext(UMB_AUTH_CONTEXT, (authContext) => {
       this._authContext = authContext;
+    });
 
-      // Observe current user
-      if (authContext?.currentUser) {
-        this.observe(authContext.currentUser, (user) => {
+    // Consume current user context
+    this.consumeContext(UMB_CURRENT_USER_CONTEXT, (currentUserContext) => {
+      if (currentUserContext?.currentUser) {
+        this.observe(currentUserContext.currentUser, (user) => {
           this.currentUser = user;
         });
       }
@@ -162,12 +167,29 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
       // Collapse if already editing
       this.expandedProductId = null;
       this.editedProduct = null;
+      this.editedVariantId = null;
       this.validationErrors = {};
       this.saveSuccess = null;
     } else {
       // Expand and create editable copy
       this.expandedProductId = product.id;
       this.editedProduct = { ...product };
+      this.editedVariantId = null;
+      this.validationErrors = {};
+      this.saveSuccess = null;
+      this.error = null;
+    }
+  }
+
+  toggleVariantEdit(variant) {
+    if (this.editedVariantId === variant.id) {
+      // Collapse if already editing
+      this.editedVariantId = null;
+      this.validationErrors = {};
+      this.saveSuccess = null;
+    } else {
+      // Expand and set as editing
+      this.editedVariantId = variant.id;
       this.validationErrors = {};
       this.saveSuccess = null;
       this.error = null;
@@ -196,37 +218,27 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
       errors.name = 'Name is required';
     }
 
-    if (this.editedProduct.price == null || this.editedProduct.price < 0) {
-      errors.price = 'Valid price is required';
-    }
+    // For products with variants, skip master product price/stock validation
+    if (!this.editedProduct.hasVariants) {
+      if (this.editedProduct.price == null || this.editedProduct.price < 0) {
+        errors.price = 'Valid price is required';
+      }
 
-    if (this.editedProduct.stockQuantity == null || this.editedProduct.stockQuantity < 0) {
-      errors.stockQuantity = 'Stock quantity must be 0 or greater';
+      if (this.editedProduct.stockQuantity == null || this.editedProduct.stockQuantity < 0) {
+        errors.stockQuantity = 'Stock quantity must be 0 or greater';
+      }
+    } else {
+      // Validate all variants if product has variants
+      if (this.editedProduct.variants && this.editedProduct.variants.length > 0) {
+        this.editedProduct.variants.forEach(variant => {
+          const variantErrors = this.validateVariant(variant);
+          Object.assign(errors, variantErrors);
+        });
+      }
     }
 
     this.validationErrors = errors;
     return Object.keys(errors).length === 0;
-  }
-
-  getUserFromToken(token) {
-    try {
-      // JWT tokens have three parts separated by dots
-      const parts = token.split('.');
-      if (parts.length !== 3) return null;
-
-      // Decode the payload (second part)
-      const payload = JSON.parse(atob(parts[1]));
-
-      // Extract user information from common JWT claims
-      return {
-        email: payload.email || payload.sub || payload.unique_name || null,
-        name: payload.name || payload.given_name || null,
-        userName: payload.preferred_username || payload.username || null
-      };
-    } catch (err) {
-      console.error('Failed to decode JWT token:', err);
-      return null;
-    }
   }
 
   async saveProduct() {
@@ -242,16 +254,12 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
     try {
       const headers = await this.getAuthHeaders();
 
-      // Get current user from JWT token
+      // Get current user from current user context
       let userName = 'system';
 
-      const token = await this._authContext?.getLatestToken();
-      if (token) {
-        const user = this.getUserFromToken(token);
-        userName = user?.email || user?.name || user?.userName || 'system';
-        console.log('Extracted user from token:', user);
-      } else {
-        console.log('No token available');
+      if (this.currentUser) {
+        // Use email as primary identifier
+        userName = this.currentUser.email || this.currentUser.name || this.currentUser.userName || 'system';
       }
 
       // Set version creator on the product
@@ -305,9 +313,51 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
   cancelEdit() {
     this.expandedProductId = null;
     this.editedProduct = null;
+    this.editedVariantId = null;
     this.validationErrors = {};
     this.saveSuccess = null;
     this.error = null;
+  }
+
+  handleVariantInput(variantId, field, value) {
+    if (!this.editedProduct || !this.editedProduct.variants) return;
+
+    const variantIndex = this.editedProduct.variants.findIndex(v => v.id === variantId);
+    if (variantIndex === -1) return;
+
+    const updatedVariants = [...this.editedProduct.variants];
+    updatedVariants[variantIndex] = {
+      ...updatedVariants[variantIndex],
+      [field]: value
+    };
+
+    this.editedProduct = {
+      ...this.editedProduct,
+      variants: updatedVariants
+    };
+
+    // Clear validation error for this field
+    const errorKey = `variant_${variantId}_${field}`;
+    if (this.validationErrors[errorKey]) {
+      this.validationErrors = {
+        ...this.validationErrors,
+        [errorKey]: null
+      };
+    }
+  }
+
+  validateVariant(variant) {
+    const errors = {};
+
+    if (variant.price == null || variant.price < 0) {
+      errors[`variant_${variant.id}_price`] = 'Valid price is required';
+    }
+
+    if (variant.stockQuantity == null || variant.stockQuantity < 0) {
+      errors[`variant_${variant.id}_stockQuantity`] = 'Stock quantity must be 0 or greater';
+    }
+
+    return errors;
   }
 
   formatDate(dateString) {
@@ -336,25 +386,34 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
         <!-- Name -->
         <uui-table-cell>
           <strong>${product.name}</strong>
+          ${product.hasVariants ? html`
+            <uui-badge color="default" look="outline" style="margin-left: 8px;">
+              ${product.variants?.length || 0} variants
+            </uui-badge>
+          ` : ''}
         </uui-table-cell>
 
         <!-- SKU -->
         <uui-table-cell style="width: 150px;">
-          <code class="sku">${product.sku || '-'}</code>
+          <code class="sku">${product.hasVariants ? 'See variants' : (product.sku || '-')}</code>
         </uui-table-cell>
 
         <!-- Price -->
         <uui-table-cell style="width: 120px;">
-          <span class="price">$${product.price?.toFixed(2) || '0.00'}</span>
+          ${product.hasVariants ? html`<span class="price">Varies</span>` : html`<span class="price">$${product.price?.toFixed(2) || '0.00'}</span>`}
         </uui-table-cell>
 
         <!-- Stock -->
         <uui-table-cell style="width: 100px;">
-          <div class="stock-badge-wrapper">
-            <uui-badge color="${(product.stockQuantity ?? 0) > 0 ? 'positive' : 'danger'}" look="primary">
-              ${product.stockQuantity ?? 0}
-            </uui-badge>
-          </div>
+          ${product.hasVariants ? html`
+            <span class="price">Varies</span>
+          ` : html`
+            <div class="stock-badge-wrapper">
+              <uui-badge color="${(product.stockQuantity ?? 0) > 0 ? 'positive' : 'danger'}" look="primary">
+                ${product.stockQuantity ?? 0}
+              </uui-badge>
+            </div>
+          `}
         </uui-table-cell>
 
         <!-- Status -->
@@ -370,7 +429,156 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
         </uui-table-cell>
       </uui-table-row>
 
-      ${isExpanded ? this.renderEditForm(product) : ''}
+      ${isExpanded ? (product.hasVariants ? this.renderVariantsSection(product) : this.renderEditForm(product)) : ''}
+    `;
+  }
+
+  renderVariantsSection(product) {
+    return html`
+      <tr class="variants-section-row">
+        <td colspan="7" @click=${(e) => e.stopPropagation()}>
+          <div class="variants-container">
+            <h4>Product Variants</h4>
+            <p class="variant-info">This product has ${product.variants?.length || 0} variants. Edit individual variant prices and stock below.</p>
+
+            ${this.saveSuccess ? html`
+              <uui-badge color="positive" look="primary" class="save-success">
+                ${this.saveSuccess}
+              </uui-badge>
+            ` : ''}
+
+            ${this.error ? html`
+              <uui-badge color="danger" look="primary" class="save-error">
+                ${this.error}
+              </uui-badge>
+            ` : ''}
+
+            <!-- Version Info -->
+            <div class="version-info">
+              <small>
+                <strong>Version:</strong> ${product.version || 1} |
+                <strong>Last Updated:</strong> ${this.formatDate(product.updatedAt)} |
+                <strong>Updated By:</strong> ${product.versionCreatedBy || 'System'}
+              </small>
+            </div>
+
+            <div class="variants-list">
+              ${product.variants?.map(variant => this.renderVariantRow(variant))}
+            </div>
+
+            <div class="button-group">
+              <uui-button
+                look="secondary"
+                @click=${this.cancelEdit}>
+                Close
+              </uui-button>
+            </div>
+          </div>
+        </td>
+      </tr>
+    `;
+  }
+
+  renderVariantRow(variant) {
+    const isEditing = this.editedVariantId === variant.id;
+    const optionsText = Object.entries(variant.options || {})
+      .map(([key, value]) => `${key}: ${value}`)
+      .join(', ');
+
+    return html`
+      <div class="variant-row ${isEditing ? 'editing' : ''}" @click=${() => this.toggleVariantEdit(variant)}>
+        <div class="variant-header">
+          <div class="variant-options">
+            <uui-icon name="icon-box"></uui-icon>
+            <strong>${optionsText}</strong>
+            ${variant.isDefault ? html`<uui-badge color="positive" look="outline">Default</uui-badge>` : ''}
+          </div>
+          <div class="variant-summary">
+            <span class="variant-sku">${variant.sku}</span>
+            <span class="variant-price">$${variant.price?.toFixed(2)}</span>
+            <uui-badge color="${variant.stockQuantity > 0 ? 'positive' : 'danger'}" look="primary">
+              Stock: ${variant.stockQuantity}
+            </uui-badge>
+            <uui-badge color="${variant.status === 'active' ? 'positive' : 'default'}" look="primary">
+              ${variant.status}
+            </uui-badge>
+          </div>
+        </div>
+
+        ${isEditing ? this.renderVariantEditForm(variant) : ''}
+      </div>
+    `;
+  }
+
+  renderVariantEditForm(variant) {
+    return html`
+      <div class="variant-edit-form" @click=${(e) => e.stopPropagation()}>
+        <div class="edit-form-grid">
+          <!-- Price -->
+          <div class="form-group">
+            <uui-label for="variant-price-${variant.id}" required>Price</uui-label>
+            <uui-input
+              id="variant-price-${variant.id}"
+              type="number"
+              step="0.01"
+              .value=${String(variant.price || '')}
+              @input=${(e) => this.handleVariantInput(variant.id, 'price', parseFloat(e.target.value))}
+              ?disabled=${this.saving}
+              required>
+            </uui-input>
+            ${this.validationErrors[`variant_${variant.id}_price`] ? html`
+              <small class="error-text">${this.validationErrors[`variant_${variant.id}_price`]}</small>
+            ` : ''}
+          </div>
+
+          <!-- Stock -->
+          <div class="form-group">
+            <uui-label for="variant-stock-${variant.id}" required>Stock Quantity</uui-label>
+            <uui-input
+              id="variant-stock-${variant.id}"
+              type="number"
+              .value=${String(variant.stockQuantity ?? '')}
+              @input=${(e) => this.handleVariantInput(variant.id, 'stockQuantity', parseInt(e.target.value))}
+              ?disabled=${this.saving}
+              required>
+            </uui-input>
+            ${this.validationErrors[`variant_${variant.id}_stockQuantity`] ? html`
+              <small class="error-text">${this.validationErrors[`variant_${variant.id}_stockQuantity`]}</small>
+            ` : ''}
+          </div>
+
+          <!-- Status -->
+          <div class="form-group">
+            <uui-label for="variant-status-${variant.id}">Status</uui-label>
+            <select
+              id="variant-status-${variant.id}"
+              class="variant-status-select"
+              .value=${variant.status || 'active'}
+              @change=${(e) => this.handleVariantInput(variant.id, 'status', e.target.value)}
+              ?disabled=${this.saving}>
+              <option value="active" ?selected=${variant.status === 'active'}>Active</option>
+              <option value="inactive" ?selected=${variant.status === 'inactive'}>Inactive</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="button-group">
+          <uui-button
+            look="secondary"
+            @click=${() => this.toggleVariantEdit(variant)}
+            ?disabled=${this.saving}>
+            Cancel
+          </uui-button>
+
+          <uui-button
+            look="primary"
+            color="positive"
+            @click=${() => this.saveProduct()}
+            ?disabled=${this.saving}>
+            ${this.saving ? 'Saving...' : 'Save Variant'}
+          </uui-button>
+        </div>
+      </div>
     `;
   }
 
@@ -840,6 +1048,112 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
     .save-success,
     .save-error {
       margin-bottom: var(--uui-size-space-4);
+    }
+
+    /* Variant styles */
+    .variants-section-row {
+      background-color: var(--uui-color-surface);
+    }
+
+    .variants-container {
+      padding: var(--uui-size-space-5);
+      border-top: 1px solid var(--uui-color-border);
+    }
+
+    .variants-container h4 {
+      margin: 0 0 var(--uui-size-space-2) 0;
+    }
+
+    .variant-info {
+      color: var(--uui-color-text-alt);
+      margin-bottom: var(--uui-size-space-4);
+    }
+
+    .variants-list {
+      display: flex;
+      flex-direction: column;
+      gap: var(--uui-size-space-3);
+      margin-bottom: var(--uui-size-space-4);
+    }
+
+    .variant-row {
+      padding: var(--uui-size-space-3);
+      border: 1px solid var(--uui-color-border);
+      border-radius: var(--uui-border-radius);
+      background: var(--uui-color-surface-alt);
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+
+    .variant-row:hover {
+      background: var(--uui-color-surface);
+    }
+
+    .variant-row.editing {
+      background: var(--uui-color-selected);
+      border-color: var(--uui-color-focus);
+    }
+
+    .variant-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: var(--uui-size-space-3);
+    }
+
+    .variant-options {
+      display: flex;
+      align-items: center;
+      gap: var(--uui-size-space-2);
+    }
+
+    .variant-options uui-icon {
+      color: var(--uui-color-text-alt);
+    }
+
+    .variant-summary {
+      display: flex;
+      align-items: center;
+      gap: var(--uui-size-space-3);
+    }
+
+    .variant-sku {
+      font-family: monospace;
+      font-size: var(--uui-size-4);
+      background: var(--uui-color-surface);
+      padding: 2px 6px;
+      border-radius: 3px;
+    }
+
+    .variant-price {
+      font-weight: 500;
+    }
+
+    .variant-edit-form {
+      margin-top: var(--uui-size-space-4);
+      padding-top: var(--uui-size-space-4);
+      border-top: 1px solid var(--uui-color-border);
+    }
+
+    .variant-status-select {
+      width: 100%;
+      padding: var(--uui-size-space-2);
+      font-family: inherit;
+      font-size: var(--uui-size-4);
+      border: 1px solid var(--uui-color-border);
+      border-radius: var(--uui-border-radius);
+      background: var(--uui-color-surface);
+      color: var(--uui-color-text);
+    }
+
+    .variant-status-select:focus {
+      outline: 2px solid var(--uui-color-focus);
+      outline-offset: 2px;
+    }
+
+    .variant-status-select:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
     }
   `;
 }

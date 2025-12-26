@@ -232,10 +232,60 @@ Load specific context when working on features:
 
 ## Git Workflow
 
-- Branch: `feature/[spec-number]-[short-name]`
-- Commit: `feat:`, `fix:`, `refactor:` prefixes
+### Branch Naming
+- `feature/[spec-number]-[short-name]` for new features
+- `fix/[issue-number]-[short-name]` for bug fixes
 - No direct commits to main
 - PR requires review and passing tests
+
+### Commit & Push Policy
+
+**IMPORTANT**: Always follow this workflow when making changes:
+
+#### 1. Implement and Test First
+- Complete all code changes
+- Build the project successfully
+- Test functionality locally before committing
+- Verify all features work as expected
+
+#### 2. Commit Changes
+- Update any relevant documentation to reflect **important** updates:
+  - CLAUDE.md files (root and component-specific)
+  - Custom commands in `.claude/commands/`
+  - Files in `docs/` folder
+- Stage only the relevant files (exclude auto-generated files)
+- Write descriptive commit messages following conventional commits format
+- Don't mention Claude in commit messages
+- **Always ask the user for approval before committing**
+
+#### 3. Push to Remote
+- **Always ask the user for approval before pushing**
+- Never push untested code to the remote repository
+
+**Example Workflow**:
+```bash
+# 1. Build and test locally first
+dotnet build        # For .NET projects
+npm run build       # For frontend
+# ... test functionality ...
+
+# 2. Ask user: "Ready to commit changes?"
+git add <relevant-files>
+git commit -m "feat: descriptive message"
+
+# 3. Ask user: "Ready to push to remote?"
+git push
+```
+
+**Commit Prefixes**:
+- `feat:` - New features
+- `fix:` - Bug fixes
+- `refactor:` - Code refactoring
+- `docs:` - Documentation updates
+- `test:` - Test additions or modifications
+- `chore:` - Build/tooling changes
+
+**Rationale**: This ensures all code is tested and verified before it enters the remote repository, preventing broken builds and ensuring code quality.
 
 ## License
 
@@ -243,6 +293,6 @@ This project is licensed under the **Apache License 2.0**. You are free to use, 
 
 ---
 
-**Last Updated**: 2025-11-27
+**Last Updated**: 2025-12-26
 **Status**: Open Source Release
 **Built by**: [UKAD](https://ukad-group.com)

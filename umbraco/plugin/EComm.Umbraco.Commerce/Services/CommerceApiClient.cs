@@ -275,7 +275,7 @@ public class CommerceApiClient : ICommerceApiClient
         }
     }
 
-    public async Task<Product?> UpdateProductAsync(string productId, Product product, string? changeNotes = null)
+    public async Task<Product?> UpdateProductAsync(string productId, Product product, string userId, string? changeNotes = null)
     {
         var settings = await _settingsService.GetSettingsAsync();
         if (settings == null || !settings.IsValid)
@@ -305,6 +305,7 @@ public class CommerceApiClient : ICommerceApiClient
 
             request.Headers.Add("X-Tenant-ID", settings.TenantId);
             request.Headers.Add("X-Market-ID", settings.MarketId);
+            request.Headers.Add("X-User-ID", userId);
 
             var response = await client.SendAsync(request);
 
