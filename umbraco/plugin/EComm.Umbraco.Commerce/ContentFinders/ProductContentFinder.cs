@@ -24,26 +24,27 @@ public class ProductContentFinder : IContentFinder
     private readonly IDocumentUrlService _documentUrlService;
     private readonly IServiceScopeFactory _serviceScopeFactory;
     private readonly ILogger<ProductContentFinder> _logger;
-    private readonly ICommerceSettingsService _settingsService;
 
     public ProductContentFinder(
         IUmbracoContextAccessor umbracoContextAccessor,
         IDocumentUrlService documentUrlService,
         IServiceScopeFactory serviceScopeFactory,
-        ILogger<ProductContentFinder> logger,
-        ICommerceSettingsService settingsService)
+        ILogger<ProductContentFinder> logger)
     {
         _umbracoContextAccessor = umbracoContextAccessor;
         _documentUrlService = documentUrlService;
         _serviceScopeFactory = serviceScopeFactory;
         _logger = logger;
-        _settingsService = settingsService;
     }
 
     public async Task<bool> TryFindContent(IPublishedRequestBuilder request)
     {
+        // Create scope to access scoped services
+        using var scope = _serviceScopeFactory.CreateScope();
+        var settingsService = scope.ServiceProvider.GetRequiredService<ICommerceSettingsService>();
+
         // Load settings to get configurable aliases
-        var settings = await _settingsService.GetSettingsAsync();
+        var settings = await settingsService.GetSettingsAsync();
         var categoryPageAlias = settings?.CategoryPageAlias ?? "categoryPage";
         var productPageAlias = settings?.ProductPageAlias ?? "productPage";
         var categoryIdPropertyAlias = settings?.CategoryIdPropertyAlias ?? "categoryId";
@@ -115,9 +116,7 @@ public class ProductContentFinder : IContentFinder
             return false;
         }
 
-        // Fetch the product from the API using a scoped service
-        // Note: Using IServiceScopeFactory to resolve scoped services from this singleton
-        using var scope = _serviceScopeFactory.CreateScope();
+        // Fetch the product from the API using the scoped service from our existing scope
         var apiClient = scope.ServiceProvider.GetRequiredService<ICommerceApiClient>();
 
         // Try to get product by ID first (since slugs may not be populated)

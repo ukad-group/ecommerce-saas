@@ -14,7 +14,8 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
     editedProduct: { type: Object },
     saving: { type: Boolean },
     saveSuccess: { type: String },
-    validationErrors: { type: Object }
+    validationErrors: { type: Object },
+    currentUser: { type: Object }
   };
 
   constructor() {
@@ -29,10 +30,18 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
     this.saving = false;
     this.saveSuccess = null;
     this.validationErrors = {};
+    this.currentUser = null;
 
     // Consume auth context for API calls
     this.consumeContext(UMB_AUTH_CONTEXT, (authContext) => {
       this._authContext = authContext;
+
+      // Observe current user
+      if (authContext?.currentUser) {
+        this.observe(authContext.currentUser, (user) => {
+          this.currentUser = user;
+        });
+      }
     });
 
     // Consume workspace context to get document data
@@ -199,6 +208,27 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
     return Object.keys(errors).length === 0;
   }
 
+  getUserFromToken(token) {
+    try {
+      // JWT tokens have three parts separated by dots
+      const parts = token.split('.');
+      if (parts.length !== 3) return null;
+
+      // Decode the payload (second part)
+      const payload = JSON.parse(atob(parts[1]));
+
+      // Extract user information from common JWT claims
+      return {
+        email: payload.email || payload.sub || payload.unique_name || null,
+        name: payload.name || payload.given_name || null,
+        userName: payload.preferred_username || payload.username || null
+      };
+    } catch (err) {
+      console.error('Failed to decode JWT token:', err);
+      return null;
+    }
+  }
+
   async saveProduct() {
     if (!this.validateProduct()) {
       this.error = 'Please fix validation errors';
@@ -211,6 +241,25 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
 
     try {
       const headers = await this.getAuthHeaders();
+
+      // Get current user from JWT token
+      let userName = 'system';
+
+      const token = await this._authContext?.getLatestToken();
+      if (token) {
+        const user = this.getUserFromToken(token);
+        userName = user?.email || user?.name || user?.userName || 'system';
+        console.log('Extracted user from token:', user);
+      } else {
+        console.log('No token available');
+      }
+
+      // Set version creator on the product
+      const productToSave = {
+        ...this.editedProduct,
+        versionCreatedBy: userName
+      };
+
       const response = await fetch(
         `/umbraco/management/api/ecomm-commerce/products/${this.editedProduct.id}`,
         {
@@ -218,7 +267,7 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
           headers: headers,
           credentials: 'include',
           body: JSON.stringify({
-            product: this.editedProduct,
+            product: productToSave,
             changeNotes: `Updated via Umbraco at ${new Date().toISOString()}`
           })
         }
@@ -578,10 +627,17 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
       box-sizing: border-box;
     }
 
-    uui-table-row > uui-table-cell:last-child {
-      display: flex;
-      align-items: center;
-      justify-content: center;
+    /* Center Status and Version columns */
+    uui-table-row > uui-table-cell:nth-child(6),
+    uui-table-row > uui-table-cell:nth-child(7) {
+      text-align: center;
+    }
+
+    uui-table-row > uui-table-cell:nth-child(6) uui-badge,
+    uui-table-row > uui-table-cell:nth-child(7) > * {
+      position: static !important;
+      display: inline-block !important;
+      margin: 0 auto;
     }
 
     .stock-badge-wrapper {
