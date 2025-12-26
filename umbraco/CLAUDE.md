@@ -800,6 +800,46 @@ Site B (US Store)           │
 
 ---
 
+## Development Workflow
+
+### Git Commit & Push Policy
+
+**IMPORTANT**: Always follow this workflow when making changes:
+
+1. **Implement and Test First**
+   - Complete all code changes
+   - Build the project successfully
+   - Test functionality locally before committing
+   - Verify all features work as expected
+
+2. **Commit Changes**
+   - Update any relevant documentation to reflect **important** updates: CLAUDE.md, custom commands, files in docs folder
+   - Stage only the relevant files (exclude auto-generated files)
+   - Write descriptive commit messages following conventional commits format, don't mention Claude
+   - **Always ask the user for approval before committing**
+
+3. **Push to Remote**
+   - **Always ask the user for approval before pushing**
+   - Never push untested code to the remote repository
+
+**Example Workflow**:
+```bash
+# 1. Build and test locally first
+dotnet build
+# ... test functionality ...
+
+# 2. Ask user: "Ready to commit changes?"
+git add <relevant-files>
+git commit -m "feat: descriptive message"
+
+# 3. Ask user: "Ready to push to remote?"
+git push
+```
+
+**Rationale**: This ensures all code is tested and verified before it enters the remote repository, preventing broken builds and ensuring code quality.
+
+---
+
 ## Resources & References
 
 - [Umbraco 14 Documentation](https://docs.umbraco.com/umbraco-cms/fundamentals/backoffice/extension-types)
