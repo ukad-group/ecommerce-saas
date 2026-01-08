@@ -418,9 +418,11 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
 
         <!-- Status -->
         <uui-table-cell style="width: 100px;">
-          <uui-badge color="${product.status === 'active' ? 'positive' : 'default'}" look="primary">
-            ${product.status || 'active'}
-          </uui-badge>
+          <div class="status-badge-wrapper">
+            <uui-badge color="${product.status === 'active' ? 'positive' : 'default'}" look="primary">
+              ${product.status || 'active'}
+            </uui-badge>
+          </div>
         </uui-table-cell>
 
         <!-- Version -->
@@ -813,6 +815,7 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
       width: 100%;
       display: table;
       table-layout: fixed;
+      border-collapse: collapse;
     }
 
     uui-table-head {
@@ -835,10 +838,20 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
       box-sizing: border-box;
     }
 
-    /* Center Status and Version columns */
+    /* Center Stock, Status, and Version columns */
+    uui-table-head-cell:nth-child(5),
+    uui-table-head-cell:nth-child(6),
+    uui-table-head-cell:nth-child(7),
+    uui-table-row > uui-table-cell:nth-child(5),
     uui-table-row > uui-table-cell:nth-child(6),
     uui-table-row > uui-table-cell:nth-child(7) {
       text-align: center;
+    }
+
+    /* Right-align Price column */
+    uui-table-head-cell:nth-child(4),
+    uui-table-row > uui-table-cell:nth-child(4) {
+      text-align: right;
     }
 
     uui-table-row > uui-table-cell:nth-child(6) uui-badge,
@@ -849,13 +862,28 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
     }
 
     .stock-badge-wrapper {
-      position: relative;
-      display: inline-block;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 24px;
     }
 
     .stock-badge-wrapper uui-badge {
       position: static !important;
-      display: inline-block;
+      display: inline-flex;
+      align-items: center;
+    }
+
+    .status-badge-wrapper {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 24px;
+    }
+
+    .status-badge-wrapper uui-badge {
+      display: inline-flex;
+      align-items: center;
     }
 
     .loading-state {
@@ -962,6 +990,16 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
       border-radius: 3px;
     }
 
+    .sku {
+      font-family: monospace;
+      font-size: var(--uui-size-4);
+      background: var(--uui-color-surface-alt);
+      padding: 2px 8px;
+      border-radius: 999px;
+      border: 1px solid var(--uui-color-border);
+      display: inline-block;
+    }
+
     .price {
       font-weight: 500;
     }
@@ -976,7 +1014,8 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
     }
 
     .product-row.expanded {
-      background-color: var(--uui-color-selected);
+      background-color: var(--uui-color-surface-alt);
+      box-shadow: inset 0 0 0 1px var(--uui-color-border);
     }
 
     .edit-form-row {
@@ -1090,8 +1129,9 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
     }
 
     .variant-row.editing {
-      background: var(--uui-color-selected);
-      border-color: var(--uui-color-focus);
+      background: var(--uui-color-surface-alt);
+      border-color: var(--uui-color-border);
+      box-shadow: inset 0 0 0 1px var(--uui-color-border);
     }
 
     .variant-header {

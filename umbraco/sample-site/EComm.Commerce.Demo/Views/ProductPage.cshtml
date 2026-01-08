@@ -260,10 +260,15 @@
 
         @if (hasVariants && product.Variants != null)
         {
+            var variantJsonOptions = new System.Text.Json.JsonSerializerOptions
+            {
+                PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase
+            };
+
             <!-- Variant Selection JavaScript -->
             <script>
                 // Product variants data
-                const variants = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(product.Variants));
+                const variants = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(product.Variants, variantJsonOptions));
                 const selectedOptions = {};
 
                 // Initialize with default variant options
@@ -313,8 +318,9 @@
                 function updateVariantDisplay() {
                     // Find variant that matches all selected options
                     const matchingVariant = variants.find(variant => {
+                        const options = variant.options || {};
                         return Object.entries(selectedOptions).every(([key, value]) => {
-                            return variant.options[key] === value;
+                            return options[key] === value;
                         });
                     });
 
