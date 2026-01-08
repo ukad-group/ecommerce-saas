@@ -1,0 +1,384 @@
+﻿@using EComm.Commerce.Demo.Controllers
+@inherits Umbraco.Cms.Web.Common.Views.UmbracoViewPage<ProductPageViewModel>
+@{
+    Layout = "master.cshtml";
+    ViewData["Title"] = Model.Product?.Name ?? "Product";
+}
+
+<div class="container my-4">
+    @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+    {
+        <div class="alert alert-danger">
+            <i class="bi bi-exclamation-triangle"></i> @Model.ErrorMessage
+        </div>
+    }
+    else if (Model.Product == null)
+    {
+        <div class="alert alert-info">
+            <i class="bi bi-info-circle"></i> Product not found.
+        </div>
+    }
+    else
+    {
+        var product = Model.Product;
+        var hasVariants = product.HasVariants && product.Variants != null && product.Variants.Any();
+        var defaultVariant = hasVariants ? product.Variants.FirstOrDefault(v => v.IsDefault) ?? product.Variants.First() : null;
+        var hasStock = hasVariants ? (defaultVariant?.StockQuantity ?? 0) > 0 : (product.StockQuantity ?? 0) > 0;
+
+        <!-- Breadcrumb -->
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="/">Home</a></li>
+                @if (Model.Category != null)
+                {
+                    <li class="breadcrumb-item">
+                        <a href="@Model.Parent?.Url()">@Model.Category.Name</a>
+                    </li>
+                }
+                <li class="breadcrumb-item active" aria-current="page">@product.Name</li>
+            </ol>
+        </nav>
+
+        <div class="row">
+            <!-- Product Images -->
+            <div class="col-md-6">
+                @{
+                    var productImages = product.Images != null && product.Images.Any()
+                        ? product.Images.ToList()
+                        : new List<string> { "https://via.placeholder.com/600x400?text=" + Uri.EscapeDataString(product.Name ?? "Product") };
+                    var mainImage = productImages.First();
+                }
+
+                <!-- Main Image -->
+                <div class="card mb-3">
+                    <img id="mainImage"
+                         src="@mainImage"
+                         class="card-img-top"
+                         alt="@product.Name"
+                         style="max-height: 500px; object-fit: contain;">
+                </div>
+
+                <!-- Thumbnail Gallery -->
+                @if (productImages.Count > 1)
+                {
+                    <div class="d-flex gap-2 flex-wrap">
+                        @foreach (var image in productImages)
+                        {
+                            <img src="@image"
+                                 alt="@product.Name thumbnail"
+                                 class="img-thumbnail"
+                                 style="width: 80px; height: 80px; object-fit: cover; cursor: pointer;"
+                                 onclick="document.getElementById('mainImage').src='@image'" />
+                        }
+                    </div>
+                }
+
+                <!-- Custom Properties -->
+                @if (product.CustomProperties != null && product.CustomProperties.Any())
+                {
+                    <div class="card mt-3">
+                        <div class="card-body">
+                            <h5 class="card-title">Specifications</h5>
+                            <ul class="list-unstyled mb-0">
+                                @foreach (var property in product.CustomProperties)
+                                {
+                                    <li class="mb-2">
+                                        <strong>@property.Name:</strong> @property.Value
+                                    </li>
+                                }
+                            </ul>
+                        </div>
+                    </div>
+                }
+            </div>
+
+            <!-- Product Details -->
+            <div class="col-md-6">
+                <h1 class="display-5 fw-bold">@product.Name</h1>
+
+                @if (Model.Category != null)
+                {
+                    <p class="text-muted">
+                        <i class="bi bi-tag"></i>
+                        <a href="@Model.Parent?.Url()">@Model.Category.Name</a>
+                    </p>
+                }
+
+                <!-- Variant Selection -->
+                @if (hasVariants && product.VariantOptions != null)
+                {
+                    <div class="variant-selection mb-4">
+                        @foreach (var option in product.VariantOptions)
+                        {
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">@option.Name:</label>
+                                <div class="btn-group d-flex gap-2 flex-wrap" role="group" aria-label="@option.Name selection">
+                                    @foreach (var value in option.Values)
+                                    {
+                                        <button type="button"
+                                                class="btn btn-outline-primary variant-option flex-fill"
+                                                data-option-name="@option.Name"
+                                                data-option-value="@value">
+                                            @value
+                                        </button>
+                                    }
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+
+                <!-- Price -->
+                <div class="my-3">
+                    @if (hasVariants && defaultVariant != null)
+                    {
+                        <span id="variantPrice" class="display-6 text-primary fw-bold">
+                            @if (defaultVariant.SalePrice.HasValue)
+                            {
+                                <span class="text-decoration-line-through text-muted me-2">£@defaultVariant.Price.ToString("N2")</span>
+                                <span>£@defaultVariant.SalePrice.Value.ToString("N2")</span>
+                            }
+                            else
+                            {
+                                <span>£@defaultVariant.Price.ToString("N2")</span>
+                            }
+                        </span>
+                    }
+                    else
+                    {
+                        <span class="display-6 text-primary fw-bold">£@((product.Price ?? 0).ToString("N2"))</span>
+                    }
+                </div>
+
+                <!-- Stock Status -->
+                <div class="mb-3">
+                    @if (hasVariants && defaultVariant != null)
+                    {
+                        <span id="variantStock">
+                            @if (defaultVariant.StockQuantity > 0)
+                            {
+                                <span class="badge bg-success fs-6">
+                                    <i class="bi bi-check-circle"></i> In Stock (@defaultVariant.StockQuantity available)
+                                </span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-danger fs-6">
+                                    <i class="bi bi-x-circle"></i> Out of Stock
+                                </span>
+                            }
+                        </span>
+                    }
+                    else if (hasStock)
+                    {
+                        <span class="badge bg-success fs-6">
+                            <i class="bi bi-check-circle"></i> In Stock (@product.StockQuantity available)
+                        </span>
+                    }
+                    else
+                    {
+                        <span class="badge bg-danger fs-6">
+                            <i class="bi bi-x-circle"></i> Out of Stock
+                        </span>
+                    }
+                </div>
+
+                <!-- Description -->
+                @if (!string.IsNullOrEmpty(product.Description))
+                {
+                    <div class="mb-4">
+                        <h5>Description</h5>
+                        <p class="lead">@product.Description</p>
+                    </div>
+                }
+
+                <!-- Product Info -->
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <h5 class="card-title">Product Information</h5>
+                        <ul class="list-unstyled mb-0">
+                            <li><strong>Product ID:</strong> @product.Id</li>
+                            @if (!string.IsNullOrEmpty(product.CategoryId))
+                            {
+                                <li><strong>Category ID:</strong> @product.CategoryId</li>
+                            }
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="d-grid gap-2">
+                    @if (hasStock)
+                    {
+                        <button class="btn btn-primary btn-lg btn-add-to-cart">
+                            <i class="bi bi-cart-plus"></i> Add to Cart
+                        </button>
+                    }
+                    else
+                    {
+                        <button class="btn btn-secondary btn-lg btn-add-to-cart" disabled>
+                            <i class="bi bi-x-circle"></i> Out of Stock
+                        </button>
+                    }
+                    <a href="@Model.Parent?.Url()" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-left"></i> Back to @Model.Category?.Name
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Features -->
+        <div class="row mt-5">
+            <div class="col-md-4">
+                <div class="card text-center h-100">
+                    <div class="card-body">
+                        <i class="bi bi-truck fs-1 text-primary"></i>
+                        <h5 class="card-title mt-3">Free Shipping</h5>
+                        <p class="card-text text-muted">On orders over £50</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card text-center h-100">
+                    <div class="card-body">
+                        <i class="bi bi-shield-check fs-1 text-primary"></i>
+                        <h5 class="card-title mt-3">Secure Payment</h5>
+                        <p class="card-text text-muted">100% secure transactions</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card text-center h-100">
+                    <div class="card-body">
+                        <i class="bi bi-arrow-clockwise fs-1 text-primary"></i>
+                        <h5 class="card-title mt-3">Easy Returns</h5>
+                        <p class="card-text text-muted">30-day return policy</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        @if (hasVariants && product.Variants != null)
+        {
+            <!-- Variant Selection JavaScript -->
+            <script>
+                // Product variants data
+                const variants = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(product.Variants));
+                const selectedOptions = {};
+
+                // Initialize with default variant options
+                @if (defaultVariant != null)
+                {
+                    foreach (var kvp in defaultVariant.Options)
+                    {
+                        <text>selectedOptions['@kvp.Key'] = '@kvp.Value';</text>
+                    }
+                }
+
+                // Highlight default variant buttons
+                document.addEventListener('DOMContentLoaded', function() {
+                    Object.entries(selectedOptions).forEach(([optionName, optionValue]) => {
+                        const button = document.querySelector(
+                            `.variant-option[data-option-name="${optionName}"][data-option-value="${optionValue}"]`
+                        );
+                        if (button) {
+                            button.classList.remove('btn-outline-primary');
+                            button.classList.add('btn-primary');
+                        }
+                    });
+                });
+
+                // Handle variant option selection
+                document.querySelectorAll('.variant-option').forEach(button => {
+                    button.addEventListener('click', function() {
+                        const optionName = this.getAttribute('data-option-name');
+                        const optionValue = this.getAttribute('data-option-value');
+
+                        // Update selected options
+                        selectedOptions[optionName] = optionValue;
+
+                        // Update button states for this option group
+                        document.querySelectorAll(`.variant-option[data-option-name="${optionName}"]`).forEach(btn => {
+                            btn.classList.remove('btn-primary');
+                            btn.classList.add('btn-outline-primary');
+                        });
+                        this.classList.remove('btn-outline-primary');
+                        this.classList.add('btn-primary');
+
+                        // Find matching variant
+                        updateVariantDisplay();
+                    });
+                });
+
+                function updateVariantDisplay() {
+                    // Find variant that matches all selected options
+                    const matchingVariant = variants.find(variant => {
+                        return Object.entries(selectedOptions).every(([key, value]) => {
+                            return variant.options[key] === value;
+                        });
+                    });
+
+                    if (!matchingVariant) {
+                        console.warn('No matching variant found for:', selectedOptions);
+                        return;
+                    }
+
+                    // Update price
+                    const priceElement = document.getElementById('variantPrice');
+                    if (priceElement) {
+                        if (matchingVariant.salePrice) {
+                            priceElement.innerHTML = `
+                                <span class="text-decoration-line-through text-muted me-2">£${matchingVariant.price.toFixed(2)}</span>
+                                <span>£${matchingVariant.salePrice.toFixed(2)}</span>
+                            `;
+                        } else {
+                            priceElement.innerHTML = `<span>£${matchingVariant.price.toFixed(2)}</span>`;
+                        }
+                    }
+
+                    // Update stock
+                    const stockElement = document.getElementById('variantStock');
+                    if (stockElement) {
+                        if (matchingVariant.stockQuantity > 0) {
+                            stockElement.innerHTML = `
+                                <span class="badge bg-success fs-6">
+                                    <i class="bi bi-check-circle"></i> In Stock (${matchingVariant.stockQuantity} available)
+                                </span>
+                            `;
+                        } else {
+                            stockElement.innerHTML = `
+                                <span class="badge bg-danger fs-6">
+                                    <i class="bi bi-x-circle"></i> Out of Stock
+                                </span>
+                            `;
+                        }
+                    }
+
+                    // Update "Add to Cart" button
+                    const addToCartBtn = document.querySelector('.btn-add-to-cart');
+                    if (addToCartBtn) {
+                        if (matchingVariant.stockQuantity > 0) {
+                            addToCartBtn.disabled = false;
+                            addToCartBtn.classList.remove('btn-secondary');
+                            addToCartBtn.classList.add('btn-primary');
+                            addToCartBtn.innerHTML = '<i class="bi bi-cart-plus"></i> Add to Cart';
+                        } else {
+                            addToCartBtn.disabled = true;
+                            addToCartBtn.classList.remove('btn-primary');
+                            addToCartBtn.classList.add('btn-secondary');
+                            addToCartBtn.innerHTML = '<i class="bi bi-x-circle"></i> Out of Stock';
+                        }
+                    }
+
+                    // Update main image if variant has custom images
+                    if (matchingVariant.images && matchingVariant.images.length > 0) {
+                        const mainImageElement = document.getElementById('mainImage');
+                        if (mainImageElement) {
+                            mainImageElement.src = matchingVariant.images[0];
+                        }
+                    }
+                }
+            </script>
+        }
+    }
+</div>

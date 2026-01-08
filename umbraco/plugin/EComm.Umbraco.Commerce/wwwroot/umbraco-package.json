@@ -1,0 +1,54 @@
+{
+  "$schema": "../../umbraco-package-schema.json",
+  "name": "EComm Commerce",
+  "version": "1.0.0",
+  "extensions": [
+    {
+      "type": "dashboard",
+      "alias": "ecomm.commerce.settings",
+      "name": "Commerce Settings",
+      "element": "/App_Plugins/ECommCommerce/components/settings/settings-dashboard.js",
+      "weight": 100,
+      "meta": {
+        "label": "Commerce Settings",
+        "pathname": "commerce-settings"
+      },
+      "conditions": [
+        {
+          "alias": "Umb.Condition.SectionAlias",
+          "match": "Umb.Section.Settings"
+        }
+      ]
+    },
+    {
+      "type": "propertyEditorUi",
+      "alias": "EComm.PropertyEditorUi.CategoryPicker",
+      "name": "Commerce Category Picker",
+      "element": "/App_Plugins/ECommCommerce/components/propertyEditors/category-picker.js",
+      "meta": {
+        "label": "Category Picker",
+        "icon": "icon-folder",
+        "group": "commerce",
+        "propertyEditorSchemaAlias": "Umbraco.Plain.String"
+      }
+    },
+    {
+      "type": "workspaceView",
+      "alias": "ecomm.workspaceView.products",
+      "name": "eCommerce Products View",
+      "element": "/App_Plugins/ECommCommerce/components/workspaceViews/products-workspace-view.js",
+      "weight": -200,
+      "meta": {
+        "label": "eCommerce",
+        "pathname": "ecommerce",
+        "icon": "icon-shopping-basket"
+      },
+      "conditions": [
+        {
+          "alias": "Umb.Condition.WorkspaceAlias",
+          "match": "Umb.Workspace.Document"
+        }
+      ]
+    }
+  ]
+}

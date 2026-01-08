@@ -4,9 +4,11 @@
 
 This document outlines the architecture and implementation plan for an Umbraco plugin that integrates with the headless eCommerce SaaS platform. The plugin enables Umbraco sites to leverage the eCommerce API while maintaining full content management control in Umbraco.
 
-**Target Umbraco Version**: 14+ (Bellissima - Modern backoffice with Lit/Web Components)
+**Target Umbraco Version**: 17.0.0 (LTS - Long Term Support with .NET 10)
 
-**Last Updated**: 2025-11-21
+**Status**: Phase 1-4 Complete - Core Implementation + Products Workspace View, Upgraded to Umbraco 17, Configurable Defaults, Product Variant Support
+
+**Last Updated**: 2025-12-26
 
 ---
 
@@ -14,11 +16,26 @@ This document outlines the architecture and implementation plan for an Umbraco p
 
 ```
 /umbraco/
-├── CLAUDE.md                    # This file - Architecture and planning
-├── plugin/                      # Plugin package project (future)
-│   └── YourBrand.Umbraco.Commerce/
-└── sample-site/                 # Sample Umbraco site for testing (future)
-    └── YourBrand.Commerce.Demo/
+├── CLAUDE.md                           # This file - Architecture and planning
+├── EComm.Umbraco.sln                   # Solution file
+├── plugin/
+│   └── EComm.Umbraco.Commerce/         # Plugin package project
+│       ├── EComm.Umbraco.Commerce.csproj
+│       ├── Models/                     # DTOs for API communication
+│       ├── Services/                   # API client and settings service
+│       ├── Controllers/                # Backoffice API controllers
+│       ├── ContentFinders/             # Product URL routing
+│       ├── Composers/                  # DI registration
+│       └── wwwroot/App_Plugins/        # Lit components for backoffice
+│           └── ECommCommerce/
+│               ├── umbraco-package.json
+│               ├── components/settings/    # Settings dashboard
+│               ├── components/propertyEditors/  # Category picker
+│               ├── components/workspaceViews/   # Products workspace view
+│               └── lang/                   # Localization
+└── sample-site/
+    └── EComm.Commerce.Demo/            # Sample Umbraco 14 site
+        └── EComm.Commerce.Demo.csproj
 ```
 
 ---
@@ -66,19 +83,21 @@ Home
 
 | Component | Technology | Version |
 |-----------|-----------|---------|
-| **Umbraco CMS** | Umbraco CMS | 14.x+ |
+| **Umbraco CMS** | Umbraco CMS | 17.0.0 (LTS) |
 | **Backoffice UI** | Lit (Web Components) | Latest |
-| **Backend** | .NET | 8+ |
+| **Backend** | .NET | 10 |
 | **API Client** | HttpClient | Built-in |
 | **Package Distribution** | NuGet | - |
 
-### Why Umbraco 14+?
+### Why Umbraco 17?
 
-- Modern, future-proof architecture
+- **Long Term Support (LTS)** release with extended support until November 2027
+- Modern, future-proof architecture (Bellissima backoffice)
 - Web Components (Lit) replace legacy AngularJS
 - Better TypeScript support
 - Improved performance and developer experience
-- Active development and long-term support
+- .NET 10 support with latest framework features
+- Active development and commercial backing
 
 ---
 
@@ -87,13 +106,13 @@ Home
 ### High-Level Components
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│                   Umbraco Backoffice                    │
-│  ┌────────────────┐  ┌──────────────┐  ┌─────────────┐ │
-│  │ Settings Panel │  │  Category    │  │  Dashboard  │ │
-│  │  (Lit)         │  │  Picker (Lit)│  │  (Lit)      │ │
-│  └────────────────┘  └──────────────┘  └─────────────┘ │
-└─────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────┐
+│                       Umbraco Backoffice                             │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  ┌─────────┐ │
+│  │   Settings   │  │   Category   │  │   Products   │  │Dashboard│ │
+│  │  Panel (Lit) │  │ Picker (Lit) │  │Workspace View│  │  (Lit)  │ │
+│  └──────────────┘  └──────────────┘  └──────────────┘  └─────────┘ │
+└──────────────────────────────────────────────────────────────────────┘
                             │
                             ▼
 ┌─────────────────────────────────────────────────────────┐
@@ -132,8 +151,8 @@ YourBrand.Umbraco.Commerce/
 │       └── lang/
 │           └── en-us.json
 ├── Controllers/
-│   ├── CommerceSettingsApiController.cs   # Settings CRUD
-│   ├── CategoryPickerApiController.cs     # Fetch categories
+│   ├── CommerceSettingsApiController.cs   # Settings CRUD (Management API)
+│   ├── CategoryPickerApiController.cs     # Fetch categories (Management API)
 │   └── ProductRouteController.cs          # Handle product URLs
 ├── Services/
 │   ├── ICommerceSettingsService.cs
@@ -246,10 +265,11 @@ public class ProductContentFinder : IContentFinder
 
 #### **Category Page**
 ```
-Alias: categoryPage
+Alias: categoryPage (configurable in Settings → Commerce Settings → Defaults)
 Allowed Templates: CategoryPage
 Properties:
 - categoryId (Category Picker) - Maps to eCommerce category
+  (Property alias configurable in Settings → Defaults)
 - description (Rich Text Editor) - Category description/SEO
 - bannerImage (Media Picker) - Category banner
 - productsPerPage (Numeric) - Pagination settings
@@ -258,9 +278,11 @@ Properties:
 Allowed Child Types: categoryPage, productPage
 ```
 
+**Note**: The `categoryPage` document type alias and `categoryId` property alias are now configurable defaults. Change them in Settings → Commerce Settings → Defaults tab if integrating with existing Umbraco sites.
+
 #### **Product Page** (Template Node)
 ```
-Alias: productPage
+Alias: productPage (configurable in Settings → Commerce Settings → Defaults)
 Allowed Templates: ProductPage
 Properties:
 - seoOverrides (Composition) - Optional SEO overrides
@@ -271,47 +293,297 @@ Allowed Child Types: None
 Allowed At Root: false
 ```
 
+**Note**: The `productPage` document type alias is configurable for sites with custom naming conventions.
+
+---
+
+## Products Workspace View - Advanced Features
+
+### User Authentication & Version Tracking
+
+The products workspace view properly tracks which Umbraco user makes product edits using Umbraco's `UMB_CURRENT_USER_CONTEXT`.
+
+**Implementation**:
+```javascript
+import { UMB_CURRENT_USER_CONTEXT } from '@umbraco-cms/backoffice/current-user';
+
+// In workspace view element constructor
+this.consumeContext(UMB_CURRENT_USER_CONTEXT, (currentUserContext) => {
+  if (currentUserContext?.currentUser) {
+    this.observe(currentUserContext.currentUser, (user) => {
+      this.currentUser = user;
+    });
+  }
+});
+
+// When saving product
+const userName = this.currentUser?.email || this.currentUser?.name || 'system';
+product.versionCreatedBy = userName;
+```
+
+**API Integration**:
+- Frontend sends `versionCreatedBy` in product payload
+- CategoryPickerApiController extracts user ID: `var userId = request.Product.VersionCreatedBy ?? "system"`
+- CommerceApiClient forwards as `X-User-ID` header to eCommerce API
+- Version history shows actual user (e.g., "admin@example.com")
+
+### Product Variant Support
+
+The workspace view supports products with variants, allowing inline editing of variant-specific properties.
+
+**Data Models**:
+```csharp
+// Product.cs
+public class Product
+{
+    // ... standard fields
+
+    // Variant support
+    public bool HasVariants { get; set; } = false;
+    public List<VariantOption>? VariantOptions { get; set; }
+    public List<ProductVariant>? Variants { get; set; }
+}
+
+// ProductVariant.cs
+public class ProductVariant
+{
+    public string Id { get; set; }
+    public string Sku { get; set; }
+    public decimal Price { get; set; }
+    public decimal? SalePrice { get; set; }
+    public int StockQuantity { get; set; }
+    public int LowStockThreshold { get; set; }
+    public List<string>? Images { get; set; }
+    public Dictionary<string, string> Options { get; set; }  // e.g., {"Size": "Large", "Color": "Red"}
+    public string Status { get; set; } = "active";
+    public bool IsDefault { get; set; }
+}
+
+// VariantOption.cs
+public class VariantOption
+{
+    public string Name { get; set; }      // e.g., "Size"
+    public List<string> Values { get; set; }  // e.g., ["Small", "Medium", "Large"]
+}
+```
+
+**UI Features**:
+- Products with variants display badge showing variant count (e.g., "5 variants")
+- Expandable variant list with inline editing for each variant
+- Edit variant price, stock quantity, and status individually
+- Version information displays at product level (not per-variant)
+- Master product fields (price/stock) show "Varies" for variant products
+
+**Validation**:
+- **Non-variant products**: Validate master product price and stock quantity
+- **Variant products**: Skip master validation, validate each variant's price and stock
+- Implemented on both client-side (JavaScript) and server-side (C#)
+
+**Server-side Validation** (CategoryPickerApiController.cs):
+```csharp
+// For products with variants, skip master product price/stock validation
+if (!request.Product.HasVariants)
+{
+    // Validate master product
+    if (request.Product.Price == null || request.Product.Price < 0)
+        return BadRequest("Valid price is required");
+}
+else
+{
+    // Validate each variant
+    if (request.Product.Variants != null && request.Product.Variants.Any())
+    {
+        foreach (var variant in request.Product.Variants)
+        {
+            if (variant.Price < 0)
+                return BadRequest($"Variant {variant.Sku}: Valid price is required");
+        }
+    }
+}
+```
+
+---
+
+## Running the Umbraco Demo
+
+### Prerequisites
+- .NET 10 SDK
+- The main eCommerce API running (see root CLAUDE.md)
+
+### Quick Start
+
+```bash
+# From the umbraco folder
+cd umbraco
+
+# Build the solution
+dotnet build EComm.Umbraco.sln
+
+# Run the sample site
+cd sample-site/EComm.Commerce.Demo
+dotnet run
+# http://localhost:5000 (or check console output for actual port)
+```
+
+### First Run Setup
+1. Navigate to http://localhost:5000
+2. Umbraco will run the installer (first time only)
+3. Login with admin@example.com / Admin123!
+4. Go to Settings → Commerce Settings
+5. **Connection Tab** - Configure API connection:
+   - API Base URL: http://localhost:5180/api/v1
+   - Tenant ID: tenant-a
+   - Market ID: market-us-east
+   - Click "Test Connection" to verify
+6. **Defaults Tab** (optional) - Configure document type aliases:
+   - Category Page Alias: categoryPage (default)
+   - Product Page Alias: productPage (default)
+   - Category ID Property Alias: categoryId (default)
+   - Only change these if integrating with existing Umbraco sites
+
 ---
 
 ## Implementation Phases
 
-### Phase 1: Foundation (Week 1-2)
-- [ ] Create plugin project structure
-- [ ] Implement CommerceSettings model and service (database storage)
-- [ ] Build Settings Dashboard (Lit component)
-- [ ] Create CommerceApiClient service
-- [ ] Implement "Test Connection" functionality
-- [ ] Basic error handling and logging
+### Phase 1: Foundation ✅ COMPLETE
+- [x] Create plugin project structure
+- [x] Implement CommerceSettings model and service (database storage)
+- [x] Build Settings Dashboard (Lit component)
+- [x] Create CommerceApiClient service
+- [x] Implement "Test Connection" functionality
+- [x] Basic error handling and logging
 
 **Deliverable**: Admin can configure API settings in Umbraco backoffice
 
-### Phase 2: Content Integration (Week 3-4)
-- [ ] Create Category Picker property editor (Lit component)
-- [ ] Implement category fetching from API
-- [ ] Create Category Page and Product Page document types
+### Phase 2: Content Integration ✅ COMPLETE
+- [x] Create Category Picker property editor (Lit component)
+- [x] Implement category fetching from API
+- [ ] Create Category Page and Product Page document types (manual in backoffice)
 - [ ] Build category listing template
 - [ ] Basic styling and layout
 
 **Deliverable**: Editors can create category nodes and map to eCommerce categories
 
-### Phase 3: Product Routing (Week 5-6)
-- [ ] Implement ProductContentFinder
+### Phase 3: Product Routing ✅ COMPLETE (Core)
+- [x] Implement ProductContentFinder
 - [ ] Create product detail template
-- [ ] Add product data fetching by slug
-- [ ] Handle 404s for non-existent products
-- [ ] Implement caching strategy
+- [x] Add product data fetching by slug
+- [x] Handle 404s for non-existent products
+- [x] Implement caching strategy
 
 **Deliverable**: Product pages render dynamically with eCommerce data
 
-### Phase 4: Polish & Features (Week 7-8)
+### Phase 4: Polish & Features (TODO)
 - [ ] Add Commerce Dashboard (order stats, quick links)
 - [ ] Implement cart integration (if needed)
 - [ ] Add image optimization/CDN support
 - [ ] Performance optimization and caching
-- [ ] Documentation and sample site
+- [x] Documentation and sample site
 - [ ] Unit tests
 
 **Deliverable**: Production-ready plugin package
+
+---
+
+## Umbraco 17 Migration Notes
+
+### API Changes from Umbraco 14 → 17
+
+The following API changes were made to ensure compatibility with Umbraco 17:
+
+#### 0. Management API Controller Routing (CRITICAL!)
+
+When using `[MapToApi]` attribute in Umbraco 17, you **must** add an explicit `[Route]` attribute at the controller level:
+
+```csharp
+[ApiController]
+[MapToApi("ecomm-commerce")]
+[Route("umbraco/management/api/ecomm-commerce")]  // REQUIRED!
+[Authorize(Policy = AuthorizationPolicies.BackOfficeAccess)]
+public class CommerceSettingsApiController : ManagementApiControllerBase
+{
+    [HttpGet("settings")]
+    public async Task<IActionResult> GetSettings() { ... }
+}
+```
+
+**Without this**: All endpoints return 404 even though `[MapToApi]` is present.
+
+**Authentication**: Use `UMB_AUTH_CONTEXT` with `consumeContext()` in Lit components for Bearer token authentication:
+
+```javascript
+import { UMB_AUTH_CONTEXT } from '@umbraco-cms/backoffice/auth';
+
+constructor() {
+  super();
+  this.consumeContext(UMB_AUTH_CONTEXT, (authContext) => {
+    this._authContext = authContext;
+  });
+}
+
+async getAuthHeaders() {
+  const token = await this._authContext?.getLatestToken();
+  return {
+    'Authorization': `Bearer ${token}`,
+    'Content-Type': 'application/json'
+  };
+}
+```
+
+#### 1. Content Routing API
+
+**Old (Umbraco 14):**
+```csharp
+var categoryNode = content.GetByRoute(categoryPath);
+```
+
+**New (Umbraco 17):**
+```csharp
+// Inject IDocumentUrlService in constructor
+var documentKey = _documentUrlService.GetDocumentKeyByRoute(
+    categoryPath,
+    culture: null,
+    documentStartNodeId: null,
+    isDraft: false
+);
+if (documentKey.HasValue)
+{
+    var categoryNode = content.GetById(documentKey.Value);
+}
+```
+
+#### 2. Content Finder Registration
+
+**Old (Umbraco 14):**
+```csharp
+builder.ContentFinders()
+    .InsertBefore<ContentFinderByUrl, ProductContentFinder>();
+```
+
+**New (Umbraco 17):**
+```csharp
+builder.ContentFinders()
+    .InsertBefore<ContentFinderByUrlNew, ProductContentFinder>();
+```
+
+#### 3. Children Property
+
+**Old (Umbraco 14):**
+```csharp
+var child = node.Children?.FirstOrDefault();
+```
+
+**New (Umbraco 17):**
+```csharp
+using Umbraco.Extensions;
+var child = node.Children().FirstOrDefault();
+```
+
+### References
+
+- [Umbraco Forum: GetByRoute Replacement](https://discord-chats.umbraco.com/t/26768105/solved-getbyroute)
+- [Umbraco Documentation: IContentFinder](https://docs.umbraco.com/umbraco-cms/17.latest/reference/routing/request-pipeline/icontentfinder.md)
+- [GitHub Issue: ContentFinderByUrlAndTemplate](https://github.com/umbraco/Umbraco-CMS/issues/18129)
 
 ---
 
@@ -632,6 +904,35 @@ Site B (US Store)           │
 
 ### Q: Support for product variants?
 **Decision**: Phase 2. MVP assumes simple products only.
+
+---
+
+## Development Workflow
+
+### Umbraco-Specific Testing
+
+Before committing Umbraco plugin changes:
+
+1. **Build the plugin**
+   ```bash
+   cd umbraco/plugin/EComm.Umbraco.Commerce
+   dotnet build
+   ```
+
+2. **Test in the sample site**
+   ```bash
+   cd ../../sample-site/EComm.Commerce.Demo
+   dotnet run
+   # Navigate to http://localhost:5000 and test functionality
+   ```
+
+3. **Verify backoffice components**
+   - Test Settings Dashboard (Settings → Commerce Settings)
+   - Test Category Picker property editor
+   - Test Products Workspace View
+   - Check browser console for errors
+
+**Git Workflow**: See the main [CLAUDE.md](../CLAUDE.md#git-workflow) for the project-wide Git Commit & Push Policy.
 
 ---
 
