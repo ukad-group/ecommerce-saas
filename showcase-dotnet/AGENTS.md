@@ -13,6 +13,13 @@ ASP.NET Core MVC demo storefront showing how to integrate with the eCommerce Saa
 - Starter template for new storefronts
 - Living API integration documentation
 
+## Context Modules
+
+Claude Code supports `/ctx-*` commands; Codex should open the matching `.claude/commands/*.md` file.
+
+- **`/ctx-products`** - Product catalog implementation details (`.claude/commands/ctx-products.md`)
+- **`/ctx-orders`** - Orders and cart implementation details (`.claude/commands/ctx-orders.md`)
+
 ## Tech Stack
 
 - ASP.NET Core 9.0 MVC + C# 12

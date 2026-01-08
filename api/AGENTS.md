@@ -13,6 +13,15 @@ ASP.NET Core Web API backend for the eCommerce platform. Serves both admin backo
 - **Cross-platform** - Used by React admin + ASP.NET showcase
 - **Production-ready patterns** - Swap SQLite for SQLServer when scaling
 
+## Context Modules
+
+Claude Code supports `/ctx-*` commands; Codex should open the matching `.claude/commands/*.md` file.
+
+- **`/ctx-products`** - Product catalog implementation details (`.claude/commands/ctx-products.md`)
+- **`/ctx-orders`** - Orders and cart implementation details (`.claude/commands/ctx-orders.md`)
+- **`/ctx-rbac`** - Role-based access control details (`.claude/commands/ctx-rbac.md`)
+- **`/ctx-tenants`** - Tenant and market management details (`.claude/commands/ctx-tenants.md`)
+
 ## Tech Stack
 
 - ASP.NET Core 9.0 Web API

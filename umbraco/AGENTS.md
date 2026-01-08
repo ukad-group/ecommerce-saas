@@ -12,6 +12,20 @@ This document outlines the architecture and implementation plan for an Umbraco p
 
 ---
 
+## Context Modules
+
+Claude Code supports `/ctx-*` commands; Codex should open the matching `.claude/commands/*.md` file.
+
+- **`/ctx-umbraco`** - Umbraco CMS plugin context (`.claude/commands/ctx-umbraco.md`)
+
+## Specialist Agents
+
+Claude Code supports subagents; Codex should open the matching `.claude/agents/*.md` file.
+
+- **`umbraco-17-expert`** - Umbraco 17 expert guidance (`.claude/agents/umbraco-17-expert.md`)
+
+---
+
 ## Project Structure
 
 ```

@@ -6,6 +6,15 @@ React + TypeScript admin backoffice for multi-tenant eCommerce SaaS. Manages mar
 
 **Port**: http://localhost:5173
 
+## Context Modules
+
+Claude Code supports `/ctx-*` commands; Codex should open the matching `.claude/commands/*.md` file.
+
+- **`/ctx-products`** - Product catalog implementation details (`.claude/commands/ctx-products.md`)
+- **`/ctx-orders`** - Orders and cart implementation details (`.claude/commands/ctx-orders.md`)
+- **`/ctx-rbac`** - Role-based access control details (`.claude/commands/ctx-rbac.md`)
+- **`/ctx-tenants`** - Tenant and market management details (`.claude/commands/ctx-tenants.md`)
+
 ## Tech Stack
 
 - React 18 + TypeScript 5 + Vite 5

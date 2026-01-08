@@ -164,13 +164,13 @@ dotnet run
 
 ## Slash Commands
 
-Load specific context when working on features:
+Load specific context when working on features. Claude Code supports `/ctx-*` commands; Codex should open the matching `.claude/commands/*.md` file directly.
 
-- **`/ctx-products`** - Product catalog implementation details
-- **`/ctx-orders`** - Orders and cart implementation details
-- **`/ctx-rbac`** - Role-based access control details
-- **`/ctx-tenants`** - Tenant and market management details
-- **`/ctx-umbraco`** - Umbraco CMS plugin implementation details
+- **`/ctx-products`** - Product catalog implementation details (`.claude/commands/ctx-products.md`)
+- **`/ctx-orders`** - Orders and cart implementation details (`.claude/commands/ctx-orders.md`)
+- **`/ctx-rbac`** - Role-based access control details (`.claude/commands/ctx-rbac.md`)
+- **`/ctx-tenants`** - Tenant and market management details (`.claude/commands/ctx-tenants.md`)
+- **`/ctx-umbraco`** - Umbraco CMS plugin implementation details (`.claude/commands/ctx-umbraco.md`)
 
 ## Development Workflow
 
