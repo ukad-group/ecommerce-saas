@@ -99,6 +99,26 @@
                                             {
                                                 productUrl = $"{matchingCategoryPage.Url().TrimEnd('/')}/{productSlug}";
                                             }
+                                            else
+                                            {
+                                                // Fallback: No matching Umbraco category page found
+                                                // Try to find ANY category page as fallback
+                                                var anyCategoryPage = Model.Root().DescendantsOrSelf()
+                                                    .FirstOrDefault(x => x.ContentType.Alias == "categoryPage");
+                                                
+                                                if (anyCategoryPage != null)
+                                                {
+                                                    productUrl = $"{anyCategoryPage.Url().TrimEnd('/')}/{productSlug}";
+                                                }
+                                            }
+                                        }
+                                        
+                                        // Debug: Show if product has no URL
+                                        if (productUrl == null)
+                                        {
+                                            var debugInfo = $"Product: {product.Name}, CategoryId: {product.CategoryId ?? "null"}, Slug: {productSlug}";
+                                            // This will show in HTML source for debugging
+                                            <!-- @debugInfo -->
                                         }
                                     }
                                     @if (productUrl != null)

@@ -32,11 +32,6 @@ public class CommerceSettings
     public string CategoryPageAlias { get; set; } = "categoryPage";
 
     /// <summary>
-    /// Document type alias for product template nodes (default: "productPage")
-    /// </summary>
-    public string ProductPageAlias { get; set; } = "productPage";
-
-    /// <summary>
     /// Property alias for storing category ID on category nodes (default: "categoryId")
     /// </summary>
     public string CategoryIdPropertyAlias { get; set; } = "categoryId";

@@ -112,7 +112,6 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
       // Use hardcoded fallbacks if fetch fails
       this.defaultAliases = {
         categoryPageAlias: 'categoryPage',
-        productPageAlias: 'productPage',
         categoryIdPropertyAlias: 'categoryId'
       };
     }

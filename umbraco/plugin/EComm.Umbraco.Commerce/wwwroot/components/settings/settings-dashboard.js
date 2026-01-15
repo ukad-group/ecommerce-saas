@@ -21,7 +21,6 @@ class ECommSettingsDashboard extends UmbElementMixin(LitElement) {
       marketId: '',
       apiKey: '',
       categoryPageAlias: 'categoryPage',
-      productPageAlias: 'productPage',
       categoryIdPropertyAlias: 'categoryId'
     };
     this.loading = true;
@@ -135,7 +134,6 @@ class ECommSettingsDashboard extends UmbElementMixin(LitElement) {
     this.settings = {
       ...this.settings,
       categoryPageAlias: 'categoryPage',
-      productPageAlias: 'productPage',
       categoryIdPropertyAlias: 'categoryId'
     };
   }
@@ -282,21 +280,6 @@ class ECommSettingsDashboard extends UmbElementMixin(LitElement) {
             <small>
               The document type alias for category nodes (e.g., "categoryPage").
               Used by <code>ProductContentFinder</code> to identify category pages.
-            </small>
-          </div>
-
-          <div class="form-group">
-            <uui-label for="productPageAlias" required>Product Page Alias</uui-label>
-            <uui-input
-              id="productPageAlias"
-              placeholder="productPage"
-              .value=${this.settings.productPageAlias || 'productPage'}
-              @input=${(e) => this.handleInput('productPageAlias', e)}
-              required>
-            </uui-input>
-            <small>
-              The document type alias for product template nodes (e.g., "productPage").
-              Used to find the template node that renders product details.
             </small>
           </div>
 

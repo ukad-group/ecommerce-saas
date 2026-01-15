@@ -14,4 +14,20 @@ public class ProductPageViewModel : PublishedContentWrapped
     public Product? Product { get; set; }
     public Category? Category { get; set; }
     public string? ErrorMessage { get; set; }
+    
+    /// <summary>
+    /// Breadcrumb trail for product navigation (built from content tree)
+    /// </summary>
+    public List<CategoryBreadcrumb>? CategoryBreadcrumbs { get; set; }
 }
+
+/// <summary>
+/// Represents a category in the breadcrumb trail
+/// </summary>
+public class CategoryBreadcrumb
+{
+    public string? Id { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public string Url { get; set; } = string.Empty;
+}
+

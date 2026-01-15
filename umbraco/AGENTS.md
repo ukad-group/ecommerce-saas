@@ -54,11 +54,11 @@ Claude Code supports subagents; Codex should open the matching `.claude/agents/*
 
 ---
 
-## Core Concept: Category Mirror Structure
+## Core Concept: Single-Node Routing
 
 ### The Approach
 
-The plugin creates a **1:1 mirror** of the eCommerce category structure in Umbraco's content tree:
+The plugin uses **single-node routing** where category pages handle both category listings AND product detail pages:
 
 ```
 Umbraco Content Tree              eCommerce API
@@ -66,27 +66,27 @@ Umbraco Content Tree              eCommerce API
 Home
 └── Shop
     ├── Electronics [Category]  →  Maps to "electronics-123"
-    │   └── Product [Template]  →  Renders ANY product from category
+    │                            →  Handles category listing + product details
     ├── Clothing [Category]     →  Maps to "clothing-456"
-    │   └── Product [Template]  →  Renders ANY product from category
+    │                            →  Handles category listing + product details
     └── Books [Category]        →  Maps to "books-789"
-        └── Product [Template]  →  Renders ANY product from category
+                                 →  Handles category listing + product details
 ```
 
 ### How It Works
 
 1. **Category Nodes**: Each Umbraco category node maps to a specific eCommerce category
-2. **Product Template Node**: Each category has ONE generic "Product" node
-3. **Dynamic Routing**: Product URLs are handled by routing logic
-4. **Single Template**: The Product template dynamically renders ANY product from that category
+2. **No Product Template Nodes**: Product pages are rendered dynamically through category pages
+3. **Smart Routing**: `ProductContentFinder` detects product URLs and routes to category pages with product context
+4. **Dual-Mode Controller**: `CategoryPageController` detects if request is for product or category listing
 
 ### URL Structure
 
 ```
-/shop/electronics              → Category listing page (Umbraco node)
-/shop/electronics/product      → Product template node (visible in tree)
-/shop/electronics/laptop-xyz   → Dynamic product page (uses Product template)
-/shop/electronics/mouse-abc    → Dynamic product page (uses Product template)
+/shop/electronics              → Category listing page (CategoryPageController)
+/shop/electronics/laptop-xyz   → Product detail page (routes to Electronics category with product context)
+/shop/electronics/mouse-abc    → Product detail page (routes to Electronics category with product context)
+/prod-123                      → Product-only URL (fallback, finds appropriate category page)
 ```
 
 ---
@@ -232,16 +232,23 @@ Category Node: "Electronics"
 
 ### 3. Product URL Routing
 
-**Custom Content Finder** intercepts product URLs and routes them to the Product template node.
+**Custom Content Finder** intercepts product URLs and routes them to category pages with product context.
 
 **Flow**:
 1. User visits `/shop/electronics/laptop-xyz`
-2. Content Finder detects this is a product URL
-3. Finds parent category node (`/shop/electronics`)
+2. `ProductContentFinder` detects this is a product URL (not a category)
+3. Finds category node at `/shop/electronics`
 4. Reads `CategoryId` property from category node
-5. Fetches product from eCommerce API by slug
-6. Routes to Product template node with product data
-7. Template renders product using API data + Umbraco layout
+5. Fetches product from eCommerce API by ID/slug (with 2min cache)
+6. Routes to category node and stores product data in `HttpContext.Items`
+7. `CategoryPageController` detects product context and renders `ProductPage.cshtml`
+
+**Single-Segment URLs** (fallback):
+1. User visits `/prod-123` (no category in URL)
+2. `ProductContentFinder` fetches product from API
+3. Finds matching category page (by product's categoryId)
+4. Falls back to ANY category page if no match
+5. Routes with product context
 
 **Implementation** (Pseudocode):
 ```csharp

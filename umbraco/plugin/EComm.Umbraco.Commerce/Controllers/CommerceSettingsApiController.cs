@@ -77,7 +77,6 @@ public class CommerceSettingsApiController : ManagementApiControllerBase
         return Ok(new DefaultAliasesDto
         {
             CategoryPageAlias = settings?.CategoryPageAlias ?? "categoryPage",
-            ProductPageAlias = settings?.ProductPageAlias ?? "productPage",
             CategoryIdPropertyAlias = settings?.CategoryIdPropertyAlias ?? "categoryId"
         });
     }
@@ -89,6 +88,5 @@ public class CommerceSettingsApiController : ManagementApiControllerBase
 public class DefaultAliasesDto
 {
     public string CategoryPageAlias { get; set; } = string.Empty;
-    public string ProductPageAlias { get; set; } = string.Empty;
     public string CategoryIdPropertyAlias { get; set; } = string.Empty;
 }

@@ -29,12 +29,25 @@
         <nav aria-label="breadcrumb">
             <ol class="breadcrumb">
                 <li class="breadcrumb-item"><a href="/">Home</a></li>
-                @if (Model.Category != null)
+                
+                @if (Model.CategoryBreadcrumbs != null && Model.CategoryBreadcrumbs.Any())
                 {
+                    @* Use breadcrumb trail from content tree *@
+                    @foreach (var crumb in Model.CategoryBreadcrumbs)
+                    {
+                        <li class="breadcrumb-item">
+                            <a href="@crumb.Url">@crumb.Name</a>
+                        </li>
+                    }
+                }
+                else if (Model.Category != null)
+                {
+                    @* Fallback to simple parent category link *@
                     <li class="breadcrumb-item">
                         <a href="@Model.Parent?.Url()">@Model.Category.Name</a>
                     </li>
                 }
+                
                 <li class="breadcrumb-item active" aria-current="page">@product.Name</li>
             </ol>
         </nav>
