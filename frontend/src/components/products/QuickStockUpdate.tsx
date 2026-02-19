@@ -57,7 +57,7 @@ export function QuickStockUpdate({
         </div>
         <button
           onClick={() => setIsOpen(true)}
-          className="text-xs text-indigo-600 hover:text-indigo-800 underline"
+          className="text-xs text-[#4a6ba8] hover:text-[#3d5789] underline"
         >
           Update
         </button>
@@ -80,7 +80,7 @@ export function QuickStockUpdate({
         <button
           type="submit"
           disabled={isUpdating}
-          className="px-2 py-1 text-xs bg-indigo-600 text-white rounded hover:bg-indigo-700 disabled:opacity-50"
+          className="px-2 py-1 text-xs bg-[#4a6ba8] text-white rounded hover:bg-[#3d5789] disabled:opacity-50"
         >
           {isUpdating ? '...' : '✓'}
         </button>

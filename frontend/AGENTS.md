@@ -25,6 +25,28 @@ Claude Code supports `/ctx-*` commands; Codex should open the matching `.claude/
 - React Hook Form (forms)
 - Vitest + React Testing Library (testing)
 
+## Design System
+
+**UKAD Brand Colors** (Consistently applied throughout):
+- Primary: `#4a6ba8` - All buttons, links, and interactive elements
+- Hover: `#3d5789` - Hover states for interactive elements
+- Dark Navy: `#304477` - Text on light backgrounds, dark accents
+- Light variants: `#4a6ba8/10`, `#4a6ba8/20` for backgrounds
+
+**Responsive Design**:
+- Mobile-first approach with Tailwind breakpoints
+- Breakpoints: sm(640px), md(768px), lg(1024px), xl(1280px), 2xl(1536px)
+- Navigation: Hamburger menu on mobile/tablet (< 1024px), full nav on desktop (≥ 1024px)
+- Tables: Progressive column hiding on smaller screens
+- Cards: Mobile card views switch to tables on desktop for products and orders
+- Custom hooks: `useMediaQuery()` and `useResponsive()` for breakpoint detection
+
+**Image Optimization**:
+- `getThumbnailUrl()` - 100x100px for small thumbnails
+- `getMediumImageUrl()` - 600x600px for product cards
+- `getLargeImageUrl()` - 1200x1200px for detail views
+- Automatic server-side resizing via `/api/v1/files/resize/:tenantId/:marketId/:fileName`
+
 ## Quick Start
 
 ```bash
@@ -52,7 +74,7 @@ VITE_USE_MOCKS=false
     /cart/       # CartItem, CartSummary
     /orders/     # OrderStatusBadge
     /common/     # Button, Input, Select, LoadingSpinner
-    /layout/     # Navigation, Layout
+    /layout/     # Navigation, Layout, MobileMenu
     /tenants/    # TenantList, MarketList
 
   /pages/        # Route handlers
@@ -84,6 +106,8 @@ VITE_USE_MOCKS=false
 
   /utils/        # Helper functions
     authGuards.ts, currency.ts, validation.ts
+    useMediaQuery.ts      # Responsive breakpoint hooks
+    imageHelper.ts        # Image URL optimization
 
   App.tsx
   main.tsx       # Entry point

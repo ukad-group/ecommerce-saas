@@ -137,12 +137,12 @@ export function AdminOrderStatusesPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-6 flex items-center justify-between">
-          <h1 className="text-3xl font-bold text-gray-900">Order Status Management</h1>
-          <div className="space-x-2">
+        <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Order Status Management</h1>
+          <div className="flex flex-col sm:flex-row gap-2">
             <button
               onClick={() => setIsAddingNew(true)}
-              className="rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
+              className="rounded bg-[#4a6ba8] px-4 py-2 text-white hover:bg-[#3d5789]"
               disabled={isAddingNew}
             >
               Add New Status
@@ -157,8 +157,8 @@ export function AdminOrderStatusesPage() {
           </div>
         </div>
 
-        <div className="rounded-lg border bg-white shadow">
-          <table className="w-full">
+        <div className="rounded-lg border bg-white shadow overflow-x-auto">
+          <table className="w-full min-w-[640px]">
           <thead className="border-b bg-gray-50">
             <tr>
               <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">
@@ -167,16 +167,16 @@ export function AdminOrderStatusesPage() {
               <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">
                 Name
               </th>
-              <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">
+              <th className="px-4 py-3 text-left text-sm font-medium text-gray-700 hidden md:table-cell">
                 Code
               </th>
               <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">
                 Color
               </th>
-              <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">
+              <th className="px-4 py-3 text-left text-sm font-medium text-gray-700 hidden sm:table-cell">
                 Status
               </th>
-              <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">
+              <th className="px-4 py-3 text-left text-sm font-medium text-gray-700 hidden lg:table-cell">
                 Type
               </th>
               <th className="px-4 py-3 text-right text-sm font-medium text-gray-700">
@@ -208,7 +208,7 @@ export function AdminOrderStatusesPage() {
                     className="w-full rounded border px-2 py-1"
                   />
                 </td>
-                <td className="px-4 py-3">
+                <td className="px-4 py-3 hidden md:table-cell">
                   <input
                     type="text"
                     value={formData.code || ''}
@@ -229,16 +229,16 @@ export function AdminOrderStatusesPage() {
                     className="h-8 w-20 rounded border"
                   />
                 </td>
-                <td className="px-4 py-3">
+                <td className="px-4 py-3 hidden sm:table-cell">
                   <span className="text-green-600">Active</span>
                 </td>
-                <td className="px-4 py-3">
-                  <span className="text-blue-600">Custom</span>
+                <td className="px-4 py-3 hidden lg:table-cell">
+                  <span className="text-[#4a6ba8]">Custom</span>
                 </td>
                 <td className="px-4 py-3 text-right">
                   <button
                     onClick={handleCreate}
-                    className="mr-2 text-blue-600 hover:text-blue-800"
+                    className="mr-2 text-[#4a6ba8] hover:text-[#3d5789]"
                     disabled={createMutation.isPending}
                   >
                     Save
@@ -289,7 +289,7 @@ export function AdminOrderStatusesPage() {
                       <span className="font-medium">{status.name}</span>
                     )}
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-3 hidden md:table-cell">
                     <code className="rounded bg-gray-100 px-2 py-1 text-sm">
                       {status.code}
                     </code>
@@ -310,11 +310,11 @@ export function AdminOrderStatusesPage() {
                           className="h-6 w-6 rounded border"
                           style={{ backgroundColor: status.color }}
                         />
-                        <code className="text-xs text-gray-600">{status.color}</code>
+                        <code className="text-xs text-gray-600 hidden lg:inline">{status.color}</code>
                       </div>
                     )}
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-3 hidden sm:table-cell">
                     {isEditing ? (
                       <select
                         value={formData.isActive ? 'active' : 'inactive'}
@@ -339,10 +339,10 @@ export function AdminOrderStatusesPage() {
                       </span>
                     )}
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-3 hidden lg:table-cell">
                     <span
                       className={
-                        status.isSystemDefault ? 'text-purple-600' : 'text-blue-600'
+                        status.isSystemDefault ? 'text-purple-600' : 'text-[#4a6ba8]'
                       }
                     >
                       {status.isSystemDefault ? 'System' : 'Custom'}
@@ -353,7 +353,7 @@ export function AdminOrderStatusesPage() {
                       <>
                         <button
                           onClick={() => handleUpdate(status.id)}
-                          className="mr-2 text-blue-600 hover:text-blue-800"
+                          className="mr-2 text-[#4a6ba8] hover:text-[#3d5789]"
                           disabled={updateMutation.isPending}
                         >
                           Save
@@ -369,7 +369,7 @@ export function AdminOrderStatusesPage() {
                       <>
                         <button
                           onClick={() => startEdit(status)}
-                          className="mr-2 text-blue-600 hover:text-blue-800"
+                          className="mr-2 text-[#4a6ba8] hover:text-[#3d5789]"
                         >
                           Edit
                         </button>
@@ -392,9 +392,9 @@ export function AdminOrderStatusesPage() {
         </table>
         </div>
 
-        <div className="mt-6 rounded-lg border bg-blue-50 p-4">
-          <h3 className="mb-2 font-semibold text-blue-900">Notes:</h3>
-          <ul className="list-inside list-disc space-y-1 text-sm text-blue-800">
+        <div className="mt-6 rounded-lg border bg-[#4a6ba8]/5 p-4">
+          <h3 className="mb-2 font-semibold text-[#304477]">Notes:</h3>
+          <ul className="list-inside list-disc space-y-1 text-sm text-[#3d5789]">
             <li>System default statuses cannot be deleted</li>
             <li>Custom statuses can only be deleted if not used by any orders</li>
             <li>Inactive statuses won't appear in dropdowns but remain in the system</li>

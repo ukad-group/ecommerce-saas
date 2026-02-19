@@ -22,7 +22,7 @@ export function VersionBadge({ version, onViewHistory, showButton = true }: Vers
         <button
           type="button"
           onClick={onViewHistory}
-          className="inline-flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-800"
+          className="inline-flex items-center gap-1 text-xs text-[#4a6ba8] hover:text-[#3d5789]"
         >
           <ClockIcon className="h-3.5 w-3.5" />
           View History

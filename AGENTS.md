@@ -293,6 +293,6 @@ This project is licensed under the **Apache License 2.0**. You are free to use, 
 
 ---
 
-**Last Updated**: 2025-12-26
-**Status**: Open Source Release
+**Last Updated**: 2026-02-19
+**Status**: Open Source Release - Responsive UI with UKAD Branding
 **Built by**: [UKAD](https://ukad-group.com)

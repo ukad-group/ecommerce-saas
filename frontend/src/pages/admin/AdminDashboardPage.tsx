@@ -36,14 +36,14 @@ function MetricCard({
   };
 
   return (
-    <div className={`${colorClasses[color]} border rounded-lg p-6`}>
-      <h3 className="text-sm font-medium text-gray-600 mb-2">{title}</h3>
-      <p className="text-3xl font-bold text-gray-900">{value}</p>
-      {subtitle && <p className="text-sm text-gray-500 mt-1">{subtitle}</p>}
+    <div className={`${colorClasses[color]} border rounded-lg p-4 md:p-6`}>
+      <h3 className="text-xs md:text-sm font-medium text-gray-600 mb-2">{title}</h3>
+      <p className="text-2xl md:text-3xl font-bold text-gray-900">{value}</p>
+      {subtitle && <p className="text-xs md:text-sm text-gray-500 mt-1">{subtitle}</p>}
       {link && linkText && (
         <Link
           to={link}
-          className="text-sm text-indigo-600 hover:text-indigo-800 mt-2 inline-block"
+          className="text-xs md:text-sm text-[#4a6ba8] hover:text-[#3d5789] mt-2 inline-block"
         >
           {linkText} →
         </Link>
@@ -95,15 +95,15 @@ export function AdminDashboardPage() {
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
+        <div className="mb-6 md:mb-8">
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Dashboard</h1>
           <p className="mt-2 text-sm text-gray-600">
             Overview of your eCommerce operations
           </p>
         </div>
 
         {/* Metrics Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-8">
           <MetricCard
             title="Total Orders"
             value={totalOrders}
@@ -136,7 +136,7 @@ export function AdminDashboardPage() {
           />
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-8">
           <MetricCard
             title="Total Revenue"
             value={formatCurrency(totalRevenue, 'USD')}
@@ -177,14 +177,14 @@ export function AdminDashboardPage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Link
               to="/admin/products/new"
-              className="flex items-center justify-center px-4 py-3 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors"
+              className="flex items-center justify-center px-4 py-3 bg-[#4a6ba8] text-white rounded-md hover:bg-[#3d5789] transition-colors"
             >
               <span className="text-lg mr-2">+</span>
               Create New Product
             </Link>
             <Link
               to="/admin/categories/new"
-              className="flex items-center justify-center px-4 py-3 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors"
+              className="flex items-center justify-center px-4 py-3 bg-[#4a6ba8] text-white rounded-md hover:bg-[#3d5789] transition-colors"
             >
               <span className="text-lg mr-2">+</span>
               Create New Category
@@ -206,7 +206,7 @@ export function AdminDashboardPage() {
             </h2>
             <Link
               to="/admin/orders"
-              className="text-sm text-indigo-600 hover:text-indigo-800"
+              className="text-sm text-[#4a6ba8] hover:text-[#3d5789]"
             >
               View all →
             </Link>
@@ -235,7 +235,7 @@ export function AdminDashboardPage() {
                     <td className="px-4 py-3 text-sm">
                       <Link
                         to={`/admin/orders/${order.id}`}
-                        className="text-indigo-600 hover:text-indigo-900 font-medium"
+                        className="text-[#4a6ba8] hover:text-[#3d5789] font-medium"
                       >
                         {order.orderNumber}
                       </Link>

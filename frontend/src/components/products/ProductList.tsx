@@ -3,6 +3,7 @@
  *
  * Displays a table of all products with key information.
  * Supports actions like edit and delete.
+ * Responsive: Shows cards on mobile, table on desktop.
  */
 
 import { Link } from 'react-router-dom';
@@ -11,6 +12,8 @@ import { formatCurrency } from '../../utils/currency';
 import { getThumbnailUrl } from '../../utils/imageHelper';
 import { Button } from '../common/Button';
 import { QuickStockUpdate } from './QuickStockUpdate';
+import { ProductCard } from './ProductCard';
+import { useResponsive } from '../../utils/useMediaQuery';
 
 interface ProductListProps {
   products: Product[];
@@ -31,6 +34,8 @@ export function ProductList({
   onStockUpdate,
   isUpdating = false,
 }: ProductListProps) {
+  const { isMobile } = useResponsive();
+
   if (products.length === 0) {
     return (
       <div className="bg-white rounded-lg shadow p-8 text-center">
@@ -45,6 +50,28 @@ export function ProductList({
     );
   }
 
+  // Mobile Card View
+  if (isMobile) {
+    return (
+      <div className="space-y-4">
+        <div className="grid grid-cols-1 gap-4">
+          {products.map((product) => (
+            <ProductCard key={product.id} product={product} onDelete={onDelete} />
+          ))}
+        </div>
+
+        {/* Summary Footer */}
+        <div className="bg-gray-50 rounded-lg px-4 py-3 border border-gray-200">
+          <p className="text-sm text-gray-600 text-center">
+            Showing <span className="font-medium">{products.length}</span> product
+            {products.length !== 1 ? 's' : ''}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Desktop Table View
   return (
     <div className="bg-white rounded-lg shadow overflow-hidden">
       <table className="min-w-full divide-y divide-gray-200">
@@ -83,7 +110,7 @@ export function ProductList({
                   <div>
                     <Link
                       to={`/admin/products/${product.id}/edit`}
-                      className="text-sm font-medium text-indigo-600 hover:text-indigo-900"
+                      className="text-sm font-medium text-[#4a6ba8] hover:text-[#3d5789]"
                     >
                       {product.name}
                     </Link>
@@ -182,7 +209,7 @@ export function ProductList({
               <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                 <Link
                   to={`/admin/products/${product.id}/edit`}
-                  className="text-indigo-600 hover:text-indigo-900 mr-4"
+                  className="text-[#4a6ba8] hover:text-[#3d5789] mr-4"
                 >
                   Edit
                 </Link>

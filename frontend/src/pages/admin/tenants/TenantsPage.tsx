@@ -105,7 +105,7 @@ export function TenantsPage() {
         <div className="mt-4 sm:ml-16 sm:mt-0 sm:flex-none">
           <button
             type="button"
-            className="block rounded-md bg-indigo-600 px-3 py-2 text-center text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
+            className="block rounded-md bg-[#4a6ba8] px-3 py-2 text-center text-sm font-semibold text-white shadow-sm hover:bg-[#3d5789] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#4a6ba8]"
           >
             <PlusIcon className="inline-block h-4 w-4 mr-2 -mt-0.5" />
             Create Tenant
@@ -127,7 +127,7 @@ export function TenantsPage() {
               type="search"
               name="search"
               id="search"
-              className="block w-full rounded-md border-0 py-1.5 pl-10 pr-3 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
+              className="block w-full rounded-md border-0 py-1.5 pl-10 pr-3 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-[#4a6ba8] sm:text-sm sm:leading-6"
               placeholder="Search by name..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -138,7 +138,7 @@ export function TenantsPage() {
           <select
             id="status"
             name="status"
-            className="block w-full rounded-md border-0 py-1.5 pl-3 pr-10 text-gray-900 ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-indigo-600 sm:text-sm sm:leading-6"
+            className="block w-full rounded-md border-0 py-1.5 pl-3 pr-10 text-gray-900 ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-[#4a6ba8] sm:text-sm sm:leading-6"
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value as TenantStatus | 'all')}
           >
@@ -156,7 +156,7 @@ export function TenantsPage() {
             <div className="overflow-hidden shadow ring-1 ring-black ring-opacity-5 sm:rounded-lg">
               {isLoading ? (
                 <div className="p-8 text-center">
-                  <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+                  <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-[#4a6ba8]"></div>
                   <p className="mt-2 text-sm text-gray-500">Loading tenants...</p>
                 </div>
               ) : error ? (
@@ -170,19 +170,19 @@ export function TenantsPage() {
                       <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
                         Display Name
                       </th>
-                      <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                      <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900 hidden md:table-cell">
                         Name (ID)
                       </th>
                       <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
                         Status
                       </th>
-                      <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                      <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900 hidden sm:table-cell">
                         Markets
                       </th>
-                      <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                      <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900 hidden lg:table-cell">
                         Contact Email
                       </th>
-                      <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                      <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900 hidden xl:table-cell">
                         Created
                       </th>
                       <th className="relative py-3.5 pl-3 pr-4 sm:pr-6">
@@ -196,7 +196,7 @@ export function TenantsPage() {
                         <td className="whitespace-nowrap px-3 py-4 text-sm font-medium text-gray-900">
                           {tenant.displayName}
                         </td>
-                        <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                        <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500 hidden md:table-cell">
                           {tenant.name}
                         </td>
                         <td className="whitespace-nowrap px-3 py-4 text-sm">
@@ -210,19 +210,19 @@ export function TenantsPage() {
                             {tenant.status}
                           </span>
                         </td>
-                        <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                        <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500 hidden sm:table-cell">
                           {tenant.marketCount || 0}
                         </td>
-                        <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                        <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500 hidden lg:table-cell">
                           {tenant.contactEmail}
                         </td>
-                        <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                        <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500 hidden xl:table-cell">
                           {new Date(tenant.createdAt).toLocaleDateString()}
                         </td>
                         <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
                           <button
                             onClick={() => handleStatusToggle(tenant)}
-                            className={`mr-4 ${
+                            className={`mr-2 sm:mr-4 ${
                               tenant.status === 'active'
                                 ? 'text-red-600 hover:text-red-900'
                                 : 'text-green-600 hover:text-green-900'
@@ -233,13 +233,13 @@ export function TenantsPage() {
                           </button>
                           <a
                             href={`/admin/tenants/${tenant.id}/markets`}
-                            className="text-indigo-600 hover:text-indigo-900 mr-4"
+                            className="text-[#4a6ba8] hover:text-[#3d5789] mr-2 sm:mr-4"
                           >
                             Markets
                           </a>
                           <button
                             onClick={() => handleEditTenant(tenant)}
-                            className="text-indigo-600 hover:text-indigo-900"
+                            className="text-[#4a6ba8] hover:text-[#3d5789]"
                           >
                             Edit
                           </button>

@@ -183,7 +183,7 @@ export function MarketsPage() {
         <div className="mt-4 sm:ml-16 sm:mt-0 sm:flex-none">
           <button
             type="button"
-            className="block rounded-md bg-indigo-600 px-3 py-2 text-center text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
+            className="block rounded-md bg-[#4a6ba8] px-3 py-2 text-center text-sm font-semibold text-white shadow-sm hover:bg-[#3d5789] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#4a6ba8]"
           >
             <PlusIcon className="inline-block h-4 w-4 mr-2 -mt-0.5" />
             Create Market
@@ -314,7 +314,7 @@ export function MarketsPage() {
                         <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
                           <Link
                             to={`/admin/markets/${market.id}/api-keys`}
-                            className="inline-flex items-center text-indigo-600 hover:text-indigo-900"
+                            className="inline-flex items-center text-[#4a6ba8] hover:text-[#3d5789]"
                           >
                             <KeyIcon className="h-4 w-4 mr-1" />
                             {market.apiKeyCount || 0}
@@ -340,13 +340,13 @@ export function MarketsPage() {
                           </button>
                           <Link
                             to={`/admin/markets/${market.id}/api-keys`}
-                            className="text-indigo-600 hover:text-indigo-900 mr-4"
+                            className="text-[#4a6ba8] hover:text-[#3d5789] mr-4"
                           >
                             API Keys
                           </Link>
                           <button
                             onClick={() => handleEditMarket(market)}
-                            className="text-indigo-600 hover:text-indigo-900"
+                            className="text-[#4a6ba8] hover:text-[#3d5789]"
                           >
                             Edit
                           </button>

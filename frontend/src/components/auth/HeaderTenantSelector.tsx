@@ -69,14 +69,14 @@ export function HeaderTenantSelector() {
   };
 
   return (
-    <Menu as="div" className="relative inline-block text-left">
+    <Menu as="div" className="relative inline-block text-left w-full md:w-auto">
       <div>
-        <Menu.Button className="inline-flex items-center gap-x-2 rounded-md bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50">
+        <Menu.Button className="w-full inline-flex items-center gap-x-2 rounded-md bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50">
           <BuildingOfficeIcon className="h-5 w-5 text-gray-400" aria-hidden="true" />
-          <span className="text-sm">
+          <span className="text-sm truncate flex-1 text-left">
             {currentTenant ? currentTenant.displayName : 'Select Tenant'}
           </span>
-          <ChevronDownIcon className="h-5 w-5 text-gray-400" aria-hidden="true" />
+          <ChevronDownIcon className="h-5 w-5 text-gray-400 flex-shrink-0" aria-hidden="true" />
         </Menu.Button>
       </div>
 
@@ -89,7 +89,7 @@ export function HeaderTenantSelector() {
         leaveFrom="transform opacity-100 scale-100"
         leaveTo="transform opacity-0 scale-95"
       >
-        <Menu.Items className="absolute right-0 z-10 mt-2 w-72 origin-top-right rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
+        <Menu.Items className="absolute left-0 md:right-0 md:left-auto z-10 mt-2 w-full md:w-72 origin-top-right rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
           <div className="py-1">
             <div className="px-4 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wide">
               Select Tenant
@@ -101,7 +101,7 @@ export function HeaderTenantSelector() {
                     onClick={() => handleTenantChange(tenant.id)}
                     className={`
                       ${active ? 'bg-gray-100' : ''}
-                      ${currentTenantId === tenant.id ? 'bg-indigo-50 text-indigo-700' : 'text-gray-900'}
+                      ${currentTenantId === tenant.id ? 'bg-[#4a6ba8]/10 text-[#4a6ba8]' : 'text-gray-900'}
                       group flex w-full items-center px-4 py-2 text-sm
                     `}
                   >
@@ -109,7 +109,7 @@ export function HeaderTenantSelector() {
                       <div className="flex items-center gap-2">
                         <span className="font-medium">{tenant.displayName}</span>
                         {currentTenantId === tenant.id && (
-                          <span className="inline-flex items-center rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-800">
+                          <span className="inline-flex items-center rounded-full bg-[#4a6ba8]/20 px-2 py-0.5 text-xs font-medium text-[#304477]">
                             Current
                           </span>
                         )}

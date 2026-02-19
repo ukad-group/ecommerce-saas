@@ -152,7 +152,7 @@ export function ApiKeysPage() {
           <button
             type="button"
             onClick={() => setShowGenerateModal(true)}
-            className="block rounded-md bg-indigo-600 px-3 py-2 text-center text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
+            className="block rounded-md bg-[#4a6ba8] px-3 py-2 text-center text-sm font-semibold text-white shadow-sm hover:bg-[#3d5789] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#4a6ba8]"
           >
             <PlusIcon className="inline-block h-4 w-4 mr-2 -mt-0.5" />
             Generate New Key
@@ -351,7 +351,7 @@ export function ApiKeysPage() {
                 type="button"
                 onClick={handleGenerateKey}
                 disabled={!newKeyName.trim() || generateKeyMutation.isPending}
-                className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50"
+                className="rounded-md bg-[#4a6ba8] px-4 py-2 text-sm font-medium text-white hover:bg-[#3d5789] focus:outline-none focus:ring-2 focus:ring-[#4a6ba8] focus:ring-offset-2 disabled:opacity-50"
               >
                 {generateKeyMutation.isPending ? 'Generating...' : 'Generate'}
               </button>
@@ -414,7 +414,7 @@ export function ApiKeysPage() {
                   setGeneratedKey(null);
                   setShowGenerateModal(false);
                 }}
-                className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                className="rounded-md bg-[#4a6ba8] px-4 py-2 text-sm font-medium text-white hover:bg-[#3d5789] focus:outline-none focus:ring-2 focus:ring-[#4a6ba8] focus:ring-offset-2"
               >
                 Done
               </button>

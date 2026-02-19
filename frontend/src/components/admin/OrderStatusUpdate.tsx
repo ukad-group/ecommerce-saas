@@ -134,7 +134,7 @@ export function OrderStatusUpdate({ order }: OrderStatusUpdateProps) {
       <div className="mt-6 pt-6 border-t border-gray-200">
         <p className="text-xs text-gray-600">
           Available statuses are configured in{' '}
-          <a href="/admin/order-statuses" className="text-blue-600 hover:text-blue-800">
+          <a href="/admin/order-statuses" className="text-[#4a6ba8] hover:text-[#3d5789]">
             Order Status Management
           </a>
         </p>

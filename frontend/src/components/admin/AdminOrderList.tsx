@@ -3,18 +3,23 @@
  *
  * Displays a table of all orders with key information.
  * Supports sorting and row click to view details.
+ * Responsive: Shows cards on mobile, table on desktop.
  */
 
 import { Link } from 'react-router-dom';
 import type { Order } from '../../types/order';
 import { formatCurrency } from '../../utils/currency';
 import { OrderStatusBadge } from '../orders/OrderStatusBadge';
+import { OrderCard } from './OrderCard';
+import { useResponsive } from '../../utils/useMediaQuery';
 
 interface AdminOrderListProps {
   orders: Order[];
 }
 
 export function AdminOrderList({ orders }: AdminOrderListProps) {
+  const { isMobile } = useResponsive();
+
   if (orders.length === 0) {
     return (
       <div className="bg-white rounded-lg shadow p-8 text-center">
@@ -26,6 +31,25 @@ export function AdminOrderList({ orders }: AdminOrderListProps) {
     );
   }
 
+  // Mobile Card View
+  if (isMobile) {
+    return (
+      <div className="space-y-3">
+        {orders.map((order) => (
+          <OrderCard key={order.id} order={order} />
+        ))}
+        
+        {/* Summary Footer */}
+        <div className="bg-gray-50 rounded-lg px-4 py-3 border border-gray-200">
+          <p className="text-sm text-gray-600 text-center">
+            Showing <span className="font-medium">{orders.length}</span> order{orders.length !== 1 ? 's' : ''}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Desktop Table View
   return (
     <div className="bg-white rounded-lg shadow overflow-hidden">
       <table className="min-w-full divide-y divide-gray-200">
@@ -60,7 +84,7 @@ export function AdminOrderList({ orders }: AdminOrderListProps) {
               <td className="px-6 py-4 whitespace-nowrap">
                 <Link
                   to={`/admin/orders/${order.id}`}
-                  className="text-indigo-600 hover:text-indigo-900 font-medium"
+                  className="text-[#4a6ba8] hover:text-[#3d5789] font-medium"
                 >
                   {order.orderNumber}
                 </Link>

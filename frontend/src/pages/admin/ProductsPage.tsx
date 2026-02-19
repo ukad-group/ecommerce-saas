@@ -103,9 +103,9 @@ export function ProductsPage() {
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
-        <div className="flex justify-between items-center mb-8">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Products</h1>
+            <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Products</h1>
             <p className="mt-2 text-sm text-gray-600">
               Manage your product catalog
             </p>
@@ -136,15 +136,15 @@ export function ProductsPage() {
                 />
               </svg>
             </Link>
-            <Link to="/admin/products/new">
-              <Button>Create Product</Button>
+            <Link to="/admin/products/new" className="w-full sm:w-auto">
+              <Button className="w-full sm:w-auto">Create Product</Button>
             </Link>
           </div>
         </div>
 
         {/* Filters */}
-        <div className="bg-white rounded-lg shadow p-6 mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="bg-white rounded-lg shadow p-4 md:p-6 mb-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             <Select
               label="Status"
               value={statusFilter}

@@ -497,7 +497,7 @@ export function ProductForm({
 
         {/* Custom Properties */}
         <div className="mt-6">
-          <div className="flex items-center justify-between mb-3">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
             <label className="block text-sm font-medium text-gray-700">
               Custom Properties
             </label>
@@ -505,7 +505,7 @@ export function ProductForm({
               {isAdmin && (
                 <Link
                   to="/admin/products/property-templates"
-                  className="text-sm text-primary-600 hover:text-primary-800 flex items-center gap-1"
+                  className="text-sm text-[#4a6ba8] hover:text-[#3d5789] flex items-center gap-1"
                   onClick={(e) => {
                     if (customProperties.some((p) => p.name || p.value)) {
                       if (!window.confirm('You have unsaved changes. Navigate to templates page?')) {
@@ -535,12 +535,12 @@ export function ProductForm({
               {mergedProperties.map((property, index) => (
                 <div
                   key={property.name || `new-${index}`}
-                  className={`flex gap-2 items-start p-3 rounded-md ${
-                    property.isMarketTemplate ? 'bg-blue-50 border border-blue-200' : 'bg-gray-50'
+                  className={`flex flex-col sm:flex-row gap-2 items-center sm:items-center p-3 rounded-md ${
+                    property.isMarketTemplate ? 'bg-[#4a6ba8]/5 border border-[#4a6ba8]/20' : 'bg-gray-50'
                   }`}
                 >
                   {/* Reorder buttons */}
-                  <div className="flex flex-col gap-1">
+                  <div className="flex gap-1 sm:flex-col justify-center sm:justify-start self-center">
                     <button
                       type="button"
                       onClick={() => handleMovePropertyUp(index)}
@@ -564,7 +564,7 @@ export function ProductForm({
                       </svg>
                     </button>
                   </div>
-                  <div className="flex-1">
+                  <div className="flex-1 w-full">
                     <input
                       type="text"
                       placeholder="Property name (e.g., Material)"
@@ -573,14 +573,14 @@ export function ProductForm({
                         handleUpdateCustomProperty(index, 'name', e.target.value)
                       }
                       disabled={property.isMarketTemplate}
-                      className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm ${
+                      className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#4a6ba8] focus:border-[#4a6ba8] text-sm ${
                         property.isMarketTemplate
-                          ? 'bg-blue-100 border-blue-300 text-blue-800'
+                          ? 'bg-[#4a6ba8]/10 border-[#4a6ba8]/30 text-[#304477]'
                           : 'border-gray-300'
                       }`}
                     />
                   </div>
-                  <div className="flex-1">
+                  <div className="flex-1 w-full w-full">
                     <input
                       type="text"
                       placeholder="Property value (e.g., Aluminum)"
@@ -588,12 +588,12 @@ export function ProductForm({
                       onChange={(e) =>
                         handleUpdateCustomProperty(index, 'value', e.target.value)
                       }
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#4a6ba8] focus:border-[#4a6ba8] text-sm"
                     />
                   </div>
                   {property.isMarketTemplate ? (
                     <div
-                      className="px-3 py-2 text-blue-600 text-sm flex items-center gap-1"
+                      className="px-3 py-2 text-[#4a6ba8] text-sm flex items-center justify-center sm:justify-start gap-1"
                       title="This property is defined at the market level. Edit templates to remove."
                     >
                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -605,7 +605,7 @@ export function ProductForm({
                     <button
                       type="button"
                       onClick={() => handleRemoveCustomProperty(index)}
-                      className="px-3 py-2 text-red-600 hover:text-red-800 text-sm font-medium"
+                      className="px-3 py-2 text-red-600 hover:text-red-800 text-sm font-medium w-full sm:w-auto text-center"
                     >
                       Remove
                     </button>
@@ -621,7 +621,7 @@ export function ProductForm({
               {isAdmin && (
                 <Link
                   to="/admin/products/property-templates"
-                  className="text-primary-600 hover:text-primary-800"
+                  className="text-[#4a6ba8] hover:text-[#3d5789]"
                 >
                   Edit templates
                 </Link>
@@ -964,7 +964,7 @@ export function ProductForm({
                   type="checkbox"
                   checked={selectedCategories.includes(category.id)}
                   onChange={() => handleCategoryToggle(category.id)}
-                  className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                  className="h-4 w-4 text-[#4a6ba8] focus:ring-[#4a6ba8] border-gray-300 rounded"
                 />
                 <span className="ml-2 text-sm text-gray-700">
                   {category.level > 0 && (

@@ -38,3 +38,6 @@ export {
   isCart,
   getAllStatuses,
 } from './orderHelpers';
+
+// Responsive utilities
+export { useMediaQuery, useResponsive, BREAKPOINTS } from './useMediaQuery';

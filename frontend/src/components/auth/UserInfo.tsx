@@ -15,18 +15,18 @@ import { Role } from '../../types/auth';
 const ROLE_BADGES: Record<Role, { label: string; bgColor: string; textColor: string }> = {
   [Role.SUPERADMIN]: {
     label: 'Superadmin',
-    bgColor: 'bg-purple-100',
-    textColor: 'text-purple-800',
+    bgColor: 'bg-purple-200',
+    textColor: 'text-purple-900',
   },
   [Role.TENANT_ADMIN]: {
     label: 'Tenant Admin',
-    bgColor: 'bg-primary-100',
-    textColor: 'text-primary-800',
+    bgColor: 'bg-blue-200',
+    textColor: 'text-blue-900',
   },
   [Role.TENANT_USER]: {
     label: 'Tenant User',
-    bgColor: 'bg-green-100',
-    textColor: 'text-green-800',
+    bgColor: 'bg-green-200',
+    textColor: 'text-green-900',
   },
 };
 
@@ -59,8 +59,8 @@ export function UserInfo() {
     <div className="flex items-center gap-4">
       {/* User Info */}
       <div className="flex flex-col items-end">
-        <div className="text-sm font-medium text-gray-900">{profile.displayName}</div>
-        <div className="flex items-center gap-2 text-xs text-gray-500">
+        <div className="text-sm font-medium text-white">{profile.displayName}</div>
+        <div className="flex items-center gap-2 text-xs text-white/80">
           {/* Role Badge */}
           <span
             className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${roleBadge.bgColor} ${roleBadge.textColor}`}
@@ -73,7 +73,7 @@ export function UserInfo() {
       {/* Logout Button */}
       <button
         onClick={handleLogout}
-        className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+        className="inline-flex items-center px-3 py-2 border border-white/30 shadow-sm text-sm leading-4 font-medium rounded-md text-white bg-[#304477] hover:bg-[#253659] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-white"
       >
         <svg
           className="-ml-0.5 mr-2 h-4 w-4"

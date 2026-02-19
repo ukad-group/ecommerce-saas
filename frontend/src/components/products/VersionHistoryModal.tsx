@@ -211,7 +211,7 @@ export function VersionHistoryModal({
                                 type="button"
                                 onClick={() => handleRestore(version.version)}
                                 disabled={restoreMutation.isPending}
-                                className="inline-flex items-center gap-1 px-3 py-1.5 border border-transparent text-xs font-medium rounded text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="inline-flex items-center gap-1 px-3 py-1.5 border border-transparent text-xs font-medium rounded text-white bg-[#4a6ba8] hover:bg-[#3d5789] disabled:opacity-50 disabled:cursor-not-allowed"
                               >
                                 <ArrowPathIcon className="h-3 w-3" />
                                 Restore

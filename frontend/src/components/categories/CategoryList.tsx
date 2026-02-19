@@ -45,7 +45,7 @@ export function CategoryList({ categories, onDelete }: CategoryListProps) {
             <div>
               <Link
                 to={`/admin/categories/${category.id}/edit`}
-                className="text-sm font-medium text-indigo-600 hover:text-indigo-900"
+                className="text-sm font-medium text-[#4a6ba8] hover:text-[#3d5789]"
               >
                 {category.name}
               </Link>
@@ -72,7 +72,7 @@ export function CategoryList({ categories, onDelete }: CategoryListProps) {
           <div className="flex items-center gap-4">
             <Link
               to={`/admin/categories/${category.id}/edit`}
-              className="text-sm text-indigo-600 hover:text-indigo-900"
+              className="text-sm text-[#4a6ba8] hover:text-[#3d5789]"
             >
               Edit
             </Link>
