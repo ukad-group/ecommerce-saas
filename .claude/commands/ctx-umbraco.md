@@ -2,7 +2,7 @@ Review Umbraco CMS plugin implementation before proceeding.
 
 ## Umbraco Plugin Context
 
-**Status**: Umbraco 17 (.NET 10) integration - Plugin implemented, Static assets working
+**Status**: Umbraco 17 (.NET 10) integration - Plugin implemented, Static assets working. Now includes Product Options/Add-ons, a real cart/checkout with Nets Easy payments, and a full "Commerce" backoffice section (Orders, Carts, Discounts, Option Presets, Order Statuses, Property Templates, Analytics)
 
 ### Overview
 Umbraco CMS plugin that integrates the eCommerce SaaS platform into Umbraco's content management system. Enables editors to link categories and products from the eCommerce API into Umbraco content nodes.
@@ -23,31 +23,46 @@ umbraco/
 │       ├── ContentFinders/
 │       │   └── ProductContentFinder.cs   # Dynamic product URL routing
 │       ├── Controllers/
-│       │   └── CommerceSettingsController.cs  # Backoffice API
+│       │   ├── CommerceSettingsApiController.cs  # Settings CRUD
+│       │   ├── CategoryPickerApiController.cs    # Category/product proxy + picker endpoints
+│       │   └── CommerceAdminApiController.cs     # Commerce Admin backoffice API (orders, carts, discounts, etc.)
+│       ├── Migrations/
+│       │   ├── CommerceMigrationHandler.cs             # Runs migrations on startup
+│       │   └── AddCommerceSectionToAdminGroupMigration.cs  # Grants Admins the "Commerce" section
 │       ├── Services/
 │       │   ├── ICommerceApiClient.cs     # eCommerce API client interface
 │       │   ├── CommerceApiClient.cs      # HTTP client with caching
 │       │   ├── ICommerceSettingsService.cs
 │       │   └── CommerceSettingsService.cs # Settings persistence
 │       ├── Models/
-│       │   ├── CommerceSettings.cs       # TenantId, MarketId, API config
-│       │   ├── Category.cs
-│       │   ├── Product.cs
-│       │   └── ProductListResult.cs
+│       │   ├── CommerceSettings.cs       # TenantId, API config, document type aliases
+│       │   ├── Category.cs, Product.cs, ProductVariant.cs, ProductListResult.cs
+│       │   ├── CartModels.cs, OrderModels.cs   # Real cart/order data for backoffice + storefront
+│       │   ├── Country.cs, Discount.cs, LeasingPeriod.cs, ShippingMethod.cs, PropertyTemplate.cs
+│       │   └── FlexibleDateTimeConverter.cs
 │       └── wwwroot/
 │           ├── umbraco-package.json      # Plugin manifest (at root!)
 │           ├── lang/
 │           │   └── en-us.json            # Localization
 │           └── components/
 │               ├── propertyEditors/
-│               │   └── category-picker.js  # Category picker UI
+│               │   ├── category-picker.js  # Category picker UI (market/store-aware)
+│               │   ├── product-picker.js   # Pick a specific product for a product page node
+│               │   └── store-picker.js     # Pick which market/store a node belongs to
 │               ├── workspaceViews/
-│               │   └── products-workspace-view.js  # Product list view
+│               │   └── products-workspace-view.js  # Full product editor (variants, add-ons, SEO, leasing)
+│               ├── commerce-admin/
+│               │   └── commerce-admin-dashboard.js  # "Commerce" section: Orders/Carts/Discounts/Analytics/etc.
 │               └── settings/
 │                   └── settings-dashboard.js  # Settings UI
 │
 └── sample-site/
-    └── EComm.Commerce.Demo/              # Sample Umbraco site
+    └── EComm.Commerce.Demo/              # Sample Umbraco site with a real storefront
+        ├── Controllers/
+        │   ├── CartController.cs         # Session-based cart
+        │   └── CheckoutController.cs     # Checkout + Nets Easy payment
+        ├── Services/
+        │   └── StoreCartService.cs
         ├── Program.cs                    # IMPORTANT: UseStaticWebAssets() required!
         ├── appsettings.json              # SQLite database config
         └── appsettings.Development.json  # Unattended install credentials
@@ -58,7 +73,7 @@ umbraco/
 #### 1. Commerce Settings Dashboard
 **Location**: Settings section → Commerce Settings
 **File**: `wwwroot/components/settings/settings-dashboard.js`
-**Purpose**: Configure eCommerce API connection (Tenant ID, Market ID, API URL, API Key)
+**Purpose**: Configure eCommerce API connection (Tenant ID, API URL, API Key) and document type/property aliases (category/product page aliases, category/store/product ID property aliases). Market ID is **no longer** a global setting — a site can serve multiple markets, so market/store is picked per-node via the Store Picker property editor.
 **Storage**: Settings tree in Umbraco database
 **API Route**: `/umbraco/management/api/ecomm-commerce/settings`
 
@@ -100,7 +115,7 @@ async getAuthHeaders() {
 1. Consumes `UMB_PROPERTY_DATASET_CONTEXT` to reactively observe `categoryId` property
 2. When categoryId changes, automatically fetches products from eCommerce API
 3. Displays products in a table with: Image, Name, Slug, Price, Stock quantity
-4. Read-only view (MVP) - future versions may support editing
+4. **Full editor** (no longer read-only): variant/options builder with a combinations table, Highlights, Leasing Factor, Hide Price + hidden-price message, SEO title/description, and an "Add-on Options" section for attaching option-preset blocks to a product, plus a "Manage Options" view for editing the market's option-presets library
 
 **Context Pattern**: Uses Umbraco's property dataset context for reactive updates
 ```javascript
@@ -151,7 +166,10 @@ import { UMB_CURRENT_USER_CONTEXT } from '@umbraco-cms/backoffice/current-user';
 - HttpClient factory pattern
 - In-memory caching (categories: 5min, products: 2min)
 - Settings integration (reads from CommerceSettingsService)
-- Methods: `GetCategoriesAsync`, `GetCategoryAsync`, `GetProductsAsync`, `GetProductBySlugAsync`
+- Methods: `GetCategoriesAsync`, `GetCategoryAsync`, `GetProductsAsync`, `GetProductBySlugAsync`, `GetMarketsAsync`, `GetCountriesAsync`, `CreateProductAsync`, `DeleteProductAsync`
+- **Cart**: `GetCartAsync`, `AddCartItemAsync`, `UpdateCartItemAsync`, `RemoveCartItemAsync`, `CreateOrderAsync` (session-based)
+- **Orders**: `GetOrdersAsync`, `GetOrderAsync`, `UpdateOrderStatusAsync`, `GetOrderStatusDefinitionsAsync`, `CreatePaymentAsync` (Nets Easy)
+- **Market config**: `GetOptionPresetsAsync`/`UpdateOptionPresetsAsync`, shipping methods, leasing periods, property templates, discounts (full CRUD)
 
 **Connection Testing**: Uses dedicated TenantInfo endpoint for connectivity validation
 ```csharp
@@ -168,9 +186,25 @@ request.Headers.Add("X-API-Key", settings.ApiKey);
 **File**: `Controllers/CategoryPickerApiController.cs`
 **Purpose**: Proxy endpoints for category and product data from eCommerce API
 **Endpoints**:
-- `GET /umbraco/management/api/ecomm-commerce/categories` - Get all categories (hierarchical tree)
+- `GET /umbraco/management/api/ecomm-commerce/categories` - Get all categories (hierarchical tree, optional `marketId`)
 - `GET /umbraco/management/api/ecomm-commerce/categories/{id}` - Get specific category
-- `GET /umbraco/management/api/ecomm-commerce/products/{categoryId}` - Get products for workspace view (max 100)
+- `GET /umbraco/management/api/ecomm-commerce/products/{categoryId}` - Get products for workspace view (max 100, optional `marketId`)
+- `GET /umbraco/management/api/ecomm-commerce/option-presets` - Get the market's option presets
+- `GET /umbraco/management/api/ecomm-commerce/products-for-node/{nodeKey}` - Products for a node, resolving parent's categoryId/storeId server-side (works around Umbraco CMS #19213)
+- `GET /umbraco/management/api/ecomm-commerce/product/{productId}` - Get a single product
+- `POST /umbraco/management/api/ecomm-commerce/products` - Create a product
+- `POST /umbraco/management/api/ecomm-commerce/products/{id}/delete` - Delete a product
+
+#### 8. Commerce Admin Dashboard & API
+**Files**: `wwwroot/components/commerce-admin/commerce-admin-dashboard.js`, `Controllers/CommerceAdminApiController.cs`
+**Purpose**: Full commerce back-office inside Umbraco, in a dedicated "Commerce" section (auto-granted to the Administrators group by `Migrations/AddCommerceSectionToAdminGroupMigration.cs`)
+**Tabs**: Orders, Carts, Discounts, Option Presets, Order Statuses, Property Templates, Analytics
+**API Route**: `/umbraco/management/api/ecomm-commerce` - `markets`, `orders`, `orders/{id}`, `orders/{id}/status`, `order-statuses`, `option-presets`, `property-templates`, `discounts` (CRUD)
+
+#### 9. Product Picker & Store Picker
+**Files**: `wwwroot/components/propertyEditors/product-picker.js`, `store-picker.js`
+**Product Picker** (`EComm.PropertyEditorUi.ProductPicker`): lets an editor pick a specific product for a product page node (resolves via `products-for-node`, auto-sets the node name to the product name on select)
+**Store Picker** (`EComm.PropertyEditorUi.StorePicker`): dropdown of markets (from `GetMarketsAsync`) so a node can declare which market/store it belongs to — replaces the old global Market ID setting
 
 #### 7. Commerce Settings Service
 **File**: `Services/CommerceSettingsService.cs`
@@ -409,8 +443,8 @@ await app.RunAsync();
 
 **Fix**:
 1. Go to Settings → Commerce Settings
-2. Enter: Tenant ID (`tenant-a`), Market ID (`market-uk`), API URL (`http://localhost:5180/api/v1`)
-3. Click "Test Connection" to verify
+2. Enter: Tenant ID (`tenant-a`), API URL (`http://localhost:5180/api/v1`)
+3. Set the node's Store Picker property to the desired market, then click "Test Connection" to verify
 4. Check browser console for errors
 
 #### Failed to Fetch Dynamically Imported Module
@@ -536,10 +570,10 @@ curl -k https://localhost:44371/App_Plugins/ECommCommerce/components/workspaceVi
 # Get settings
 curl -k https://localhost:44371/umbraco/backoffice/api/commercesettings/get
 
-# Save settings
+# Save settings (MarketId is no longer part of settings — market is picked per-node via Store Picker)
 curl -k -X POST https://localhost:44371/umbraco/backoffice/api/commercesettings/save \
   -H "Content-Type: application/json" \
-  -d '{"TenantId":"tenant-a","MarketId":"market-uk","ApiBaseUrl":"http://localhost:5180/api/v1","ApiKey":""}'
+  -d '{"TenantId":"tenant-a","ApiBaseUrl":"http://localhost:5180/api/v1","ApiKey":""}'
 ```
 
 ### Important Files Reference

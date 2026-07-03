@@ -1,11 +1,11 @@
 # Implementation Status
 
-**Last Updated**: 2026-02-19
+**Last Updated**: 2026-07-03
 
 ## Quick Reference
 
-**What Works**: Products, Categories, Orders (admin), Cart, Tenants, Markets, API Keys, Superadmin Auth, **Responsive UI**, **UKAD Branding**
-**What's Missing**: Tenant Admin/User login flows, Checkout UI, Cart persistence
+**What Works**: Products, Categories, Orders (admin), Cart, Tenants, Markets, API Keys, Superadmin Auth, Product Add-ons, Discounts (API), Nets Easy Payments, **Responsive UI**, **UKAD Branding**
+**What's Missing**: Tenant Admin/User login flows, Checkout UI (showcase-dotnet), Cart persistence, Nets Easy webhook signature verification
 
 ---
 
@@ -185,6 +185,8 @@ POST   /api/v1/order-statuses/reset-defaults
   - Keys shown once on creation
   - Masked display (last 4 chars)
   - Revoke functionality
+- **Tenant-level API keys** (superadmin, not market-scoped) - managed at `/admin/tenants/:tenantId/api-keys`
+- Market shipping methods, leasing periods, and shippable countries configuration
 - Search and filtering
 - Pagination
 - Status management (active/inactive)
@@ -194,12 +196,15 @@ POST   /api/v1/order-statuses/reset-defaults
 # Tenants (Superadmin only)
 GET/POST   /api/v1/tenants
 GET/PUT/DELETE   /api/v1/tenants/:id
+GET/POST/DELETE   /api/v1/admin/tenants/:tenantId/api-keys
 
 # Markets
 GET/POST   /api/v1/markets?tenantId=:id
 GET/PUT/DELETE   /api/v1/markets/:id
+GET/PUT   /api/v1/markets/:id/shipping-methods
+GET/PUT   /api/v1/markets/:id/leasing-periods
 
-# API Keys
+# API Keys (market-scoped)
 GET   /api/v1/api-keys?marketId=:id
 POST   /api/v1/api-keys
 PUT   /api/v1/api-keys/:id/revoke
@@ -208,6 +213,68 @@ DELETE   /api/v1/api-keys/:id
 
 ### Known Issues
 None
+
+---
+
+## Feature 005: Product Options / Add-ons
+
+**Status**: ✅ Complete (admin UI, API, showcase display)
+
+### Implemented
+- Market-scoped library of reusable "option presets" (purchasable add-ons): `single` (standalone) or `group` (bundles related singles via `SubOptionIds`)
+- Managed in admin at `/admin/products/option-presets` (search, add, inline edit, delete)
+- Products attach "option blocks" (title + description + disable toggle) referencing presets from `ProductForm`
+- Showcase product detail page renders attached option blocks as purchasable add-ons; add-to-cart accepts `optionId`
+
+### Known Issues
+- Admin's product-level option block picker only lets you attach `single` presets, not `group` presets, even though the data model and showcase rendering support groups on a block
+
+### API Endpoints
+```
+GET/POST/PUT/DELETE   /api/v1/markets/:id/option-presets
+GET   /api/v1/option-presets   # public, active-only (used by showcase/storefronts)
+```
+
+---
+
+## Feature 006: Discounts
+
+**Status**: ⚠️ API + Umbraco backoffice only — no React admin UI yet
+
+### Implemented
+- Discount CRUD (tenant + market scoped) at the API level
+- Managed from the Umbraco plugin's Commerce Admin dashboard (Discounts tab)
+
+### Missing
+- React admin UI for managing discounts
+
+### API Endpoints
+```
+GET/POST   /api/v1/discounts
+GET/PUT/DELETE   /api/v1/discounts/:id
+```
+
+---
+
+## Feature 007: Payments (Nets Easy)
+
+**Status**: ⚠️ Real integration, not production-hardened
+
+### Implemented
+- `PaymentsController` creates a Nets Easy hosted-checkout payment and returns a redirect URL
+- Webhook updates `Order.PaymentStatus` (Initialized → Authorized → Captured)
+- Wired into the Umbraco sample site's real checkout flow (Cart → Checkout → Confirmation)
+- Nets credentials configured per market (`Market.Settings.NetsSecretApiKey`, `NetsTestMode`)
+
+### Missing / Known Issues
+- Webhook does not verify Nets' signature/HMAC yet — do not rely on this for real money without adding it
+- The primary showcase-dotnet storefront still uses the fake auto-pay checkout; Nets Easy is only wired into the Umbraco demo site's checkout
+
+### API Endpoints
+```
+POST   /api/v1/orders/:id/payment
+POST   /api/v1/payments/webhook
+```
 
 ---
 
@@ -226,8 +293,13 @@ None
 6. AdminOrdersController - Admin order management
 7. OrderStatusController - Custom order status management
 8. TenantsController - Tenant management
-9. MarketsController - Market management
+9. MarketsController - Market management (+ shipping methods, leasing periods, option presets)
 10. ApiKeysController - API key generation/revocation
+11. CountriesController - ISO country list (market-scoped)
+12. DiscountsController - Discount CRUD
+13. OptionPresetsController - Public read-only option presets (for storefronts)
+14. PaymentsController - Nets Easy payment creation + webhook
+15. TenantApiKeysController - Tenant-level (superadmin) API keys
 
 ### Authentication
 - **JWT**: 1-hour expiry, httpOnly cookies, BCrypt password hashing
@@ -265,6 +337,7 @@ None - Data now persists across restarts
 ### Implemented
 - Product browsing and search
 - Product details page
+- Product add-ons / option presets on the detail page (single + group options)
 - Shopping cart with session persistence
 - Fake checkout (auto-pays orders)
 - Order confirmation page
@@ -283,9 +356,11 @@ None - Data now persists across restarts
 ## Next Priorities
 
 1. **Complete RBAC** - Finish tenant admin/user login flows
-2. **Checkout UI** - Build customer checkout forms (API ready)
+2. **Checkout UI** - Build customer checkout forms in showcase-dotnet (API + Nets Easy ready; already live in the Umbraco demo site)
 3. **Cart Persistence** - Add localStorage for admin, database for production
-4. **Production Backend** - Replace SQLite with SQLServer for production use
+4. **Nets Easy webhook security** - Verify signature/HMAC before accepting real payments
+5. **Discounts admin UI** - Build React admin screens (API + Umbraco backoffice already support it)
+6. **Production Backend** - Replace SQLite with SQLServer for production use
 
 ---
 

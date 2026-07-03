@@ -163,6 +163,7 @@ builder.Services.AddSession(options =>
 
 ✅ Product browsing and search
 ✅ Product details page with image gallery
+✅ Product add-ons (option presets, single + group) on the details page
 ✅ Responsive image optimization (thumbnails, cards, full-size)
 ✅ Browser caching for images (7 days)
 ✅ Smooth image transitions with preloading
@@ -219,6 +220,7 @@ if (string.IsNullOrEmpty(cartId))
 - **No real payments**: Demo purposes only
 - **Image optimization**: Uses resize endpoint with automatic caching (150px thumbnails, 300px cards, 600px details)
 - **ImageHelper**: Static helper class for generating resized image URLs
+- **Add-ons**: `IECommApiClient.GetOptionPresetsAsync()` fetches the market's option presets library; `/Cart/AddItem` accepts `optionId`/`optionVariantId` in addition to `variantId`
 
 ## Troubleshooting
 

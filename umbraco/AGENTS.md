@@ -6,9 +6,9 @@ This document outlines the architecture and implementation plan for an Umbraco p
 
 **Target Umbraco Version**: 17.0.0 (LTS - Long Term Support with .NET 10)
 
-**Status**: Phase 1-4 Complete - Core Implementation + Products Workspace View, Upgraded to Umbraco 17, Configurable Defaults, Product Variant Support
+**Status**: Phase 1-4 Complete - Core Implementation + Products Workspace View, Upgraded to Umbraco 17, Configurable Defaults, Product Variant Support, Product Options/Add-ons, real Cart & Checkout with Nets Easy payments, and a "Commerce" backoffice section (Orders/Carts/Discounts/Option Presets/Order Statuses/Property Templates/Analytics)
 
-**Last Updated**: 2025-12-26
+**Last Updated**: 2026-07-03
 
 ---
 
@@ -202,10 +202,14 @@ YourBrand.Umbraco.Commerce/
 {
   "apiBaseUrl": "https://api.yourplatform.com/api/v1",
   "tenantId": "tenant-a",
-  "marketId": "market-1",
-  "apiKey": "your-api-key"
+  "apiKey": "your-api-key",
+  "productPageAlias": "productPage",
+  "storeIdPropertyAlias": "storeId",
+  "productIdPropertyAlias": "productId"
 }
 ```
+
+**Note**: `marketId` is no longer part of the global settings — a single Umbraco site can now serve multiple markets, so market/store is chosen per-node via the new Store Picker property editor (`storeId` property) instead.
 
 **Storage Location**: Umbraco database (key-value table or custom table)
 
@@ -494,9 +498,9 @@ dotnet run
 
 **Deliverable**: Product pages render dynamically with eCommerce data
 
-### Phase 4: Polish & Features (TODO)
-- [ ] Add Commerce Dashboard (order stats, quick links)
-- [ ] Implement cart integration (if needed)
+### Phase 4: Polish & Features
+- [x] Add Commerce Dashboard - full "Commerce" backoffice section (Orders, Carts, Discounts, Option Presets, Order Statuses, Property Templates, Analytics tabs)
+- [x] Implement cart integration - real session-based cart + checkout in the sample site, with Nets Easy payments
 - [ ] Add image optimization/CDN support
 - [ ] Performance optimization and caching
 - [x] Documentation and sample site
@@ -894,8 +898,8 @@ Site B (US Store)           │
 ## Future Enhancements
 
 ### Phase 2 Features (Post-MVP)
-- [ ] Cart management UI in backoffice
-- [ ] Order dashboard with charts
+- [x] Cart management UI in backoffice - Carts tab in the Commerce Admin dashboard
+- [x] Order dashboard - Orders/Analytics tabs in the Commerce Admin dashboard (charts still basic)
 - [ ] Product search integration
 - [ ] Multi-language support
 - [ ] Variant picker property editor

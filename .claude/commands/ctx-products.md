@@ -21,9 +21,37 @@ interface Product {
   images?: string[];
   variants?: ProductVariant[];
   customProperties?: Record<string, any>;
+  options?: ProductOption[];        // Add-on blocks (see Feature: Product Options below)
+  highlights?: string[];
+  leasingFactor?: number;           // Falls back to market's DefaultLeasingFactor
+  hidePrice?: boolean;
+  hiddenPriceDescription?: string;
+  seoTitle?: string;
+  seoDescription?: string;
   version: number;         // Sequential version number
   createdAt: Date;
   updatedAt: Date;
+}
+
+interface ProductOption {           // A block of add-ons shown on the product
+  id: string;
+  title: string;
+  description?: string;
+  optionIds: string[];              // References OptionPreset.id (market-scoped library)
+  disabled?: boolean;
+}
+
+interface OptionPreset {            // Market-scoped add-on preset (not tenant-global)
+  id: string;
+  name: string;
+  sku?: string;
+  price: number;
+  description?: string;
+  imageUrl?: string;
+  stockQuantity: number;
+  status: 'active' | 'inactive' | 'draft';
+  kind?: 'single' | 'group';        // 'group' bundles related singles via subOptionIds
+  subOptionIds?: string[];
 }
 
 interface ProductVersion {
@@ -59,14 +87,24 @@ interface ProductVersion {
 - `POST /api/v1/files/upload` - Upload product images (requires X-User-ID auth)
 - `GET /api/v1/files/resize/{tenantId}/{marketId}/{fileName}?width={w}&height={h}` - Get resized image (cached 7 days)
 - `DELETE /api/v1/files/:filename` - Delete uploaded image
+- `GET/POST/PUT/DELETE /api/v1/markets/:marketId/option-presets` - Manage the market's add-on presets library
+- `GET /api/v1/option-presets` - Public, active-only presets (used by showcase/storefronts)
 
 ### Components
 - **ProductsPage**: `/admin/products` - Main product list
 - **ProductList**: Table with search, filters, pagination
 - **ProductForm**: Create/edit modal with validation
+- **ProductOptionsEditor**: Attaches add-on blocks (title/description/preset picker) to a product, embedded in ProductForm
+- **OptionPresetsPage**: `/admin/products/option-presets` - CRUD for the market's add-on presets library (single/group)
 - **ImageUpload**: Drag-and-drop image upload with reordering
 - **QuickStockUpdate**: Inline stock editing
 - **ProductVersionHistory**: Version list with restore
+
+### Feature: Product Options / Add-ons
+- Presets are **market-scoped** (not a tenant-global library, despite some UI copy saying "store-global")
+- A preset's `kind` is `single` (standalone add-on) or `group` (bundles related singles via `subOptionIds`)
+- `ProductOptionsEditor`'s preset picker only offers `single` presets — groups exist in the library and render correctly on the showcase, but can't currently be attached to a product's option block from the admin UI
+- Showcase (`showcase-dotnet`) renders a product's option blocks as purchasable add-ons; `POST /Cart/AddItem` accepts `optionId`/`optionVariantId`
 
 ### State Management
 - TanStack Query for data fetching/caching

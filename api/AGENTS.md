@@ -49,25 +49,28 @@ dotnet run
 
   /EComm.Data/                  # Data Access Layer (separate project)
     /Entities/                  # Domain entities
-      Product.cs, Category.cs, Order.cs, Cart.cs,
+      Product.cs, Category.cs, Order.cs, Cart.cs, Discount.cs,
       Tenant.cs, Market.cs, ApiKey.cs, OrderStatus.cs, User.cs
     /ValueObjects/              # Nested types organized by domain
-      /Common/Address.cs        # Shared address type
-      /Product/                 # ProductVariant, VariantOption, CustomProperty
+      /Common/                  # Address, Country
+      /Product/                 # ProductVariant, VariantOption, CustomProperty, ProductOption
       /Order/                   # OrderItem, CustomerInfo
       /Cart/                    # CartItem
-      /Tenant/                  # TenantSettings, MarketSettings, CustomPropertyTemplate
+      /Tenant/                  # TenantSettings, MarketSettings, CustomPropertyTemplate,
+                                 # ShippingMethod, LeasingPeriod, OptionPreset
       /ApiKey/                  # ApiKeyListItem
     ECommDbContext.cs           # EF Core DbContext with JSON column support
     DataStore.cs                # Data access layer (uses EF Core)
     DatabaseSeeder.cs           # Database seeding on startup
 
   /EComm.Api/                   # Web API project
-    /Controllers/               # 11 API controllers
+    /Controllers/               # 16 API controllers
       ProductsController.cs, CategoriesController.cs, CartController.cs,
       OrdersController.cs, AdminOrdersController.cs, OrderStatusController.cs,
       TenantsController.cs, MarketsController.cs, ApiKeysController.cs,
-      AuthController.cs, FilesController.cs
+      AuthController.cs, FilesController.cs, CountriesController.cs,
+      DiscountsController.cs, OptionPresetsController.cs, PaymentsController.cs,
+      TenantApiKeysController.cs
     /DTOs/                      # Data Transfer Objects
       /Requests/                # Request DTOs by domain
         /Auth/, /Products/, /Orders/, /Cart/, /Tenants/, /Markets/,
@@ -75,12 +78,13 @@ dotnet run
       /Responses/               # Response DTOs by domain
         /Products/, /Categories/, /Tenants/, /Markets/, /ApiKeys/, /Files/
     /Authentication/            # API Key auth handler
+    /Payments/                  # Nets Easy payment gateway client
     /uploads/                   # Uploaded product images (tenant/market scoped)
     Program.cs                  # API configuration
     appsettings.json           # Configuration
 ```
 
-## 11 Controllers
+## 16 Controllers
 
 ### 1. ProductsController
 ```csharp
@@ -123,6 +127,8 @@ GET    /api/v1/orders/{id}             // Get order details
 GET    /api/v1/admin/orders            // List all orders (admin)
 GET    /api/v1/admin/orders/{id}       // Get order details
 PUT    /api/v1/admin/orders/{id}/status // Update order status
+POST   /api/v1/admin/orders            // Import a historical order verbatim (migration)
+PUT    /api/v1/admin/orders/{id}       // Upsert an order by id (migration)
 ```
 
 ### 6. TenantsController
@@ -141,6 +147,9 @@ POST   /api/v1/markets                 // Create market
 GET    /api/v1/markets/{id}            // Get market
 PUT    /api/v1/markets/{id}            // Update market
 DELETE /api/v1/markets/{id}            // Delete market
+GET/PUT   /api/v1/markets/{id}/shipping-methods       // Market's delivery options
+GET/PUT   /api/v1/markets/{id}/leasing-periods        // Market's rental duration presets
+GET/POST/PUT/DELETE /api/v1/markets/{id}/option-presets // Market's add-on presets library (search+pagination)
 ```
 
 ### 8. ApiKeysController
@@ -163,6 +172,46 @@ DELETE /api/v1/files/{filename}                                // Delete uploade
 - Automatic browser caching (7 days via Cache-Control headers)
 - Stores files at `/uploads/{tenantId}/{marketId}/`
 - Supports: jpg, jpeg, png, gif, webp (max 5MB per file)
+
+### 10. CountriesController
+```csharp
+GET    /api/v1/countries?marketId={id} // List countries (ISO list, filtered by market's shipping zones if set)
+```
+
+### 11. DiscountsController
+```csharp
+GET/POST         /api/v1/discounts       // List/create discounts (tenant+market scoped)
+GET/PUT/DELETE   /api/v1/discounts/{id}  // Manage a discount
+```
+
+### 12. OptionPresetsController
+```csharp
+GET    /api/v1/option-presets          // List active option presets (market-scoped, public)
+```
+
+### 13. PaymentsController
+```csharp
+POST   /api/v1/orders/{id}/payment     // Create a Nets Easy payment, returns redirect URL
+POST   /api/v1/payments/webhook        // Nets Easy payment status webhook
+```
+
+### 14. TenantApiKeysController
+```csharp
+GET/POST/DELETE  /api/v1/admin/tenants/{tenantId}/api-keys // Tenant-level API keys (not market-scoped)
+```
+
+## Payments (Nets Easy)
+
+`Payments/NetsEasyClient.cs` wraps the Nets Easy hosted-checkout REST API directly (no official SDK). Reads `market.Settings.NetsSecretApiKey` / `NetsTestMode` per market. The webhook (`POST /api/v1/payments/webhook`) maps `payment.checkout.completed` → `Authorized` and `payment.charge.created.v2` → `Captured` on the order.
+
+**Known gap**: the webhook handler does not yet verify Nets' signature/HMAC — don't treat this as production-ready for real money until that's added.
+
+## Market-Level Commerce Settings
+
+`Market.Settings` (`MarketSettings`) now also holds, managed via the `MarketsController` sub-resources above:
+- `ShippingMethods`, `LeasingPeriods`, `OptionPresets`
+- `DefaultLeasingFactor`, `CartOrderStatus`
+- Nets Easy credentials (`NetsSecretApiKey`, `NetsCheckoutKey`, `NetsTestMode`)
 
 ## Data Store
 
