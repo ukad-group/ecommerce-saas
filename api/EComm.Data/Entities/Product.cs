@@ -25,6 +25,13 @@ public class Product
     public List<VariantOption>? VariantOptions { get; set; }
     public List<ProductVariant>? Variants { get; set; }
     public List<CustomProperty>? CustomProperties { get; set; }
+    public List<ProductOption>? Options { get; set; }
+    public List<string> Highlights { get; set; } = new();
+    public decimal? LeasingFactor { get; set; }
+    public bool HidePrice { get; set; } = false;
+    public string? HiddenPriceDescription { get; set; }
+    public string? SeoTitle { get; set; }
+    public string? SeoDescription { get; set; }
 
     // Versioning fields
     public int Version { get; set; } = 1;

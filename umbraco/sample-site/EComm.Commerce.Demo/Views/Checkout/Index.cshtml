@@ -1,0 +1,267 @@
+@model EComm.Commerce.Demo.Models.CheckoutFormModel
+@{
+    Layout = "~/Views/Shared/_Layout.cshtml";
+    ViewData["Title"] = "Checkout";
+    var cart = ViewBag.Cart as EComm.Commerce.Demo.Models.CartDto;
+}
+
+<div class="container my-5">
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb" class="mb-4">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="/">Shop</a></li>
+            <li class="breadcrumb-item"><a href="/cart">Cart</a></li>
+            <li class="breadcrumb-item active">Checkout</li>
+        </ol>
+    </nav>
+
+    <h1 class="mb-4"><i class="bi bi-lock me-2"></i>Checkout</h1>
+
+    <!-- Demo notice -->
+    <div class="alert alert-info mb-4">
+        <i class="bi bi-info-circle-fill me-2"></i>
+        <strong>Demo Mode:</strong> This is a showcase checkout. No real payment will be taken.
+        Clicking "Place Order" will auto-complete the purchase.
+    </div>
+
+    <form asp-action="PlaceOrder" asp-controller="Checkout" method="post">
+        @Html.AntiForgeryToken()
+
+        <div class="row g-4">
+            <!-- Left: Form -->
+            <div class="col-lg-7">
+
+                @if (!ViewData.ModelState.IsValid)
+                {
+                    <div class="alert alert-danger">
+                        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                        Please correct the errors below.
+                        <ul class="mb-0 mt-2">
+                            @foreach (var error in ViewData.ModelState.Values.SelectMany(v => v.Errors))
+                            {
+                                <li>@error.ErrorMessage</li>
+                            }
+                        </ul>
+                    </div>
+                }
+
+                <!-- Contact Info -->
+                <div class="card shadow-sm mb-4">
+                    <div class="card-header bg-white">
+                        <h5 class="mb-0"><i class="bi bi-person me-2 text-primary"></i>Contact Information</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label asp-for="FullName" class="form-label fw-semibold"></label>
+                            <input asp-for="FullName" class="form-control" placeholder="Jane Smith" />
+                            <span asp-validation-for="FullName" class="text-danger small"></span>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-7 mb-3">
+                                <label asp-for="Email" class="form-label fw-semibold"></label>
+                                <input asp-for="Email" class="form-control" placeholder="jane@example.com" />
+                                <span asp-validation-for="Email" class="text-danger small"></span>
+                            </div>
+                            <div class="col-md-5 mb-3">
+                                <label asp-for="Phone" class="form-label fw-semibold"></label>
+                                <input asp-for="Phone" class="form-control" placeholder="+44 7700 000000" />
+                                <span asp-validation-for="Phone" class="text-danger small"></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Shipping Address -->
+                <div class="card shadow-sm mb-4">
+                    <div class="card-header bg-white">
+                        <h5 class="mb-0"><i class="bi bi-geo-alt me-2 text-primary"></i>Shipping Address</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label asp-for="ShippingStreet" class="form-label fw-semibold"></label>
+                            <input asp-for="ShippingStreet" class="form-control" placeholder="123 High Street" />
+                            <span asp-validation-for="ShippingStreet" class="text-danger small"></span>
+                        </div>
+                        <div class="mb-3">
+                            <label asp-for="ShippingStreet2" class="form-label fw-semibold"></label>
+                            <input asp-for="ShippingStreet2" class="form-control" placeholder="Flat 4B (optional)" />
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label asp-for="ShippingCity" class="form-label fw-semibold"></label>
+                                <input asp-for="ShippingCity" class="form-control" placeholder="London" />
+                                <span asp-validation-for="ShippingCity" class="text-danger small"></span>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label asp-for="ShippingState" class="form-label fw-semibold"></label>
+                                <input asp-for="ShippingState" class="form-control" placeholder="Greater London" />
+                                <span asp-validation-for="ShippingState" class="text-danger small"></span>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <label asp-for="ShippingPostalCode" class="form-label fw-semibold"></label>
+                                <input asp-for="ShippingPostalCode" class="form-control" placeholder="SW1A 1AA" />
+                                <span asp-validation-for="ShippingPostalCode" class="text-danger small"></span>
+                            </div>
+                            <div class="col-md-8 mb-3">
+                                <label asp-for="ShippingCountry" class="form-label fw-semibold"></label>
+                                <select asp-for="ShippingCountry" class="form-select">
+                                    <option value="United Kingdom">United Kingdom</option>
+                                    <option value="United States">United States</option>
+                                    <option value="Germany">Germany</option>
+                                    <option value="France">France</option>
+                                    <option value="Ireland">Ireland</option>
+                                    <option value="Other">Other</option>
+                                </select>
+                                <span asp-validation-for="ShippingCountry" class="text-danger small"></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Billing Address -->
+                <div class="card shadow-sm mb-4">
+                    <div class="card-header bg-white">
+                        <h5 class="mb-0"><i class="bi bi-credit-card me-2 text-primary"></i>Billing Address</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="form-check mb-3">
+                            <input type="checkbox" class="form-check-input" id="billingSameAsShipping"
+                                   asp-for="BillingSameAsShipping" />
+                            <label class="form-check-label" for="billingSameAsShipping">
+                                Same as shipping address
+                            </label>
+                        </div>
+
+                        <div id="billingAddressFields" style="display:none;">
+                            <div class="mb-3">
+                                <label asp-for="BillingStreet" class="form-label fw-semibold"></label>
+                                <input asp-for="BillingStreet" class="form-control" placeholder="123 High Street" />
+                            </div>
+                            <div class="mb-3">
+                                <label asp-for="BillingStreet2" class="form-label fw-semibold"></label>
+                                <input asp-for="BillingStreet2" class="form-control" placeholder="Flat 4B (optional)" />
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label asp-for="BillingCity" class="form-label fw-semibold"></label>
+                                    <input asp-for="BillingCity" class="form-control" placeholder="London" />
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label asp-for="BillingState" class="form-label fw-semibold"></label>
+                                    <input asp-for="BillingState" class="form-control" placeholder="Greater London" />
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-4 mb-3">
+                                    <label asp-for="BillingPostalCode" class="form-label fw-semibold"></label>
+                                    <input asp-for="BillingPostalCode" class="form-control" placeholder="SW1A 1AA" />
+                                </div>
+                                <div class="col-md-8 mb-3">
+                                    <label asp-for="BillingCountry" class="form-label fw-semibold"></label>
+                                    <select asp-for="BillingCountry" class="form-select">
+                                        <option value="">Select country</option>
+                                        <option value="United Kingdom">United Kingdom</option>
+                                        <option value="United States">United States</option>
+                                        <option value="Germany">Germany</option>
+                                        <option value="France">France</option>
+                                        <option value="Ireland">Ireland</option>
+                                        <option value="Other">Other</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="d-grid">
+                    <button type="submit" class="btn btn-primary btn-lg">
+                        <i class="bi bi-bag-check me-2"></i>Place Order — £@(cart?.Total.ToString("N2") ?? "0.00")
+                    </button>
+                </div>
+                <p class="text-center text-muted small mt-2">
+                    <i class="bi bi-shield-lock me-1"></i>Your order will be processed securely
+                </p>
+            </div>
+
+            <!-- Right: Order Summary -->
+            <div class="col-lg-5">
+                <div class="card shadow-sm sticky-top" style="top:1rem;">
+                    <div class="card-header bg-white">
+                        <h5 class="mb-0">Order Summary (@(cart?.Items.Count ?? 0) items)</h5>
+                    </div>
+                    <div class="card-body p-0">
+                        @if (cart != null && cart.Items.Any())
+                        {
+                            <ul class="list-group list-group-flush">
+                                @foreach (var item in cart.Items)
+                                {
+                                    <li class="list-group-item d-flex align-items-center gap-3 py-3">
+                                        <div class="position-relative flex-shrink-0">
+                                            @if (!string.IsNullOrEmpty(item.ProductImageUrl))
+                                            {
+                                                <img src="@item.ProductImageUrl" alt="@item.ProductName"
+                                                     class="rounded" style="width:56px;height:56px;object-fit:cover;" />
+                                            }
+                                            else
+                                            {
+                                                <div class="bg-light rounded d-flex align-items-center justify-content-center"
+                                                     style="width:56px;height:56px;">
+                                                    <i class="bi bi-box text-muted"></i>
+                                                </div>
+                                            }
+                                            <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-secondary">
+                                                @item.Quantity
+                                            </span>
+                                        </div>
+                                        <div class="flex-grow-1">
+                                            <div class="fw-semibold small">@item.ProductName</div>
+                                        </div>
+                                        <div class="text-end fw-semibold">£@item.Subtotal.ToString("N2")</div>
+                                    </li>
+                                }
+                            </ul>
+                        }
+                    </div>
+                    <div class="card-footer bg-white">
+                        <div class="d-flex justify-content-between mb-1">
+                            <span class="text-muted">Subtotal</span>
+                            <span>£@(cart?.Subtotal.ToString("N2") ?? "0.00")</span>
+                        </div>
+                        <div class="d-flex justify-content-between mb-1">
+                            <span class="text-muted">Shipping</span>
+                            <span class="text-success">Free</span>
+                        </div>
+                        @if (cart != null && cart.Tax > 0)
+                        {
+                            <div class="d-flex justify-content-between mb-1">
+                                <span class="text-muted">Tax</span>
+                                <span>£@cart.Tax.ToString("N2")</span>
+                            </div>
+                        }
+                        <hr />
+                        <div class="d-flex justify-content-between fw-bold fs-5">
+                            <span>Total</span>
+                            <span class="text-primary">£@(cart?.Total.ToString("N2") ?? "0.00")</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+
+@section Scripts {
+<script>
+    const checkbox = document.getElementById('billingSameAsShipping');
+    const billingFields = document.getElementById('billingAddressFields');
+
+    function toggleBillingFields() {
+        billingFields.style.display = checkbox.checked ? 'none' : 'block';
+    }
+
+    checkbox.addEventListener('change', toggleBillingFields);
+    toggleBillingFields(); // set initial state
+</script>
+}

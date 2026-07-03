@@ -19,7 +19,8 @@ import { useAuthStore } from '../../store/authStore';
 import { Role } from '../../types/auth';
 import { VersionBadge } from './VersionBadge';
 import { VersionHistoryModal } from './VersionHistoryModal';
-import type { Product, ProductStatus, VariantOption, ProductVariant, CustomProperty } from '../../types/product';
+import type { Product, ProductStatus, VariantOption, ProductVariant, CustomProperty, ProductOption } from '../../types/product';
+import { ProductOptionsEditor } from './ProductOptionsEditor';
 
 // Extended property type for merged display
 interface MergedCustomProperty extends CustomProperty {
@@ -43,9 +44,13 @@ interface ProductFormData {
   status: ProductStatus;
   stockQuantity?: number;
   lowStockThreshold?: number;
-  currency: string;
   categoryIds: string[];
   hasVariants?: boolean;
+  leasingFactor?: number;
+  hidePrice?: boolean;
+  hiddenPriceDescription?: string;
+  seoTitle?: string;
+  seoDescription?: string;
 }
 
 export function ProductForm({
@@ -73,6 +78,12 @@ export function ProductForm({
     product?.customProperties || []
   );
 
+  // State for highlights
+  const [highlights, setHighlights] = useState<string[]>(product?.highlights || []);
+
+  // State for options management
+  const [options, setOptions] = useState<ProductOption[]>(product?.options || []);
+
   // State for images management
   const [images, setImages] = useState<string[]>(product?.images || []);
 
@@ -97,17 +108,21 @@ export function ProductForm({
           status: product.status,
           stockQuantity: product.stockQuantity,
           lowStockThreshold: product.lowStockThreshold,
-          currency: product.currency,
           categoryIds: product.categoryIds || [],
           hasVariants: product.hasVariants || false,
+          leasingFactor: product.leasingFactor,
+          hidePrice: product.hidePrice || false,
+          hiddenPriceDescription: product.hiddenPriceDescription,
+          seoTitle: product.seoTitle,
+          seoDescription: product.seoDescription,
         }
       : {
           status: 'draft',
-          currency: 'USD',
           stockQuantity: 0,
           lowStockThreshold: 10,
           categoryIds: [],
           hasVariants: false,
+          hidePrice: false,
         },
   });
 
@@ -122,6 +137,8 @@ export function ProductForm({
       setVariantOptions(product.variantOptions || []);
       setVariants(product.variants || []);
       setImages(product.images || []);
+      setHighlights(product.highlights || []);
+      setOptions(product.options || []);
 
       // Reset form with new product data
       reset({
@@ -133,9 +150,13 @@ export function ProductForm({
         status: product.status,
         stockQuantity: product.stockQuantity,
         lowStockThreshold: product.lowStockThreshold,
-        currency: product.currency,
         categoryIds: product.categoryIds || [],
         hasVariants: product.hasVariants || false,
+        leasingFactor: product.leasingFactor,
+        hidePrice: product.hidePrice || false,
+        hiddenPriceDescription: product.hiddenPriceDescription,
+        seoTitle: product.seoTitle,
+        seoDescription: product.seoDescription,
       });
     }
   }, [product, reset]);
@@ -144,12 +165,6 @@ export function ProductForm({
     { value: 'active', label: 'Active' },
     { value: 'inactive', label: 'Inactive' },
     { value: 'draft', label: 'Draft' },
-  ];
-
-  const currencyOptions = [
-    { value: 'USD', label: 'USD' },
-    { value: 'EUR', label: 'EUR' },
-    { value: 'GBP', label: 'GBP' },
   ];
 
   const handleCategoryToggle = (categoryId: string) => {
@@ -398,6 +413,21 @@ export function ProductForm({
     setCustomProperties(updated);
   };
 
+  // Highlights handlers
+  const handleAddHighlight = () => {
+    setHighlights([...highlights, '']);
+  };
+
+  const handleUpdateHighlight = (index: number, value: string) => {
+    const updated = [...highlights];
+    updated[index] = value;
+    setHighlights(updated);
+  };
+
+  const handleRemoveHighlight = (index: number) => {
+    setHighlights(highlights.filter((_, i) => i !== index));
+  };
+
   const handleFormSubmit = (data: ProductFormData) => {
     // Clean up empty string values for numeric fields
     const cleanData = {
@@ -423,7 +453,14 @@ export function ProductForm({
       variantOptions: hasVariants ? variantOptions : undefined,
       variants: hasVariants ? variants : undefined,
       customProperties: preparedProperties.length > 0 ? preparedProperties : undefined,
+      options: options.length > 0 ? options : undefined,
       images: images.length > 0 ? images : [],
+      highlights: highlights.filter((h) => h.trim()).length > 0 ? highlights.filter((h) => h.trim()) : undefined,
+      leasingFactor: data.leasingFactor || undefined,
+      hidePrice: data.hidePrice || false,
+      hiddenPriceDescription: data.hiddenPriceDescription || undefined,
+      seoTitle: data.seoTitle || undefined,
+      seoDescription: data.seoDescription || undefined,
     };
 
     // If has variants, don't include base price/stock fields
@@ -648,6 +685,42 @@ export function ProductForm({
         />
       </div>
 
+      {/* Highlights */}
+      <div className="bg-white rounded-lg shadow p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-medium text-gray-900">Highlights</h2>
+          <Button type="button" onClick={handleAddHighlight} className="text-sm">
+            + Highlight
+          </Button>
+        </div>
+        <p className="text-sm text-gray-500 mb-3">Short bullet points shown on the product page.</p>
+        {highlights.length > 0 ? (
+          <div className="space-y-2">
+            {highlights.map((h, i) => (
+              <div key={i} className="flex gap-2 items-center">
+                <span className="text-gray-400 text-sm">•</span>
+                <input
+                  type="text"
+                  value={h}
+                  onChange={(e) => handleUpdateHighlight(i, e.target.value)}
+                  placeholder="e.g. Aluminium frame"
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#4a6ba8] focus:border-[#4a6ba8]"
+                />
+                <button
+                  type="button"
+                  onClick={() => handleRemoveHighlight(i)}
+                  className="text-red-500 hover:text-red-700 text-sm px-2"
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-gray-400 italic">No highlights yet.</p>
+        )}
+      </div>
+
       {/* Product Variants Toggle */}
       <div className="bg-white rounded-lg shadow p-6">
         <div className="flex items-center justify-between">
@@ -695,12 +768,40 @@ export function ProductForm({
                 })}
                 error={errors.salePrice?.message}
               />
-              <Select
-                label="Currency"
-                {...register('currency')}
-                options={currencyOptions}
-              />
             </div>
+
+            {/* Leasing & price visibility */}
+            <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Input
+                label="Leasing Factor"
+                type="number"
+                step="0.0001"
+                min="0"
+                {...register('leasingFactor', {
+                  min: { value: 0, message: 'Must be positive' },
+                })}
+                error={errors.leasingFactor?.message}
+              />
+              <div className="flex flex-col gap-2">
+                <label className="flex items-center gap-3 cursor-pointer mt-6">
+                  <input
+                    type="checkbox"
+                    {...register('hidePrice')}
+                    className="h-4 w-4 text-[#4a6ba8] border-gray-300 rounded focus:ring-[#4a6ba8]"
+                  />
+                  <span className="text-sm font-medium text-gray-700">Hide price on storefront</span>
+                </label>
+              </div>
+            </div>
+            {watch('hidePrice') && (
+              <div className="mt-3">
+                <Input
+                  label="Hidden Price Description"
+                  placeholder="e.g. Contact us for pricing"
+                  {...register('hiddenPriceDescription')}
+                />
+              </div>
+            )}
           </div>
 
           {/* Inventory */}
@@ -979,6 +1080,36 @@ export function ProductForm({
           )}
         </div>
       </div>
+
+      {/* SEO */}
+      <div className="bg-white rounded-lg shadow p-6">
+        <h2 className="text-lg font-medium text-gray-900 mb-4">SEO</h2>
+        <div className="space-y-4">
+          <Input
+            label="Page Title"
+            placeholder="Overrides product name in browser tab and search results"
+            {...register('seoTitle')}
+          />
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Meta Description
+            </label>
+            <textarea
+              {...register('seoDescription')}
+              rows={3}
+              placeholder="Short description shown in search engine result pages (recommended: 150–160 characters)"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#4a6ba8] focus:border-[#4a6ba8]"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Options — full CRUD editor */}
+      <ProductOptionsEditor
+        options={options}
+        currency={watch('currency') || 'SEK'}
+        onChange={setOptions}
+      />
 
       {/* Form Actions */}
       <div className="flex justify-end gap-4">

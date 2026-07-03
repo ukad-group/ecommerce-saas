@@ -1,7 +1,9 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using EComm.Data;
 using EComm.Data.Entities;
 using EComm.Data.ValueObjects.Order;
+using EComm.Data.ValueObjects.Tenant;
 using EComm.Api.DTOs.Requests.Orders;
 
 namespace EComm.Api.Controllers;
@@ -11,6 +13,43 @@ namespace EComm.Api.Controllers;
 public class OrdersController : ControllerBase
 {
     private readonly DataStore _store = DataStore.Instance;
+
+    [Authorize]
+    [HttpGet]
+    public ActionResult GetOrders(
+        [FromHeader(Name = "X-Tenant-ID")] string? tenantId,
+        [FromHeader(Name = "X-Market-ID")] string? marketId,
+        [FromQuery] string? status = null,
+        [FromQuery] string? search = null,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20)
+    {
+        var query = _store.GetAllOrders().AsEnumerable();
+
+        if (!string.IsNullOrEmpty(tenantId))
+            query = query.Where(o => o.TenantId == tenantId);
+
+        if (!string.IsNullOrEmpty(marketId))
+            query = query.Where(o => o.MarketId == marketId);
+
+        if (!string.IsNullOrEmpty(status))
+            query = query.Where(o => o.Status.Equals(status, StringComparison.OrdinalIgnoreCase));
+
+        if (!string.IsNullOrEmpty(search))
+        {
+            var q = search.ToLower();
+            query = query.Where(o =>
+                (o.OrderNumber?.ToLower().Contains(q) ?? false) ||
+                (o.Customer?.FullName?.ToLower().Contains(q) ?? false) ||
+                (o.Customer?.Email?.ToLower().Contains(q) ?? false));
+        }
+
+        var sorted = query.OrderByDescending(o => o.CreatedAt).ToList();
+        var totalCount = sorted.Count;
+        var orders = sorted.Skip((page - 1) * pageSize).Take(pageSize).ToList();
+
+        return Ok(new { orders, totalCount, page, pageSize });
+    }
 
     [HttpPost]
     public ActionResult<Order> CreateOrder(
@@ -23,6 +62,12 @@ public class OrdersController : ControllerBase
         {
             return BadRequest("Cart is empty");
         }
+
+        var shippingMethods = _store.GetMarket(cart.MarketId)?.Settings?.ShippingMethods ?? new List<ShippingMethod>();
+        var shippingMethod = !string.IsNullOrEmpty(request.ShippingMethodId)
+            ? shippingMethods.FirstOrDefault(m => m.Id == request.ShippingMethodId)
+            : shippingMethods.FirstOrDefault();
+        var shippingCost = shippingMethod?.Price ?? 0m;
 
         var order = new Order
         {
@@ -53,6 +98,9 @@ public class OrdersController : ControllerBase
                     Id = Guid.NewGuid().ToString(),
                     ProductId = ci.ProductId,
                     VariantId = ci.VariantId,  // CRITICAL: Include VariantId
+                    OptionId = ci.OptionId,
+                    ItemType = ci.ItemType,
+                    ItemSubType = ci.ItemSubType,
                     ProductName = ci.ProductName,
                     Sku = sku,
                     ProductImageUrl = ci.ProductImageUrl,
@@ -64,8 +112,9 @@ public class OrdersController : ControllerBase
             }).ToList(),
             Subtotal = cart.Subtotal,
             Tax = cart.Tax,
-            ShippingCost = 0m, // Free shipping
-            Total = cart.Total,
+            ShippingCost = shippingCost,
+            Total = cart.Total + shippingCost,
+            CustomProperties = request.CustomProperties,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
         };

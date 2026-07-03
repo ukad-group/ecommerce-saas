@@ -17,7 +17,9 @@ public static class DatabaseSeeder
         // Check if database is already seeded
         if (context.Tenants.Any())
         {
-            return; // Database already has data
+            // Additive seeding: fill in data added after the initial release
+            SeedMissingOrderStatuses(context);
+            return;
         }
 
         // Seed Users (before tenants, as we'll reference tenant IDs)
@@ -190,7 +192,15 @@ public static class DatabaseSeeder
                 {
                     OrderPrefix = "DT",
                     TaxRate = 0.0875m,
-                    ShippingZones = new List<string> { "NY", "NJ", "CT" }
+                    ShippingZones = new List<string> { "NY", "NJ", "CT" },
+                    OptionPresets = new List<OptionPreset>
+                    {
+                        new OptionPreset { Id = "opt-towbar-50", Name = "Towbar 50mm", Sku = "OPT-TOWBAR-50", Price = 89.00m, Description = "50mm ball towbar", StockQuantity = 25, Status = "active", Kind = "single" },
+                        new OptionPreset { Id = "opt-towbar-90", Name = "Towbar 90mm", Sku = "OPT-TOWBAR-90", Price = 119.00m, Description = "90mm ball towbar", StockQuantity = 15, Status = "active", Kind = "single" },
+                        new OptionPreset { Id = "opt-spare-wheel", Name = "Spare Wheel", Sku = "OPT-SPARE", Price = 65.00m, Description = "Full-size spare wheel", StockQuantity = 40, Status = "active", Kind = "single" },
+                        // Group: bundles the two towbar singles under one display unit
+                        new OptionPreset { Id = "grp-couplings", Name = "Couplings", Description = "Pick a towbar coupling size", ImageUrl = null, Status = "active", Kind = "group", SubOptionIds = new List<string> { "opt-towbar-50", "opt-towbar-90" } }
+                    }
                 },
                 ApiKeyCount = 2,
                 CreatedAt = new DateTime(2024, 1, 15),
@@ -513,6 +523,18 @@ public static class DatabaseSeeder
                 StockQuantity = 50,
                 LowStockThreshold = 10,
                 HasVariants = false,
+                Options = new List<ProductOption>
+                {
+                    new ProductOption
+                    {
+                        Id = "block-addons",
+                        Title = "Add-ons",
+                        Description = "Optional extras for your order",
+                        // References a single preset and a group (group expands to its sub-options)
+                        OptionIds = new List<string> { "opt-spare-wheel", "grp-couplings" },
+                        Disabled = false
+                    }
+                },
                 Version = 1,
                 IsCurrentVersion = true,
                 VersionCreatedAt = DateTime.UtcNow.AddDays(-20),
@@ -1124,6 +1146,41 @@ public static class DatabaseSeeder
         context.Orders.AddRange(orders);
 
         // Save all changes
+        context.SaveChanges();
+    }
+
+    private static void SeedMissingOrderStatuses(ECommDbContext context)
+    {
+        var tenantIds = context.Tenants.Select(t => t.Id).ToList();
+        var existingTenantIds = context.OrderStatuses.Select(s => s.TenantId).Distinct().ToList();
+        var tenantsNeedingStatuses = tenantIds.Except(existingTenantIds).ToList();
+
+        if (!tenantsNeedingStatuses.Any())
+            return;
+
+        var now = DateTime.UtcNow;
+        var orderStatuses = new List<OrderStatus>();
+        foreach (var tenantId in tenantsNeedingStatuses)
+        {
+            var defaults = DefaultOrderStatuses.GetDefaults();
+            foreach (var (name, code, color, sortOrder) in defaults)
+            {
+                orderStatuses.Add(new OrderStatus
+                {
+                    Id = $"status-{tenantId}-{code}",
+                    TenantId = tenantId,
+                    Name = name,
+                    Code = code,
+                    Color = color,
+                    SortOrder = sortOrder,
+                    IsSystemDefault = true,
+                    IsActive = true,
+                    CreatedAt = now
+                });
+            }
+        }
+
+        context.OrderStatuses.AddRange(orderStatuses);
         context.SaveChanges();
     }
 }

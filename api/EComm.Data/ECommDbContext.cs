@@ -22,6 +22,7 @@ public class ECommDbContext : DbContext
     public DbSet<ApiKey> ApiKeys => Set<ApiKey>();
     public DbSet<OrderStatus> OrderStatuses => Set<OrderStatus>();
     public DbSet<User> Users => Set<User>();
+    public DbSet<Discount> Discounts => Set<Discount>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -69,6 +70,11 @@ public class ECommDbContext : DbContext
                 .HasConversion(
                     v => v == null ? null : JsonSerializer.Serialize(v, (JsonSerializerOptions?)null),
                     v => v == null ? null : JsonSerializer.Deserialize<List<CustomProperty>>(v, (JsonSerializerOptions?)null));
+
+            entity.Property(e => e.Options)
+                .HasConversion(
+                    v => v == null ? null : JsonSerializer.Serialize(v, (JsonSerializerOptions?)null),
+                    v => v == null ? null : JsonSerializer.Deserialize<List<ProductOption>>(v, (JsonSerializerOptions?)null));
 
             // Ignore computed properties
             entity.Ignore(e => e.CategoryId);
@@ -123,6 +129,11 @@ public class ECommDbContext : DbContext
                 .HasConversion(
                     v => JsonSerializer.Serialize(v, (JsonSerializerOptions?)null),
                     v => JsonSerializer.Deserialize<List<OrderItem>>(v, (JsonSerializerOptions?)null) ?? new List<OrderItem>());
+
+            entity.Property(e => e.CustomProperties)
+                .HasConversion(
+                    v => v == null ? null : JsonSerializer.Serialize(v, (JsonSerializerOptions?)null),
+                    v => v == null ? null : JsonSerializer.Deserialize<List<CustomProperty>>(v, (JsonSerializerOptions?)null));
 
             entity.HasIndex(e => new { e.TenantId, e.MarketId });
             entity.HasIndex(e => e.Status);
@@ -200,6 +211,20 @@ public class ECommDbContext : DbContext
 
             entity.HasIndex(e => e.TenantId);
             entity.HasIndex(e => new { e.TenantId, e.Code }).IsUnique();
+        });
+
+        // Configure Discount entity
+        modelBuilder.Entity<Discount>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.TenantId).IsRequired();
+            entity.Property(e => e.MarketId).IsRequired();
+            entity.Property(e => e.Code).IsRequired();
+            entity.Property(e => e.Name).IsRequired();
+            entity.Property(e => e.Value).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.MinOrderValue).HasColumnType("decimal(18,2)");
+            entity.HasIndex(e => new { e.TenantId, e.MarketId });
+            entity.HasIndex(e => new { e.TenantId, e.Code });
         });
 
         // Configure User entity

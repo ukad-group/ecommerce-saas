@@ -56,8 +56,13 @@ export function MarketForm({
     { value: 'USD', label: 'USD - US Dollar' },
     { value: 'EUR', label: 'EUR - Euro' },
     { value: 'GBP', label: 'GBP - British Pound' },
+    { value: 'SEK', label: 'SEK - Swedish Krona' },
+    { value: 'NOK', label: 'NOK - Norwegian Krone' },
+    { value: 'DKK', label: 'DKK - Danish Krone' },
     { value: 'CAD', label: 'CAD - Canadian Dollar' },
     { value: 'AUD', label: 'AUD - Australian Dollar' },
+    { value: 'CHF', label: 'CHF - Swiss Franc' },
+    { value: 'PLN', label: 'PLN - Polish Złoty' },
   ];
 
   const timezoneOptions = [

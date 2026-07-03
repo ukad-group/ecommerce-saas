@@ -37,16 +37,16 @@ public class TenantInfoController : ControllerBase
             return Forbid();
         }
 
-        // Get the specific market this API key has access to
-        var apiKeyMarketId = User.FindFirst("MarketId")?.Value;
+        // Return all active markets for the tenant so external integrations can show market switchers
         var markets = _store.GetMarketsByTenant(tenantId)
-            .Where(m => m.Status == "active" && m.Id == apiKeyMarketId)
+            .Where(m => m.Status == "active")
             .Select(m => new
             {
                 id = m.Id,
                 name = m.Name,
                 code = m.Code,
-                currency = m.Currency
+                currency = m.Currency,
+                cartOrderStatus = m.Settings?.CartOrderStatus ?? "new"
             })
             .ToList();
 

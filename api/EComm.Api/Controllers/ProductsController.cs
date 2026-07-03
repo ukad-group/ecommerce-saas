@@ -119,6 +119,11 @@ public class ProductsController : ControllerBase
             return BadRequest(new { message = "TenantId and MarketId are required" });
         }
 
+        // Always derive currency from the market (single currency per market)
+        var market = _store.GetMarket(product.MarketId);
+        if (market != null)
+            product.Currency = market.Currency;
+
         _store.AddProduct(product);
         return CreatedAtAction(nameof(GetProduct), new { id = product.Id }, product);
     }
@@ -138,10 +143,11 @@ public class ProductsController : ControllerBase
         // Ensure ID matches
         product.Id = id;
 
-        // Preserve original tenant/market/created date
+        // Preserve original tenant/market/created date and market-derived currency
         product.TenantId = existingProduct.TenantId;
         product.MarketId = existingProduct.MarketId;
         product.CreatedAt = existingProduct.CreatedAt;
+        product.Currency = existingProduct.Currency; // currency is market-level, not editable per product
 
         // Update product with versioning
         _store.UpdateProduct(product, userId ?? "system", product.ChangeNotes);

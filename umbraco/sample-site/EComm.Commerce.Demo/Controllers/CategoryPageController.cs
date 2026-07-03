@@ -181,6 +181,21 @@ public class CategoryPageController : RenderController
             viewModel.ErrorMessage = "Unable to load product. Please check the Commerce Settings configuration.";
         }
 
+        // Resolve the product's option blocks against the store-global presets library
+        if (viewModel.Product?.Options != null &&
+            viewModel.Product.Options.Any(b => !b.Disabled && b.OptionIds.Any()))
+        {
+            try
+            {
+                var presets = _commerceApiClient.GetOptionPresetsAsync().GetAwaiter().GetResult();
+                viewModel.OptionPresets = presets.ToDictionary(p => p.Id);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching option presets");
+            }
+        }
+
         return View("ProductPage", viewModel);
     }
 

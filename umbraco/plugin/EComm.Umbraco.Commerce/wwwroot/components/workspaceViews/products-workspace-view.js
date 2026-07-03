@@ -3,10 +3,13 @@ import { UmbElementMixin } from '@umbraco-cms/backoffice/element-api';
 import { UMB_AUTH_CONTEXT } from '@umbraco-cms/backoffice/auth';
 import { UMB_CURRENT_USER_CONTEXT } from '@umbraco-cms/backoffice/current-user';
 import { UMB_DOCUMENT_WORKSPACE_CONTEXT } from '@umbraco-cms/backoffice/document';
+import { UMB_MODAL_MANAGER_CONTEXT } from '@umbraco-cms/backoffice/modal';
+import { UMB_MEDIA_PICKER_MODAL } from '@umbraco-cms/backoffice/media';
 
 class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
   static properties = {
     categoryId: { type: String },
+    storeId: { type: String },
     products: { type: Array },
     loading: { type: Boolean },
     error: { type: String },
@@ -17,12 +20,54 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
     saving: { type: Boolean },
     saveSuccess: { type: String },
     validationErrors: { type: Object },
-    currentUser: { type: Object }
+    currentUser: { type: Object },
+    creatingVariants: { type: Boolean },
+    newVariantOptions: { type: Array },
+    newOptionName: { type: String },
+    newOptionValues: { type: String },
+    defaultVariantPrice: { type: String },
+    defaultVariantStock: { type: String },
+    newBaseSku: { type: String },
+    confirmDeleteProductId: { type: String },
+    confirmDeleteVariantId: { type: String },
+    newProductImageUrl: { type: String },
+    newCreateImageUrl: { type: String },
+    imageUploading: { type: Boolean },
+    creatingProduct: { type: Boolean },
+    newProduct: { type: Object },
+    createProductErrors: { type: Object },
+    createSaving: { type: Boolean },
+    addingVariant: { type: Boolean },
+    newVariant: { type: Object },
+    addVariantErrors: { type: Object },
+    newProductVariantOptionName: { type: String },
+    newProductVariantOptionValues: { type: String },
+    newProductOptionCardValues: { type: Object },
+    newProductType: { type: String },
+    editingOptions: { type: Boolean },
+    editOptionsDraft: { type: Array },
+    editOptionsNewName: { type: String },
+    editOptionsDraftNewValues: { type: Object },
+    highlightsText: { type: String },
+    newProductHighlightsText: { type: String },
+    selectedProductId: { type: String },
+    productSearchQuery: { type: String },
+    variantSearchQuery: { type: String },
+    // Product option blocks + store-global presets picker
+    editingProductOptions: { type: Boolean },
+    optionPresets: { type: Array },
+    _optionPickerBlockId: { type: String },
+    _optionPickerSearch:  { type: String },
+    _optionPickerPage:    { type: Number },
+    productId: { type: String },
+    _mode: { type: String },
+    _contentTypeAlias: { type: String, state: true },
   };
 
   constructor() {
     super();
     this.categoryId = null;
+    this.storeId = null;
     this.products = [];
     this.loading = false;
     this.error = null;
@@ -34,10 +79,53 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
     this.saveSuccess = null;
     this.validationErrors = {};
     this.currentUser = null;
+    this.creatingVariants = false;
+    this.newVariantOptions = [];
+    this.newOptionName = '';
+    this.newOptionValues = '';
+    this.defaultVariantPrice = '';
+    this.defaultVariantStock = '';
+    this.newBaseSku = '';
+    this.confirmDeleteProductId = null;
+    this.confirmDeleteVariantId = null;
+    this.newProductImageUrl = '';
+    this.newCreateImageUrl = '';
+    this.imageUploading = false;
+    this._imageMediaTypeId = null;
+    this.creatingProduct = false;
+    this.addingVariant = false;
+    this.newVariant = null;
+    this.addVariantErrors = {};
+    this.newProduct = null;
+    this.createProductErrors = {};
+    this.createSaving = false;
+    this.newProductVariantOptionName = '';
+    this.newProductVariantOptionValues = '';
+    this.newProductType = null;
+    this.editingOptions = false;
+    this.editOptionsDraft = [];
+    this.editOptionsNewName = '';
+    this.editOptionsDraftNewValues = {};
+    this.highlightsText = '';
+    this.newProductHighlightsText = '';
+    this.selectedProductId = null;
+    this.productSearchQuery = '';
+    this.variantSearchQuery = '';
+    // Product option blocks + store-global presets picker
+    this.editingProductOptions = false;
+    this.optionPresets = [];
+    this._optionPickerBlockId = null; this._optionPickerSearch = ''; this._optionPickerPage = 1;
+    this.productId = null;
+    this._mode = 'category';
+    this._contentTypeAlias = null;
 
-    // Consume auth context for API calls
+    // Consume auth context for API calls. loadDefaultAliases() is fired from here rather
+    // than connectedCallback() - the auth context resolves asynchronously, so calling it
+    // unconditionally in connectedCallback() could race ahead of _authContext being set,
+    // sending an unauthenticated request that gets a 401.
     this.consumeContext(UMB_AUTH_CONTEXT, (authContext) => {
       this._authContext = authContext;
+      this.loadDefaultAliases();
     });
 
     // Consume current user context
@@ -49,11 +137,24 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
       }
     });
 
+    // Consume modal manager context for media picker
+    this.consumeContext(UMB_MODAL_MANAGER_CONTEXT, (ctx) => {
+      this._modalManager = ctx;
+    });
+
     // Consume workspace context to get document data
     this.consumeContext(UMB_DOCUMENT_WORKSPACE_CONTEXT, (workspaceContext) => {
       if (!workspaceContext) return;
 
       this._workspaceContext = workspaceContext;
+
+      // Content type alias gates which document types this view actually applies to
+      // (the manifest condition matches every document workspace, not just category/product pages).
+      if (workspaceContext.structure?.ownerContentType) {
+        this.observe(workspaceContext.structure.ownerContentType, (contentType) => {
+          this._contentTypeAlias = contentType?.alias ?? null;
+        });
+      }
 
       // Observe workspace data for property changes
       if (workspaceContext.data) {
@@ -62,35 +163,40 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
           (data) => {
             if (!data) return;
 
-            // Extract categoryId from data.values array using dynamic alias
             let newCategoryId = null;
+            let newProductId = null;
+            let newStoreId = null;
             if (data.values && Array.isArray(data.values)) {
               const aliasToUse = this.defaultAliases?.categoryIdPropertyAlias || 'categoryId';
               const categoryIdProp = data.values.find(v => v?.alias === aliasToUse);
-              if (categoryIdProp) {
-                newCategoryId = categoryIdProp.value;
-              }
+              if (categoryIdProp) newCategoryId = categoryIdProp.value;
+
+              const productIdAlias = this.defaultAliases?.productIdPropertyAlias || 'productId';
+              const productIdProp = data.values.find(v => v?.alias === productIdAlias);
+              if (productIdProp) newProductId = productIdProp.value;
+
+              // Sibling store/market picker - same alias category-picker.js watches, so
+              // products load from whichever market the category itself belongs to.
+              const storeIdAlias = this.defaultAliases?.storeIdPropertyAlias || 'storeId';
+              const storeIdProp = data.values.find(v => v?.alias === storeIdAlias);
+              if (storeIdProp) newStoreId = storeIdProp.value;
             }
 
-            // Only reload if categoryId actually changed
-            if (newCategoryId !== this.categoryId) {
-              this.categoryId = newCategoryId;
-              if (newCategoryId) {
-                this.loadProducts();
-              } else {
-                this.products = [];
-                this.error = null;
-              }
+            const categoryChanged = newCategoryId !== this.categoryId;
+            const productChanged = newProductId !== this.productId;
+            const storeChanged = newStoreId !== this.storeId;
+
+            this.categoryId = newCategoryId;
+            this.productId = newProductId;
+            this.storeId = newStoreId;
+
+            if (categoryChanged || productChanged || storeChanged) {
+              this._refreshView();
             }
           }
         );
       }
     });
-  }
-
-  connectedCallback() {
-    super.connectedCallback();
-    this.loadDefaultAliases();
   }
 
   async loadDefaultAliases() {
@@ -112,7 +218,9 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
       // Use hardcoded fallbacks if fetch fails
       this.defaultAliases = {
         categoryPageAlias: 'categoryPage',
-        categoryIdPropertyAlias: 'categoryId'
+        categoryIdPropertyAlias: 'categoryId',
+        storeIdPropertyAlias: 'storeId',
+        productIdPropertyAlias: 'productId'
       };
     }
   }
@@ -136,8 +244,9 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
 
     try {
       const headers = await this.getAuthHeaders();
+      const qs = this.storeId ? `?marketId=${encodeURIComponent(this.storeId)}` : '';
       const response = await fetch(
-        `/umbraco/management/api/ecomm-commerce/products/${this.categoryId}`,
+        `/umbraco/management/api/ecomm-commerce/products/${this.categoryId}${qs}`,
         {
           headers: headers,
           credentials: 'include'
@@ -161,6 +270,47 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
     }
   }
 
+  _refreshView() {
+    if (this.productId) {
+      this._mode = 'single-product';
+      this._loadSingleProduct(this.productId);
+    } else if (this.categoryId) {
+      this._mode = 'category';
+      this.loadProducts();
+    } else {
+      this._mode = 'category';
+      this.products = [];
+      this.error = null;
+    }
+  }
+
+  async _loadSingleProduct(productId) {
+    this.loading = true;
+    this.error = null;
+
+    try {
+      const headers = await this.getAuthHeaders();
+      const response = await fetch(
+        `/umbraco/management/api/ecomm-commerce/product/${productId}`,
+        { headers, credentials: 'include' }
+      );
+
+      if (response.ok) {
+        const product = await response.json();
+        this.products = [product];
+        this.selectProduct(product);
+      } else {
+        const errorText = await response.text();
+        this.error = `Failed to load product: ${errorText || response.statusText}`;
+      }
+    } catch (err) {
+      console.error('Failed to load single product:', err);
+      this.error = 'Failed to connect to eCommerce API: ' + err.message;
+    } finally {
+      this.loading = false;
+    }
+  }
+
   toggleProductEdit(product) {
     if (this.expandedProductId === product.id) {
       // Collapse if already editing
@@ -169,30 +319,69 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
       this.editedVariantId = null;
       this.validationErrors = {};
       this.saveSuccess = null;
+      this.creatingVariants = false;
+      this.newVariantOptions = [];
+      this.newOptionName = '';
+      this.newOptionValues = '';
+      this.newBaseSku = '';
     } else {
       // Expand and create editable copy
       this.expandedProductId = product.id;
       this.editedProduct = { ...product };
+      this.highlightsText = (product.highlights || []).join('\n');
       this.editedVariantId = null;
       this.validationErrors = {};
       this.saveSuccess = null;
       this.error = null;
+      this.creatingVariants = false;
+      this.newVariantOptions = [];
+      this.newOptionName = '';
+      this.newOptionValues = '';
+      this.newBaseSku = '';
     }
+  }
+
+  selectProduct(product) {
+    this.selectedProductId = product.id;
+    this.editedProduct = { ...product };
+    this.highlightsText = (product.highlights || []).join('\n');
+    this.editedVariantId = null;
+    this.validationErrors = {};
+    this.saveSuccess = null;
+    this.error = null;
+    this.creatingVariants = false;
+    this.editingOptions = false;
+    this.editingProductOptions = false;
+    this.addingVariant = false;
+    this.creatingProduct = false;
+    this.variantSearchQuery = '';
   }
 
   toggleVariantEdit(variant) {
     if (this.editedVariantId === variant.id) {
-      // Collapse if already editing
       this.editedVariantId = null;
       this.validationErrors = {};
       this.saveSuccess = null;
+      this.variantActiveTab = 'content';
     } else {
-      // Expand and set as editing
       this.editedVariantId = variant.id;
       this.validationErrors = {};
       this.saveSuccess = null;
       this.error = null;
+      this.variantActiveTab = 'content';
     }
+  }
+
+  handleHighlightsInput(text) {
+    this.highlightsText = text;
+    const lines = text.split('\n').map(s => s.trim()).filter(s => s.length > 0);
+    this.editedProduct = { ...this.editedProduct, highlights: lines };
+  }
+
+  handleNewProductHighlightsInput(text) {
+    this.newProductHighlightsText = text;
+    const lines = text.split('\n').map(s => s.trim()).filter(s => s.length > 0);
+    this.newProduct = { ...this.newProduct, highlights: lines };
   }
 
   handleProductInput(field, value) {
@@ -288,14 +477,11 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
           p.id === updated.id ? updated : p
         );
 
+        this.editedProduct = { ...updated };
+        this.highlightsText = (updated.highlights || []).join('\n');
         this.saveSuccess = `Product updated successfully (v${updated.version})`;
 
-        // Collapse edit form after 2 seconds
-        setTimeout(() => {
-          this.expandedProductId = null;
-          this.editedProduct = null;
-          this.saveSuccess = null;
-        }, 2000);
+        setTimeout(() => { this.saveSuccess = null; }, 2000);
 
       } else {
         const errorText = await response.text();
@@ -311,11 +497,369 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
 
   cancelEdit() {
     this.expandedProductId = null;
+    this.selectedProductId = null;
     this.editedProduct = null;
     this.editedVariantId = null;
     this.validationErrors = {};
     this.saveSuccess = null;
     this.error = null;
+    this.creatingVariants = false;
+    this.newVariantOptions = [];
+    this.newOptionName = '';
+    this.newOptionValues = '';
+    this.confirmDeleteProductId = null;
+    this.confirmDeleteVariantId = null;
+    this.addingVariant = false;
+    this.newVariant = null;
+    this.addVariantErrors = {};
+    this.editingOptions = false;
+    this.editOptionsDraft = [];
+    this.editOptionsNewName = '';
+    this.editOptionsDraftNewValues = {};
+  }
+
+  startEditOptions() {
+    this.editOptionsDraft = (this.editedProduct?.variantOptions || []).map(opt => ({
+      originalName: opt.name,
+      name: opt.name,
+      values: [...(opt.values || [])],
+    }));
+    this.editOptionsNewName = '';
+    this.editOptionsDraftNewValues = {};
+    this.editingOptions = true;
+    this.error = null;
+  }
+
+  cancelEditOptions() {
+    this.editingOptions = false;
+    this.editOptionsDraft = [];
+    this.editOptionsNewName = '';
+    this.editOptionsDraftNewValues = {};
+    this.error = null;
+  }
+
+  handleOptionDraftName(index, value) {
+    this.editOptionsDraft = this.editOptionsDraft.map((opt, i) =>
+      i === index ? { ...opt, name: value } : opt
+    );
+  }
+
+  removeOptionDraft(index) {
+    this.editOptionsDraft = this.editOptionsDraft.filter((_, i) => i !== index);
+  }
+
+  addOptionDraft() {
+    const name = (this.editOptionsNewName || '').trim();
+    if (!name) return;
+    if (this.editOptionsDraft.some(o => o.name.toLowerCase() === name.toLowerCase())) {
+      this.error = `Option "${name}" already exists`;
+      return;
+    }
+    this.editOptionsDraft = [...this.editOptionsDraft, { originalName: null, name, values: [] }];
+    this.editOptionsNewName = '';
+    this.error = null;
+  }
+
+  handleOptionDraftNewValue(index, value) {
+    this.editOptionsDraftNewValues = { ...this.editOptionsDraftNewValues, [index]: value };
+  }
+
+  addValueToOptionDraft(index) {
+    const value = (this.editOptionsDraftNewValues[index] || '').trim();
+    if (!value) return;
+    const opt = this.editOptionsDraft[index];
+    if (opt.values.some(v => v.toLowerCase() === value.toLowerCase())) {
+      this.error = `Value "${value}" already exists for "${opt.name}"`;
+      return;
+    }
+    this.editOptionsDraft = this.editOptionsDraft.map((o, i) =>
+      i === index ? { ...o, values: [...o.values, value] } : o
+    );
+    this.editOptionsDraftNewValues = { ...this.editOptionsDraftNewValues, [index]: '' };
+    this.error = null;
+  }
+
+  removeValueFromOptionDraft(optionIndex, valueIndex) {
+    this.editOptionsDraft = this.editOptionsDraft.map((o, i) =>
+      i === optionIndex ? { ...o, values: o.values.filter((_, vi) => vi !== valueIndex) } : o
+    );
+  }
+
+  async saveOptionsUpdate() {
+    // Validate: no duplicate or empty names
+    const names = this.editOptionsDraft.map(o => o.name.trim()).filter(Boolean);
+    if (names.length !== new Set(names.map(n => n.toLowerCase())).size) {
+      this.error = 'Option names must be unique';
+      return;
+    }
+
+    // Build rename map: originalName → new name (only for renames)
+    const renameMap = {};
+    for (const opt of this.editOptionsDraft) {
+      if (opt.originalName && opt.originalName !== opt.name) {
+        renameMap[opt.originalName] = opt.name;
+      }
+    }
+
+    // Names that were removed entirely
+    const remainingOriginals = new Set(
+      this.editOptionsDraft.map(o => o.originalName).filter(Boolean)
+    );
+    const removedNames = (this.editedProduct?.variantOptions || [])
+      .map(o => o.name)
+      .filter(name => !remainingOriginals.has(name));
+
+    // Apply renames and removals to existing variants
+    const updatedVariants = (this.editedProduct?.variants || []).map(variant => {
+      const newOptions = { ...variant.options };
+      for (const [oldName, newName] of Object.entries(renameMap)) {
+        if (oldName in newOptions) {
+          newOptions[newName] = newOptions[oldName];
+          delete newOptions[oldName];
+        }
+      }
+      for (const removed of removedNames) {
+        delete newOptions[removed];
+      }
+      return { ...variant, options: newOptions };
+    });
+
+    this.editedProduct = {
+      ...this.editedProduct,
+      variantOptions: this.editOptionsDraft.map(d => ({ name: d.name.trim(), values: d.values })),
+      variants: updatedVariants,
+    };
+
+    await this.saveProduct();
+    this.editingOptions = false;
+    this.editOptionsDraft = [];
+    this.editOptionsNewName = '';
+    this.editOptionsDraftNewValues = {};
+  }
+
+  async deleteProduct(productId) {
+    this.saving = true;
+    this.error = null;
+    this.confirmDeleteProductId = null;
+
+    try {
+      const headers = await this.getAuthHeaders();
+      const response = await fetch(
+        `/umbraco/management/api/ecomm-commerce/products/${productId}/delete`,
+        { method: 'POST', headers, credentials: 'include' }
+      );
+
+      if (response.ok) {
+        this.products = this.products.filter(p => p.id !== productId);
+        this.expandedProductId = null;
+        this.selectedProductId = null;
+        this.editedProduct = null;
+      } else {
+        const text = await response.text();
+        this.error = `Failed to delete: ${text || response.statusText}`;
+      }
+    } catch (err) {
+      this.error = 'Failed to delete product: ' + err.message;
+    } finally {
+      this.saving = false;
+    }
+  }
+
+  deleteVariant(variantId) {
+    if (!this.editedProduct?.variants) return;
+    this.editedProduct = {
+      ...this.editedProduct,
+      variants: this.editedProduct.variants.filter(v => v.id !== variantId)
+    };
+    this.confirmDeleteVariantId = null;
+    this.editedVariantId = null;
+    this.saveProduct();
+  }
+
+  startCreateVariants() {
+    this.creatingVariants = true;
+    this.newVariantOptions = [];
+    this.newOptionName = '';
+    this.newOptionValues = '';
+    this.defaultVariantPrice = String(this.editedProduct?.price || '');
+    this.defaultVariantStock = '';
+    this.newBaseSku = this.editedProduct?.sku
+      || (this.editedProduct?.name || '').toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
+      || '';
+    this.error = null;
+    this.validationErrors = {};
+  }
+
+  cancelCreateVariants() {
+    this.creatingVariants = false;
+    this.newVariantOptions = [];
+    this.newOptionName = '';
+    this.newOptionValues = '';
+    this.newBaseSku = '';
+    this.error = null;
+  }
+
+  startAddVariant() {
+    // Pre-fill options with first available value for each existing option type
+    const options = {};
+    for (const opt of (this.editedProduct?.variantOptions || [])) {
+      options[opt.name] = opt.values[0] || '';
+    }
+    this.addingVariant = true;
+    this.newVariant = {
+      sku: '',
+      price: this.editedProduct?.variants?.[0]?.price ?? this.editedProduct?.price ?? 0,
+      stockQuantity: 0,
+      status: 'active',
+      isDefault: false,
+      options,
+    };
+    this.addVariantErrors = {};
+    this.error = null;
+  }
+
+  cancelAddVariant() {
+    this.addingVariant = false;
+    this.newVariant = null;
+    this.addVariantErrors = {};
+  }
+
+  handleNewVariantInput(field, value) {
+    this.newVariant = { ...this.newVariant, [field]: value };
+    if (this.addVariantErrors[field]) {
+      this.addVariantErrors = { ...this.addVariantErrors, [field]: null };
+    }
+  }
+
+  handleNewVariantOption(optionName, value) {
+    this.newVariant = {
+      ...this.newVariant,
+      options: { ...this.newVariant.options, [optionName]: value },
+    };
+  }
+
+  validateNewVariant() {
+    const errors = {};
+    if (!this.newVariant.sku || this.newVariant.sku.trim() === '') {
+      errors.sku = 'SKU is required';
+    }
+    const price = parseFloat(this.newVariant.price);
+    if (isNaN(price) || price < 0) {
+      errors.price = 'Valid price is required';
+    }
+    this.addVariantErrors = errors;
+    return Object.keys(errors).length === 0;
+  }
+
+  async submitAddVariant() {
+    if (!this.validateNewVariant()) return;
+
+    const newVariant = {
+      id: `new-${Date.now()}`,
+      sku: (this.newVariant.sku || '').trim(),
+      price: parseFloat(this.newVariant.price) || 0,
+      salePrice: null,
+      stockQuantity: parseInt(this.newVariant.stockQuantity) || 0,
+      lowStockThreshold: 5,
+      images: [],
+      options: this.newVariant.options || {},
+      status: this.newVariant.status || 'active',
+      isDefault: false,
+    };
+
+    this.editedProduct = {
+      ...this.editedProduct,
+      hasVariants: true,
+      variants: [...(this.editedProduct.variants || []), newVariant],
+    };
+
+    this.addingVariant = false;
+    this.newVariant = null;
+    this.addVariantErrors = {};
+
+    await this.saveProduct();
+  }
+
+  addVariantOption() {
+    const name = (this.newOptionName || '').trim();
+    const valuesRaw = (this.newOptionValues || '').trim();
+
+    if (!name) {
+      this.error = 'Option name is required';
+      return;
+    }
+    if (!valuesRaw) {
+      this.error = 'At least one value is required';
+      return;
+    }
+    if (this.newVariantOptions.some(o => o.name.toLowerCase() === name.toLowerCase())) {
+      this.error = `Option "${name}" already exists`;
+      return;
+    }
+
+    const values = valuesRaw.split(',').map(v => v.trim()).filter(v => v.length > 0);
+    if (values.length === 0) {
+      this.error = 'At least one non-empty value is required';
+      return;
+    }
+
+    this.newVariantOptions = [...this.newVariantOptions, { name, values }];
+    this.newOptionName = '';
+    this.newOptionValues = '';
+    this.error = null;
+  }
+
+  removeVariantOption(index) {
+    this.newVariantOptions = this.newVariantOptions.filter((_, i) => i !== index);
+  }
+
+  generateVariantCombinations() {
+    let combinations = [{}];
+    for (const opt of this.newVariantOptions) {
+      const next = [];
+      for (const combo of combinations) {
+        for (const val of opt.values) {
+          next.push({ ...combo, [opt.name]: val });
+        }
+      }
+      combinations = next;
+    }
+    return combinations;
+  }
+
+  async saveProductWithVariants() {
+    const combinations = this.generateVariantCombinations();
+    const basePrice = parseFloat(this.defaultVariantPrice) || 0;
+    const baseStock = parseInt(this.defaultVariantStock) || 0;
+    const baseSku = (this.newBaseSku || '').trim() || this.editedProduct?.id || 'variant';
+
+    const variants = combinations.map((combo, i) => ({
+      id: `new-${i}`,
+      sku: Object.keys(combo).length > 0
+        ? `${baseSku}-${Object.values(combo).join('-').toLowerCase().replace(/\s+/g, '-')}`
+        : baseSku,
+      price: basePrice,
+      salePrice: null,
+      stockQuantity: baseStock,
+      lowStockThreshold: 5,
+      images: [],
+      options: combo,
+      status: 'active',
+      isDefault: i === 0,
+    }));
+
+    this.editedProduct = {
+      ...this.editedProduct,
+      hasVariants: true,
+      variantOptions: this.newVariantOptions.map(o => ({ name: o.name, values: o.values })),
+      variants,
+    };
+
+    await this.saveProduct();
+    this.creatingVariants = false;
+    this.newVariantOptions = [];
+    this.defaultVariantPrice = '';
+    this.defaultVariantStock = '';
   }
 
   handleVariantInput(variantId, field, value) {
@@ -345,18 +889,1068 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
     }
   }
 
+  handleVariantOptionInput(variantId, optionName, value) {
+    if (!this.editedProduct?.variants) return;
+    const idx = this.editedProduct.variants.findIndex(v => v.id === variantId);
+    if (idx === -1) return;
+    const updated = [...this.editedProduct.variants];
+    updated[idx] = {
+      ...updated[idx],
+      options: { ...updated[idx].options, [optionName]: value },
+    };
+    this.editedProduct = { ...this.editedProduct, variants: updated };
+  }
+
   validateVariant(variant) {
     const errors = {};
+
+    if (!variant.sku || variant.sku.trim() === '') {
+      errors[`variant_${variant.id}_sku`] = 'SKU is required';
+    }
 
     if (variant.price == null || variant.price < 0) {
       errors[`variant_${variant.id}_price`] = 'Valid price is required';
     }
 
-    if (variant.stockQuantity == null || variant.stockQuantity < 0) {
-      errors[`variant_${variant.id}_stockQuantity`] = 'Stock quantity must be 0 or greater';
+    return errors;
+  }
+
+  addImageToEditedProduct() {
+    const url = (this.newProductImageUrl || '').trim();
+    if (!url) return;
+    this.editedProduct = {
+      ...this.editedProduct,
+      images: [...(this.editedProduct.images || []), url],
+    };
+    this.newProductImageUrl = '';
+  }
+
+  removeImageFromEditedProduct(index) {
+    this.editedProduct = {
+      ...this.editedProduct,
+      images: (this.editedProduct.images || []).filter((_, i) => i !== index),
+    };
+  }
+
+  addImageToNewProduct() {
+    const url = (this.newCreateImageUrl || '').trim();
+    if (!url) return;
+    this.newProduct = {
+      ...this.newProduct,
+      images: [...(this.newProduct.images || []), url],
+    };
+    this.newCreateImageUrl = '';
+  }
+
+  removeImageFromNewProduct(index) {
+    this.newProduct = {
+      ...this.newProduct,
+      images: (this.newProduct.images || []).filter((_, i) => i !== index),
+    };
+  }
+
+  openFilePicker(context) {
+    // Must be called synchronously from a user gesture (button click) to avoid browser security block
+    const input = this.shadowRoot?.querySelector(`#file-input-${context}`);
+    input?.click();
+  }
+
+  async handleFileSelected(event, context) {
+    const file = event.target?.files?.[0];
+    if (!file) return;
+    event.target.value = ''; // Allow re-selecting same file
+
+    this.imageUploading = true;
+    this.error = null;
+    try {
+      const url = await this.uploadToUmbracoMedia(file);
+      if (url) {
+        if (context === 'edit') {
+          this.editedProduct = {
+            ...this.editedProduct,
+            images: [...(this.editedProduct.images || []), url],
+          };
+        } else {
+          this.newProduct = {
+            ...this.newProduct,
+            images: [...(this.newProduct.images || []), url],
+          };
+        }
+      } else {
+        this.error = 'Image upload failed. Try pasting a URL instead.';
+      }
+    } finally {
+      this.imageUploading = false;
+    }
+  }
+
+  async uploadToUmbracoMedia(file) {
+    try {
+      const token = await this._authContext?.getLatestToken();
+      const authHeader = `Bearer ${token}`;
+
+      // Step 1: Upload to Umbraco temporary file slot
+      const tempId = crypto.randomUUID();
+      const form = new FormData();
+      form.append('Id', tempId);
+      form.append('File', file);
+
+      const uploadRes = await fetch('/umbraco/management/api/v1/temporary-file', {
+        method: 'POST',
+        headers: { 'Authorization': authHeader },
+        credentials: 'include',
+        body: form,
+        // Do NOT set Content-Type — browser sets multipart boundary automatically
+      });
+
+      if (!uploadRes.ok) {
+        console.error('Temp file upload failed:', uploadRes.status, await uploadRes.text());
+        return null;
+      }
+
+      // Step 2: Look up the Image media type GUID (cached after first call)
+      const mediaTypeId = await this.getImageMediaTypeId(authHeader);
+      if (!mediaTypeId) {
+        console.error('Could not resolve Image media type ID');
+        return null;
+      }
+
+      // Step 3: Create a media item referencing the temp file
+      const mediaId = crypto.randomUUID();
+      const createRes = await fetch('/umbraco/management/api/v1/media', {
+        method: 'POST',
+        headers: {
+          'Authorization': authHeader,
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          id: mediaId,
+          parent: null,
+          mediaType: { id: mediaTypeId },
+          variants: [{ culture: null, segment: null, name: file.name }],
+          values: [{
+            alias: 'umbracoFile',
+            editorAlias: '',
+            culture: null,
+            segment: null,
+            value: { temporaryFileId: tempId },
+          }],
+        }),
+      });
+
+      if (!createRes.ok) {
+        console.error('Media create failed:', createRes.status, await createRes.text());
+        return null;
+      }
+
+      // Step 4: Resolve the public URL — prefer Location header, fall back to the ID we sent
+      const locationHeader = createRes.headers.get('Location');
+      const newMediaKey = locationHeader?.split('/').pop() || mediaId;
+
+      const urls = await this.resolveUmbracoMediaUrls([newMediaKey], authHeader);
+      return urls[0] || null;
+    } catch (err) {
+      console.error('uploadToUmbracoMedia error:', err);
+      return null;
+    }
+  }
+
+  async getImageMediaTypeId(authHeader) {
+    if (this._imageMediaTypeId) return this._imageMediaTypeId;
+
+    try {
+      const res = await fetch('/umbraco/management/api/v1/media-type?skip=0&take=50', {
+        headers: { 'Authorization': authHeader },
+        credentials: 'include',
+      });
+      if (!res.ok) return null;
+
+      const data = await res.json();
+      const imageType = (data.items || []).find(t =>
+        t.name === 'Image' || t.alias === 'Image' || t.name?.toLowerCase() === 'image'
+      );
+
+      if (imageType?.id) {
+        this._imageMediaTypeId = imageType.id;
+      }
+      return this._imageMediaTypeId || null;
+    } catch {
+      return null;
+    }
+  }
+
+  async resolveUmbracoMediaUrls(keys, authHeader) {
+    try {
+      if (!authHeader) {
+        const token = await this._authContext?.getLatestToken();
+        authHeader = `Bearer ${token}`;
+      }
+
+      const params = keys.map(k => `id=${encodeURIComponent(k)}`).join('&');
+      const res = await fetch(`/umbraco/management/api/v1/media/urls?${params}`, {
+        headers: { 'Authorization': authHeader },
+        credentials: 'include',
+      });
+      if (!res.ok) return [];
+
+      const data = await res.json();
+      // Response: Array of { unique: string, urlInfos: [{ url: string, culture: string|null }] }
+      return (Array.isArray(data) ? data : [])
+        .map(item => item.urlInfos?.[0]?.url || null)
+        .filter(Boolean);
+    } catch {
+      return [];
+    }
+  }
+
+  async pickFromUmbraco(context) {
+    if (!this._modalManager) {
+      this.error = 'Media picker not available. Try refreshing the page.';
+      return;
     }
 
-    return errors;
+    try {
+      const modal = this._modalManager.open(this, UMB_MEDIA_PICKER_MODAL, {
+        data: { multiple: true },
+        value: { selection: [] },
+      });
+
+      const result = await modal.onSubmit().catch(() => null);
+      const keys = (result?.selection || []).filter(Boolean);
+      if (!keys.length) return;
+
+      this.imageUploading = true;
+      try {
+        const urls = await this.resolveUmbracoMediaUrls(keys);
+        if (!urls.length) {
+          this.error = 'Could not resolve media URLs. The selected items may not have a public URL.';
+          return;
+        }
+
+        if (context === 'edit') {
+          this.editedProduct = {
+            ...this.editedProduct,
+            images: [...(this.editedProduct.images || []), ...urls],
+          };
+        } else {
+          this.newProduct = {
+            ...this.newProduct,
+            images: [...(this.newProduct.images || []), ...urls],
+          };
+        }
+      } finally {
+        this.imageUploading = false;
+      }
+    } catch (err) {
+      console.error('Media picker error:', err);
+      this.error = 'Media picker failed. Please try again.';
+    }
+  }
+
+  // ─── Product Options (add-on accessories) handlers ───────────────────────
+
+  startManageOptions() {
+    this.editingProductOptions = true;
+    this.error = null;
+    this.loadOptionPresets();
+  }
+
+  cancelManageOptions() {
+    this.editingProductOptions = false;
+    this.error = null;
+  }
+
+  async loadOptionPresets() {
+    try {
+      const headers = await this.getAuthHeaders();
+      const response = await fetch(
+        '/umbraco/management/api/ecomm-commerce/option-presets',
+        { headers }
+      );
+      if (response.ok) {
+        this.optionPresets = (await response.json()) || [];
+      }
+    } catch (e) {
+      console.error('Failed to load option presets', e);
+    }
+  }
+
+  addOptionBlock() {
+    this.editedProduct = {
+      ...this.editedProduct,
+      options: [...(this.editedProduct.options || []), {
+        id: `block-${Date.now()}`,
+        title: '',
+        description: '',
+        optionIds: [],
+        disabled: false,
+      }],
+    };
+  }
+
+  removeOptionBlock(blockId) {
+    this.editedProduct = {
+      ...this.editedProduct,
+      options: (this.editedProduct.options || []).filter(b => b.id !== blockId),
+    };
+  }
+
+  handleBlockInput(blockId, field, value) {
+    this.editedProduct = {
+      ...this.editedProduct,
+      options: (this.editedProduct.options || []).map(b =>
+        b.id === blockId ? { ...b, [field]: value } : b
+      ),
+    };
+  }
+
+  toggleBlockOption(blockId, presetId) {
+    this.editedProduct = {
+      ...this.editedProduct,
+      options: (this.editedProduct.options || []).map(b => {
+        if (b.id !== blockId) return b;
+        const ids = b.optionIds || [];
+        return {
+          ...b,
+          optionIds: ids.includes(presetId)
+            ? ids.filter(x => x !== presetId)
+            : [...ids, presetId],
+        };
+      }),
+    };
+  }
+
+  async saveOptions() {
+    await this.saveProduct();
+    if (!this.error) {
+      this.editingProductOptions = false;
+    }
+  }
+
+  // ─── Product Options render methods ──────────────────────────────────────
+
+  // Flat sub-variant editor shared by the add-option and edit-option forms.
+  // Shared block editor: titled blocks that pick store-global option presets.
+  renderOptionBlocksEditor() {
+    const blocks = this.editedProduct?.options || [];
+    const presets = (this.optionPresets || []).filter(p => p.status === 'active');
+    return html`
+      <div class="options-editor-header">
+        <h4 class="options-editor-title">Add-on Options (${blocks.length})</h4>
+        <uui-button look="secondary" @click=${this.cancelManageOptions} ?disabled=${this.saving}>
+          Done
+        </uui-button>
+      </div>
+
+      <p class="options-editor-intro">
+        Group add-ons into titled blocks, then pick which store-global options each block offers.
+        Manage the options themselves in the eCommerce admin → Option Presets.
+      </p>
+
+      ${this.error ? html`<uui-badge color="danger" look="primary" class="save-error">${this.error}</uui-badge>` : ''}
+
+      ${presets.length === 0 ? html`
+        <p class="no-options-hint">No active option presets exist yet. Create them in the eCommerce admin first.</p>
+      ` : ''}
+
+      ${blocks.length === 0 ? html`
+        <p class="no-options-hint">No option blocks yet. Add one below.</p>
+      ` : html`
+        <div class="product-options-list">
+          ${blocks.map(block => html`
+            <div class="product-option-card ${block.disabled ? 'option-disabled' : ''}">
+              <div class="edit-form-grid">
+                <div class="form-group full-width">
+                  <uui-label>Title</uui-label>
+                  <uui-input type="text" placeholder="e.g. Couplings, Accessories"
+                    .value=${block.title || ''}
+                    @input=${(e) => this.handleBlockInput(block.id, 'title', e.target.value)}
+                    ?disabled=${this.saving}></uui-input>
+                </div>
+                <div class="form-group full-width">
+                  <uui-label>Description</uui-label>
+                  <textarea class="description-textarea" rows="2" placeholder="Optional"
+                    .value=${block.description || ''}
+                    @input=${(e) => this.handleBlockInput(block.id, 'description', e.target.value)}
+                    ?disabled=${this.saving}></textarea>
+                </div>
+                <div class="form-group full-width">
+                  <label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;">
+                    <input type="checkbox" style="width:1rem;height:1rem;"
+                      .checked=${block.disabled || false}
+                      @change=${(e) => this.handleBlockInput(block.id, 'disabled', e.target.checked)}
+                      ?disabled=${this.saving}>
+                    <span>Disable (hide this block on the storefront)</span>
+                  </label>
+                </div>
+                <div class="form-group full-width">
+                  <uui-label>Sub options</uui-label>
+                  <div style="display:flex;flex-direction:column;gap:4px">
+                    ${(block.optionIds||[]).map((id, i) => {
+                      const pr = presets.find(x => x.id === id);
+                      return html`
+                        <div style="display:flex;align-items:center;gap:6px;padding:4px 8px;border:1px solid var(--uui-color-interactive,#4a6ba8);border-radius:4px;background:#eff6ff;font-size:0.875rem">
+                          <span style="color:#999;width:1.2rem;flex-shrink:0">${i+1}.</span>
+                          <uui-icon name=${pr?.kind==='group'?'icon-folder':'icon-tag'} style="color:${pr?.kind==='group'?'var(--uui-color-focus)':'var(--uui-color-text-alt)'};flex-shrink:0"></uui-icon>
+                          <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${pr ? pr.name : id}</span>
+                          ${pr?.kind==='group'
+                            ? html`<uui-tag look="secondary" color="default" style="flex-shrink:0">Group · ${(pr.subOptionIds||[]).length}</uui-tag>`
+                            : html`<span style="color:#999;font-size:0.8rem;flex-shrink:0">${pr?.price??''}</span>`}
+                          <button style="background:none;border:none;cursor:pointer;color:#999;font-size:1rem;line-height:1;padding:0 2px;flex-shrink:0"
+                            ?disabled=${this.saving}
+                            @click=${() => this.toggleBlockOption(block.id, id)}>×</button>
+                        </div>`;
+                    })}
+                    <button style="background:none;border:1px dashed #ccc;border-radius:4px;padding:6px;font-size:0.85rem;color:#999;cursor:pointer;text-align:center;width:100%"
+                      ?disabled=${this.saving || presets.length === 0}
+                      @click=${() => { this._optionPickerBlockId = block.id; this._optionPickerSearch = ''; this._optionPickerPage = 1; }}>
+                      ${presets.length === 0 ? 'No options available' : '── Add new ──'}
+                    </button>
+                  </div>
+                  ${this._optionPickerBlockId === block.id ? html`
+                    <div style="position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center"
+                      @click=${() => { this._optionPickerBlockId = null; }}>
+                      <div style="background:#fff;border-radius:8px;box-shadow:0 8px 32px rgba(0,0,0,0.18);width:360px;max-width:90vw;overflow:hidden"
+                        @click=${e => e.stopPropagation()}>
+                        <div style="padding:10px 12px;border-bottom:1px solid #e5e7eb;display:flex;gap:8px;align-items:center">
+                          <input style="flex:1;border:1px solid #d1d5db;border-radius:4px;padding:4px 8px;font-size:0.875rem;outline:none"
+                            type="search" placeholder="Search options…"
+                            .value=${this._optionPickerSearch}
+                            @input=${e => { this._optionPickerSearch = e.target.value; this._optionPickerPage = 1; }}>
+                          <button style="background:none;border:none;cursor:pointer;font-size:1.25rem;color:#6b7280;line-height:1"
+                            @click=${() => { this._optionPickerBlockId = null; }}>×</button>
+                        </div>
+                        <div style="max-height:300px;overflow-y:auto">
+                          ${(() => {
+                            const PICKER_SIZE = 8;
+                            const q = (this._optionPickerSearch||'').toLowerCase();
+                            const cur = block.optionIds||[];
+                            const avail = presets.filter(pr => !cur.includes(pr.id) && (!q || pr.name?.toLowerCase().includes(q)));
+                            if (!avail.length) return html`<p style="padding:1rem;text-align:center;color:#9ca3af;font-size:0.875rem">${q ? 'No matches.' : 'All options already added.'}</p>`;
+                            const pg = this._optionPickerPage;
+                            const totalPg = Math.ceil(avail.length / PICKER_SIZE);
+                            const paged = avail.slice((pg-1)*PICKER_SIZE, pg*PICKER_SIZE);
+                            return html`
+                              ${paged.map(pr => html`
+                                <button style="width:100%;display:flex;align-items:center;gap:8px;padding:8px 12px;background:none;border:none;border-bottom:1px solid #f3f4f6;cursor:pointer;font-size:0.875rem;text-align:left"
+                                  @click=${() => { this.toggleBlockOption(block.id, pr.id); this._optionPickerBlockId = null; }}>
+                                  <uui-icon name=${pr.kind==='group'?'icon-folder':'icon-tag'} style="color:${pr.kind==='group'?'var(--uui-color-focus)':'var(--uui-color-text-alt)'}"></uui-icon>
+                                  <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${pr.name||'(unnamed)'}</span>
+                                  ${pr.kind==='group'
+                                    ? html`<uui-tag look="secondary" color="default">Group · ${(pr.subOptionIds||[]).length}</uui-tag>`
+                                    : html`<span style="color:#6b7280;font-size:0.8rem">${pr.price??''}</span>`}
+                                </button>`)}
+                              ${totalPg > 1 ? html`
+                                <div style="display:flex;align-items:center;justify-content:center;gap:8px;padding:6px 12px;border-top:1px solid #e5e7eb;font-size:0.8rem;color:#6b7280">
+                                  <button style="background:none;border:none;cursor:pointer;padding:2px 6px;border-radius:3px;color:${pg<=1?'#d1d5db':'#374151'}" ?disabled=${pg<=1}
+                                    @click=${() => { this._optionPickerPage = pg-1; }}>←</button>
+                                  <span>${pg} / ${totalPg}</span>
+                                  <button style="background:none;border:none;cursor:pointer;padding:2px 6px;border-radius:3px;color:${pg>=totalPg?'#d1d5db':'#374151'}" ?disabled=${pg>=totalPg}
+                                    @click=${() => { this._optionPickerPage = pg+1; }}>→</button>
+                                </div>` : ''}`;
+                          })()}
+                        </div>
+                      </div>
+                    </div>` : ''}
+                </div>
+              </div>
+              <div class="button-group">
+                <uui-button look="secondary" color="danger"
+                  @click=${() => this.removeOptionBlock(block.id)} ?disabled=${this.saving}>
+                  Remove Block
+                </uui-button>
+              </div>
+            </div>
+          `)}
+        </div>
+      `}
+
+      <div class="button-group">
+        <uui-button look="secondary" color="positive" @click=${this.addOptionBlock} ?disabled=${this.saving}>
+          + Add Option Block
+        </uui-button>
+        <uui-button look="primary" color="positive" @click=${this.saveOptions} ?disabled=${this.saving}>
+          ${this.saving ? 'Saving...' : 'Save Options'}
+        </uui-button>
+      </div>
+    `;
+  }
+
+  renderOptionsSection(product) {
+    return html`
+      <tr class="edit-form-row">
+        <td colspan="7" @click=${(e) => e.stopPropagation()}>
+          <div class="edit-form-container product-options-panel">
+            ${this.renderOptionBlocksEditor()}
+          </div>
+        </td>
+      </tr>
+    `;
+  }
+
+  renderImageGallery(images, onRemove, urlValue, onUrlInput, onAdd, context) {
+    return html`
+      <div class="images-section">
+        <input type="file" id="file-input-${context}" accept="image/*" style="display:none"
+          @change=${(e) => this.handleFileSelected(e, context)}>
+
+        ${images && images.length > 0 ? html`
+          <div class="images-grid">
+            ${images.map((url, index) => html`
+              <div class="image-item">
+                <img src="${url}" alt="Product image ${index + 1}" class="image-preview"
+                  @error=${(e) => { e.target.style.display = 'none'; e.target.nextElementSibling.style.display = 'flex'; }} />
+                <div class="image-error-placeholder" style="display:none;">
+                  <uui-icon name="icon-picture"></uui-icon>
+                </div>
+                <button class="image-remove-btn" @click=${() => onRemove(index)} title="Remove">×</button>
+                <div class="image-index">${index + 1}</div>
+              </div>
+            `)}
+          </div>
+        ` : html`
+          <p class="no-images-hint">No images yet. Upload from PC, pick from media library, or paste a URL below.</p>
+        `}
+
+        ${this.imageUploading ? html`
+          <div class="image-uploading-row">
+            <uui-loader></uui-loader>
+            <span>Uploading image...</span>
+          </div>
+        ` : ''}
+
+        <div class="image-upload-actions">
+          <uui-button look="secondary" @click=${() => this.openFilePicker(context)} ?disabled=${this.imageUploading}>
+            <uui-icon name="icon-arrow-up" slot="icon"></uui-icon>
+            Upload from PC
+          </uui-button>
+          <uui-button look="secondary" @click=${() => this.pickFromUmbraco(context)} ?disabled=${this.imageUploading}>
+            <uui-icon name="icon-picture" slot="icon"></uui-icon>
+            Pick from Media Library
+          </uui-button>
+        </div>
+
+        <div class="add-image-row">
+          <uui-input
+            type="url"
+            placeholder="https://example.com/image.jpg"
+            .value=${urlValue}
+            @input=${onUrlInput}
+            @keydown=${(e) => { if (e.key === 'Enter') { e.preventDefault(); onAdd(); } }}>
+          </uui-input>
+          <uui-button look="secondary" @click=${onAdd} ?disabled=${this.imageUploading}>
+            Add URL
+          </uui-button>
+        </div>
+      </div>
+    `;
+  }
+
+  startCreateProduct() {
+    this.creatingProduct = true;
+    this.newProductType = null;
+    this.newProduct = {
+      name: '',
+      sku: '',
+      price: '',
+      stockQuantity: 0,
+      status: 'active',
+      description: '',
+      categoryId: this.categoryId,
+      images: [],
+      variantOptions: [],
+    };
+    this.newProductVariantOptionName = '';
+    this.newProductVariantOptionValues = '';
+    this.newProductOptionCardValues = {};
+    this.newCreateImageUrl = '';
+    this.createProductErrors = {};
+    this.error = null;
+  }
+
+  cancelCreateProduct() {
+    this.creatingProduct = false;
+    this.newProductType = null;
+    this.newProduct = null;
+    this.createProductErrors = {};
+    this.newProductVariantOptionName = '';
+    this.newProductVariantOptionValues = '';
+    this.newProductOptionCardValues = {};
+    this.newProductHighlightsText = '';
+  }
+
+  addNewProductVariantOption() {
+    const name = (this.newProductVariantOptionName || '').trim();
+    if (!name) return;
+
+    const existing = this.newProduct?.variantOptions || [];
+    if (existing.some(o => o.name.toLowerCase() === name.toLowerCase())) {
+      this.error = `Option "${name}" already exists`;
+      return;
+    }
+
+    const values = (this.newProductVariantOptionValues || '')
+      .split(',').map(v => v.trim()).filter(v => v.length > 0);
+
+    this.newProduct = {
+      ...this.newProduct,
+      variantOptions: [...existing, { name, values }],
+    };
+    this.newProductVariantOptionName = '';
+    this.newProductVariantOptionValues = '';
+    this.error = null;
+  }
+
+  removeNewProductVariantOption(index) {
+    this.newProduct = {
+      ...this.newProduct,
+      variantOptions: (this.newProduct?.variantOptions || []).filter((_, i) => i !== index),
+    };
+  }
+
+  removeValueFromNewProductOption(optIndex, valIndex) {
+    const options = (this.newProduct?.variantOptions || []).map((o, i) =>
+      i === optIndex ? { ...o, values: o.values.filter((_, vi) => vi !== valIndex) } : o
+    );
+    this.newProduct = { ...this.newProduct, variantOptions: options };
+  }
+
+  handleNewProductOptionCardValue(index, value) {
+    this.newProductOptionCardValues = { ...this.newProductOptionCardValues, [index]: value };
+  }
+
+  addValueToNewProductOption(index) {
+    const value = (this.newProductOptionCardValues[index] || '').trim();
+    if (!value) return;
+    const opt = (this.newProduct?.variantOptions || [])[index];
+    if (!opt) return;
+    if (opt.values.some(v => v.toLowerCase() === value.toLowerCase())) {
+      this.error = `Value "${value}" already exists for "${opt.name}"`;
+      return;
+    }
+    const options = (this.newProduct.variantOptions).map((o, i) =>
+      i === index ? { ...o, values: [...o.values, value] } : o
+    );
+    this.newProduct = { ...this.newProduct, variantOptions: options };
+    this.newProductOptionCardValues = { ...this.newProductOptionCardValues, [index]: '' };
+    this.error = null;
+  }
+
+  handleNewProductInput(field, value) {
+    this.newProduct = { ...this.newProduct, [field]: value };
+    if (this.createProductErrors[field]) {
+      this.createProductErrors = { ...this.createProductErrors, [field]: null };
+    }
+  }
+
+  validateNewProduct() {
+    const errors = {};
+    if (!this.newProduct.name || this.newProduct.name.trim() === '') {
+      errors.name = 'Name is required';
+    }
+    if (this.newProductType === 'single') {
+      if (!this.newProduct.sku || this.newProduct.sku.trim() === '') {
+        errors.sku = 'SKU is required';
+      }
+      const price = parseFloat(this.newProduct.price);
+      if (isNaN(price) || price < 0) {
+        errors.price = 'Valid price is required';
+      }
+    } else {
+      // variants: at least one option with at least one value required
+      const validOptions = (this.newProduct?.variantOptions || []).filter(o => o.values && o.values.length > 0);
+      if (validOptions.length === 0) {
+        errors.variantOptions = 'Add at least one option with values (e.g., Size: S, M, L)';
+      }
+    }
+    this.createProductErrors = errors;
+    return Object.keys(errors).length === 0;
+  }
+
+  async submitCreateProduct() {
+    if (!this.validateNewProduct()) return;
+
+    this.createSaving = true;
+    this.error = null;
+
+    try {
+      const headers = await this.getAuthHeaders();
+      const userName = this.currentUser?.email || this.currentUser?.name || 'system';
+
+      const hasVariants = this.newProductType === 'variants';
+      const variantOptions = hasVariants ? (this.newProduct?.variantOptions || []) : [];
+
+      const payload = {
+        name: (this.newProduct.name || '').trim(),
+        sku: (this.newProduct.sku || '').trim(),
+        price: hasVariants ? 0 : (parseFloat(this.newProduct.price) || 0),
+        stockQuantity: hasVariants ? 0 : (parseInt(String(this.newProduct.stockQuantity ?? 0), 10) || 0),
+        status: this.newProduct.status || 'active',
+        description: (this.newProduct.description || '').trim() || null,
+        categoryId: this.categoryId || null,
+        images: this.newProduct.images || [],
+        versionCreatedBy: userName,
+        hasVariants,
+        variantOptions,
+        variants: [],
+      };
+
+      const response = await fetch(
+        '/umbraco/management/api/ecomm-commerce/products',
+        {
+          method: 'POST',
+          headers,
+          credentials: 'include',
+          body: JSON.stringify(payload),
+        }
+      );
+
+      if (response.ok) {
+        const created = await response.json();
+        this.products = [created, ...this.products];
+        this.creatingProduct = false;
+        this.newProduct = null;
+        this.createProductErrors = {};
+        this.selectedProductId = created.id;
+        this.editedProduct = { ...created };
+        this.highlightsText = (created.highlights || []).join('\n');
+        this.variantSearchQuery = '';
+      } else {
+        const text = await response.text();
+        this.error = `Failed to create product: ${text || response.statusText}`;
+      }
+    } catch (err) {
+      this.error = 'Failed to create product: ' + err.message;
+    } finally {
+      this.createSaving = false;
+    }
+  }
+
+  renderCreateProductForm() {
+    return html`
+      <div class="create-product-form">
+        <h4 class="section-heading">New Product</h4>
+
+        ${this.error ? html`
+          <uui-badge color="danger" look="primary" class="save-error">${this.error}</uui-badge>
+        ` : ''}
+
+        ${this.newProductType === null
+          ? this.renderProductTypeSelector()
+          : this.newProductType === 'single'
+            ? this.renderSingleProductForm()
+            : this.renderVariantProductForm()
+        }
+      </div>
+    `;
+  }
+
+  renderProductTypeSelector() {
+    return html`
+      <p class="variant-options-hint">Choose the product type to continue.</p>
+      <div class="product-type-cards">
+        <div class="product-type-card" @click=${() => { this.newProductType = 'single'; }}>
+          <div class="product-type-card-icon">📦</div>
+          <strong>Single Product</strong>
+          <p>One SKU, fixed price and stock quantity</p>
+        </div>
+        <div class="product-type-card" @click=${() => { this.newProductType = 'variants'; }}>
+          <div class="product-type-card-icon">🎛️</div>
+          <strong>Product with Variants</strong>
+          <p>Multiple options (e.g., Size, Color) — price and stock set per variant</p>
+        </div>
+      </div>
+      <div class="button-group">
+        <uui-button look="secondary" @click=${this.cancelCreateProduct}>Cancel</uui-button>
+      </div>
+    `;
+  }
+
+  renderSingleProductForm() {
+    return html`
+      <div class="edit-form-grid">
+        <div class="form-group">
+          <uui-label for="new-product-name" required>Name</uui-label>
+          <uui-input
+            id="new-product-name"
+            type="text"
+            placeholder="Product name"
+            .value=${this.newProduct?.name || ''}
+            @input=${(e) => this.handleNewProductInput('name', e.target.value)}
+            ?disabled=${this.createSaving}
+            required>
+          </uui-input>
+          ${this.createProductErrors.name ? html`<small class="error-text">${this.createProductErrors.name}</small>` : ''}
+        </div>
+
+        <div class="form-group">
+          <uui-label for="new-product-sku" required>SKU</uui-label>
+          <uui-input
+            id="new-product-sku"
+            type="text"
+            placeholder="e.g. PROD-001"
+            .value=${this.newProduct?.sku || ''}
+            @input=${(e) => this.handleNewProductInput('sku', e.target.value)}
+            ?disabled=${this.createSaving}
+            required>
+          </uui-input>
+          ${this.createProductErrors.sku ? html`<small class="error-text">${this.createProductErrors.sku}</small>` : ''}
+        </div>
+
+        <div class="form-group">
+          <uui-label for="new-product-price" required>Price</uui-label>
+          <uui-input
+            id="new-product-price"
+            type="number"
+            step="0.01"
+            placeholder="0.00"
+            .value=${String(this.newProduct?.price ?? '')}
+            @input=${(e) => this.handleNewProductInput('price', e.target.value)}
+            ?disabled=${this.createSaving}
+            required>
+          </uui-input>
+          ${this.createProductErrors.price ? html`<small class="error-text">${this.createProductErrors.price}</small>` : ''}
+        </div>
+
+        <div class="form-group">
+          <uui-label for="new-product-sale-price">Sale Price</uui-label>
+          <uui-input
+            id="new-product-sale-price"
+            type="number"
+            step="0.01"
+            placeholder="Leave blank if not on sale"
+            .value=${String(this.newProduct?.salePrice ?? '')}
+            @input=${(e) => this.handleNewProductInput('salePrice', e.target.value ? parseFloat(e.target.value) : null)}
+            ?disabled=${this.createSaving}>
+          </uui-input>
+        </div>
+
+        <div class="form-group">
+          <uui-label for="new-product-stock">Stock Quantity</uui-label>
+          <uui-input
+            id="new-product-stock"
+            type="number"
+            placeholder="0"
+            .value=${String(this.newProduct?.stockQuantity ?? 0)}
+            @input=${(e) => this.handleNewProductInput('stockQuantity', e.target.value)}
+            ?disabled=${this.createSaving}>
+          </uui-input>
+        </div>
+
+        <div class="form-group">
+          <uui-label for="new-product-status">Status</uui-label>
+          <select
+            id="new-product-status"
+            class="variant-status-select"
+            @change=${(e) => this.handleNewProductInput('status', e.target.value)}
+            ?disabled=${this.createSaving}>
+            <option value="active" ?selected=${(this.newProduct?.status || 'active') === 'active'}>Active</option>
+            <option value="inactive" ?selected=${this.newProduct?.status === 'inactive'}>Inactive</option>
+            <option value="draft" ?selected=${this.newProduct?.status === 'draft'}>Draft</option>
+          </select>
+        </div>
+
+        <div class="form-group full-width">
+          <uui-label for="new-product-description">Description</uui-label>
+          <textarea
+            id="new-product-description"
+            class="description-textarea"
+            .value=${this.newProduct?.description || ''}
+            @input=${(e) => this.handleNewProductInput('description', e.target.value)}
+            ?disabled=${this.createSaving}
+            rows="3"
+            placeholder="Product description..."></textarea>
+        </div>
+
+        <div class="form-group full-width">
+          <uui-label for="new-product-highlights">Highlights</uui-label>
+          <textarea
+            id="new-product-highlights"
+            class="description-textarea"
+            .value=${this.newProductHighlightsText}
+            @input=${(e) => this.handleNewProductHighlightsInput(e.target.value)}
+            ?disabled=${this.createSaving}
+            rows="3"
+            placeholder="One bullet point per line"></textarea>
+          <small class="field-hint">Each line becomes a separate bullet point on the product page.</small>
+        </div>
+
+        <div class="form-group">
+          <uui-label for="new-product-leasing-factor">Leasing Factor</uui-label>
+          <uui-input
+            id="new-product-leasing-factor"
+            type="number"
+            step="0.0001"
+            placeholder="e.g. 0.0285"
+            .value=${String(this.newProduct?.leasingFactor ?? '')}
+            @input=${(e) => this.handleNewProductInput('leasingFactor', e.target.value ? parseFloat(e.target.value) : null)}
+            ?disabled=${this.createSaving}>
+          </uui-input>
+          <small class="field-hint">Monthly price = Price × Leasing Factor</small>
+        </div>
+
+        <div class="form-group full-width">
+          <uui-label>Images</uui-label>
+          ${this.renderImageGallery(
+            this.newProduct?.images || [],
+            (i) => this.removeImageFromNewProduct(i),
+            this.newCreateImageUrl,
+            (e) => { this.newCreateImageUrl = e.target.value; },
+            () => this.addImageToNewProduct(),
+            'create'
+          )}
+        </div>
+      </div>
+
+      <div class="button-group">
+        <uui-button look="secondary" @click=${() => { this.newProductType = null; }} ?disabled=${this.createSaving}>
+          Back
+        </uui-button>
+        <uui-button look="secondary" @click=${this.cancelCreateProduct} ?disabled=${this.createSaving}>
+          Cancel
+        </uui-button>
+        <uui-button look="primary" color="positive" @click=${this.submitCreateProduct} ?disabled=${this.createSaving}>
+          ${this.createSaving ? 'Creating...' : 'Create Product'}
+        </uui-button>
+      </div>
+    `;
+  }
+
+  renderVariantProductForm() {
+    return html`
+      <div class="edit-form-grid">
+        <div class="form-group">
+          <uui-label for="new-product-name" required>Name</uui-label>
+          <uui-input
+            id="new-product-name"
+            type="text"
+            placeholder="Product name"
+            .value=${this.newProduct?.name || ''}
+            @input=${(e) => this.handleNewProductInput('name', e.target.value)}
+            ?disabled=${this.createSaving}
+            required>
+          </uui-input>
+          ${this.createProductErrors.name ? html`<small class="error-text">${this.createProductErrors.name}</small>` : ''}
+        </div>
+
+        <div class="form-group">
+          <uui-label for="new-product-status">Status</uui-label>
+          <select
+            id="new-product-status"
+            class="variant-status-select"
+            @change=${(e) => this.handleNewProductInput('status', e.target.value)}
+            ?disabled=${this.createSaving}>
+            <option value="active" ?selected=${(this.newProduct?.status || 'active') === 'active'}>Active</option>
+            <option value="inactive" ?selected=${this.newProduct?.status === 'inactive'}>Inactive</option>
+            <option value="draft" ?selected=${this.newProduct?.status === 'draft'}>Draft</option>
+          </select>
+        </div>
+
+        <div class="form-group full-width">
+          <uui-label>Images</uui-label>
+          ${this.renderImageGallery(
+            this.newProduct?.images || [],
+            (i) => this.removeImageFromNewProduct(i),
+            this.newCreateImageUrl,
+            (e) => { this.newCreateImageUrl = e.target.value; },
+            () => this.addImageToNewProduct(),
+            'create'
+          )}
+        </div>
+
+        <!-- Variant Options (required for this type) -->
+        <div class="form-group full-width">
+          <uui-label required>Variant Options</uui-label>
+          <p class="variant-options-hint">Define option types and their values (e.g., Size: S, M, L). At least one option is required.</p>
+
+          ${this.createProductErrors.variantOptions ? html`
+            <small class="error-text">${this.createProductErrors.variantOptions}</small>
+          ` : ''}
+
+          ${(this.newProduct?.variantOptions || []).length > 0 ? html`
+            <div class="new-product-option-list">
+              ${(this.newProduct?.variantOptions || []).map((opt, optIndex) => html`
+                <div class="new-product-option-card">
+                  <div class="new-product-option-header">
+                    <strong>${opt.name}</strong>
+                    <button class="option-tag-remove"
+                      @click=${() => this.removeNewProductVariantOption(optIndex)}
+                      ?disabled=${this.createSaving}
+                      type="button">Remove</button>
+                  </div>
+
+                  ${opt.values.length > 0 ? html`
+                    <div class="option-value-chips">
+                      ${opt.values.map((val, vi) => html`
+                        <span class="option-value-chip">
+                          ${val}
+                          <button class="chip-remove" type="button"
+                            @click=${() => this.removeValueFromNewProductOption(optIndex, vi)}
+                            ?disabled=${this.createSaving}>×</button>
+                        </span>
+                      `)}
+                    </div>
+                  ` : html`<p class="no-values-hint">No values yet.</p>`}
+
+                  <div class="add-value-row">
+                    <uui-input
+                      type="text"
+                      placeholder="Add a value (e.g., Small)"
+                      .value=${this.newProductOptionCardValues[optIndex] || ''}
+                      @input=${(e) => this.handleNewProductOptionCardValue(optIndex, e.target.value)}
+                      @keydown=${(e) => { if (e.key === 'Enter') { e.preventDefault(); this.addValueToNewProductOption(optIndex); } }}
+                      ?disabled=${this.createSaving}>
+                    </uui-input>
+                    <uui-button look="secondary"
+                      @click=${() => this.addValueToNewProductOption(optIndex)}
+                      ?disabled=${this.createSaving}>
+                      Add Value
+                    </uui-button>
+                  </div>
+                </div>
+              `)}
+            </div>
+          ` : ''}
+
+          <div class="add-option-card">
+            <div class="add-option-name-row">
+              <uui-input
+                type="text"
+                placeholder="Option name (e.g., Size)"
+                .value=${this.newProductVariantOptionName}
+                @input=${(e) => { this.newProductVariantOptionName = e.target.value; }}
+                @keydown=${(e) => { if (e.key === 'Enter') { e.preventDefault(); this.addNewProductVariantOption(); } }}
+                ?disabled=${this.createSaving}>
+              </uui-input>
+              <uui-input
+                type="text"
+                placeholder="Values, comma-separated (e.g., S, M, L)"
+                .value=${this.newProductVariantOptionValues}
+                @input=${(e) => { this.newProductVariantOptionValues = e.target.value; }}
+                @keydown=${(e) => { if (e.key === 'Enter') { e.preventDefault(); this.addNewProductVariantOption(); } }}
+                ?disabled=${this.createSaving}>
+              </uui-input>
+              <uui-button look="secondary" @click=${this.addNewProductVariantOption} ?disabled=${this.createSaving}>
+                Add Option
+              </uui-button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="button-group">
+        <uui-button look="secondary" @click=${() => { this.newProductType = null; }} ?disabled=${this.createSaving}>
+          Back
+        </uui-button>
+        <uui-button look="secondary" @click=${this.cancelCreateProduct} ?disabled=${this.createSaving}>
+          Cancel
+        </uui-button>
+        <uui-button look="primary" color="positive" @click=${this.submitCreateProduct} ?disabled=${this.createSaving}>
+          ${this.createSaving ? 'Creating...' : 'Create Product'}
+        </uui-button>
+      </div>
+    `;
   }
 
   formatDate(dateString) {
@@ -430,7 +2024,15 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
         </uui-table-cell>
       </uui-table-row>
 
-      ${isExpanded ? (product.hasVariants ? this.renderVariantsSection(product) : this.renderEditForm(product)) : ''}
+      ${isExpanded ? (
+        this.editingOptions
+          ? this.renderOptionsEditor()
+          : this.editingProductOptions
+            ? this.renderOptionsSection(product)
+            : this.creatingVariants
+              ? this.renderVariantBuilder()
+              : (product.hasVariants ? this.renderVariantsSection(product) : this.renderEditForm(product))
+      ) : ''}
     `;
   }
 
@@ -467,16 +2069,160 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
               ${product.variants?.map(variant => this.renderVariantRow(variant))}
             </div>
 
+            ${this.addingVariant ? this.renderAddVariantForm() : ''}
+
             <div class="button-group">
-              <uui-button
-                look="secondary"
-                @click=${this.cancelEdit}>
+              <uui-button look="secondary" @click=${this.cancelEdit} ?disabled=${this.saving}>
                 Close
               </uui-button>
+
+              ${!this.addingVariant ? html`
+                <uui-button look="secondary" color="positive" @click=${this.startAddVariant} ?disabled=${this.saving}>
+                  Add Variant
+                </uui-button>
+                <uui-button look="secondary" @click=${this.startEditOptions} ?disabled=${this.saving}>
+                  Variant Options
+                </uui-button>
+                <uui-button look="secondary" @click=${this.startManageOptions} ?disabled=${this.saving}>
+                  Add-on Options (${(this.editedProduct?.options || []).length})
+                </uui-button>
+              ` : ''}
+
+              <span class="button-group-separator"></span>
+
+              ${this.confirmDeleteProductId === this.editedProduct?.id ? html`
+                <span class="inline-confirm">
+                  <small>Delete this product?</small>
+                  <uui-button look="primary" color="danger"
+                    @click=${() => this.deleteProduct(this.editedProduct.id)}
+                    ?disabled=${this.saving}>
+                    Yes, delete
+                  </uui-button>
+                  <uui-button look="secondary"
+                    @click=${() => { this.confirmDeleteProductId = null; }}
+                    ?disabled=${this.saving}>
+                    Cancel
+                  </uui-button>
+                </span>
+              ` : html`
+                <uui-button look="secondary" color="danger"
+                  @click=${() => { this.confirmDeleteProductId = this.editedProduct?.id; }}
+                  ?disabled=${this.saving}>
+                  Delete Product
+                </uui-button>
+              `}
             </div>
           </div>
         </td>
       </tr>
+    `;
+  }
+
+  renderAddVariantForm() {
+    const variantOptions = this.editedProduct?.variantOptions || [];
+    const optionsWithValues = variantOptions.filter(opt => opt.values && opt.values.length > 0);
+
+    return html`
+      <div class="add-variant-form">
+        <h5 class="section-heading">Add New Variant</h5>
+
+        <div class="edit-form-grid">
+          <!-- SKU -->
+          <div class="form-group">
+            <uui-label for="new-av-sku" required>SKU</uui-label>
+            <uui-input
+              id="new-av-sku"
+              type="text"
+              placeholder="e.g. PROD-001-XL-RED"
+              .value=${this.newVariant?.sku || ''}
+              @input=${(e) => this.handleNewVariantInput('sku', e.target.value)}
+              ?disabled=${this.saving}
+              required>
+            </uui-input>
+            ${this.addVariantErrors.sku ? html`
+              <small class="error-text">${this.addVariantErrors.sku}</small>
+            ` : ''}
+          </div>
+
+          <!-- Price -->
+          <div class="form-group">
+            <uui-label for="new-av-price" required>Price</uui-label>
+            <uui-input
+              id="new-av-price"
+              type="number"
+              step="0.01"
+              placeholder="0.00"
+              .value=${String(this.newVariant?.price ?? '')}
+              @input=${(e) => this.handleNewVariantInput('price', e.target.value)}
+              ?disabled=${this.saving}
+              required>
+            </uui-input>
+            ${this.addVariantErrors.price ? html`
+              <small class="error-text">${this.addVariantErrors.price}</small>
+            ` : ''}
+          </div>
+
+          <!-- Stock -->
+          <div class="form-group">
+            <uui-label for="new-av-stock">Stock Quantity</uui-label>
+            <uui-input
+              id="new-av-stock"
+              type="number"
+              placeholder="0"
+              .value=${String(this.newVariant?.stockQuantity ?? 0)}
+              @input=${(e) => this.handleNewVariantInput('stockQuantity', e.target.value)}
+              ?disabled=${this.saving}>
+            </uui-input>
+          </div>
+
+          <!-- Status -->
+          <div class="form-group">
+            <uui-label for="new-av-status">Status</uui-label>
+            <select
+              id="new-av-status"
+              class="variant-status-select"
+              .value=${this.newVariant?.status || 'active'}
+              @change=${(e) => this.handleNewVariantInput('status', e.target.value)}
+              ?disabled=${this.saving}>
+              <option value="active" ?selected=${this.newVariant?.status === 'active'}>Active</option>
+              <option value="inactive" ?selected=${this.newVariant?.status === 'inactive'}>Inactive</option>
+            </select>
+          </div>
+
+          ${optionsWithValues.length > 0 ? html`
+            <div class="form-group full-width">
+              <uui-label>Variant Options</uui-label>
+              <div class="edit-form-grid">
+                ${optionsWithValues.map(opt => html`
+                  <div class="form-group">
+                    <uui-label>${opt.name}</uui-label>
+                    <select
+                      class="variant-status-select"
+                      @change=${(e) => this.handleNewVariantOption(opt.name, e.target.value)}
+                      ?disabled=${this.saving}>
+                      ${opt.values.map(v => html`
+                        <option value="${v}"
+                          ?selected=${(this.newVariant?.options?.[opt.name] ?? opt.values[0]) === v}>
+                          ${v}
+                        </option>
+                      `)}
+                    </select>
+                  </div>
+                `)}
+              </div>
+            </div>
+          ` : ''}
+        </div>
+
+        <div class="button-group">
+          <uui-button look="secondary" @click=${this.cancelAddVariant} ?disabled=${this.saving}>
+            Cancel
+          </uui-button>
+          <uui-button look="primary" color="positive" @click=${this.submitAddVariant} ?disabled=${this.saving}>
+            ${this.saving ? 'Saving...' : 'Add Variant'}
+          </uui-button>
+        </div>
+      </div>
     `;
   }
 
@@ -497,12 +2243,34 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
           <div class="variant-summary">
             <span class="variant-sku">${variant.sku}</span>
             <span class="variant-price">$${variant.price?.toFixed(2)}</span>
-            <uui-badge color="${variant.stockQuantity > 0 ? 'positive' : 'danger'}" look="primary">
+            <span class="variant-tag ${variant.stockQuantity > 0 ? 'tag-positive' : 'tag-danger'}">
               Stock: ${variant.stockQuantity}
-            </uui-badge>
-            <uui-badge color="${variant.status === 'active' ? 'positive' : 'default'}" look="primary">
+            </span>
+            <span class="variant-tag ${variant.status === 'active' ? 'tag-positive' : 'tag-default'}">
               ${variant.status}
-            </uui-badge>
+            </span>
+
+            ${this.confirmDeleteVariantId === variant.id ? html`
+              <span class="inline-confirm" @click=${(e) => e.stopPropagation()}>
+                <small>Delete?</small>
+                <uui-button look="primary" color="danger"
+                  @click=${(e) => { e.stopPropagation(); this.deleteVariant(variant.id); }}
+                  ?disabled=${this.saving}>
+                  Yes
+                </uui-button>
+                <uui-button look="secondary"
+                  @click=${(e) => { e.stopPropagation(); this.confirmDeleteVariantId = null; }}
+                  ?disabled=${this.saving}>
+                  No
+                </uui-button>
+              </span>
+            ` : html`
+              <uui-button look="secondary" color="danger"
+                @click=${(e) => { e.stopPropagation(); this.confirmDeleteVariantId = variant.id; }}
+                ?disabled=${this.saving}>
+                Delete
+              </uui-button>
+            `}
           </div>
         </div>
 
@@ -512,9 +2280,78 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
   }
 
   renderVariantEditForm(variant) {
+    const variantOptions = this.editedProduct?.variantOptions || [];
+    const optionsToShow = variantOptions.length > 0
+      ? variantOptions
+      : Object.keys(variant.options || {}).map(name => ({ name, values: [] }));
+
     return html`
       <div class="variant-edit-form" @click=${(e) => e.stopPropagation()}>
+
+        ${optionsToShow.length > 0 ? html`
+          <div class="attributes-section">
+            <h4 class="section-heading">Variant Options</h4>
+            <div class="edit-form-grid">
+              ${optionsToShow.map(opt => html`
+                <div class="form-group">
+                  <uui-label>${opt.name}</uui-label>
+                  ${opt.values && opt.values.length > 0 ? html`
+                    <select
+                      class="variant-status-select"
+                      @change=${(e) => this.handleVariantOptionInput(variant.id, opt.name, e.target.value)}
+                      ?disabled=${this.saving}>
+                      ${opt.values.map(v => html`
+                        <option value="${v}" ?selected=${(variant.options?.[opt.name] ?? opt.values[0]) === v}>
+                          ${v}
+                        </option>
+                      `)}
+                    </select>
+                  ` : html`
+                    <uui-input
+                      type="text"
+                      placeholder="Enter ${opt.name} value"
+                      .value=${variant.options?.[opt.name] || ''}
+                      @input=${(e) => this.handleVariantOptionInput(variant.id, opt.name, e.target.value)}
+                      ?disabled=${this.saving}>
+                    </uui-input>
+                  `}
+                </div>
+              `)}
+            </div>
+          </div>
+        ` : ''}
+
+        <h4 class="section-heading">Content</h4>
         <div class="edit-form-grid">
+          <!-- SKU -->
+          <div class="form-group">
+            <uui-label for="variant-sku-${variant.id}" required>SKU</uui-label>
+            <uui-input
+              id="variant-sku-${variant.id}"
+              type="text"
+              .value=${variant.sku || ''}
+              @input=${(e) => this.handleVariantInput(variant.id, 'sku', e.target.value)}
+              ?disabled=${this.saving}
+              required>
+            </uui-input>
+            ${this.validationErrors[`variant_${variant.id}_sku`] ? html`
+              <small class="error-text">${this.validationErrors[`variant_${variant.id}_sku`]}</small>
+            ` : ''}
+          </div>
+
+          <!-- Display Name -->
+          <div class="form-group">
+            <uui-label for="variant-display-name-${variant.id}">Display Name</uui-label>
+            <uui-input
+              id="variant-display-name-${variant.id}"
+              type="text"
+              .value=${variant.displayName || ''}
+              @input=${(e) => this.handleVariantInput(variant.id, 'displayName', e.target.value)}
+              ?disabled=${this.saving}
+              placeholder="e.g. 2500×1500 mm — shown in variant selector">
+            </uui-input>
+          </div>
+
           <!-- Price -->
           <div class="form-group">
             <uui-label for="variant-price-${variant.id}" required>Price</uui-label>
@@ -561,6 +2398,19 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
               <option value="inactive" ?selected=${variant.status === 'inactive'}>Inactive</option>
             </select>
           </div>
+
+          <!-- Description -->
+          <div class="form-group full-width">
+            <uui-label for="variant-description-${variant.id}">Description</uui-label>
+            <textarea
+              id="variant-description-${variant.id}"
+              class="description-textarea"
+              .value=${variant.description || ''}
+              @input=${(e) => this.handleVariantInput(variant.id, 'description', e.target.value)}
+              ?disabled=${this.saving}
+              rows="3"
+              placeholder="Variant description..."></textarea>
+          </div>
         </div>
 
         <div class="button-group">
@@ -584,6 +2434,7 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
   }
 
   renderEditForm(originalProduct) {
+    const productOptions = Array.isArray(originalProduct.customProperties) ? originalProduct.customProperties : [];
     return html`
       <tr class="edit-form-row">
         <td colspan="7" @click=${(e) => e.stopPropagation()}>
@@ -601,6 +2452,19 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
               </uui-badge>
             ` : ''}
 
+            ${productOptions.length > 0 ? html`
+              <div class="attributes-section">
+                <h4 class="section-heading">Attributes</h4>
+                <div class="attributes-grid">
+                  ${productOptions.map(prop => html`
+                    <span class="attribute-label">${prop.name}</span>
+                    <span class="attribute-value">${prop.value}</span>
+                  `)}
+                </div>
+              </div>
+            ` : ''}
+
+            <h4 class="section-heading">Content</h4>
             <div class="edit-form-grid">
 
               <!-- Name -->
@@ -635,6 +2499,20 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
                 ` : ''}
               </div>
 
+              <!-- Sale Price -->
+              <div class="form-group">
+                <uui-label for="product-sale-price">Sale Price</uui-label>
+                <uui-input
+                  id="product-sale-price"
+                  type="number"
+                  step="0.01"
+                  .value=${String(this.editedProduct.salePrice ?? '')}
+                  @input=${(e) => this.handleProductInput('salePrice', e.target.value ? parseFloat(e.target.value) : null)}
+                  ?disabled=${this.saving}
+                  placeholder="Leave blank if not on sale">
+                </uui-input>
+              </div>
+
               <!-- Stock -->
               <div class="form-group">
                 <uui-label for="product-stock" required>Stock Quantity</uui-label>
@@ -654,15 +2532,15 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
               <!-- Status -->
               <div class="form-group">
                 <uui-label for="product-status">Status</uui-label>
-                <uui-select
+                <select
                   id="product-status"
-                  .value=${this.editedProduct.status || 'active'}
+                  class="variant-status-select"
                   @change=${(e) => this.handleProductInput('status', e.target.value)}
                   ?disabled=${this.saving}>
                   <option value="active" ?selected=${this.editedProduct.status === 'active'}>Active</option>
                   <option value="inactive" ?selected=${this.editedProduct.status === 'inactive'}>Inactive</option>
                   <option value="draft" ?selected=${this.editedProduct.status === 'draft'}>Draft</option>
-                </uui-select>
+                </select>
               </div>
 
               <!-- Description (full width) -->
@@ -678,6 +2556,116 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
                   placeholder="Product description..."></textarea>
               </div>
 
+              <!-- Highlights (full width) -->
+              <div class="form-group full-width">
+                <uui-label for="product-highlights">Highlights</uui-label>
+                <textarea
+                  id="product-highlights"
+                  class="description-textarea"
+                  .value=${this.highlightsText}
+                  @input=${(e) => this.handleHighlightsInput(e.target.value)}
+                  ?disabled=${this.saving}
+                  rows="3"
+                  placeholder="One bullet point per line (e.g. Foldable sides&#10;Galvanised frame&#10;Braked axle)"></textarea>
+                <small class="field-hint">Each line becomes a separate bullet point on the product page.</small>
+              </div>
+
+              <!-- Images (full width) -->
+              <div class="form-group full-width">
+                <uui-label>Images</uui-label>
+                ${this.renderImageGallery(
+                  this.editedProduct.images || [],
+                  (i) => this.removeImageFromEditedProduct(i),
+                  this.newProductImageUrl,
+                  (e) => { this.newProductImageUrl = e.target.value; },
+                  () => this.addImageToEditedProduct(),
+                  'edit'
+                )}
+              </div>
+
+            </div>
+
+            <!-- Leasing & Visibility section -->
+            <h4 class="section-heading">Leasing &amp; Visibility</h4>
+            <div class="edit-form-grid">
+
+              <!-- Leasing Factor -->
+              <div class="form-group">
+                <uui-label for="product-leasing-factor">Leasing Factor</uui-label>
+                <uui-input
+                  id="product-leasing-factor"
+                  type="number"
+                  step="0.0001"
+                  .value=${String(this.editedProduct.leasingFactor ?? '')}
+                  @input=${(e) => this.handleProductInput('leasingFactor', e.target.value ? parseFloat(e.target.value) : null)}
+                  ?disabled=${this.saving}
+                  placeholder="e.g. 0.0285">
+                </uui-input>
+                <small class="field-hint">Monthly price = Price × Leasing Factor. Leave blank to hide leasing option.</small>
+              </div>
+
+              <!-- Hide Price -->
+              <div class="form-group">
+                <uui-label for="product-hide-price">Hide Price</uui-label>
+                <div style="display:flex;align-items:center;gap:0.5rem;padding-top:0.25rem;">
+                  <input
+                    id="product-hide-price"
+                    type="checkbox"
+                    style="width:1rem;height:1rem;cursor:pointer;"
+                    .checked=${this.editedProduct.hidePrice || false}
+                    @change=${(e) => this.handleProductInput('hidePrice', e.target.checked)}
+                    ?disabled=${this.saving}>
+                  <small>Replace price with a custom message (enquiry-only products)</small>
+                </div>
+              </div>
+
+              ${this.editedProduct.hidePrice ? html`
+              <!-- Hidden Price Description (full width) -->
+              <div class="form-group full-width">
+                <uui-label for="product-hidden-price-desc">Hidden Price Message</uui-label>
+                <uui-input
+                  id="product-hidden-price-desc"
+                  type="text"
+                  .value=${this.editedProduct.hiddenPriceDescription || ''}
+                  @input=${(e) => this.handleProductInput('hiddenPriceDescription', e.target.value)}
+                  ?disabled=${this.saving}
+                  placeholder="e.g. Price on request — contact us">
+                </uui-input>
+              </div>
+              ` : ''}
+
+            </div>
+
+            <!-- SEO section -->
+            <h4 class="section-heading">SEO</h4>
+            <div class="edit-form-grid">
+
+              <!-- SEO Title -->
+              <div class="form-group">
+                <uui-label for="product-seo-title">Page Title</uui-label>
+                <uui-input
+                  id="product-seo-title"
+                  type="text"
+                  .value=${this.editedProduct.seoTitle || ''}
+                  @input=${(e) => this.handleProductInput('seoTitle', e.target.value)}
+                  ?disabled=${this.saving}
+                  placeholder="Overrides product name in &lt;title&gt; tag">
+                </uui-input>
+              </div>
+
+              <!-- SEO Description (full width) -->
+              <div class="form-group full-width">
+                <uui-label for="product-seo-desc">Meta Description</uui-label>
+                <textarea
+                  id="product-seo-desc"
+                  class="description-textarea"
+                  .value=${this.editedProduct.seoDescription || ''}
+                  @input=${(e) => this.handleProductInput('seoDescription', e.target.value)}
+                  ?disabled=${this.saving}
+                  rows="2"
+                  placeholder="Short description for search engines (150–160 characters)"></textarea>
+              </div>
+
             </div>
 
             <!-- Version Info -->
@@ -691,20 +2679,49 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
 
             <!-- Action Buttons -->
             <div class="button-group">
-              <uui-button
-                look="secondary"
-                @click=${this.cancelEdit}
-                ?disabled=${this.saving}>
+              <uui-button look="secondary" @click=${this.cancelEdit} ?disabled=${this.saving}>
                 Cancel
               </uui-button>
 
-              <uui-button
-                look="primary"
-                color="positive"
-                @click=${this.saveProduct}
-                ?disabled=${this.saving}>
+              <uui-button look="secondary" @click=${this.startCreateVariants} ?disabled=${this.saving}>
+                Create product Variants
+              </uui-button>
+
+              <uui-button look="secondary" @click=${this.startEditOptions} ?disabled=${this.saving}>
+                Variant Options
+              </uui-button>
+
+              <uui-button look="secondary" @click=${this.startManageOptions} ?disabled=${this.saving}>
+                Add-on Options (${(this.editedProduct?.options || []).length})
+              </uui-button>
+
+              <uui-button look="primary" color="positive" @click=${this.saveProduct} ?disabled=${this.saving}>
                 ${this.saving ? 'Saving...' : 'Save Changes'}
               </uui-button>
+
+              <span class="button-group-separator"></span>
+
+              ${this.confirmDeleteProductId === this.editedProduct?.id ? html`
+                <span class="inline-confirm">
+                  <small>Delete this product?</small>
+                  <uui-button look="primary" color="danger"
+                    @click=${() => this.deleteProduct(this.editedProduct.id)}
+                    ?disabled=${this.saving}>
+                    Yes, delete
+                  </uui-button>
+                  <uui-button look="secondary"
+                    @click=${() => { this.confirmDeleteProductId = null; }}
+                    ?disabled=${this.saving}>
+                    Cancel
+                  </uui-button>
+                </span>
+              ` : html`
+                <uui-button look="secondary" color="danger"
+                  @click=${() => { this.confirmDeleteProductId = this.editedProduct?.id; }}
+                  ?disabled=${this.saving}>
+                  Delete Product
+                </uui-button>
+              `}
             </div>
 
           </div>
@@ -713,7 +2730,815 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
     `;
   }
 
+  renderOptionsEditor() {
+    return html`
+      <div class="options-editor-container">
+
+            <div class="options-editor-header">
+              <h4 class="options-editor-title">Update Variant Options</h4>
+              <uui-button look="secondary" @click=${this.cancelEditOptions} ?disabled=${this.saving}>
+                Cancel
+              </uui-button>
+            </div>
+
+            <p class="options-editor-intro">
+              Rename or remove option types. Renaming updates all existing variants automatically.
+            </p>
+
+            ${this.error ? html`
+              <uui-badge color="danger" look="primary" class="save-error">${this.error}</uui-badge>
+            ` : ''}
+
+            ${this.editOptionsDraft.length > 0 ? html`
+              <div class="options-draft-list">
+                ${this.editOptionsDraft.map((opt, index) => html`
+                  <div class="option-draft-card">
+                    <div class="option-draft-name-row">
+                      <uui-input
+                        type="text"
+                        placeholder="Option name"
+                        .value=${opt.name}
+                        @input=${(e) => this.handleOptionDraftName(index, e.target.value)}
+                        ?disabled=${this.saving}>
+                      </uui-input>
+                      <uui-button look="secondary" color="danger"
+                        @click=${() => this.removeOptionDraft(index)}
+                        ?disabled=${this.saving}>
+                        Remove
+                      </uui-button>
+                    </div>
+
+                    <div class="option-draft-values">
+                      ${opt.values.length > 0 ? html`
+                        <div class="option-value-chips">
+                          ${opt.values.map((val, vi) => html`
+                            <span class="option-value-chip">
+                              ${val}
+                              <button class="chip-remove" type="button"
+                                @click=${() => this.removeValueFromOptionDraft(index, vi)}
+                                ?disabled=${this.saving}>×</button>
+                            </span>
+                          `)}
+                        </div>
+                      ` : html`<p class="no-values-hint">No values yet.</p>`}
+
+                      <div class="add-value-row">
+                        <uui-input
+                          type="text"
+                          placeholder="Add a value (e.g., Small)"
+                          .value=${this.editOptionsDraftNewValues[index] || ''}
+                          @input=${(e) => this.handleOptionDraftNewValue(index, e.target.value)}
+                          @keydown=${(e) => { if (e.key === 'Enter') { e.preventDefault(); this.addValueToOptionDraft(index); } }}
+                          ?disabled=${this.saving}>
+                        </uui-input>
+                        <uui-button look="secondary"
+                          @click=${() => this.addValueToOptionDraft(index)}
+                          ?disabled=${this.saving}>
+                          Add Value
+                        </uui-button>
+                      </div>
+                    </div>
+                  </div>
+                `)}
+              </div>
+            ` : html`
+              <p class="no-options-hint">No options configured yet. Add one below.</p>
+            `}
+
+            <div class="add-option-draft-row">
+              <uui-input
+                type="text"
+                placeholder="New option name (e.g., Size)"
+                .value=${this.editOptionsNewName}
+                @input=${(e) => { this.editOptionsNewName = e.target.value; }}
+                @keydown=${(e) => { if (e.key === 'Enter') { e.preventDefault(); this.addOptionDraft(); } }}
+                ?disabled=${this.saving}>
+              </uui-input>
+              <uui-button look="secondary" @click=${this.addOptionDraft} ?disabled=${this.saving}>
+                Add Option
+              </uui-button>
+            </div>
+
+            <div class="button-group">
+              <uui-button look="secondary" @click=${this.cancelEditOptions} ?disabled=${this.saving}>
+                Cancel
+              </uui-button>
+              <uui-button look="primary" color="positive" @click=${this.saveOptionsUpdate} ?disabled=${this.saving}>
+                ${this.saving ? 'Saving...' : 'Save Options'}
+              </uui-button>
+            </div>
+
+      </div>
+    `;
+  }
+
+  renderVariantBuilder() {
+    const combinations = this.generateVariantCombinations();
+    const previewBaseSku = (this.newBaseSku || '').trim() || this.editedProduct?.id || 'variant';
+
+    return html`
+      <div class="variant-builder-container">
+
+            <div class="variant-builder-header">
+              <h4 class="variant-builder-title">Create Product Variants</h4>
+              <uui-button look="secondary" @click=${this.cancelCreateVariants} ?disabled=${this.saving}>
+                Cancel
+              </uui-button>
+            </div>
+
+            <p class="variant-builder-intro">
+              Define option types and their values. All combinations are auto-generated as variants.
+              The product will be converted to a variant product when saved.
+            </p>
+
+            ${this.error ? html`
+              <uui-badge color="danger" look="primary" class="save-error">${this.error}</uui-badge>
+            ` : ''}
+
+            <!-- Option Types -->
+            <div class="builder-section">
+              <h5 class="section-heading">Option Types</h5>
+
+              ${this.newVariantOptions.length > 0 ? html`
+                <div class="option-types-list">
+                  ${this.newVariantOptions.map((opt, index) => html`
+                    <div class="option-type-card">
+                      <div class="option-type-header">
+                        <strong>${opt.name}</strong>
+                        <uui-button look="secondary"
+                          @click=${() => this.removeVariantOption(index)}
+                          ?disabled=${this.saving}>
+                          Remove
+                        </uui-button>
+                      </div>
+                      <div class="option-values-list">
+                        ${opt.values.map(val => html`<span class="option-value-tag">${val}</span>`)}
+                      </div>
+                    </div>
+                  `)}
+                </div>
+              ` : html`
+                <p class="no-options-hint">No option types yet. Add one below (e.g., Size with values Small, Medium, Large).</p>
+              `}
+
+              <!-- Add option form -->
+              <div class="add-option-form">
+                <div class="add-option-inputs">
+                  <div class="form-group">
+                    <uui-label>Option Name</uui-label>
+                    <uui-input
+                      type="text"
+                      placeholder="e.g., Size"
+                      .value=${this.newOptionName}
+                      @input=${(e) => { this.newOptionName = e.target.value; }}
+                      @keydown=${(e) => { if (e.key === 'Enter') { e.preventDefault(); this.addVariantOption(); } }}
+                      ?disabled=${this.saving}>
+                    </uui-input>
+                  </div>
+                  <div class="form-group">
+                    <uui-label>Values (comma-separated)</uui-label>
+                    <uui-input
+                      type="text"
+                      placeholder="e.g., Small, Medium, Large"
+                      .value=${this.newOptionValues}
+                      @input=${(e) => { this.newOptionValues = e.target.value; }}
+                      @keydown=${(e) => { if (e.key === 'Enter') { e.preventDefault(); this.addVariantOption(); } }}
+                      ?disabled=${this.saving}>
+                    </uui-input>
+                  </div>
+                </div>
+                <uui-button look="secondary" @click=${this.addVariantOption} ?disabled=${this.saving}>
+                  Add Option
+                </uui-button>
+              </div>
+            </div>
+
+            <!-- Default Values -->
+            <div class="builder-section">
+              <h5 class="section-heading">Default Values for Generated Variants</h5>
+              <div class="default-values-grid">
+                <div class="form-group">
+                  <uui-label required>Base SKU</uui-label>
+                  <uui-input
+                    type="text"
+                    placeholder="e.g., SHIRT-001"
+                    .value=${this.newBaseSku}
+                    @input=${(e) => { this.newBaseSku = e.target.value; }}
+                    ?disabled=${this.saving}>
+                  </uui-input>
+                  <small style="color: var(--uui-color-text-alt);">Variant SKU = Base SKU + option values</small>
+                </div>
+                <div class="form-group">
+                  <uui-label required>Default Price</uui-label>
+                  <uui-input
+                    type="number"
+                    step="0.01"
+                    placeholder="0.00"
+                    .value=${this.defaultVariantPrice}
+                    @input=${(e) => { this.defaultVariantPrice = e.target.value; }}
+                    ?disabled=${this.saving}>
+                  </uui-input>
+                </div>
+                <div class="form-group">
+                  <uui-label>Default Stock</uui-label>
+                  <uui-input
+                    type="number"
+                    placeholder="0"
+                    .value=${this.defaultVariantStock}
+                    @input=${(e) => { this.defaultVariantStock = e.target.value; }}
+                    ?disabled=${this.saving}>
+                  </uui-input>
+                </div>
+              </div>
+            </div>
+
+            <!-- Combinations Preview -->
+            ${combinations.length > 0 ? html`
+              <div class="builder-section">
+                <h5 class="section-heading">Preview — ${combinations.length} variant${combinations.length !== 1 ? 's' : ''} will be created</h5>
+                <div class="combinations-table-wrapper">
+                  <table class="combinations-table">
+                    <thead>
+                      <tr>
+                        ${this.newVariantOptions.map(opt => html`<th>${opt.name}</th>`)}
+                        <th>SKU Preview</th>
+                        <th>Price</th>
+                        <th>Stock</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      ${combinations.slice(0, 12).map((combo) => html`
+                        <tr>
+                          ${this.newVariantOptions.map(opt => html`<td>${combo[opt.name]}</td>`)}
+                          <td><code class="sku">${previewBaseSku}${Object.keys(combo).length > 0 ? '-' + Object.values(combo).join('-').toLowerCase().replace(/\s+/g, '-') : ''}</code></td>
+                          <td>$${parseFloat(this.defaultVariantPrice || '0').toFixed(2)}</td>
+                          <td>${parseInt(this.defaultVariantStock || '0')}</td>
+                        </tr>
+                      `)}
+                      ${combinations.length > 12 ? html`
+                        <tr>
+                          <td colspan="${this.newVariantOptions.length + 3}" class="more-combinations">
+                            … and ${combinations.length - 12} more variants
+                          </td>
+                        </tr>
+                      ` : ''}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ` : ''}
+
+            <!-- Builder Action Buttons -->
+            <div class="button-group">
+              <uui-button
+                look="secondary"
+                @click=${this.cancelCreateVariants}
+                ?disabled=${this.saving}>
+                Cancel
+              </uui-button>
+              <uui-button
+                look="primary"
+                color="positive"
+                @click=${this.saveProductWithVariants}
+                ?disabled=${this.saving}>
+                ${this.saving
+                  ? 'Saving...'
+                  : `Create ${combinations.length} Variant${combinations.length !== 1 ? 's' : ''}`}
+              </uui-button>
+            </div>
+
+      </div>
+    `;
+  }
+
+  renderProductListPanel() {
+    const query = (this.productSearchQuery || '').toLowerCase();
+    const filtered = this.products.filter(p =>
+      !query || p.name?.toLowerCase().includes(query) || p.sku?.toLowerCase().includes(query)
+    );
+
+    return html`
+      <div class="product-list-panel">
+        <div class="product-list-header">
+          <uui-input
+            type="text"
+            placeholder="Search products..."
+            .value=${this.productSearchQuery}
+            @input=${(e) => { this.productSearchQuery = e.target.value; }}
+            class="product-search-input">
+          </uui-input>
+          ${this._mode !== 'single-product' ? html`
+            <uui-button look="primary" color="positive" @click=${this.startCreateProduct} class="new-product-btn">
+              + New
+            </uui-button>
+          ` : ''}
+        </div>
+
+        ${filtered.length === 0 ? html`
+          <p class="product-list-empty">No products found</p>
+        ` : filtered.map(p => this.renderProductListItem(p))}
+      </div>
+    `;
+  }
+
+  renderProductListItem(product) {
+    const isSelected = this.selectedProductId === product.id;
+    return html`
+      <div class="product-list-item ${isSelected ? 'selected' : ''}"
+        @click=${() => this.selectProduct(product)}>
+        <div class="product-list-item-image">
+          ${product.images?.length > 0 ? html`
+            <img src="${product.images[0]}" alt="${product.name}" class="product-list-thumb" />
+          ` : html`
+            <div class="product-list-thumb-placeholder">
+              <uui-icon name="icon-picture"></uui-icon>
+            </div>
+          `}
+        </div>
+        <div class="product-list-item-info">
+          <strong class="product-list-item-name">${product.name}</strong>
+          <div class="product-list-item-meta">
+            ${product.hasVariants ? html`
+              <span class="variant-count-badge">${product.variants?.length || 0} variants</span>
+            ` : html`
+              <span class="product-list-sku">${product.sku || 'No SKU'}</span>
+            `}
+            <span class="product-list-status status-${product.status || 'active'}">${product.status || 'active'}</span>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  renderProductDetailPanel() {
+    if (this.creatingProduct) {
+      return html`
+        <div class="product-detail-panel">
+          ${this.renderCreateProductForm()}
+        </div>
+      `;
+    }
+
+    if (!this.selectedProductId || !this.editedProduct) {
+      return html`
+        <div class="product-detail-panel product-detail-empty">
+          <uui-icon name="icon-box"></uui-icon>
+          <p>Select a product from the list to edit it, or click <strong>+ New</strong> to create one.</p>
+        </div>
+      `;
+    }
+
+    if (this.editingOptions) {
+      return html`<div class="product-detail-panel">${this.renderOptionsEditor()}</div>`;
+    }
+
+    if (this.editingProductOptions) {
+      return html`<div class="product-detail-panel">${this.renderProductOptionsDetailPanel()}</div>`;
+    }
+
+    if (this.creatingVariants) {
+      return html`<div class="product-detail-panel">${this.renderVariantBuilder()}</div>`;
+    }
+
+    return html`
+      <div class="product-detail-panel">
+        ${this.editedProduct.hasVariants
+          ? this.renderVariantProductFields()
+          : this.renderSimpleProductFields()}
+      </div>
+    `;
+  }
+
+  renderSimpleProductFields() {
+    const product = this.editedProduct;
+    const productOptions = Array.isArray(product.customProperties) ? product.customProperties : [];
+
+    return html`
+      ${this.saveSuccess ? html`
+        <uui-badge color="positive" look="primary" class="save-success">${this.saveSuccess}</uui-badge>
+      ` : ''}
+
+      ${this.error ? html`
+        <uui-badge color="danger" look="primary" class="save-error">${this.error}</uui-badge>
+      ` : ''}
+
+      ${productOptions.length > 0 ? html`
+        <div class="attributes-section">
+          <h4 class="section-heading">Attributes</h4>
+          <div class="attributes-grid">
+            ${productOptions.map(prop => html`
+              <span class="attribute-label">${prop.name}</span>
+              <span class="attribute-value">${prop.value}</span>
+            `)}
+          </div>
+        </div>
+      ` : ''}
+
+      <h4 class="section-heading">Content</h4>
+      <div class="edit-form-grid">
+
+        <div class="form-group">
+          <uui-label for="sp-name" required>Name</uui-label>
+          <uui-input id="sp-name" .value=${product.name}
+            @input=${(e) => this.handleProductInput('name', e.target.value)}
+            ?disabled=${this.saving} required>
+          </uui-input>
+          ${this.validationErrors.name ? html`<small class="error-text">${this.validationErrors.name}</small>` : ''}
+        </div>
+
+        <div class="form-group">
+          <uui-label for="sp-status">Status</uui-label>
+          <select id="sp-status" class="variant-status-select"
+            @change=${(e) => this.handleProductInput('status', e.target.value)}
+            ?disabled=${this.saving}>
+            <option value="active" ?selected=${product.status === 'active'}>Active</option>
+            <option value="inactive" ?selected=${product.status === 'inactive'}>Inactive</option>
+            <option value="draft" ?selected=${product.status === 'draft'}>Draft</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <uui-label for="sp-price" required>Price</uui-label>
+          <uui-input id="sp-price" type="number" step="0.01"
+            .value=${String(product.price || '')}
+            @input=${(e) => this.handleProductInput('price', parseFloat(e.target.value))}
+            ?disabled=${this.saving} required>
+          </uui-input>
+          ${this.validationErrors.price ? html`<small class="error-text">${this.validationErrors.price}</small>` : ''}
+        </div>
+
+        <div class="form-group">
+          <uui-label for="sp-sale-price">Sale Price</uui-label>
+          <uui-input id="sp-sale-price" type="number" step="0.01"
+            .value=${String(product.salePrice ?? '')}
+            @input=${(e) => this.handleProductInput('salePrice', e.target.value ? parseFloat(e.target.value) : null)}
+            ?disabled=${this.saving}
+            placeholder="Leave blank if not on sale">
+          </uui-input>
+        </div>
+
+        <div class="form-group">
+          <uui-label for="sp-stock" required>Stock Quantity</uui-label>
+          <uui-input id="sp-stock" type="number"
+            .value=${String(product.stockQuantity ?? '')}
+            @input=${(e) => this.handleProductInput('stockQuantity', parseInt(e.target.value))}
+            ?disabled=${this.saving} required>
+          </uui-input>
+          ${this.validationErrors.stockQuantity ? html`<small class="error-text">${this.validationErrors.stockQuantity}</small>` : ''}
+        </div>
+
+        <div class="form-group">
+          <uui-label for="sp-sku">SKU</uui-label>
+          <uui-input id="sp-sku" type="text"
+            .value=${product.sku || ''}
+            @input=${(e) => this.handleProductInput('sku', e.target.value)}
+            ?disabled=${this.saving}>
+          </uui-input>
+        </div>
+
+        <div class="form-group full-width">
+          <uui-label for="sp-description">Description</uui-label>
+          <textarea id="sp-description" class="description-textarea"
+            .value=${product.description || ''}
+            @input=${(e) => this.handleProductInput('description', e.target.value)}
+            ?disabled=${this.saving} rows="3"
+            placeholder="Product description..."></textarea>
+        </div>
+
+        <div class="form-group full-width">
+          <uui-label for="sp-highlights">Highlights</uui-label>
+          <textarea id="sp-highlights" class="description-textarea"
+            .value=${this.highlightsText}
+            @input=${(e) => this.handleHighlightsInput(e.target.value)}
+            ?disabled=${this.saving} rows="3"
+            placeholder="One bullet point per line"></textarea>
+          <small class="field-hint">Each line becomes a separate bullet point on the product page.</small>
+        </div>
+
+        <div class="form-group full-width">
+          <uui-label>Images</uui-label>
+          ${this.renderImageGallery(
+            product.images || [],
+            (i) => this.removeImageFromEditedProduct(i),
+            this.newProductImageUrl,
+            (e) => { this.newProductImageUrl = e.target.value; },
+            () => this.addImageToEditedProduct(),
+            'edit'
+          )}
+        </div>
+      </div>
+
+      <h4 class="section-heading">Leasing &amp; Visibility</h4>
+      <div class="edit-form-grid">
+        <div class="form-group">
+          <uui-label for="sp-leasing">Leasing Factor</uui-label>
+          <uui-input id="sp-leasing" type="number" step="0.0001"
+            .value=${String(product.leasingFactor ?? '')}
+            @input=${(e) => this.handleProductInput('leasingFactor', e.target.value ? parseFloat(e.target.value) : null)}
+            ?disabled=${this.saving} placeholder="e.g. 0.0285">
+          </uui-input>
+          <small class="field-hint">Monthly price = Price × Leasing Factor. Leave blank to hide leasing option.</small>
+        </div>
+
+        <div class="form-group">
+          <uui-label for="sp-hide-price">Hide Price</uui-label>
+          <div style="display:flex;align-items:center;gap:0.5rem;padding-top:0.25rem;">
+            <input id="sp-hide-price" type="checkbox"
+              style="width:1rem;height:1rem;cursor:pointer;"
+              .checked=${product.hidePrice || false}
+              @change=${(e) => this.handleProductInput('hidePrice', e.target.checked)}
+              ?disabled=${this.saving}>
+            <small>Replace price with a custom message (enquiry-only products)</small>
+          </div>
+        </div>
+
+        ${product.hidePrice ? html`
+          <div class="form-group full-width">
+            <uui-label for="sp-hidden-price-desc">Hidden Price Message</uui-label>
+            <uui-input id="sp-hidden-price-desc" type="text"
+              .value=${product.hiddenPriceDescription || ''}
+              @input=${(e) => this.handleProductInput('hiddenPriceDescription', e.target.value)}
+              ?disabled=${this.saving}
+              placeholder="e.g. Price on request — contact us">
+            </uui-input>
+          </div>
+        ` : ''}
+      </div>
+
+      <div class="version-info">
+        <small>
+          <strong>Version:</strong> ${product.version || 1} |
+          <strong>Last Updated:</strong> ${this.formatDate(product.updatedAt)} |
+          <strong>Updated By:</strong> ${product.versionCreatedBy || 'System'}
+        </small>
+      </div>
+
+      <div class="button-group">
+        <uui-button look="secondary" @click=${this.cancelEdit} ?disabled=${this.saving}>
+          Close
+        </uui-button>
+        <uui-button look="secondary" @click=${this.startManageOptions} ?disabled=${this.saving}>
+          Add-on Options (${(this.editedProduct?.options || []).length})
+        </uui-button>
+        <uui-button look="primary" color="positive" @click=${this.saveProduct} ?disabled=${this.saving}>
+          ${this.saving ? 'Saving...' : 'Save Changes'}
+        </uui-button>
+        <span class="button-group-separator"></span>
+        ${this.confirmDeleteProductId === product.id ? html`
+          <span class="inline-confirm">
+            <small>Delete this product?</small>
+            <uui-button look="primary" color="danger"
+              @click=${() => this.deleteProduct(product.id)} ?disabled=${this.saving}>
+              Yes, delete
+            </uui-button>
+            <uui-button look="secondary"
+              @click=${() => { this.confirmDeleteProductId = null; }} ?disabled=${this.saving}>
+              Cancel
+            </uui-button>
+          </span>
+        ` : html`
+          <uui-button look="secondary" color="danger"
+            @click=${() => { this.confirmDeleteProductId = product.id; }} ?disabled=${this.saving}>
+            Delete Product
+          </uui-button>
+        `}
+      </div>
+    `;
+  }
+
+  renderVariantProductFields() {
+    const product = this.editedProduct;
+    const productOptions = Array.isArray(product.customProperties) ? product.customProperties : [];
+
+    return html`
+      ${this.saveSuccess ? html`
+        <uui-badge color="positive" look="primary" class="save-success">${this.saveSuccess}</uui-badge>
+      ` : ''}
+
+      ${this.error ? html`
+        <uui-badge color="danger" look="primary" class="save-error">${this.error}</uui-badge>
+      ` : ''}
+
+      ${productOptions.length > 0 ? html`
+        <div class="attributes-section">
+          <h4 class="section-heading">Attributes</h4>
+          <div class="attributes-grid">
+            ${productOptions.map(prop => html`
+              <span class="attribute-label">${prop.name}</span>
+              <span class="attribute-value">${prop.value}</span>
+            `)}
+          </div>
+        </div>
+      ` : ''}
+
+      <h4 class="section-heading">Product</h4>
+      <div class="edit-form-grid">
+        <div class="form-group">
+          <uui-label for="vp-name" required>Name</uui-label>
+          <uui-input id="vp-name" .value=${product.name}
+            @input=${(e) => this.handleProductInput('name', e.target.value)}
+            ?disabled=${this.saving} required>
+          </uui-input>
+          ${this.validationErrors.name ? html`<small class="error-text">${this.validationErrors.name}</small>` : ''}
+        </div>
+
+        <div class="form-group">
+          <uui-label for="vp-status">Status</uui-label>
+          <select id="vp-status" class="variant-status-select"
+            @change=${(e) => this.handleProductInput('status', e.target.value)}
+            ?disabled=${this.saving}>
+            <option value="active" ?selected=${product.status === 'active'}>Active</option>
+            <option value="inactive" ?selected=${product.status === 'inactive'}>Inactive</option>
+            <option value="draft" ?selected=${product.status === 'draft'}>Draft</option>
+          </select>
+        </div>
+
+        <div class="form-group full-width">
+          <uui-label for="vp-description">Description</uui-label>
+          <textarea id="vp-description" class="description-textarea"
+            .value=${product.description || ''}
+            @input=${(e) => this.handleProductInput('description', e.target.value)}
+            ?disabled=${this.saving} rows="3"
+            placeholder="Product description..."></textarea>
+        </div>
+
+        <div class="form-group full-width">
+          <uui-label for="vp-highlights">Highlights</uui-label>
+          <textarea id="vp-highlights" class="description-textarea"
+            .value=${this.highlightsText}
+            @input=${(e) => this.handleHighlightsInput(e.target.value)}
+            ?disabled=${this.saving} rows="3"
+            placeholder="One bullet point per line"></textarea>
+          <small class="field-hint">Each line becomes a separate bullet point on the product page.</small>
+        </div>
+
+        <div class="form-group full-width">
+          <uui-label>Images</uui-label>
+          ${this.renderImageGallery(
+            product.images || [],
+            (i) => this.removeImageFromEditedProduct(i),
+            this.newProductImageUrl,
+            (e) => { this.newProductImageUrl = e.target.value; },
+            () => this.addImageToEditedProduct(),
+            'edit'
+          )}
+        </div>
+      </div>
+
+      <div class="version-info">
+        <small>
+          <strong>Version:</strong> ${product.version || 1} |
+          <strong>Last Updated:</strong> ${this.formatDate(product.updatedAt)} |
+          <strong>Updated By:</strong> ${product.versionCreatedBy || 'System'}
+        </small>
+      </div>
+
+      <div class="button-group">
+        <uui-button look="secondary" @click=${this.cancelEdit} ?disabled=${this.saving}>
+          Close
+        </uui-button>
+        <uui-button look="secondary" @click=${this.startEditOptions} ?disabled=${this.saving}>
+          Variant Options
+        </uui-button>
+        <uui-button look="secondary" @click=${this.startManageOptions} ?disabled=${this.saving}>
+          Add-on Options (${(this.editedProduct?.options || []).length})
+        </uui-button>
+        <uui-button look="primary" color="positive" @click=${this.saveProduct} ?disabled=${this.saving}>
+          ${this.saving ? 'Saving...' : 'Save Changes'}
+        </uui-button>
+        <span class="button-group-separator"></span>
+        ${this.confirmDeleteProductId === product.id ? html`
+          <span class="inline-confirm">
+            <small>Delete this product?</small>
+            <uui-button look="primary" color="danger"
+              @click=${() => this.deleteProduct(product.id)} ?disabled=${this.saving}>
+              Yes, delete
+            </uui-button>
+            <uui-button look="secondary"
+              @click=${() => { this.confirmDeleteProductId = null; }} ?disabled=${this.saving}>
+              Cancel
+            </uui-button>
+          </span>
+        ` : html`
+          <uui-button look="secondary" color="danger"
+            @click=${() => { this.confirmDeleteProductId = product.id; }} ?disabled=${this.saving}>
+            Delete Product
+          </uui-button>
+        `}
+      </div>
+
+      ${this.renderVariantTable()}
+    `;
+  }
+
+  renderVariantTable() {
+    const allVariants = this.editedProduct?.variants || [];
+    const q = (this.variantSearchQuery || '').toLowerCase();
+    const filtered = allVariants.filter(v => {
+      if (!q) return true;
+      const optionStr = Object.values(v.options || {}).join(' ').toLowerCase();
+      return v.sku?.toLowerCase().includes(q) || optionStr.includes(q);
+    });
+
+    const variantOptions = this.editedProduct?.variantOptions || [];
+    const optionNames = variantOptions.map(o => o.name);
+
+    return html`
+      <div class="variant-table-section">
+        <div class="variant-table-header">
+          <h4 class="section-heading">Variants (${allVariants.length})</h4>
+          <div class="variant-table-actions">
+            <uui-input type="text" placeholder="Search variants..."
+              .value=${this.variantSearchQuery}
+              @input=${(e) => { this.variantSearchQuery = e.target.value; }}
+              class="variant-search-input">
+            </uui-input>
+            ${!this.addingVariant ? html`
+              <uui-button look="secondary" color="positive" @click=${this.startAddVariant} ?disabled=${this.saving}>
+                + Add Variant
+              </uui-button>
+            ` : ''}
+          </div>
+        </div>
+
+        ${this.addingVariant ? html`
+          <div class="variant-add-inline">
+            ${this.renderAddVariantForm()}
+          </div>
+        ` : ''}
+
+        ${filtered.length === 0 ? html`
+          <p class="no-variants-hint">${allVariants.length === 0 ? 'No variants yet.' : 'No variants match your search.'}</p>
+        ` : html`
+          <div class="variants-table-wrapper">
+            <table class="variants-table">
+              <thead>
+                <tr>
+                  ${optionNames.map(name => html`<th>${name}</th>`)}
+                  <th>SKU</th>
+                  <th>Price</th>
+                  <th>Stock</th>
+                  <th>Status</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                ${filtered.map(v => this.renderVariantTableRow(v, optionNames))}
+              </tbody>
+            </table>
+          </div>
+        `}
+      </div>
+    `;
+  }
+
+  renderVariantTableRow(variant, optionNames) {
+    const isEditing = this.editedVariantId === variant.id;
+    const totalCols = optionNames.length + 5;
+    return html`
+      <tr class="variant-table-row ${isEditing ? 'variant-table-row-active' : ''}"
+        @click=${() => this.toggleVariantEdit(variant)}>
+        ${optionNames.map(name => html`<td>${variant.options?.[name] || '—'}</td>`)}
+        <td><code class="sku">${variant.sku || '—'}</code></td>
+        <td>$${variant.price?.toFixed(2) ?? '0.00'}</td>
+        <td>
+          <span class="${(variant.stockQuantity ?? 0) > 0 ? 'tag-positive' : 'tag-danger'} variant-tag">
+            ${variant.stockQuantity ?? 0}
+          </span>
+        </td>
+        <td>
+          <span class="${variant.status === 'active' ? 'tag-positive' : 'tag-default'} variant-tag">
+            ${variant.status || 'active'}
+          </span>
+        </td>
+        <td class="variant-expand-cell">
+          <uui-icon name="${isEditing ? 'icon-collapse' : 'icon-expand'}"></uui-icon>
+        </td>
+      </tr>
+      ${isEditing ? html`
+        <tr class="variant-edit-inline-row">
+          <td colspan="${totalCols}" @click=${(e) => e.stopPropagation()}>
+            <div class="variant-edit-inline-content">
+              ${this.renderVariantEditForm(variant)}
+            </div>
+          </td>
+        </tr>
+      ` : ''}
+    `;
+  }
+
+  renderProductOptionsDetailPanel() {
+    return this.renderOptionBlocksEditor();
+  }
+
   render() {
+    // Not a category or product page - the eCommerce tab isn't applicable here.
+    if (this.defaultAliases && this._contentTypeAlias &&
+        this._contentTypeAlias !== this.defaultAliases.categoryPageAlias &&
+        this._contentTypeAlias !== this.defaultAliases.productPageAlias) {
+      return html``;
+    }
+
     if (this.loading) {
       return html`
         <div class="loading-state">
@@ -723,7 +3548,7 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
       `;
     }
 
-    if (!this.categoryId) {
+    if (!this.categoryId && this._mode !== 'single-product') {
       return html`
         <uui-box>
           <div class="info-state">
@@ -742,16 +3567,14 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
       `;
     }
 
-    if (this.error) {
+    if (this.error && !this.selectedProductId && !this.creatingProduct) {
       return html`
         <uui-box>
           <div class="error-state">
             <uui-icon name="icon-alert" style="color: var(--uui-color-danger);"></uui-icon>
             <h3>Error Loading Products</h3>
             <p>${this.error}</p>
-            <uui-button
-              look="secondary"
-              @click=${this.loadProducts}>
+            <uui-button look="secondary" @click=${() => this._refreshView()}>
               <uui-icon name="icon-refresh"></uui-icon>
               Retry
             </uui-button>
@@ -760,14 +3583,16 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
       `;
     }
 
-    if (this.products.length === 0) {
+    if (this.products.length === 0 && !this.creatingProduct) {
       return html`
         <uui-box>
           <div class="empty-state">
             <uui-icon name="icon-box"></uui-icon>
             <h3>No Products Found</h3>
             <p>This category doesn't have any products yet.</p>
-            <small>Products added via the eCommerce API will appear here automatically.</small>
+            <uui-button look="primary" color="positive" @click=${this.startCreateProduct}>
+              New Product
+            </uui-button>
           </div>
         </uui-box>
       `;
@@ -776,25 +3601,10 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
     return html`
       <uui-box>
         <div slot="headline">Products (${this.products.length})</div>
-        <p class="description">
-          Read-only view of products from the eCommerce API for this category.
-        </p>
-
-        <uui-table>
-          <uui-table-head>
-            <uui-table-head-cell style="width: 80px;">Image</uui-table-head-cell>
-            <uui-table-head-cell>Name</uui-table-head-cell>
-            <uui-table-head-cell style="width: 150px;">SKU</uui-table-head-cell>
-            <uui-table-head-cell style="width: 120px;">Price</uui-table-head-cell>
-            <uui-table-head-cell style="width: 100px;">Stock</uui-table-head-cell>
-            <uui-table-head-cell style="width: 100px;">Status</uui-table-head-cell>
-            <uui-table-head-cell style="width: 80px;">Version</uui-table-head-cell>
-          </uui-table-head>
-
-          <uui-table-body>
-            ${this.products.map(product => this.renderProductRow(product))}
-          </uui-table-body>
-        </uui-table>
+        <div class="split-panel-layout">
+          ${this.renderProductListPanel()}
+          ${this.renderProductDetailPanel()}
+        </div>
       </uui-box>
     `;
   }
@@ -1072,6 +3882,13 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
       margin-top: var(--uui-size-space-1);
     }
 
+    .field-hint {
+      color: var(--uui-color-text-alt);
+      font-size: var(--uui-size-3);
+      margin-top: var(--uui-size-space-1);
+      display: block;
+    }
+
     .version-info {
       margin: var(--uui-size-space-4) 0;
       padding: var(--uui-size-space-3);
@@ -1150,6 +3967,18 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
       color: var(--uui-color-text-alt);
     }
 
+    .variant-header-sku {
+      color: var(--uui-color-text-alt);
+      font-size: var(--uui-size-4);
+    }
+
+    .variant-header-sku code {
+      font-family: monospace;
+      background: var(--uui-color-surface);
+      padding: 1px 5px;
+      border-radius: 3px;
+    }
+
     .variant-summary {
       display: flex;
       align-items: center;
@@ -1168,10 +3997,66 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
       font-weight: 500;
     }
 
+    .variant-tag {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 8px;
+      border-radius: 20px;
+      font-size: var(--uui-size-4);
+      font-weight: 500;
+      border: 1px solid currentColor;
+    }
+
+    .tag-positive {
+      color: var(--uui-color-positive);
+      background: color-mix(in srgb, var(--uui-color-positive) 10%, transparent);
+    }
+
+    .tag-danger {
+      color: var(--uui-color-danger);
+      background: color-mix(in srgb, var(--uui-color-danger) 10%, transparent);
+    }
+
+    .tag-default {
+      color: var(--uui-color-text-alt);
+      background: var(--uui-color-surface-alt);
+    }
+
     .variant-edit-form {
       margin-top: var(--uui-size-space-4);
       padding-top: var(--uui-size-space-4);
       border-top: 1px solid var(--uui-color-border);
+    }
+
+    .attributes-section {
+      margin-bottom: var(--uui-size-space-5);
+      padding: var(--uui-size-space-4);
+      background: var(--uui-color-surface);
+      border: 1px solid var(--uui-color-border);
+      border-radius: var(--uui-border-radius);
+    }
+
+    .section-heading {
+      margin: 0 0 var(--uui-size-space-3) 0;
+      font-size: var(--uui-size-5);
+      font-weight: 600;
+      color: var(--uui-color-text);
+    }
+
+    .attributes-grid {
+      display: grid;
+      grid-template-columns: max-content 1fr;
+      gap: var(--uui-size-space-2) var(--uui-size-space-6);
+      align-items: baseline;
+    }
+
+    .attribute-label {
+      font-weight: 500;
+      color: var(--uui-color-text);
+    }
+
+    .attribute-value {
+      color: var(--uui-color-text-alt);
     }
 
     .variant-status-select {
@@ -1193,6 +4078,888 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
     .variant-status-select:disabled {
       opacity: 0.5;
       cursor: not-allowed;
+    }
+
+    /* Button group shared across all panels */
+    .button-group {
+      display: flex;
+      align-items: center;
+      gap: var(--uui-size-space-3);
+      flex-wrap: wrap;
+      margin-top: var(--uui-size-space-4);
+    }
+
+    .button-group-separator {
+      flex: 1;
+    }
+
+    .inline-confirm {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--uui-size-space-2);
+    }
+
+    .inline-confirm small {
+      color: var(--uui-color-danger);
+      font-weight: 500;
+      white-space: nowrap;
+    }
+
+    /* Form group layout for variant builder inputs */
+    .add-option-inputs .form-group,
+    .default-values-grid .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: var(--uui-size-space-1);
+    }
+
+    .add-option-inputs uui-input,
+    .default-values-grid uui-input {
+      width: 100%;
+    }
+
+    /* Variant builder */
+    .variant-builder-row {
+      background-color: var(--uui-color-surface);
+    }
+
+    .variant-builder-container {
+      padding: var(--uui-size-space-5);
+      border-top: 2px solid var(--uui-color-selected);
+    }
+
+    .variant-builder-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: var(--uui-size-space-3);
+    }
+
+    .variant-builder-title {
+      display: flex;
+      align-items: center;
+      gap: var(--uui-size-space-2);
+      margin: 0;
+      font-size: var(--uui-size-5);
+      font-weight: 600;
+    }
+
+    .variant-builder-intro {
+      color: var(--uui-color-text-alt);
+      margin-bottom: var(--uui-size-space-4);
+    }
+
+    .builder-section {
+      margin-bottom: var(--uui-size-space-5);
+      padding: var(--uui-size-space-4);
+      background: var(--uui-color-surface-alt);
+      border: 1px solid var(--uui-color-border);
+      border-radius: var(--uui-border-radius);
+    }
+
+    .no-options-hint {
+      color: var(--uui-color-text-alt);
+      font-style: italic;
+      margin-bottom: var(--uui-size-space-3);
+    }
+
+    .option-types-list {
+      display: flex;
+      flex-direction: column;
+      gap: var(--uui-size-space-3);
+      margin-bottom: var(--uui-size-space-4);
+    }
+
+    .option-type-card {
+      padding: var(--uui-size-space-3);
+      background: var(--uui-color-surface);
+      border: 1px solid var(--uui-color-border);
+      border-radius: var(--uui-border-radius);
+    }
+
+    .option-type-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: var(--uui-size-space-2);
+    }
+
+    .option-values-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--uui-size-space-2);
+    }
+
+    .option-value-tag {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 10px;
+      border-radius: 20px;
+      font-size: var(--uui-size-4);
+      background: color-mix(in srgb, var(--uui-color-selected) 15%, transparent);
+      color: var(--uui-color-selected-contrast);
+      border: 1px solid color-mix(in srgb, var(--uui-color-selected) 40%, transparent);
+    }
+
+    .add-option-form {
+      border-top: 1px dashed var(--uui-color-border);
+      padding-top: var(--uui-size-space-3);
+      display: flex;
+      flex-direction: column;
+      gap: var(--uui-size-space-3);
+    }
+
+    .add-option-inputs {
+      display: grid;
+      grid-template-columns: 1fr 2fr;
+      gap: var(--uui-size-space-3);
+    }
+
+    .default-values-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: var(--uui-size-space-4);
+    }
+
+    .combinations-table-wrapper {
+      overflow-x: auto;
+      border-radius: var(--uui-border-radius);
+      border: 1px solid var(--uui-color-border);
+    }
+
+    .combinations-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: var(--uui-size-4);
+      background: var(--uui-color-surface);
+    }
+
+    .combinations-table th {
+      padding: var(--uui-size-space-2) var(--uui-size-space-3);
+      background: var(--uui-color-surface-alt);
+      text-align: left;
+      font-weight: 600;
+      border-bottom: 1px solid var(--uui-color-border);
+      white-space: nowrap;
+    }
+
+    .combinations-table td {
+      padding: var(--uui-size-space-2) var(--uui-size-space-3);
+      border-bottom: 1px solid var(--uui-color-border);
+    }
+
+    .combinations-table tbody tr:last-child td {
+      border-bottom: none;
+    }
+
+    .combinations-table tbody tr:hover td {
+      background: var(--uui-color-surface-alt);
+    }
+
+    .more-combinations {
+      text-align: center;
+      color: var(--uui-color-text-alt);
+      font-style: italic;
+    }
+
+    .product-actions {
+      margin-bottom: var(--uui-size-space-4);
+    }
+
+    .create-product-form {
+      margin-bottom: var(--uui-size-space-5);
+      padding: var(--uui-size-space-5);
+      background: var(--uui-color-surface-alt);
+      border: 1px solid var(--uui-color-border);
+      border-radius: var(--uui-border-radius);
+      border-left: 3px solid var(--uui-color-selected);
+    }
+
+    .create-product-form .section-heading {
+      margin-bottom: var(--uui-size-space-4);
+    }
+
+    .product-type-cards {
+      display: flex;
+      gap: var(--uui-size-space-4);
+      margin-bottom: var(--uui-size-space-5);
+    }
+
+    .product-type-card {
+      flex: 1;
+      padding: var(--uui-size-space-5);
+      border: 2px solid var(--uui-color-border);
+      border-radius: var(--uui-border-radius);
+      cursor: pointer;
+      background: var(--uui-color-surface);
+      transition: border-color 0.15s, box-shadow 0.15s;
+      text-align: center;
+    }
+
+    .product-type-card:hover {
+      border-color: var(--uui-color-selected);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+
+    .product-type-card-icon {
+      font-size: 2rem;
+      margin-bottom: var(--uui-size-space-3);
+    }
+
+    .product-type-card strong {
+      display: block;
+      font-size: 1rem;
+      margin-bottom: var(--uui-size-space-2);
+      color: var(--uui-color-text);
+    }
+
+    .product-type-card p {
+      margin: 0;
+      font-size: 0.85rem;
+      color: var(--uui-color-text-alt);
+    }
+
+    /* Image gallery */
+    .images-section {
+      display: flex;
+      flex-direction: column;
+      gap: var(--uui-size-space-3);
+    }
+
+    .images-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--uui-size-space-3);
+    }
+
+    .image-item {
+      position: relative;
+      width: 96px;
+      height: 96px;
+      border-radius: var(--uui-border-radius);
+      overflow: visible;
+    }
+
+    .image-preview {
+      width: 96px;
+      height: 96px;
+      object-fit: cover;
+      border-radius: var(--uui-border-radius);
+      border: 1px solid var(--uui-color-border);
+      display: block;
+    }
+
+    .image-error-placeholder {
+      width: 96px;
+      height: 96px;
+      border-radius: var(--uui-border-radius);
+      border: 1px dashed var(--uui-color-border);
+      background: var(--uui-color-surface-alt);
+      align-items: center;
+      justify-content: center;
+      color: var(--uui-color-text-alt);
+      font-size: 24px;
+    }
+
+    .image-remove-btn {
+      position: absolute;
+      top: -6px;
+      right: -6px;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: var(--uui-color-danger);
+      color: white;
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      line-height: 1;
+      padding: 0;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+      z-index: 1;
+    }
+
+    .image-remove-btn:hover {
+      background: color-mix(in srgb, var(--uui-color-danger) 75%, black);
+    }
+
+    .image-index {
+      position: absolute;
+      bottom: 4px;
+      left: 4px;
+      background: rgba(0,0,0,0.55);
+      color: white;
+      font-size: 10px;
+      font-weight: 600;
+      padding: 1px 5px;
+      border-radius: 3px;
+      line-height: 1.4;
+    }
+
+    .no-images-hint {
+      color: var(--uui-color-text-alt);
+      font-style: italic;
+      font-size: var(--uui-size-4);
+      margin: 0;
+    }
+
+    .add-image-row {
+      display: flex;
+      gap: var(--uui-size-space-3);
+      align-items: center;
+    }
+
+    .add-image-row uui-input {
+      flex: 1;
+    }
+
+    .image-upload-actions {
+      display: flex;
+      gap: var(--uui-size-space-3);
+      flex-wrap: wrap;
+    }
+
+    .image-uploading-row {
+      display: flex;
+      align-items: center;
+      gap: var(--uui-size-space-3);
+      color: var(--uui-color-text-alt);
+      font-size: var(--uui-size-4);
+      padding: var(--uui-size-space-2) 0;
+    }
+
+    .add-variant-form {
+      margin: var(--uui-size-space-4) 0;
+      padding: var(--uui-size-space-4);
+      background: var(--uui-color-surface);
+      border: 1px solid var(--uui-color-border);
+      border-left: 3px solid var(--uui-color-positive);
+      border-radius: var(--uui-border-radius);
+    }
+
+    .add-variant-form .section-heading {
+      margin-bottom: var(--uui-size-space-3);
+    }
+
+    /* Variant options configuration in create product form */
+    .variant-options-hint {
+      color: var(--uui-color-text-alt);
+      font-size: var(--uui-size-4);
+      margin: 0 0 var(--uui-size-space-2) 0;
+    }
+
+    .new-product-option-list {
+      display: flex;
+      flex-direction: column;
+      gap: var(--uui-size-space-2);
+      margin-bottom: var(--uui-size-space-3);
+    }
+
+    .new-product-option-card {
+      padding: var(--uui-size-space-3);
+      background: var(--uui-color-surface);
+      border: 1px solid var(--uui-color-border);
+      border-radius: var(--uui-border-radius);
+      display: flex;
+      flex-direction: column;
+      gap: var(--uui-size-space-2);
+    }
+
+    .new-product-option-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding-bottom: var(--uui-size-space-2);
+      border-bottom: 1px solid var(--uui-color-border);
+    }
+
+    .option-tag-remove {
+      padding: 2px 8px;
+      font-size: var(--uui-size-4);
+      background: none;
+      border: 1px solid var(--uui-color-danger);
+      color: var(--uui-color-danger);
+      border-radius: var(--uui-border-radius);
+      cursor: pointer;
+    }
+
+    .option-tag-remove:hover:not(:disabled) {
+      background: var(--uui-color-danger);
+      color: white;
+    }
+
+    .add-option-card {
+      border-top: 1px dashed var(--uui-color-border);
+      padding-top: var(--uui-size-space-3);
+    }
+
+    .add-option-name-row {
+      display: flex;
+      gap: var(--uui-size-space-3);
+      align-items: center;
+    }
+
+    .add-option-name-row uui-input {
+      flex: 1;
+    }
+
+    /* Options editor panel */
+    .options-editor-row {
+      background-color: var(--uui-color-surface);
+    }
+
+    .options-editor-container {
+      padding: var(--uui-size-space-5);
+      border-top: 2px solid var(--uui-color-selected);
+    }
+
+    .options-editor-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: var(--uui-size-space-3);
+    }
+
+    .options-editor-title {
+      margin: 0;
+      font-size: var(--uui-size-5);
+      font-weight: 600;
+    }
+
+    .options-editor-intro {
+      color: var(--uui-color-text-alt);
+      margin-bottom: var(--uui-size-space-4);
+    }
+
+    /* Shared value chip styles (used in create product form + Variant Options panel) */
+    .option-value-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--uui-size-space-2);
+    }
+
+    .option-value-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 6px 2px 10px;
+      border-radius: 20px;
+      background: color-mix(in srgb, var(--uui-color-selected) 15%, transparent);
+      border: 1px solid color-mix(in srgb, var(--uui-color-selected) 40%, transparent);
+      font-size: var(--uui-size-4);
+    }
+
+    .chip-remove {
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: none;
+      color: var(--uui-color-text-alt);
+      border: none;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      padding: 0;
+      line-height: 1;
+    }
+
+    .chip-remove:hover:not(:disabled) {
+      background: var(--uui-color-danger);
+      color: white;
+    }
+
+    .no-values-hint {
+      color: var(--uui-color-text-alt);
+      font-style: italic;
+      font-size: var(--uui-size-4);
+      margin: 0;
+    }
+
+    .add-value-row {
+      display: flex;
+      gap: var(--uui-size-space-3);
+      align-items: center;
+    }
+
+    .add-value-row uui-input {
+      flex: 1;
+    }
+
+    /* Variant Options panel */
+    .options-draft-list {
+      display: flex;
+      flex-direction: column;
+      gap: var(--uui-size-space-3);
+      margin-bottom: var(--uui-size-space-4);
+    }
+
+    .option-draft-card {
+      padding: var(--uui-size-space-3);
+      background: var(--uui-color-surface);
+      border: 1px solid var(--uui-color-border);
+      border-radius: var(--uui-border-radius);
+      display: flex;
+      flex-direction: column;
+      gap: var(--uui-size-space-2);
+    }
+
+    .option-draft-name-row {
+      display: flex;
+      gap: var(--uui-size-space-3);
+      align-items: center;
+    }
+
+    .option-draft-name-row uui-input {
+      flex: 1;
+    }
+
+    .option-draft-values {
+      border-top: 1px solid var(--uui-color-border);
+      padding-top: var(--uui-size-space-2);
+      display: flex;
+      flex-direction: column;
+      gap: var(--uui-size-space-2);
+    }
+
+    .add-option-draft-row {
+      display: flex;
+      gap: var(--uui-size-space-3);
+      align-items: center;
+      border-top: 1px dashed var(--uui-color-border);
+      padding-top: var(--uui-size-space-3);
+      margin-bottom: var(--uui-size-space-2);
+    }
+
+    .add-option-draft-row uui-input {
+      flex: 1;
+    }
+
+    /* Split-panel layout */
+    .split-panel-layout {
+      display: flex;
+      min-height: 500px;
+      gap: 0;
+    }
+
+    .product-list-panel {
+      width: 280px;
+      min-width: 220px;
+      border-right: 1px solid var(--uui-color-border);
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+    }
+
+    .product-list-header {
+      display: flex;
+      gap: var(--uui-size-space-2);
+      padding: var(--uui-size-space-3);
+      border-bottom: 1px solid var(--uui-color-border);
+      align-items: center;
+    }
+
+    .product-search-input {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .new-product-btn {
+      flex-shrink: 0;
+    }
+
+    .product-list-empty {
+      color: var(--uui-color-text-alt);
+      font-style: italic;
+      font-size: var(--uui-size-4);
+      padding: var(--uui-size-space-4);
+      text-align: center;
+      margin: 0;
+    }
+
+    .product-list-item {
+      display: flex;
+      align-items: center;
+      gap: var(--uui-size-space-3);
+      padding: var(--uui-size-space-3) var(--uui-size-space-3);
+      cursor: pointer;
+      border-bottom: 1px solid var(--uui-color-border);
+      transition: background 0.15s;
+    }
+
+    .product-list-item:hover {
+      background: var(--uui-color-surface-alt);
+    }
+
+    .product-list-item.selected {
+      background: color-mix(in srgb, var(--uui-color-selected) 12%, transparent);
+      border-left: 3px solid var(--uui-color-selected);
+    }
+
+    .product-list-item-image {
+      flex-shrink: 0;
+    }
+
+    .product-list-thumb {
+      width: 40px;
+      height: 40px;
+      object-fit: cover;
+      border-radius: var(--uui-border-radius);
+      border: 1px solid var(--uui-color-border);
+      display: block;
+    }
+
+    .product-list-thumb-placeholder {
+      width: 40px;
+      height: 40px;
+      border-radius: var(--uui-border-radius);
+      border: 1px solid var(--uui-color-border);
+      background: var(--uui-color-surface-alt);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--uui-color-text-alt);
+      font-size: 18px;
+    }
+
+    .product-list-item-info {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+    }
+
+    .product-list-item-name {
+      display: block;
+      font-size: var(--uui-size-4);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .product-list-item-meta {
+      display: flex;
+      align-items: center;
+      gap: var(--uui-size-space-2);
+      margin-top: 2px;
+    }
+
+    .variant-count-badge {
+      font-size: var(--uui-size-3);
+      background: color-mix(in srgb, var(--uui-color-selected) 15%, transparent);
+      color: var(--uui-color-selected-contrast);
+      border: 1px solid color-mix(in srgb, var(--uui-color-selected) 40%, transparent);
+      padding: 1px 6px;
+      border-radius: 20px;
+    }
+
+    .product-list-sku {
+      font-size: var(--uui-size-3);
+      font-family: monospace;
+      color: var(--uui-color-text-alt);
+    }
+
+    .product-list-status {
+      font-size: var(--uui-size-3);
+      padding: 1px 6px;
+      border-radius: 20px;
+      border: 1px solid currentColor;
+    }
+
+    .product-list-status.status-active {
+      color: var(--uui-color-positive);
+      background: color-mix(in srgb, var(--uui-color-positive) 10%, transparent);
+    }
+
+    .product-list-status.status-inactive,
+    .product-list-status.status-draft {
+      color: var(--uui-color-text-alt);
+      background: var(--uui-color-surface-alt);
+    }
+
+    .product-detail-panel {
+      flex: 1;
+      overflow-y: auto;
+      padding: var(--uui-size-space-5);
+      min-width: 0;
+    }
+
+    .product-detail-empty {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: var(--uui-size-space-3);
+      color: var(--uui-color-text-alt);
+      text-align: center;
+    }
+
+    .product-detail-empty uui-icon {
+      font-size: 48px;
+    }
+
+    .product-detail-empty p {
+      margin: 0;
+      font-size: var(--uui-size-4);
+    }
+
+    /* Variant table in detail panel */
+    .variant-table-section {
+      margin-top: var(--uui-size-space-5);
+      border-top: 2px solid var(--uui-color-border);
+      padding-top: var(--uui-size-space-4);
+    }
+
+    .variant-table-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--uui-size-space-3);
+      margin-bottom: var(--uui-size-space-3);
+      flex-wrap: wrap;
+    }
+
+    .variant-table-actions {
+      display: flex;
+      align-items: center;
+      gap: var(--uui-size-space-2);
+    }
+
+    .variant-search-input {
+      width: 180px;
+    }
+
+    .variant-add-inline {
+      margin-bottom: var(--uui-size-space-4);
+    }
+
+    .no-variants-hint {
+      color: var(--uui-color-text-alt);
+      font-style: italic;
+      font-size: var(--uui-size-4);
+      margin: var(--uui-size-space-3) 0;
+    }
+
+    .variants-table-wrapper {
+      overflow-x: auto;
+      border: 1px solid var(--uui-color-border);
+      border-radius: var(--uui-border-radius);
+    }
+
+    .variants-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: var(--uui-size-4);
+      background: var(--uui-color-surface);
+    }
+
+    .variants-table th {
+      padding: var(--uui-size-space-2) var(--uui-size-space-3);
+      background: var(--uui-color-surface-alt);
+      text-align: left;
+      font-weight: 600;
+      border-bottom: 1px solid var(--uui-color-border);
+      white-space: nowrap;
+    }
+
+    .variants-table td {
+      padding: var(--uui-size-space-2) var(--uui-size-space-3);
+      border-bottom: 1px solid var(--uui-color-border);
+      vertical-align: middle;
+    }
+
+    .variants-table tbody tr:last-child td {
+      border-bottom: none;
+    }
+
+    .variant-table-row {
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .variant-table-row:hover td {
+      background: var(--uui-color-surface-alt);
+    }
+
+    .variant-table-row-active td {
+      background: color-mix(in srgb, var(--uui-color-selected) 8%, transparent);
+    }
+
+    .variant-expand-cell {
+      text-align: center;
+      color: var(--uui-color-text-alt);
+      width: 32px;
+    }
+
+    .variant-edit-inline-row td {
+      padding: 0;
+      background: var(--uui-color-surface-alt);
+    }
+
+    .variant-edit-inline-content {
+      padding: var(--uui-size-space-4);
+      border-top: 2px solid var(--uui-color-selected);
+    }
+
+    /* Product options (add-on accessories) panel */
+    .product-options-panel {
+      border-top: 2px solid var(--uui-color-selected);
+    }
+
+    .product-options-list {
+      display: flex;
+      flex-direction: column;
+      gap: var(--uui-size-space-3);
+      margin-bottom: var(--uui-size-space-4);
+    }
+
+    .product-option-card {
+      padding: var(--uui-size-space-3);
+      border: 1px solid var(--uui-color-border);
+      border-radius: var(--uui-border-radius);
+      background: var(--uui-color-surface-alt);
+    }
+
+    .product-option-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: var(--uui-size-space-3);
+      flex-wrap: wrap;
+    }
+
+    .product-option-header-left {
+      display: flex;
+      align-items: center;
+      gap: var(--uui-size-space-2);
+      flex-wrap: wrap;
+    }
+
+    .product-option-header-right {
+      display: flex;
+      align-items: center;
+      gap: var(--uui-size-space-2);
+    }
+
+    .product-option-name {
+      font-size: var(--uui-size-4);
+    }
+
+    .add-option-inline-form {
+      margin-top: var(--uui-size-space-3);
+      padding: var(--uui-size-space-4);
+      background: var(--uui-color-surface);
+      border: 1px solid var(--uui-color-border);
+      border-left: 3px solid var(--uui-color-positive);
+      border-radius: var(--uui-border-radius);
+    }
+
+    .add-option-inline-form .section-heading {
+      margin-bottom: var(--uui-size-space-3);
     }
   `;
 }

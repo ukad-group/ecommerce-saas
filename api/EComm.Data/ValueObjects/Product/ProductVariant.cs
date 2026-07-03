@@ -12,4 +12,6 @@ public class ProductVariant
     public Dictionary<string, string> Options { get; set; } = new();
     public string Status { get; set; } = "active";
     public bool IsDefault { get; set; } = false;
+    public string? DisplayName { get; set; }
+    public string? Description { get; set; }
 }

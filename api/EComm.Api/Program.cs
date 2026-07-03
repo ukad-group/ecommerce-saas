@@ -76,6 +76,8 @@ builder.Services.AddAuthorization(options =>
 
 // Add services to the container
 builder.Services.AddControllers();
+builder.Services.AddHttpClient("NetsEasy");
+builder.Services.AddSingleton<EComm.Api.Payments.NetsEasyClient>();
 
 // Add Swagger/OpenAPI
 builder.Services.AddEndpointsApiExplorer();
@@ -148,11 +150,16 @@ app.UseCors();
 app.UseAuthentication();
 app.UseAuthorization();
 
+var uploadPath = Path.Combine(builder.Environment.ContentRootPath, "uploads");
+if (!Directory.Exists(uploadPath))
+{
+    Directory.CreateDirectory(uploadPath);
+}
+
 // Enable static file serving for uploaded images with caching
 app.UseStaticFiles(new StaticFileOptions
 {
-    FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(
-        Path.Combine(builder.Environment.ContentRootPath, "uploads")),
+    FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(uploadPath),
     RequestPath = "/uploads",
     OnPrepareResponse = ctx =>
     {

@@ -32,15 +32,30 @@ public class CommerceSettings
     public string CategoryPageAlias { get; set; } = "categoryPage";
 
     /// <summary>
+    /// Document type alias for product nodes (default: "productPage")
+    /// </summary>
+    public string ProductPageAlias { get; set; } = "productPage";
+
+    /// <summary>
     /// Property alias for storing category ID on category nodes (default: "categoryId")
     /// </summary>
     public string CategoryIdPropertyAlias { get; set; } = "categoryId";
+
+    /// <summary>
+    /// Property alias for the store/market picker sibling property on category nodes
+    /// (default: "storeId") - drives which market categories/products are fetched from.
+    /// </summary>
+    public string StoreIdPropertyAlias { get; set; } = "storeId";
+
+    /// <summary>
+    /// Property alias for storing the selected product ID on product pages (default: "productId")
+    /// </summary>
+    public string ProductIdPropertyAlias { get; set; } = "productId";
 
     /// <summary>
     /// Validates that all required settings are configured
     /// </summary>
     public bool IsValid =>
         !string.IsNullOrWhiteSpace(ApiBaseUrl) &&
-        !string.IsNullOrWhiteSpace(TenantId) &&
-        !string.IsNullOrWhiteSpace(MarketId);
+        !string.IsNullOrWhiteSpace(TenantId);
 }

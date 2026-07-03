@@ -118,6 +118,13 @@ public class DataStore
             VariantOptions = product.VariantOptions,
             Variants = product.Variants,
             CustomProperties = product.CustomProperties,
+            Options = product.Options,
+            Highlights = product.Highlights ?? new List<string>(),
+            LeasingFactor = product.LeasingFactor,
+            HidePrice = product.HidePrice,
+            HiddenPriceDescription = product.HiddenPriceDescription,
+            SeoTitle = product.SeoTitle,
+            SeoDescription = product.SeoDescription,
 
             // Preserve original creation date
             CreatedAt = createdAt,
@@ -324,7 +331,8 @@ public class DataStore
     {
         cart.UpdatedAt = DateTime.UtcNow;
         cart.Subtotal = cart.Items.Sum(i => i.Subtotal);
-        cart.Tax = cart.Subtotal * 0.08m; // 8% tax
+        var taxRate = GetMarket(cart.MarketId)?.Settings?.TaxRate ?? 0m;
+        cart.Tax = cart.Subtotal * taxRate;
         cart.Total = cart.Subtotal + cart.Tax;
         _carts[cart.SessionId] = cart;
     }
@@ -397,6 +405,9 @@ public class DataStore
                 Id = ci.Id,
                 ProductId = ci.ProductId,
                 VariantId = ci.VariantId,
+                OptionId = ci.OptionId,
+                ItemType = ci.ItemType,
+                ItemSubType = ci.ItemSubType,
                 ProductName = ci.ProductName,
                 Sku = sku,
                 ProductImageUrl = ci.ProductImageUrl,
@@ -450,6 +461,7 @@ public class DataStore
             existing.ShippingAddress = order.ShippingAddress;
             existing.BillingAddress = order.BillingAddress;
             existing.Items = order.Items;
+            existing.CustomProperties = order.CustomProperties;
 
             context.SaveChanges();
         }
@@ -483,6 +495,15 @@ public class DataStore
     {
         using var context = CreateContext();
         return context.Tenants.AsNoTracking().FirstOrDefault(t => t.Id == id);
+    }
+
+    public void AddTenant(Tenant tenant)
+    {
+        using var context = CreateContext();
+        tenant.CreatedAt = DateTime.UtcNow;
+        tenant.UpdatedAt = DateTime.UtcNow;
+        context.Tenants.Add(tenant);
+        context.SaveChanges();
     }
 
     public void UpdateTenant(Tenant tenant)
@@ -520,6 +541,15 @@ public class DataStore
         return context.Markets.AsNoTracking().Where(m => m.TenantId == tenantId).ToList();
     }
 
+    public void AddMarket(Market market)
+    {
+        using var context = CreateContext();
+        market.CreatedAt = DateTime.UtcNow;
+        market.UpdatedAt = DateTime.UtcNow;
+        context.Markets.Add(market);
+        context.SaveChanges();
+    }
+
     public void UpdateMarket(Market market)
     {
         using var context = CreateContext();
@@ -541,6 +571,14 @@ public class DataStore
     {
         using var context = CreateContext();
         return context.ApiKeys.AsNoTracking().Where(k => k.MarketId == marketId).ToList();
+    }
+
+    public List<ApiKey> GetTenantLevelApiKeys(string tenantId)
+    {
+        using var context = CreateContext();
+        return context.ApiKeys.AsNoTracking()
+            .Where(k => k.TenantId == tenantId && string.IsNullOrEmpty(k.MarketId))
+            .ToList();
     }
 
     public ApiKey? GetApiKey(string id)
@@ -626,5 +664,52 @@ public class DataStore
     public static string GetLastFourChars(string key)
     {
         return key.Length >= 4 ? key.Substring(key.Length - 4) : key;
+    }
+
+    // Discounts
+    public List<Discount> GetDiscounts(string tenantId, string marketId)
+    {
+        using var context = CreateContext();
+        return context.Discounts.AsNoTracking()
+            .Where(d => d.TenantId == tenantId && d.MarketId == marketId)
+            .ToList();
+    }
+
+    public Discount? GetDiscount(string id)
+    {
+        using var context = CreateContext();
+        return context.Discounts.AsNoTracking().FirstOrDefault(d => d.Id == id);
+    }
+
+    public Discount AddDiscount(Discount discount)
+    {
+        using var context = CreateContext();
+        discount.Id = Guid.NewGuid().ToString();
+        discount.CreatedAt = DateTime.UtcNow;
+        discount.UpdatedAt = DateTime.UtcNow;
+        context.Discounts.Add(discount);
+        context.SaveChanges();
+        return discount;
+    }
+
+    public Discount? UpdateDiscount(Discount discount)
+    {
+        using var context = CreateContext();
+        var existing = context.Discounts.FirstOrDefault(d => d.Id == discount.Id);
+        if (existing == null) return null;
+        discount.UpdatedAt = DateTime.UtcNow;
+        context.Entry(existing).CurrentValues.SetValues(discount);
+        context.SaveChanges();
+        return discount;
+    }
+
+    public bool DeleteDiscount(string id)
+    {
+        using var context = CreateContext();
+        var discount = context.Discounts.FirstOrDefault(d => d.Id == id);
+        if (discount == null) return false;
+        context.Discounts.Remove(discount);
+        context.SaveChanges();
+        return true;
     }
 }

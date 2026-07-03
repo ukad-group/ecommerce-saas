@@ -110,6 +110,26 @@ public class ECommApiClient : IECommApiClient
         }
     }
 
+    // Option presets (store-global add-ons library)
+    private class OptionPresetsResponse
+    {
+        public List<OptionPresetDto> Presets { get; set; } = new();
+    }
+
+    public async Task<List<OptionPresetDto>> GetOptionPresetsAsync()
+    {
+        try
+        {
+            var response = await _httpClient.GetFromJsonAsync<OptionPresetsResponse>("option-presets");
+            return response?.Presets ?? new List<OptionPresetDto>();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error fetching option presets");
+            return new List<OptionPresetDto>();
+        }
+    }
+
     // Cart
     public async Task<CartDto?> GetCartAsync(string sessionId)
     {

@@ -15,13 +15,25 @@ public class Product
     [JsonNumberHandling(JsonNumberHandling.AllowReadingFromString)]
     public decimal? Price { get; set; }
 
+    [JsonNumberHandling(JsonNumberHandling.AllowReadingFromString)]
+    public decimal? SalePrice { get; set; }
+
     public string? CategoryId { get; set; }
+    public List<string> CategoryIds { get; set; } = new();
 
     [JsonNumberHandling(JsonNumberHandling.AllowReadingFromString)]
     public int? StockQuantity { get; set; }
 
     public List<string> Images { get; set; } = new();
     public List<CustomProperty>? CustomProperties { get; set; }
+    public List<string> Highlights { get; set; } = new();
+
+    [JsonNumberHandling(JsonNumberHandling.AllowReadingFromString)]
+    public decimal? LeasingFactor { get; set; }
+    public bool HidePrice { get; set; } = false;
+    public string? HiddenPriceDescription { get; set; }
+    public string? SeoTitle { get; set; }
+    public string? SeoDescription { get; set; }
 
     // Product metadata
     public string? Sku { get; set; }
@@ -33,15 +45,21 @@ public class Product
     public List<VariantOption>? VariantOptions { get; set; }
     public List<ProductVariant>? Variants { get; set; }
 
+    // Add-on options
+    public List<ProductOption>? Options { get; set; }
+
     // Versioning fields
     public int Version { get; set; } = 1;
     public bool IsCurrentVersion { get; set; } = true;
+    [JsonConverter(typeof(FlexibleDateTimeConverter))]
     public DateTime? VersionCreatedAt { get; set; }
     public string? VersionCreatedBy { get; set; }
     public string? ChangeNotes { get; set; }
 
     // Timestamps
+    [JsonConverter(typeof(FlexibleDateTimeConverter))]
     public DateTime? CreatedAt { get; set; }
+    [JsonConverter(typeof(FlexibleDateTimeConverter))]
     public DateTime? UpdatedAt { get; set; }
 }
 

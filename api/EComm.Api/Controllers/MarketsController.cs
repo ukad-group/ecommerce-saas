@@ -72,6 +72,23 @@ public class MarketsController : ControllerBase
         return Ok(market);
     }
 
+    [HttpPost]
+    public ActionResult<Market> CreateMarket([FromBody] Market market)
+    {
+        if (string.IsNullOrEmpty(market.Id))
+        {
+            market.Id = $"market-{Guid.NewGuid().ToString().Substring(0, 8)}";
+        }
+
+        if (string.IsNullOrEmpty(market.TenantId) || string.IsNullOrEmpty(market.Name) || string.IsNullOrEmpty(market.Code))
+        {
+            return BadRequest(new { message = "TenantId, Name and Code are required" });
+        }
+
+        _store.AddMarket(market);
+        return CreatedAtAction(nameof(GetMarket), new { id = market.Id }, market);
+    }
+
     [HttpPut("{id}")]
     public ActionResult<Market> UpdateMarket(string id, [FromBody] UpdateMarketRequest request)
     {
@@ -179,5 +196,164 @@ public class MarketsController : ControllerBase
         _store.UpdateMarket(market);
 
         return Ok(new { templates = market.Settings.CustomPropertyTemplates });
+    }
+
+    [HttpGet("{id}/shipping-methods")]
+    [AllowAnonymous] // Allow all authenticated users to read
+    public ActionResult GetShippingMethods(string id)
+    {
+        var market = _store.GetMarket(id);
+        if (market == null)
+        {
+            return NotFound();
+        }
+
+        var methods = market.Settings?.ShippingMethods ?? new List<ShippingMethod>();
+        return Ok(new { methods });
+    }
+
+    [HttpPut("{id}/shipping-methods")]
+    public ActionResult UpdateShippingMethods(string id, [FromBody] UpdateShippingMethodsRequest request)
+    {
+        var market = _store.GetMarket(id);
+        if (market == null)
+        {
+            return NotFound();
+        }
+
+        market.Settings ??= new MarketSettings();
+        market.Settings.ShippingMethods = request.Methods;
+        market.UpdatedAt = DateTime.UtcNow;
+
+        _store.UpdateMarket(market);
+
+        return Ok(new { methods = market.Settings.ShippingMethods });
+    }
+
+    [HttpGet("{id}/leasing-periods")]
+    [AllowAnonymous] // Allow all authenticated users to read
+    public ActionResult GetLeasingPeriods(string id)
+    {
+        var market = _store.GetMarket(id);
+        if (market == null)
+        {
+            return NotFound();
+        }
+
+        var periods = market.Settings?.LeasingPeriods ?? new List<LeasingPeriod>();
+        var defaultLeasingFactor = market.Settings?.DefaultLeasingFactor;
+        return Ok(new { periods, defaultLeasingFactor });
+    }
+
+    [HttpPut("{id}/leasing-periods")]
+    public ActionResult UpdateLeasingPeriods(string id, [FromBody] UpdateLeasingPeriodsRequest request)
+    {
+        var market = _store.GetMarket(id);
+        if (market == null)
+        {
+            return NotFound();
+        }
+
+        market.Settings ??= new MarketSettings();
+        market.Settings.LeasingPeriods = request.Periods;
+        market.UpdatedAt = DateTime.UtcNow;
+
+        _store.UpdateMarket(market);
+
+        return Ok(new { periods = market.Settings.LeasingPeriods });
+    }
+
+    [HttpGet("{id}/option-presets")]
+    [AllowAnonymous]
+    public ActionResult GetOptionPresets(
+        string id,
+        [FromQuery] string? search = null,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20)
+    {
+        var market = _store.GetMarket(id);
+        if (market == null) return NotFound();
+
+        var all = market.Settings?.OptionPresets ?? new List<OptionPreset>();
+
+        var filtered = string.IsNullOrWhiteSpace(search)
+            ? all
+            : all.Where(p =>
+                p.Name.Contains(search, StringComparison.OrdinalIgnoreCase) ||
+                (p.Sku?.Contains(search, StringComparison.OrdinalIgnoreCase) ?? false)).ToList();
+
+        var total = filtered.Count;
+        var presets = pageSize > 0
+            ? filtered.Skip((page - 1) * pageSize).Take(pageSize).ToList()
+            : filtered;
+
+        return Ok(new { presets, total, page, pageSize });
+    }
+
+    [HttpPost("{id}/option-presets")]
+    public ActionResult AddOptionPreset(string id, [FromBody] OptionPreset preset)
+    {
+        var market = _store.GetMarket(id);
+        if (market == null) return NotFound();
+
+        market.Settings ??= new MarketSettings();
+        market.Settings.OptionPresets ??= new List<OptionPreset>();
+
+        if (string.IsNullOrEmpty(preset.Id)) preset.Id = Guid.NewGuid().ToString();
+        market.Settings.OptionPresets.Add(preset);
+        market.UpdatedAt = DateTime.UtcNow;
+        _store.UpdateMarket(market);
+
+        return StatusCode(201, preset);
+    }
+
+    [HttpPut("{id}/option-presets/{presetId}")]
+    public ActionResult UpdateSingleOptionPreset(string id, string presetId, [FromBody] OptionPreset preset)
+    {
+        var market = _store.GetMarket(id);
+        if (market == null) return NotFound();
+
+        var list = market.Settings?.OptionPresets ?? new List<OptionPreset>();
+        var idx = list.FindIndex(p => p.Id == presetId);
+        if (idx < 0) return NotFound();
+
+        preset.Id = presetId;
+        list[idx] = preset;
+        market.Settings!.OptionPresets = list;
+        market.UpdatedAt = DateTime.UtcNow;
+        _store.UpdateMarket(market);
+
+        return Ok(preset);
+    }
+
+    [HttpDelete("{id}/option-presets/{presetId}")]
+    public ActionResult DeleteOptionPreset(string id, string presetId)
+    {
+        var market = _store.GetMarket(id);
+        if (market == null) return NotFound();
+
+        var list = market.Settings?.OptionPresets ?? new List<OptionPreset>();
+        var removed = list.RemoveAll(p => p.Id == presetId);
+        if (removed == 0) return NotFound();
+
+        market.Settings!.OptionPresets = list;
+        market.UpdatedAt = DateTime.UtcNow;
+        _store.UpdateMarket(market);
+
+        return NoContent();
+    }
+
+    [HttpPut("{id}/option-presets")]
+    public ActionResult UpdateOptionPresets(string id, [FromBody] UpdateOptionPresetsRequest request)
+    {
+        var market = _store.GetMarket(id);
+        if (market == null) return NotFound();
+
+        market.Settings ??= new MarketSettings();
+        market.Settings.OptionPresets = request.Presets;
+        market.UpdatedAt = DateTime.UtcNow;
+        _store.UpdateMarket(market);
+
+        return Ok(new { presets = market.Settings.OptionPresets });
     }
 }

@@ -4,6 +4,33 @@
   "version": "1.0.0",
   "extensions": [
     {
+      "type": "section",
+      "alias": "ecomm.section.commerce",
+      "name": "Commerce Admin",
+      "weight": 200,
+      "meta": {
+        "label": "Commerce",
+        "pathname": "commerce"
+      }
+    },
+    {
+      "type": "dashboard",
+      "alias": "ecomm.dashboard.commerce.orders",
+      "name": "Commerce Orders Dashboard",
+      "element": "/App_Plugins/ECommCommerce/components/commerce-admin/commerce-admin-dashboard.js",
+      "weight": 100,
+      "meta": {
+        "label": "Orders",
+        "pathname": "orders"
+      },
+      "conditions": [
+        {
+          "alias": "Umb.Condition.SectionAlias",
+          "match": "ecomm.section.commerce"
+        }
+      ]
+    },
+    {
       "type": "dashboard",
       "alias": "ecomm.commerce.settings",
       "name": "Commerce Settings",
@@ -28,6 +55,30 @@
       "meta": {
         "label": "Category Picker",
         "icon": "icon-folder",
+        "group": "commerce",
+        "propertyEditorSchemaAlias": "Umbraco.Plain.String"
+      }
+    },
+    {
+      "type": "propertyEditorUi",
+      "alias": "EComm.PropertyEditorUi.StorePicker",
+      "name": "Commerce Store Picker",
+      "element": "/App_Plugins/ECommCommerce/components/propertyEditors/store-picker.js",
+      "meta": {
+        "label": "Store Picker",
+        "icon": "icon-shopping-basket",
+        "group": "commerce",
+        "propertyEditorSchemaAlias": "Umbraco.Plain.String"
+      }
+    },
+    {
+      "type": "propertyEditorUi",
+      "alias": "EComm.PropertyEditorUi.ProductPicker",
+      "name": "Commerce Product Picker",
+      "element": "/App_Plugins/ECommCommerce/components/propertyEditors/product-picker.js",
+      "meta": {
+        "label": "Product Picker",
+        "icon": "icon-box",
         "group": "commerce",
         "propertyEditorSchemaAlias": "Umbraco.Plain.String"
       }

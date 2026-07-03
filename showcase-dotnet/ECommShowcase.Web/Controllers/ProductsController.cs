@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using ECommShowcase.Web.Models.Configuration;
+using ECommShowcase.Web.Models.DTOs;
 using ECommShowcase.Web.Models.ViewModels;
 using ECommShowcase.Web.Services;
 
@@ -73,11 +74,20 @@ public class ProductsController : Controller
 
             var category = await _apiClient.GetCategoryByIdAsync(product.CategoryId);
 
+            // Resolve the product's option blocks against the store-global presets
+            var optionPresets = new Dictionary<string, OptionPresetDto>();
+            if (product.Options != null && product.Options.Any(b => !b.Disabled && b.OptionIds.Any()))
+            {
+                var presets = await _apiClient.GetOptionPresetsAsync();
+                optionPresets = presets.ToDictionary(p => p.Id);
+            }
+
             var viewModel = new ProductDetailViewModel
             {
                 Product = product,
                 Category = category,
-                CurrencySymbol = _settings.CurrencySymbol
+                CurrencySymbol = _settings.CurrencySymbol,
+                OptionPresets = optionPresets
             };
 
             return View(viewModel);

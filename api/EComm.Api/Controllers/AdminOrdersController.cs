@@ -50,6 +50,84 @@ public class AdminOrdersController : ControllerBase
         return Ok(order);
     }
 
+    /// <summary>
+    /// Import a historical order verbatim (e.g. data migration). Writes the supplied
+    /// Id, OrderNumber, Status, totals and timestamps as-is — no cart, no number/date
+    /// generation, and no stock side-effects. Returns 409 if the Id already exists
+    /// (use PUT to replace).
+    /// </summary>
+    [HttpPost]
+    public ActionResult<Order> ImportOrder([FromBody] ImportOrderRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.Id))
+        {
+            return BadRequest(new { error = "Order Id is required for import" });
+        }
+        if (string.IsNullOrWhiteSpace(request.OrderNumber))
+        {
+            return BadRequest(new { error = "OrderNumber is required" });
+        }
+
+        if (_store.GetOrder(request.Id) != null)
+        {
+            return Conflict(new { error = $"Order '{request.Id}' already exists" });
+        }
+
+        var order = MapToOrder(request);
+        _store.AddOrder(order);
+        return CreatedAtAction(nameof(GetOrder), new { id = order.Id }, order);
+    }
+
+    /// <summary>
+    /// Upsert a historical order by Id — full replace, written verbatim. Makes
+    /// re-running an import idempotent.
+    /// </summary>
+    [HttpPut("{id}")]
+    public ActionResult<Order> UpsertOrder(string id, [FromBody] ImportOrderRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.OrderNumber))
+        {
+            return BadRequest(new { error = "OrderNumber is required" });
+        }
+
+        request.Id = id;
+        var order = MapToOrder(request);
+
+        // Delete-then-add so the order is stored verbatim (preserves CreatedAt AND
+        // UpdatedAt; DataStore.UpdateOrder would stamp UpdatedAt = UtcNow).
+        if (_store.GetOrder(id) != null)
+        {
+            _store.DeleteOrder(id);
+        }
+        _store.AddOrder(order);
+        return Ok(order);
+    }
+
+    private static Order MapToOrder(ImportOrderRequest r) => new()
+    {
+        Id = r.Id,
+        TenantId = r.TenantId,
+        MarketId = r.MarketId,
+        OrderNumber = r.OrderNumber,
+        Status = string.IsNullOrWhiteSpace(r.Status) ? "completed" : r.Status,
+        Subtotal = r.Subtotal,
+        Tax = r.Tax,
+        ShippingCost = r.ShippingCost,
+        Total = r.Total,
+        Customer = r.Customer,
+        ShippingAddress = r.ShippingAddress,
+        BillingAddress = r.BillingAddress,
+        Items = r.Items,
+        TrackingNumber = r.TrackingNumber,
+        CustomProperties = r.CustomProperties,
+        PaymentStatus = r.PaymentStatus,
+        PaymentReference = r.PaymentReference,
+        CreatedAt = r.CreatedAt == default ? DateTime.UtcNow : r.CreatedAt,
+        UpdatedAt = r.UpdatedAt != default ? r.UpdatedAt
+                  : r.CreatedAt != default ? r.CreatedAt
+                  : DateTime.UtcNow,
+    };
+
     [HttpPut("{id}/status")]
     public ActionResult<Order> UpdateOrderStatus(string id, [FromBody] UpdateOrderStatusRequest request)
     {

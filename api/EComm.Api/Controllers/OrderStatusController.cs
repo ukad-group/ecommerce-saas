@@ -10,7 +10,7 @@ namespace EComm.Api.Controllers;
 /// <summary>
 /// API controller for managing order status definitions per tenant
 /// </summary>
-[Authorize(Policy = "AdminOnly")]
+[Authorize]  // default policy: JWT or API key for reads
 [ApiController]
 [Route("api/v1/order-statuses")]
 public class OrderStatusController : ControllerBase
@@ -90,6 +90,7 @@ public class OrderStatusController : ControllerBase
     /// Create a new order status
     /// </summary>
     [HttpPost]
+    [Authorize(Policy = "AdminOnly")]
     public async Task<ActionResult<OrderStatus>> CreateOrderStatus(
         [FromBody] CreateOrderStatusRequest request,
         [FromHeader(Name = "X-Tenant-ID")] string? tenantId)
@@ -141,6 +142,7 @@ public class OrderStatusController : ControllerBase
     /// Update an existing order status
     /// </summary>
     [HttpPut("{id}")]
+    [Authorize(Policy = "AdminOnly")]
     public async Task<ActionResult<OrderStatus>> UpdateOrderStatus(
         string id,
         [FromBody] UpdateOrderStatusDefinitionRequest request,
@@ -176,6 +178,7 @@ public class OrderStatusController : ControllerBase
     /// Delete an order status (only if not in use and not a system default)
     /// </summary>
     [HttpDelete("{id}")]
+    [Authorize(Policy = "AdminOnly")]
     public async Task<IActionResult> DeleteOrderStatus(
         string id,
         [FromHeader(Name = "X-Tenant-ID")] string? tenantId)
@@ -222,6 +225,7 @@ public class OrderStatusController : ControllerBase
     /// Reset to default statuses for a tenant
     /// </summary>
     [HttpPost("reset-defaults")]
+    [Authorize(Policy = "AdminOnly")]
     public async Task<ActionResult<List<OrderStatus>>> ResetToDefaults(
         [FromHeader(Name = "X-Tenant-ID")] string? tenantId)
     {

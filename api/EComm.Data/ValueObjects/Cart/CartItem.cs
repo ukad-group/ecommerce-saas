@@ -5,6 +5,12 @@ public class CartItem
     public string Id { get; set; } = string.Empty;
     public string ProductId { get; set; } = string.Empty;
     public string? VariantId { get; set; }
+    public string? OptionId { get; set; }
+
+    /// <summary>Caller-supplied line classifier, e.g. "Trailer"/"TrailerOption"/"Accessory".</summary>
+    public string? ItemType { get; set; }
+    public string? ItemSubType { get; set; }
+
     public string ProductName { get; set; } = string.Empty;
     public string? ProductImageUrl { get; set; }
     public decimal UnitPrice { get; set; }

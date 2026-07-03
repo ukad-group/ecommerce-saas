@@ -212,7 +212,10 @@ public class ProductContentFinder : IContentFinder
         var cacheKey = $"product:{categoryId}:{potentialProductSlug}";
         var product = await _cache.GetOrCreateAsync(cacheKey, async entry =>
         {
-            entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(2);
+            // Short TTL: backoffice edits explicitly invalidate this key on save
+            // (CommerceApiClient.InvalidateProductCaches); this is just a safety
+            // net so any uninvalidated route still refreshes quickly.
+            entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(30);
             
             // Try to get product by ID first (since slugs may not be populated)
             var prod = await apiClient.GetProductAsync(potentialProductSlug);
@@ -240,6 +243,11 @@ public class ProductContentFinder : IContentFinder
         var httpContext = _httpContextAccessor.HttpContext;
         if (httpContext != null)
         {
+            // storeId from the node overrides settings.MarketId for this request
+            var storeId = categoryNode.Value<string>("storeId");
+            if (!string.IsNullOrEmpty(storeId))
+                httpContext.Items["StoreId"] = storeId;
+
             httpContext.Items["ProductSlug"] = potentialProductSlug;
             httpContext.Items["IsProductPage"] = true;
             httpContext.Items["ProductData"] = product;

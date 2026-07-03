@@ -21,7 +21,10 @@ class ECommSettingsDashboard extends UmbElementMixin(LitElement) {
       marketId: '',
       apiKey: '',
       categoryPageAlias: 'categoryPage',
-      categoryIdPropertyAlias: 'categoryId'
+      productPageAlias: 'productPage',
+      categoryIdPropertyAlias: 'categoryId',
+      storeIdPropertyAlias: 'storeId',
+      productIdPropertyAlias: 'productId',
     };
     this.loading = true;
     this.saving = false;
@@ -134,7 +137,10 @@ class ECommSettingsDashboard extends UmbElementMixin(LitElement) {
     this.settings = {
       ...this.settings,
       categoryPageAlias: 'categoryPage',
-      categoryIdPropertyAlias: 'categoryId'
+      productPageAlias: 'productPage',
+      categoryIdPropertyAlias: 'categoryId',
+      storeIdPropertyAlias: 'storeId',
+      productIdPropertyAlias: 'productId'
     };
   }
 
@@ -142,8 +148,8 @@ class ECommSettingsDashboard extends UmbElementMixin(LitElement) {
     return html`
       <div class="tab-content">
         <p class="description">
-          Configure the connection to your eCommerce API. These settings determine which tenant and market
-          this Umbraco site will use for product and category data.
+          Configure the connection to your eCommerce API. Enter your API URL and Tenant ID — the Commerce
+          dashboard will let you select a market per session.
         </p>
 
         ${this.error ? html`
@@ -182,18 +188,6 @@ class ECommSettingsDashboard extends UmbElementMixin(LitElement) {
               required>
             </uui-input>
             <small>The tenant identifier from your eCommerce platform</small>
-          </div>
-
-          <div class="form-group">
-            <uui-label for="marketId" required>Market ID</uui-label>
-            <uui-input
-              id="marketId"
-              placeholder="market-1"
-              .value=${this.settings.marketId}
-              @input=${(e) => this.handleInput('marketId', e)}
-              required>
-            </uui-input>
-            <small>The market identifier for this site's catalog</small>
           </div>
 
           <div class="form-group">
@@ -284,6 +278,22 @@ class ECommSettingsDashboard extends UmbElementMixin(LitElement) {
           </div>
 
           <div class="form-group">
+            <uui-label for="productPageAlias" required>Product Page Alias</uui-label>
+            <uui-input
+              id="productPageAlias"
+              placeholder="productPage"
+              .value=${this.settings.productPageAlias || 'productPage'}
+              @input=${(e) => this.handleInput('productPageAlias', e)}
+              required>
+            </uui-input>
+            <small>
+              The document type alias for standalone product pages (e.g., "productPage"), for setups
+              that give each product its own node under a category page instead of the single-node
+              routing <code>ProductContentFinder</code> defaults to.
+            </small>
+          </div>
+
+          <div class="form-group">
             <uui-label for="categoryIdPropertyAlias" required>Category ID Property Alias</uui-label>
             <uui-input
               id="categoryIdPropertyAlias"
@@ -295,6 +305,38 @@ class ECommSettingsDashboard extends UmbElementMixin(LitElement) {
             <small>
               The property alias used to store the eCommerce category ID (e.g., "categoryId").
               Used by both <code>ProductContentFinder</code> and <code>products-workspace-view</code>.
+            </small>
+          </div>
+
+          <div class="form-group">
+            <uui-label for="storeIdPropertyAlias" required>Store ID Property Alias</uui-label>
+            <uui-input
+              id="storeIdPropertyAlias"
+              placeholder="storeId"
+              .value=${this.settings.storeIdPropertyAlias || 'storeId'}
+              @input=${(e) => this.handleInput('storeIdPropertyAlias', e)}
+              required>
+            </uui-input>
+            <small>
+              The property alias for the store/market picker sibling property on category nodes
+              (e.g., "storeId"). Used by <code>category-picker</code> and
+              <code>products-workspace-view</code> to know which market to fetch from.
+            </small>
+          </div>
+
+          <div class="form-group">
+            <uui-label for="productIdPropertyAlias" required>Product ID Property Alias</uui-label>
+            <uui-input
+              id="productIdPropertyAlias"
+              placeholder="productId"
+              .value=${this.settings.productIdPropertyAlias || 'productId'}
+              @input=${(e) => this.handleInput('productIdPropertyAlias', e)}
+              required>
+            </uui-input>
+            <small>
+              The property alias used to store the selected product ID on product pages
+              (e.g., "productId"). Used by <code>products-workspace-view</code> to switch into
+              single-product edit mode.
             </small>
           </div>
 

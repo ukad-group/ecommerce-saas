@@ -16,9 +16,11 @@ import { AdminOrderDetailsPage } from './pages/admin/AdminOrderDetailsPage';
 import { ProductsPage } from './pages/admin/ProductsPage';
 import { ProductEditPage } from './pages/admin/ProductEditPage';
 import { ProductPropertyTemplatesPage } from './pages/admin/ProductPropertyTemplatesPage';
+import { OptionPresetsPage } from './pages/admin/OptionPresetsPage';
 import { CategoriesPage } from './pages/admin/CategoriesPage';
 import { CategoryEditPage } from './pages/admin/CategoryEditPage';
 import { TenantsPage } from './pages/admin/tenants/TenantsPage';
+import { TenantApiKeysPage } from './pages/admin/tenants/TenantApiKeysPage';
 import { MarketsPage } from './pages/admin/markets/MarketsPage';
 import { ApiKeysPage } from './pages/admin/markets/ApiKeysPage';
 import { AdminOrderStatusesPage } from './pages/AdminOrderStatusesPage';
@@ -112,6 +114,14 @@ export const router = createBrowserRouter([
         ),
       },
       {
+        path: 'admin/products/option-presets',
+        element: (
+          <ProtectedRoute>
+            <OptionPresetsPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
         path: 'admin/categories',
         element: (
           <ProtectedRoute>
@@ -148,6 +158,14 @@ export const router = createBrowserRouter([
         element: (
           <ProtectedRoute allowedRoles={[Role.SUPERADMIN]}>
             <MarketsPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'admin/tenants/:tenantId/api-keys',
+        element: (
+          <ProtectedRoute allowedRoles={[Role.SUPERADMIN]}>
+            <TenantApiKeysPage />
           </ProtectedRoute>
         ),
       },

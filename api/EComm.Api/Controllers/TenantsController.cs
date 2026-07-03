@@ -65,6 +65,23 @@ public class TenantsController : ControllerBase
         return Ok(tenant);
     }
 
+    [HttpPost]
+    public ActionResult<Tenant> CreateTenant([FromBody] Tenant tenant)
+    {
+        if (string.IsNullOrEmpty(tenant.Id))
+        {
+            tenant.Id = $"tenant-{Guid.NewGuid().ToString().Substring(0, 8)}";
+        }
+
+        if (string.IsNullOrEmpty(tenant.Name) || string.IsNullOrEmpty(tenant.DisplayName))
+        {
+            return BadRequest(new { message = "Name and DisplayName are required" });
+        }
+
+        _store.AddTenant(tenant);
+        return CreatedAtAction(nameof(GetTenant), new { id = tenant.Id }, tenant);
+    }
+
     [HttpPut("{id}")]
     public ActionResult<Tenant> UpdateTenant(string id, [FromBody] UpdateTenantRequest request)
     {

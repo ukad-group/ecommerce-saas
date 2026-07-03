@@ -45,6 +45,7 @@ public class ProductDto
     public List<VariantOption>? VariantOptions { get; set; }
     public List<ProductVariant>? Variants { get; set; }
     public List<CustomProperty>? CustomProperties { get; set; }
+    public List<ProductOptionDto>? Options { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 

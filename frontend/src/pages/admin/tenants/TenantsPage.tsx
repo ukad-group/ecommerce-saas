@@ -237,6 +237,12 @@ export function TenantsPage() {
                           >
                             Markets
                           </a>
+                          <a
+                            href={`/admin/tenants/${tenant.id}/api-keys`}
+                            className="text-[#4a6ba8] hover:text-[#3d5789] mr-2 sm:mr-4"
+                          >
+                            API Keys
+                          </a>
                           <button
                             onClick={() => handleEditTenant(tenant)}
                             className="text-[#4a6ba8] hover:text-[#3d5789]"

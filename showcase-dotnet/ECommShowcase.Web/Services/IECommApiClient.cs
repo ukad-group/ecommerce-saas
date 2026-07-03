@@ -12,6 +12,9 @@ public interface IECommApiClient
     Task<List<CategoryDto>> GetCategoriesAsync();
     Task<CategoryDto?> GetCategoryByIdAsync(string categoryId);
 
+    // Option presets (store-global add-ons library)
+    Task<List<OptionPresetDto>> GetOptionPresetsAsync();
+
     // Cart
     Task<CartDto?> GetCartAsync(string sessionId);
     Task<CartItemDto> AddCartItemAsync(string sessionId, AddCartItemRequest request);
