@@ -36,4 +36,6 @@ public class MarketInfo
     public string Id { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
     public string CartOrderStatus { get; set; } = "new";
+    // Market currency (ISO 4217) from the API's tenant/markets payload — drives admin price formatting.
+    public string Currency { get; set; } = string.Empty;
 }
