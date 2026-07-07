@@ -386,6 +386,7 @@ public class DataStore
 
         // Convert cart items to order items
         var products = GetProducts(); // Get all products for lookup
+        var orderCurrency = GetMarket(cart.MarketId)?.Currency ?? "USD";
         order.Items = cart.Items.Select(ci =>
         {
             var product = products.FirstOrDefault(p => p.Id == ci.ProductId);
@@ -414,7 +415,7 @@ public class DataStore
                 UnitPrice = ci.UnitPrice,
                 Quantity = ci.Quantity,
                 Subtotal = ci.Subtotal,
-                Currency = "USD"
+                Currency = orderCurrency
             };
         }).ToList();
 

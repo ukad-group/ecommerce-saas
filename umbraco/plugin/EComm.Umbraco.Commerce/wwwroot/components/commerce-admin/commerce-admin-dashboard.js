@@ -476,7 +476,16 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
     return new Date(d).toLocaleString('en-US', { year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit' });
   }
 
-  formatCurrency(n) { return `$${(n || 0).toFixed(2)}`; }
+  // Currency comes from the selected market (single currency per market), not a hardcoded $.
+  formatCurrency(n) {
+    const code = this.markets?.find(m => m.id === this.selectedMarketId)?.currency || 'USD';
+    const locale = { SEK: 'sv-SE', NOK: 'nb-NO', DKK: 'da-DK', EUR: 'de-DE', GBP: 'en-GB', USD: 'en-US' }[code] || 'en-US';
+    try {
+      return new Intl.NumberFormat(locale, { style: 'currency', currency: code }).format(n || 0);
+    } catch {
+      return `${code} ${(n || 0).toFixed(2)}`;
+    }
+  }
 
   // ═══════════════════════════════════════════════════════════════════════════
   // RENDER HELPERS
@@ -1112,7 +1121,7 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
                       <td><code>${disc.code}</code></td>
                       <td>${disc.name}</td>
                       <td>${disc.type}</td>
-                      <td>${disc.type === 'percentage' ? disc.value + '%' : '$' + disc.value.toFixed(2)}</td>
+                      <td>${disc.type === 'percentage' ? disc.value + '%' : this.formatCurrency(disc.value)}</td>
                       <td>${disc.usesCount}${disc.maxUses ? ' / ' + disc.maxUses : ''}</td>
                       <td>${disc.expiryDate ? new Date(disc.expiryDate).toLocaleDateString() : '—'}</td>
                       <td><span class="pill ${disc.isActive ? 'pill--active' : 'pill--inactive'}">${disc.isActive ? 'Active' : 'Off'}</span></td>

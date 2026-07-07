@@ -1993,7 +1993,7 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
 
         <!-- Price -->
         <uui-table-cell style="width: 120px;">
-          ${product.hasVariants ? html`<span class="price">Varies</span>` : html`<span class="price">$${product.price?.toFixed(2) || '0.00'}</span>`}
+          ${product.hasVariants ? html`<span class="price">Varies</span>` : html`<span class="price">${this.formatPrice(product.price)}</span>`}
         </uui-table-cell>
 
         <!-- Stock -->
@@ -2242,7 +2242,7 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
           </div>
           <div class="variant-summary">
             <span class="variant-sku">${variant.sku}</span>
-            <span class="variant-price">$${variant.price?.toFixed(2)}</span>
+            <span class="variant-price">${this.formatPrice(variant.price)}</span>
             <span class="variant-tag ${variant.stockQuantity > 0 ? 'tag-positive' : 'tag-danger'}">
               Stock: ${variant.stockQuantity}
             </span>
@@ -2971,7 +2971,7 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
                         <tr>
                           ${this.newVariantOptions.map(opt => html`<td>${combo[opt.name]}</td>`)}
                           <td><code class="sku">${previewBaseSku}${Object.keys(combo).length > 0 ? '-' + Object.values(combo).join('-').toLowerCase().replace(/\s+/g, '-') : ''}</code></td>
-                          <td>$${parseFloat(this.defaultVariantPrice || '0').toFixed(2)}</td>
+                          <td>${this.formatPrice(parseFloat(this.defaultVariantPrice || '0'))}</td>
                           <td>${parseInt(this.defaultVariantStock || '0')}</td>
                         </tr>
                       `)}
@@ -3500,7 +3500,7 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
         @click=${() => this.toggleVariantEdit(variant)}>
         ${optionNames.map(name => html`<td>${variant.options?.[name] || '—'}</td>`)}
         <td><code class="sku">${variant.sku || '—'}</code></td>
-        <td>$${variant.price?.toFixed(2) ?? '0.00'}</td>
+        <td>${this.formatPrice(variant.price)}</td>
         <td>
           <span class="${(variant.stockQuantity ?? 0) > 0 ? 'tag-positive' : 'tag-danger'} variant-tag">
             ${variant.stockQuantity ?? 0}
@@ -3529,6 +3529,18 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
 
   renderProductOptionsDetailPanel() {
     return this.renderOptionBlocksEditor();
+  }
+
+  // Price currency comes from the market (single currency per market), read off the loaded products
+  // / edited product rather than hardcoding $.
+  formatPrice(n) {
+    const code = this.products?.find(p => p.currency)?.currency || this.editedProduct?.currency || 'USD';
+    const locale = { SEK: 'sv-SE', NOK: 'nb-NO', DKK: 'da-DK', EUR: 'de-DE', GBP: 'en-GB', USD: 'en-US' }[code] || 'en-US';
+    try {
+      return new Intl.NumberFormat(locale, { style: 'currency', currency: code }).format(n || 0);
+    } catch {
+      return `${code} ${(n || 0).toFixed(2)}`;
+    }
   }
 
   render() {

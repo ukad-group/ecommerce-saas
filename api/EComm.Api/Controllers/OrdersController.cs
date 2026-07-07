@@ -63,7 +63,9 @@ public class OrdersController : ControllerBase
             return BadRequest("Cart is empty");
         }
 
-        var shippingMethods = _store.GetMarket(cart.MarketId)?.Settings?.ShippingMethods ?? new List<ShippingMethod>();
+        var market = _store.GetMarket(cart.MarketId);
+        var orderCurrency = market?.Currency ?? "USD";
+        var shippingMethods = market?.Settings?.ShippingMethods ?? new List<ShippingMethod>();
         var shippingMethod = !string.IsNullOrEmpty(request.ShippingMethodId)
             ? shippingMethods.FirstOrDefault(m => m.Id == request.ShippingMethodId)
             : shippingMethods.FirstOrDefault();
@@ -107,7 +109,7 @@ public class OrdersController : ControllerBase
                     UnitPrice = ci.UnitPrice,
                     Quantity = ci.Quantity,
                     Subtotal = ci.Subtotal,
-                    Currency = "USD"
+                    Currency = orderCurrency
                 };
             }).ToList(),
             Subtotal = cart.Subtotal,

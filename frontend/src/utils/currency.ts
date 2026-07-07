@@ -16,17 +16,28 @@
  * formatCurrency(1234.56, 'EUR') // "€1,234.56"
  * formatCurrency(1234.56, 'GBP') // "£1,234.56"
  */
+// Locale per currency so amounts format natively (e.g. SEK -> "1 234,56 kr", not "$"/"SEK 1,234.56").
+const CURRENCY_LOCALES: Record<string, string> = {
+  SEK: 'sv-SE',
+  NOK: 'nb-NO',
+  DKK: 'da-DK',
+  EUR: 'de-DE',
+  GBP: 'en-GB',
+  USD: 'en-US',
+};
+
 export function formatCurrency(amount: number, currency = 'USD'): string {
+  const code = currency || 'USD';
   try {
-    return new Intl.NumberFormat('en-US', {
+    return new Intl.NumberFormat(CURRENCY_LOCALES[code] ?? 'en-US', {
       style: 'currency',
-      currency,
+      currency: code,
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     }).format(amount);
   } catch (error) {
     // Fallback for invalid currency codes
     console.error(`Invalid currency code: ${currency}`, error);
-    return `${currency} ${amount.toFixed(2)}`;
+    return `${code} ${amount.toFixed(2)}`;
   }
 }

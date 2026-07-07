@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json.Serialization;
 using EComm.Data.ValueObjects.Common;
 using EComm.Data.ValueObjects.Order;
@@ -24,6 +25,12 @@ public class Order
 
     [JsonPropertyName("lineItems")]
     public List<OrderItem> Items { get; set; } = new();
+
+    /// <summary>Order currency (ISO 4217), from the market. Single currency per market, so it's
+    /// derived from the line items rather than persisted as its own column (keeps EnsureCreated happy).</summary>
+    [NotMapped]
+    [JsonPropertyName("currency")]
+    public string Currency => Items.Count > 0 ? Items[0].Currency : "USD";
 
     public string? TrackingNumber { get; set; }
 
