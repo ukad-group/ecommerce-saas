@@ -146,11 +146,15 @@ public class DataStore
     public void DeleteProduct(string id)
     {
         using var context = CreateContext();
-        // Delete ALL versions of the product
-        var products = context.Products.Where(p => p.Id == id).ToList();
-        if (products.Any())
+        // Soft-delete: mark the current version "deleted" instead of removing rows.
+        // Keeps order line re-resolution working (OrdersController looks up by
+        // Id && IsCurrentVersion, ignoring Status) and hides the product from the
+        // default active-only product list. Rows/versions are preserved.
+        var current = context.Products.FirstOrDefault(p => p.Id == id && p.IsCurrentVersion);
+        if (current != null)
         {
-            context.Products.RemoveRange(products);
+            current.Status = "deleted";
+            current.UpdatedAt = DateTime.UtcNow;
             context.SaveChanges();
         }
     }

@@ -119,6 +119,23 @@ public class ProductsController : ControllerBase
             return BadRequest(new { message = "TenantId and MarketId are required" });
         }
 
+        if (string.IsNullOrWhiteSpace(product.Name))
+        {
+            return BadRequest(new { message = "Name is required" });
+        }
+
+        // Simple products (no variants) must carry a price
+        if (!product.HasVariants && !(product.Price > 0))
+        {
+            return BadRequest(new { message = "Price is required for products without variants" });
+        }
+
+        var variantError = ValidateVariants(product);
+        if (variantError != null)
+        {
+            return BadRequest(new { message = variantError });
+        }
+
         // Always derive currency from the market (single currency per market)
         var market = _store.GetMarket(product.MarketId);
         if (market != null)
@@ -142,6 +159,12 @@ public class ProductsController : ControllerBase
 
         // Ensure ID matches
         product.Id = id;
+
+        var variantError = ValidateVariants(product);
+        if (variantError != null)
+        {
+            return BadRequest(new { message = variantError });
+        }
 
         // Preserve original tenant/market/created date and market-derived currency
         product.TenantId = existingProduct.TenantId;
@@ -168,6 +191,35 @@ public class ProductsController : ControllerBase
 
         _store.DeleteProduct(id);
         return NoContent();
+    }
+
+    // Reject duplicate variants: same non-empty SKU, or same option-combination.
+    private static string? ValidateVariants(Product product)
+    {
+        if (!product.HasVariants || product.Variants == null)
+            return null;
+
+        var seenSkus = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var seenCombos = new HashSet<string>();
+
+        foreach (var variant in product.Variants)
+        {
+            if (!string.IsNullOrWhiteSpace(variant.Sku) && !seenSkus.Add(variant.Sku.Trim()))
+            {
+                return $"Duplicate variant SKU '{variant.Sku}'. Each variant must have a unique SKU.";
+            }
+
+            // Order-independent key for the option combination (e.g. "color=red|size=m")
+            var combo = string.Join("|", variant.Options
+                .OrderBy(o => o.Key, StringComparer.OrdinalIgnoreCase)
+                .Select(o => $"{o.Key.Trim().ToLowerInvariant()}={o.Value.Trim().ToLowerInvariant()}"));
+            if (!seenCombos.Add(combo))
+            {
+                return "Duplicate variant: two variants share the same option combination.";
+            }
+        }
+
+        return null;
     }
 
     // Version history endpoints

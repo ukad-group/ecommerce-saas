@@ -429,6 +429,20 @@ export function ProductForm({
   };
 
   const handleFormSubmit = (data: ProductFormData) => {
+    // Variant SKUs must be present and unique (API enforces this too)
+    if (hasVariants) {
+      const skus = variants.map((v) => v.sku.trim());
+      if (skus.some((s) => s === '')) {
+        alert('Every variant must have a SKU.');
+        return;
+      }
+      const dup = skus.find((s, i) => skus.findIndex((o) => o.toLowerCase() === s.toLowerCase()) !== i);
+      if (dup) {
+        alert(`Duplicate variant SKU '${dup}'. Each variant must have a unique SKU.`);
+        return;
+      }
+    }
+
     // Clean up empty string values for numeric fields
     const cleanData = {
       ...data,
