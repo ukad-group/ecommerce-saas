@@ -61,7 +61,6 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
     _optionPickerPage:    { type: Number },
     productId: { type: String },
     _mode: { type: String },
-    _contentTypeAlias: { type: String, state: true },
   };
 
   constructor() {
@@ -117,7 +116,7 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
     this._optionPickerBlockId = null; this._optionPickerSearch = ''; this._optionPickerPage = 1;
     this.productId = null;
     this._mode = 'category';
-    this._contentTypeAlias = null;
+    this._storeResolveSeq = 0;
 
     // Consume auth context for API calls. loadDefaultAliases() is fired from here rather
     // than connectedCallback() - the auth context resolves asynchronously, so calling it
@@ -148,14 +147,6 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
 
       this._workspaceContext = workspaceContext;
 
-      // Content type alias gates which document types this view actually applies to
-      // (the manifest condition matches every document workspace, not just category/product pages).
-      if (workspaceContext.structure?.ownerContentType) {
-        this.observe(workspaceContext.structure.ownerContentType, (contentType) => {
-          this._contentTypeAlias = contentType?.alias ?? null;
-        });
-      }
-
       // Observe workspace data for property changes
       if (workspaceContext.data) {
         this.observe(
@@ -184,19 +175,59 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
 
             const categoryChanged = newCategoryId !== this.categoryId;
             const productChanged = newProductId !== this.productId;
-            const storeChanged = newStoreId !== this.storeId;
+            const storeChanged = newStoreId !== this._ownStoreId;
 
             this.categoryId = newCategoryId;
             this.productId = newProductId;
-            this.storeId = newStoreId;
+            this._ownStoreId = newStoreId;
 
             if (categoryChanged || productChanged || storeChanged) {
-              this._refreshView();
+              this._resolveStoreIdAndRefresh();
             }
           }
         );
       }
     });
+  }
+
+  // Own node has no store set - walk up the ancestor chain (e.g. the shop root) so a
+  // store set once higher in the tree still scopes this node's product list.
+  //
+  // The seq token guards against an in-flight ancestor lookup (started while the node had
+  // no store of its own) clobbering a store the user explicitly picks before that lookup
+  // resolves - without it the slower ancestor fetch wins the race and silently reverts the
+  // just-selected store.
+  async _resolveStoreIdAndRefresh() {
+    const seq = ++this._storeResolveSeq;
+    this.storeId = this._ownStoreId;
+
+    if (!this.storeId) {
+      const nodeKey = this._workspaceContext?.getUnique?.();
+      if (nodeKey) {
+        const inherited = await this._fetchEffectiveStoreId(nodeKey);
+        if (seq !== this._storeResolveSeq) return; // superseded by a newer resolution
+        this.storeId = inherited;
+      }
+    }
+
+    this._refreshView();
+  }
+
+  async _fetchEffectiveStoreId(nodeKey) {
+    try {
+      const headers = await this.getAuthHeaders();
+      const response = await fetch(
+        `/umbraco/management/api/ecomm-commerce/nodes/${nodeKey}/effective-store`,
+        { headers, credentials: 'include' }
+      );
+      if (response.ok) {
+        const result = await response.json();
+        return result.storeId || null;
+      }
+    } catch (err) {
+      console.error('Failed to resolve inherited store:', err);
+    }
+    return null;
   }
 
   async loadDefaultAliases() {
@@ -3544,13 +3575,6 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
   }
 
   render() {
-    // Not a category or product page - the eCommerce tab isn't applicable here.
-    if (this.defaultAliases && this._contentTypeAlias &&
-        this._contentTypeAlias !== this.defaultAliases.categoryPageAlias &&
-        this._contentTypeAlias !== this.defaultAliases.productPageAlias) {
-      return html``;
-    }
-
     if (this.loading) {
       return html`
         <div class="loading-state">
@@ -3565,14 +3589,14 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
         <uui-box>
           <div class="info-state">
             <uui-icon name="icon-info"></uui-icon>
-            <h3>No Category Selected</h3>
-            <p>To view products from the eCommerce API, you need to select a category first.</p>
+            <h3>No Product Selected</h3>
+            <p>To edit product data from the eCommerce API, you need to select a product first.</p>
             <ol>
               <li>Go to the <strong>Content</strong> tab</li>
-              <li>Find the <strong>Category</strong> property</li>
-              <li>Select a category from the dropdown</li>
+              <li>Find the <strong>Product</strong> property</li>
+              <li>Select a product from the picker</li>
               <li>Save the document</li>
-              <li>Return to this tab to see products</li>
+              <li>Return to this tab to edit the product</li>
             </ol>
           </div>
         </uui-box>

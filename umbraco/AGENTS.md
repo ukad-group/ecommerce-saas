@@ -8,7 +8,7 @@ This document outlines the architecture and implementation plan for an Umbraco p
 
 **Status**: Phase 1-4 Complete - Core Implementation + Products Workspace View, Upgraded to Umbraco 17, Configurable Defaults, Product Variant Support, Product Options/Add-ons, real Cart & Checkout with Nets Easy payments, and a "Commerce" backoffice section (Orders/Carts/Discounts/Option Presets/Order Statuses/Property Templates/Analytics)
 
-**Last Updated**: 2026-07-03
+**Last Updated**: 2026-07-08
 
 ---
 
@@ -307,7 +307,7 @@ Allowed Child Types: categoryPage, productPage
 
 #### **Product Page** (Template Node)
 ```
-Alias: productPage (configurable in Settings → Commerce Settings → Defaults)
+Alias: productPage (one of possibly several — configurable list in Settings → Commerce Settings → Defaults)
 Allowed Templates: ProductPage
 Properties:
 - seoOverrides (Composition) - Optional SEO overrides
@@ -318,7 +318,7 @@ Allowed Child Types: None
 Allowed At Root: false
 ```
 
-**Note**: The `productPage` document type alias is configurable for sites with custom naming conventions.
+**Note**: "Product Page Aliases" in Settings → Commerce Settings → Defaults is a list, not a single alias — sites that model products with more than one content type (e.g. simple vs. bundle products) can add each alias so all of them get the "eCommerce" workspace tab. The tab is exclusive to nodes whose content type alias is in this list (gated by the `EComm.Condition.IsProductPage` backoffice condition) — category pages and any other content type no longer show it.
 
 ---
 
@@ -462,7 +462,7 @@ dotnet run
    - Click "Test Connection" to verify
 6. **Defaults Tab** (optional) - Configure document type aliases:
    - Category Page Alias: categoryPage (default)
-   - Product Page Alias: productPage (default)
+   - Product Page Aliases: productPage (default; add more rows for additional product content types)
    - Category ID Property Alias: categoryId (default)
    - Only change these if integrating with existing Umbraco sites
 

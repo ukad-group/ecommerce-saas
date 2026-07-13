@@ -35,7 +35,7 @@ public class CommerceSettingsService : ICommerceSettingsService
 
         // Load default aliases with fallback values for backward compatibility
         var categoryPageAlias = _keyValueService.GetValue($"{SettingsKeyPrefix}CategoryPageAlias") ?? "categoryPage";
-        var productPageAlias = _keyValueService.GetValue($"{SettingsKeyPrefix}ProductPageAlias") ?? "productPage";
+        var productPageAliases = _keyValueService.GetValue($"{SettingsKeyPrefix}ProductPageAliases") ?? "productPage";
         var categoryIdPropertyAlias = _keyValueService.GetValue($"{SettingsKeyPrefix}CategoryIdPropertyAlias") ?? "categoryId";
         var storeIdPropertyAlias = _keyValueService.GetValue($"{SettingsKeyPrefix}StoreIdPropertyAlias") ?? "storeId";
         var productIdPropertyAlias = _keyValueService.GetValue($"{SettingsKeyPrefix}ProductIdPropertyAlias") ?? "productId";
@@ -52,7 +52,7 @@ public class CommerceSettingsService : ICommerceSettingsService
             MarketId = marketId ?? string.Empty,
             ApiKey = apiKey ?? string.Empty,
             CategoryPageAlias = categoryPageAlias,
-            ProductPageAlias = productPageAlias,
+            ProductPageAliases = productPageAliases,
             CategoryIdPropertyAlias = categoryIdPropertyAlias,
             StoreIdPropertyAlias = storeIdPropertyAlias,
             ProductIdPropertyAlias = productIdPropertyAlias
@@ -68,7 +68,7 @@ public class CommerceSettingsService : ICommerceSettingsService
 
         // Save default aliases
         _keyValueService.SetValue($"{SettingsKeyPrefix}CategoryPageAlias", settings.CategoryPageAlias);
-        _keyValueService.SetValue($"{SettingsKeyPrefix}ProductPageAlias", settings.ProductPageAlias);
+        _keyValueService.SetValue($"{SettingsKeyPrefix}ProductPageAliases", settings.ProductPageAliases);
         _keyValueService.SetValue($"{SettingsKeyPrefix}CategoryIdPropertyAlias", settings.CategoryIdPropertyAlias);
         _keyValueService.SetValue($"{SettingsKeyPrefix}StoreIdPropertyAlias", settings.StoreIdPropertyAlias);
         _keyValueService.SetValue($"{SettingsKeyPrefix}ProductIdPropertyAlias", settings.ProductIdPropertyAlias);

@@ -235,13 +235,51 @@ public class CategoryPickerApiController : ManagementApiControllerBase
         if (string.IsNullOrEmpty(categoryId))
             return BadRequest($"Parent node has no {categoryIdPropertyAlias} property");
 
-        // Sibling store/market picker on the category node - same one products-workspace-view.js
-        // and category-picker.js use - so the picker loads from whichever market the category
-        // actually belongs to, instead of silently falling back to the global default market.
-        var marketId = GetValueAnyCulture(parent, storeIdPropertyAlias);
+        // Sibling store/market picker on the category node, falling back up the ancestor chain -
+        // same lookup category-picker.js and products-workspace-view.js use via effective-store -
+        // so the picker loads from whichever market the category (or one of its ancestors) belongs
+        // to, instead of silently falling back to the global default market.
+        var marketId = GetValueWithAncestorFallback(parent, storeIdPropertyAlias);
 
         var result = await _apiClient.GetProductsAsync(categoryId, page: 1, pageSize: 100, marketId);
         return Ok(result);
+    }
+
+    /// <summary>
+    /// Resolves the effective store/market for a node by walking up to the nearest ancestor
+    /// (or itself) with a non-empty storeId. Lets backoffice pickers (category-picker.js,
+    /// products-workspace-view.js) on a node with no store of its own inherit whichever
+    /// ancestor - e.g. the shop root - has one set.
+    /// </summary>
+    [HttpGet("nodes/{nodeKey}/effective-store")]
+    [ProducesResponseType(typeof(EffectiveStoreDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetEffectiveStore(Guid nodeKey)
+    {
+        var content = _contentService.GetById(nodeKey);
+        if (content == null) return NotFound("Node not found");
+
+        var settings = await _settingsService.GetSettingsAsync();
+        var storeIdPropertyAlias = settings?.StoreIdPropertyAlias ?? "storeId";
+
+        return Ok(new EffectiveStoreDto { StoreId = GetValueWithAncestorFallback(content, storeIdPropertyAlias) });
+    }
+
+    /// <summary>
+    /// Walks self-then-ancestors for the first non-empty value of the given alias - lets a
+    /// single storeId set higher in the tree (e.g. on the shop root) scope every descendant
+    /// category/product instead of requiring it on every node.
+    /// </summary>
+    private string? GetValueWithAncestorFallback(IContent? content, string alias)
+    {
+        while (content != null)
+        {
+            var value = GetValueAnyCulture(content, alias);
+            if (!string.IsNullOrEmpty(value)) return value;
+            content = _contentService.GetParent(content);
+        }
+
+        return null;
     }
 
     /// <summary>
@@ -330,6 +368,14 @@ public class CategoryPickerApiController : ManagementApiControllerBase
 
         return StatusCode(StatusCodes.Status201Created, created);
     }
+}
+
+/// <summary>
+/// DTO for the effective-store lookup
+/// </summary>
+public class EffectiveStoreDto
+{
+    public string? StoreId { get; set; }
 }
 
 /// <summary>

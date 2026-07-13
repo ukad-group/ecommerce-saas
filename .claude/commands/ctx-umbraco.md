@@ -49,6 +49,8 @@ umbraco/
 │               │   ├── category-picker.js  # Category picker UI (market/store-aware)
 │               │   ├── product-picker.js   # Pick a specific product for a product page node
 │               │   └── store-picker.js     # Pick which market/store a node belongs to
+│               ├── conditions/
+│               │   └── is-product-page.condition.js  # Gates the eCommerce tab to product pages only
 │               ├── workspaceViews/
 │               │   └── products-workspace-view.js  # Full product editor (variants, add-ons, SEO, leasing)
 │               ├── commerce-admin/
@@ -108,7 +110,7 @@ async getAuthHeaders() {
 **Alias**: `ecomm.workspaceView.products`
 **File**: `wwwroot/components/workspaceViews/products-workspace-view.js`
 **Purpose**: Display eCommerce products as a tab in the document editor
-**Location**: Appears as "eCommerce" tab (next to Content/Info tabs) on document nodes
+**Location**: Appears as "eCommerce" tab (next to Content/Info tabs) exclusively on product-type document nodes — gated by the `EComm.Condition.IsProductPage` condition (see #10 below), not shown at all on category pages or any other content type
 **API Route**: `/umbraco/management/api/ecomm-commerce/products/{categoryId}`
 
 **How it works**:
@@ -134,7 +136,7 @@ this.consumeContext(UMB_PROPERTY_DATASET_CONTEXT, async (datasetContext) => {
 
 **States handled**:
 - Loading: Spinner with "Loading products..." message
-- No categoryId: Info message guiding user to Content tab
+- No product selected yet: Info message guiding user to the Content tab's Product Picker property
 - API not configured: Error with instructions to configure settings
 - Empty category: Friendly empty state message
 - Network error: Error message with retry button
@@ -212,6 +214,12 @@ request.Headers.Add("X-API-Key", settings.ApiKey);
 **Methods**: `GetSettingsAsync`, `SaveSettingsAsync`
 **Validation**: `IsValid` property checks all required fields
 
+#### 10. Is Product Page Condition
+**Alias**: `EComm.Condition.IsProductPage`
+**File**: `wwwroot/components/conditions/is-product-page.condition.js`
+**Purpose**: Gates the "eCommerce" workspace tab (`ecomm.workspaceView.products`) to product-type nodes only. Umbraco's built-in `Umb.Condition.WorkspaceContentTypeAlias` can't be used because its allowed-aliases list is static JSON baked into the manifest, while the "Product Page Aliases" list is only known at runtime (fetched from `GET .../settings/defaults`). Implemented as a custom condition class extending `UmbConditionBase` (from `@umbraco-cms/backoffice/extension-registry`) that observes the current node's content type alias via `UMB_DOCUMENT_WORKSPACE_CONTEXT` and flips `this.permitted` once the async settings fetch resolves — the extension registry re-evaluates tab visibility reactively whenever `permitted` changes. The settings fetch is memoized at module scope so repeat node navigations don't re-request it.
+**Registered in**: `wwwroot/umbraco-package.json` as a `"type": "condition"` manifest, referenced by alias (no `match`/`oneOf` needed) in the workspace view's `conditions` array alongside `Umb.Condition.WorkspaceAlias`.
+
 ### Document Type Setup
 
 #### Category Page (`categoryPage`)
@@ -223,11 +231,11 @@ request.Headers.Add("X-API-Key", settings.ApiKey);
 - **URL**: Standard Umbraco routing (e.g., `/shop/electronics`)
 
 #### Product Page (`productPage`)
-- **Alias**: `productPage`
+- **Alias**: `productPage` — one of possibly several; "Product Page Aliases" in Settings → Commerce Settings → Defaults is a list, so sites with more than one product content type add each alias there
 - **Allow at root**: No (must be child of `categoryPage`)
 - **Purpose**: Template node for product URLs (not published content)
 - **URL Pattern**: `{parent-category-url}/{product-slug}` (handled by ProductContentFinder)
-- **Note**: Create ONE Product Page node per category as a template
+- **Note**: Create ONE Product Page node per category as a template. Only nodes whose content type alias is in Product Page Aliases get the "eCommerce" workspace tab (see #10 Is Product Page Condition) — category pages no longer show it.
 
 ### Umbraco 17 API Changes (Critical!)
 
@@ -588,6 +596,7 @@ curl -k -X POST https://localhost:44371/umbraco/backoffice/api/commercesettings/
 | `umbraco-package.json` | Plugin manifest (extensions registration) |
 | `category-picker.js` | Category dropdown property editor |
 | `products-workspace-view.js` | Products list workspace view (eCommerce tab) |
+| `is-product-page.condition.js` | Gates the eCommerce tab to product pages only |
 | `settings-dashboard.js` | Settings UI with save/test functionality |
 | `Program.cs` | **CRITICAL**: Must enable static web assets |
 | `appsettings.json` | Database connection (SQLite) |

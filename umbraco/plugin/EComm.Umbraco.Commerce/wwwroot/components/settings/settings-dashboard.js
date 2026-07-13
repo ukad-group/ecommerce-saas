@@ -10,7 +10,8 @@ class ECommSettingsDashboard extends UmbElementMixin(LitElement) {
     testing: { type: Boolean },
     testResult: { type: Object },
     error: { type: String },
-    activeTab: { type: String }
+    activeTab: { type: String },
+    _productPageAliasRows: { type: Array, state: true }
   };
 
   constructor() {
@@ -21,11 +22,12 @@ class ECommSettingsDashboard extends UmbElementMixin(LitElement) {
       marketId: '',
       apiKey: '',
       categoryPageAlias: 'categoryPage',
-      productPageAlias: 'productPage',
+      productPageAliases: 'productPage',
       categoryIdPropertyAlias: 'categoryId',
       storeIdPropertyAlias: 'storeId',
       productIdPropertyAlias: 'productId',
     };
+    this._productPageAliasRows = ['productPage'];
     this.loading = true;
     this.saving = false;
     this.testing = false;
@@ -66,6 +68,7 @@ class ECommSettingsDashboard extends UmbElementMixin(LitElement) {
 
       if (response.ok) {
         this.settings = await response.json();
+        this._productPageAliasRows = this.parseAliasRows(this.settings.productPageAliases);
       }
     } catch (err) {
       console.error('Failed to load settings:', err);
@@ -133,11 +136,40 @@ class ECommSettingsDashboard extends UmbElementMixin(LitElement) {
     };
   }
 
+  parseAliasRows(commaSeparated) {
+    const rows = (commaSeparated || '').split(',').map((s) => s.trim()).filter(Boolean);
+    return rows.length > 0 ? rows : [''];
+  }
+
+  syncProductPageAliasRows() {
+    this.settings = {
+      ...this.settings,
+      productPageAliases: this._productPageAliasRows.join(',')
+    };
+  }
+
+  addProductPageAlias() {
+    this._productPageAliasRows = [...this._productPageAliasRows, ''];
+    this.syncProductPageAliasRows();
+  }
+
+  updateProductPageAlias(index, value) {
+    this._productPageAliasRows = this._productPageAliasRows.map((row, i) => i === index ? value : row);
+    this.syncProductPageAliasRows();
+  }
+
+  removeProductPageAlias(index) {
+    const rows = this._productPageAliasRows.filter((_, i) => i !== index);
+    this._productPageAliasRows = rows.length > 0 ? rows : [''];
+    this.syncProductPageAliasRows();
+  }
+
   resetToDefaults() {
+    this._productPageAliasRows = ['productPage'];
     this.settings = {
       ...this.settings,
       categoryPageAlias: 'categoryPage',
-      productPageAlias: 'productPage',
+      productPageAliases: 'productPage',
       categoryIdPropertyAlias: 'categoryId',
       storeIdPropertyAlias: 'storeId',
       productIdPropertyAlias: 'productId'
@@ -278,18 +310,30 @@ class ECommSettingsDashboard extends UmbElementMixin(LitElement) {
           </div>
 
           <div class="form-group">
-            <uui-label for="productPageAlias" required>Product Page Alias</uui-label>
-            <uui-input
-              id="productPageAlias"
-              placeholder="productPage"
-              .value=${this.settings.productPageAlias || 'productPage'}
-              @input=${(e) => this.handleInput('productPageAlias', e)}
-              required>
-            </uui-input>
+            <uui-label required>Product Page Aliases</uui-label>
+            <div class="alias-list">
+              ${this._productPageAliasRows.map((alias, index) => html`
+                <div class="alias-row">
+                  <uui-input
+                    placeholder="productPage"
+                    .value=${alias}
+                    @input=${(e) => this.updateProductPageAlias(index, e.target.value)}>
+                  </uui-input>
+                  <uui-button look="secondary" color="danger"
+                    @click=${() => this.removeProductPageAlias(index)}
+                    ?disabled=${this._productPageAliasRows.length <= 1}>
+                    Remove
+                  </uui-button>
+                </div>
+              `)}
+              <uui-button look="secondary" @click=${this.addProductPageAlias}>
+                + Add Alias
+              </uui-button>
+            </div>
             <small>
-              The document type alias for standalone product pages (e.g., "productPage"), for setups
-              that give each product its own node under a category page instead of the single-node
-              routing <code>ProductContentFinder</code> defaults to.
+              Document type aliases treated as product pages (e.g., "productPage", "bundleProduct").
+              Nodes of any of these types get the "eCommerce" workspace tab; every other content
+              type (including category pages) no longer shows it.
             </small>
           </div>
 
@@ -466,6 +510,22 @@ class ECommSettingsDashboard extends UmbElementMixin(LitElement) {
       margin-top: var(--uui-size-space-1);
       color: var(--uui-color-text-alt);
       font-size: var(--uui-size-4);
+    }
+
+    .alias-list {
+      display: flex;
+      flex-direction: column;
+      gap: var(--uui-size-space-2);
+    }
+
+    .alias-row {
+      display: flex;
+      gap: var(--uui-size-space-2);
+      align-items: center;
+    }
+
+    .alias-row uui-input {
+      flex: 1;
     }
 
     .form-group small code {

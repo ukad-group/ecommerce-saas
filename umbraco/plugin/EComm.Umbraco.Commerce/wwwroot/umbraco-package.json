@@ -9,8 +9,8 @@
       "name": "Commerce Admin",
       "weight": 200,
       "meta": {
-        "label": "Commerce",
-        "pathname": "commerce"
+        "label": "EComm Commerce",
+        "pathname": "e-commerce"
       }
     },
     {
@@ -55,7 +55,7 @@
       "meta": {
         "label": "Category Picker",
         "icon": "icon-folder",
-        "group": "commerce",
+        "group": "ecomm-commerce",
         "propertyEditorSchemaAlias": "Umbraco.Plain.String"
       }
     },
@@ -67,7 +67,7 @@
       "meta": {
         "label": "Store Picker",
         "icon": "icon-shopping-basket",
-        "group": "commerce",
+        "group": "ecomm-commerce",
         "propertyEditorSchemaAlias": "Umbraco.Plain.String"
       }
     },
@@ -79,9 +79,15 @@
       "meta": {
         "label": "Product Picker",
         "icon": "icon-box",
-        "group": "commerce",
+        "group": "ecomm-commerce",
         "propertyEditorSchemaAlias": "Umbraco.Plain.String"
       }
+    },
+    {
+      "type": "condition",
+      "alias": "EComm.Condition.IsProductPage",
+      "name": "eCommerce: Is Product Page",
+      "api": "/App_Plugins/ECommCommerce/components/conditions/is-product-page.condition.js"
     },
     {
       "type": "workspaceView",
@@ -98,6 +104,9 @@
         {
           "alias": "Umb.Condition.WorkspaceAlias",
           "match": "Umb.Workspace.Document"
+        },
+        {
+          "alias": "EComm.Condition.IsProductPage"
         }
       ]
     }

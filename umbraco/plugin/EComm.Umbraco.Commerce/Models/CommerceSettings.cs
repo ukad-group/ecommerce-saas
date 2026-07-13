@@ -32,9 +32,15 @@ public class CommerceSettings
     public string CategoryPageAlias { get; set; } = "categoryPage";
 
     /// <summary>
-    /// Document type alias for product nodes (default: "productPage")
+    /// Comma-separated document type aliases for product nodes (default: "productPage")
     /// </summary>
-    public string ProductPageAlias { get; set; } = "productPage";
+    public string ProductPageAliases { get; set; } = "productPage";
+
+    /// <summary>
+    /// Parsed, trimmed list of <see cref="ProductPageAliases"/>
+    /// </summary>
+    public string[] ProductPageAliasList =>
+        ProductPageAliases.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
     /// <summary>
     /// Property alias for storing category ID on category nodes (default: "categoryId")

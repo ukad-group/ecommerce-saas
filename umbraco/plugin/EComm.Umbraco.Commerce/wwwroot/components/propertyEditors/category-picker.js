@@ -2,6 +2,7 @@ import { LitElement, html, css } from '@umbraco-cms/backoffice/external/lit';
 import { UmbElementMixin } from '@umbraco-cms/backoffice/element-api';
 import { UMB_AUTH_CONTEXT } from '@umbraco-cms/backoffice/auth';
 import { UMB_PROPERTY_DATASET_CONTEXT } from '@umbraco-cms/backoffice/property';
+import { UMB_DOCUMENT_WORKSPACE_CONTEXT } from '@umbraco-cms/backoffice/document';
 
 class ECommCategoryPicker extends UmbElementMixin(LitElement) {
   static properties = {
@@ -20,9 +21,22 @@ class ECommCategoryPicker extends UmbElementMixin(LitElement) {
     this.error = null;
     this.storeId = '';
     this.storeIdPropertyAlias = 'storeId';
+    this._storeResolveSeq = 0;
+
+    this.consumeContext(UMB_DOCUMENT_WORKSPACE_CONTEXT, (workspaceContext) => {
+      this._workspaceContext = workspaceContext;
+      // Don't rely solely on connectedCallback() ordering - re-resolve once the workspace
+      // context is actually available so getUnique() has something to return.
+      this.resolveStoreIdAndReload();
+    });
 
     this.consumeContext(UMB_AUTH_CONTEXT, (authContext) => {
       this._authContext = authContext;
+      // Re-resolve now that authenticated fetches are possible - the effective-store lookup
+      // triggered from connectedCallback()/the workspace context above may have fired before
+      // auth was ready and silently no-op'd (unauthenticated fetch -> null), with no other
+      // trigger to retry it for a category that has no storeId property of its own.
+      this.resolveStoreIdAndReload();
 
       // Load the configurable alias first, then watch that property on the document so
       // categories reload when the store/market picker changes - mirrors how
@@ -32,15 +46,55 @@ class ECommCategoryPicker extends UmbElementMixin(LitElement) {
           this.observe(
             await datasetContext.propertyValueByAlias(this.storeIdPropertyAlias),
             (value) => {
-              if (value !== this.storeId) {
-                this.storeId = value || '';
-                this.loadCategories();
+              if (value !== this._ownStoreId) {
+                this._ownStoreId = value || '';
+                this.resolveStoreIdAndReload();
               }
             }
           );
         });
       });
     });
+  }
+
+  // Own node has no store set - walk up the ancestor chain (e.g. the shop root) so a
+  // store set once higher in the tree still scopes this node's category dropdown.
+  //
+  // The seq token guards against an in-flight ancestor lookup (started while the node had
+  // no store of its own) clobbering a store the user explicitly picks before that lookup
+  // resolves - without it the slower ancestor fetch wins the race and silently reverts the
+  // just-selected store.
+  async resolveStoreIdAndReload() {
+    const seq = ++this._storeResolveSeq;
+    this.storeId = this._ownStoreId;
+
+    if (!this.storeId) {
+      const nodeKey = this._workspaceContext?.getUnique?.();
+      if (nodeKey) {
+        const inherited = await this.fetchEffectiveStoreId(nodeKey);
+        if (seq !== this._storeResolveSeq) return; // superseded by a newer resolution
+        this.storeId = inherited;
+      }
+    }
+
+    this.loadCategories();
+  }
+
+  async fetchEffectiveStoreId(nodeKey) {
+    try {
+      const headers = await this.getAuthHeaders();
+      const response = await fetch(
+        `/umbraco/management/api/ecomm-commerce/nodes/${nodeKey}/effective-store`,
+        { headers, credentials: 'include' }
+      );
+      if (response.ok) {
+        const result = await response.json();
+        return result.storeId || null;
+      }
+    } catch (err) {
+      console.error('Failed to resolve inherited store:', err);
+    }
+    return null;
   }
 
   async loadStoreIdPropertyAlias() {
@@ -60,7 +114,10 @@ class ECommCategoryPicker extends UmbElementMixin(LitElement) {
 
   connectedCallback() {
     super.connectedCallback();
-    this.loadCategories();
+    // Go through the ancestor-aware resolver, not a raw loadCategories() - a category with no
+    // storeId property of its own (relying purely on inheritance from a parent/root) never fires
+    // the sibling-property observer below, so this is the only chance to resolve it on load.
+    this.resolveStoreIdAndReload();
   }
 
   async getAuthHeaders() {

@@ -56,6 +56,7 @@ public class ProductContentFinder : IContentFinder
         var settings = await settingsService.GetSettingsAsync();
         var categoryPageAlias = settings?.CategoryPageAlias ?? "categoryPage";
         var categoryIdPropertyAlias = settings?.CategoryIdPropertyAlias ?? "categoryId";
+        var storeIdPropertyAlias = settings?.StoreIdPropertyAlias ?? "storeId";
 
         // Get the Umbraco context
         if (!_umbracoContextAccessor.TryGetUmbracoContext(out var umbracoContext))
@@ -205,25 +206,30 @@ public class ProductContentFinder : IContentFinder
             return false;
         }
 
+        // Store/market picker on the category node - falls back up the ancestor chain so a
+        // single storeId set higher in the tree (e.g. on the shop root) scopes every
+        // descendant category/product instead of requiring it on every node.
+        var storeId = categoryNode.Value<string>(storeIdPropertyAlias, fallback: Fallback.ToAncestors);
+
         // Fetch the product from the API to verify this is actually a product URL
         var apiClient = scope.ServiceProvider.GetRequiredService<ICommerceApiClient>();
 
         // Try cache first for better performance
-        var cacheKey = $"product:{categoryId}:{potentialProductSlug}";
+        var cacheKey = $"product:{categoryId}:{potentialProductSlug}:{storeId}";
         var product = await _cache.GetOrCreateAsync(cacheKey, async entry =>
         {
             // Short TTL: backoffice edits explicitly invalidate this key on save
             // (CommerceApiClient.InvalidateProductCaches); this is just a safety
             // net so any uninvalidated route still refreshes quickly.
             entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(30);
-            
+
             // Try to get product by ID first (since slugs may not be populated)
             var prod = await apiClient.GetProductAsync(potentialProductSlug);
 
             // If not found by ID, try by slug
             if (prod == null)
             {
-                prod = await apiClient.GetProductBySlugAsync(categoryId, potentialProductSlug);
+                prod = await apiClient.GetProductBySlugAsync(categoryId, potentialProductSlug, storeId);
             }
 
             return prod;
@@ -243,8 +249,7 @@ public class ProductContentFinder : IContentFinder
         var httpContext = _httpContextAccessor.HttpContext;
         if (httpContext != null)
         {
-            // storeId from the node overrides settings.MarketId for this request
-            var storeId = categoryNode.Value<string>("storeId");
+            // storeId (resolved above, with ancestor fallback) overrides settings.MarketId for this request
             if (!string.IsNullOrEmpty(storeId))
                 httpContext.Items["StoreId"] = storeId;
 
