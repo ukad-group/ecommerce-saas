@@ -505,6 +505,13 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
     return html`<span class="pill pill--payment-${ps}">${getPaymentStatusLabel(ps)}</span>`;
   }
 
+  // "trailerName" -> "Trailer Name" for the order-detail custom-properties table.
+  _humanizeKey(key) {
+    if (!key) return '';
+    const s = key.replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/[_-]+/g, ' ');
+    return s.charAt(0).toUpperCase() + s.slice(1);
+  }
+
   _errorBanner(msg, clear) {
     return msg ? html`
       <div class="error-banner">
@@ -779,7 +786,7 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
             <span class="breadcrumb-sep">/</span>
             <span class="detail-order-num">${order.orderNumber}</span>
           </div>
-          <div class="detail-status-badge">${this._pillOrder(order.status)}</div>
+          <div class="detail-status-badge">${this._pillOrder(order.status)} ${this._pillPayment(order.status)}</div>
         </div>
 
         ${this._errorBanner(this.ordersError, () => { this.ordersError = null; })}
@@ -838,6 +845,21 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
               </tbody>
             </table>
           </div>
+
+          ${(order.customProperties && order.customProperties.length) ? html`
+          <div class="detail-section-block">
+            <div class="detail-label">Configuration</div>
+            <table class="items-table">
+              <tbody>
+                ${order.customProperties.map(p => html`
+                  <tr>
+                    <td class="muted">${this._humanizeKey(p.name)}</td>
+                    <td>${p.value}</td>
+                  </tr>
+                `)}
+              </tbody>
+            </table>
+          </div>` : ''}
 
           <div class="detail-section-block">
             <div class="detail-label">Update Status</div>
