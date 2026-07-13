@@ -22,6 +22,8 @@ public interface ICommerceApiClient
     /// </summary>
     Task<Category?> GetCategoryAsync(string categoryId);
 
+    Task<Category?> CreateCategoryAsync(Category category, string? marketId = null);
+
     /// <summary>
     /// Gets the countries a market ships to (or the full reference list if the market has no
     /// shipping-zone restriction configured)

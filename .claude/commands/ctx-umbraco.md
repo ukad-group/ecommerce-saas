@@ -168,7 +168,7 @@ import { UMB_CURRENT_USER_CONTEXT } from '@umbraco-cms/backoffice/current-user';
 - HttpClient factory pattern
 - In-memory caching (categories: 5min, products: 2min)
 - Settings integration (reads from CommerceSettingsService)
-- Methods: `GetCategoriesAsync`, `GetCategoryAsync`, `GetProductsAsync`, `GetProductBySlugAsync`, `GetMarketsAsync`, `GetCountriesAsync`, `CreateProductAsync`, `DeleteProductAsync`
+- Methods: `GetCategoriesAsync`, `GetCategoryAsync`, `CreateCategoryAsync`, `GetProductsAsync`, `GetProductBySlugAsync`, `GetMarketsAsync`, `GetCountriesAsync`, `CreateProductAsync`, `DeleteProductAsync`
 - **Cart**: `GetCartAsync`, `AddCartItemAsync`, `UpdateCartItemAsync`, `RemoveCartItemAsync`, `CreateOrderAsync` (session-based)
 - **Orders**: `GetOrdersAsync`, `GetOrderAsync`, `UpdateOrderStatusAsync`, `GetOrderStatusDefinitionsAsync`, `CreatePaymentAsync` (Nets Easy)
 - **Market config**: `GetOptionPresetsAsync`/`UpdateOptionPresetsAsync`, shipping methods, leasing periods, property templates, discounts (full CRUD)
@@ -194,8 +194,9 @@ request.Headers.Add("X-API-Key", settings.ApiKey);
 - `GET /umbraco/management/api/ecomm-commerce/option-presets` - Get the market's option presets
 - `GET /umbraco/management/api/ecomm-commerce/products-for-node/{nodeKey}` - Products for a node, resolving parent's categoryId/storeId server-side (works around Umbraco CMS #19213)
 - `GET /umbraco/management/api/ecomm-commerce/product/{productId}` - Get a single product
-- `POST /umbraco/management/api/ecomm-commerce/products` - Create a product
+- `POST /umbraco/management/api/ecomm-commerce/products` - Create a product (accepts `nodeKey` to resolve category/market server-side, and `categoryId`/`marketId` sent verbatim by the picker)
 - `POST /umbraco/management/api/ecomm-commerce/products/{id}/delete` - Delete a product
+- `POST /umbraco/management/api/ecomm-commerce/categories` - Create a category (in the picker's resolved market)
 
 #### 8. Commerce Admin Dashboard & API
 **Files**: `wwwroot/components/commerce-admin/commerce-admin-dashboard.js`, `Controllers/CommerceAdminApiController.cs`
@@ -205,7 +206,8 @@ request.Headers.Add("X-API-Key", settings.ApiKey);
 
 #### 9. Product Picker & Store Picker
 **Files**: `wwwroot/components/propertyEditors/product-picker.js`, `store-picker.js`
-**Product Picker** (`EComm.PropertyEditorUi.ProductPicker`): lets an editor pick a specific product for a product page node (resolves via `products-for-node`, auto-sets the node name to the product name on select)
+**Product Picker** (`EComm.PropertyEditorUi.ProductPicker`): lets an editor pick a specific product for a product page node (resolves via `products-for-node`, auto-sets the node name to the product name on select). When nothing is selected, a **"+" button** opens an inline popup to create a product (solo/with-variants, name, SKU + price for solo); the new product is created in the same category/market the list resolved from and auto-selected.
+**Category Picker** also has the same inline **"+" create** popup (name only) when nothing is selected — it resolves the node's market via effective-store *before* creating so the new category lands in the market the picker lists (otherwise it would be created in the settings-default market and disappear on reload).
 **Store Picker** (`EComm.PropertyEditorUi.StorePicker`): dropdown of markets (from `GetMarketsAsync`) so a node can declare which market/store it belongs to — replaces the old global Market ID setting
 
 #### 7. Commerce Settings Service

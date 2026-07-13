@@ -108,6 +108,31 @@ public class CategoryPickerApiController : ManagementApiControllerBase
     }
 
     /// <summary>
+    /// Creates a new category (for the category picker's inline "create" popup).
+    /// </summary>
+    [HttpPost("categories")]
+    [ProducesResponseType(typeof(Category), StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> CreateCategory([FromBody] CreateCategoryRequest request)
+    {
+        if (request == null || string.IsNullOrWhiteSpace(request.Name))
+            return BadRequest("Category name is required");
+
+        var category = new Category
+        {
+            Name = request.Name,
+            ParentId = string.IsNullOrWhiteSpace(request.ParentId) ? null : request.ParentId,
+        };
+
+        var created = await _apiClient.CreateCategoryAsync(category, request.MarketId);
+        if (created == null)
+            return StatusCode(StatusCodes.Status500InternalServerError,
+                "Failed to create category. Check that the eCommerce API is running.");
+
+        return StatusCode(StatusCodes.Status201Created, created);
+    }
+
+    /// <summary>
     /// Gets products for a specific category (for workspace view)
     /// </summary>
     [HttpGet("products/{categoryId}")]
@@ -242,7 +267,11 @@ public class CategoryPickerApiController : ManagementApiControllerBase
         var marketId = GetValueWithAncestorFallback(parent, storeIdPropertyAlias);
 
         var result = await _apiClient.GetProductsAsync(categoryId, page: 1, pageSize: 100, marketId);
-        return Ok(result);
+        // Return the resolved categoryId/marketId alongside the products so the picker can send
+        // them back verbatim when creating a product — avoids re-resolving from the node key at
+        // create time (which drifts: ctx.unique is unreliable, umbraco/Umbraco-CMS#19213) and
+        // guarantees a created product lands in exactly the category/market the list came from.
+        return Ok(new { categoryId, marketId, products = result.Products, totalCount = result.TotalCount });
     }
 
     /// <summary>
@@ -338,6 +367,27 @@ public class CategoryPickerApiController : ManagementApiControllerBase
         if (!hasVariants && (request.Price == null || request.Price < 0))
             return BadRequest("Valid price is required");
 
+        // When the product picker posts its node key, resolve categoryId + market from the
+        // parent node the same way products-for-node does, so "create" and "list" always
+        // agree (a category whose storeId differs from the global default market would
+        // otherwise create the product in a market the picker never lists).
+        // Prefer the categoryId/marketId the picker captured from products-for-node (the exact
+        // context the visible product list came from). Only re-resolve from the node key as a
+        // fallback — that path drifts because ctx.unique is unreliable (umbraco/Umbraco-CMS#19213).
+        var categoryId = request.CategoryId;
+        var marketId = request.MarketId;
+        if (string.IsNullOrEmpty(categoryId) && request.NodeKey.HasValue)
+        {
+            var content = _contentService.GetById(request.NodeKey.Value);
+            var parent = content == null ? null : _contentService.GetParent(content);
+            if (parent != null)
+            {
+                var settings = await _settingsService.GetSettingsAsync();
+                categoryId = GetValueAnyCulture(parent, settings?.CategoryIdPropertyAlias ?? "categoryId");
+                marketId ??= GetValueWithAncestorFallback(parent, settings?.StoreIdPropertyAlias ?? "storeId");
+            }
+        }
+
         var product = new Product
         {
             Name = request.Name,
@@ -347,7 +397,11 @@ public class CategoryPickerApiController : ManagementApiControllerBase
             StockQuantity = request.StockQuantity ?? 0,
             Status = request.Status ?? "active",
             Description = request.Description,
-            CategoryId = request.CategoryId,
+            // Populate the CategoryIds collection (not just the legacy singular CategoryId): the
+            // API filters the product list by CategoryIds, and because the DTO serializes
+            // categoryId before categoryIds[], a trailing empty categoryIds[] would otherwise wipe
+            // the value the categoryId setter added on the API side — leaving the product unlisted.
+            CategoryIds = string.IsNullOrEmpty(categoryId) ? new List<string>() : new List<string> { categoryId },
             HasVariants = hasVariants,
             VariantOptions = request.VariantOptions,
             Variants = request.Variants,
@@ -361,7 +415,7 @@ public class CategoryPickerApiController : ManagementApiControllerBase
             SeoDescription = request.SeoDescription,
         };
 
-        var created = await _apiClient.CreateProductAsync(product);
+        var created = await _apiClient.CreateProductAsync(product, marketId);
         if (created == null)
             return StatusCode(StatusCodes.Status500InternalServerError,
                 "Failed to create product. Check that the eCommerce API is running.");
@@ -388,12 +442,27 @@ public class UpdateProductRequest
 }
 
 /// <summary>
+/// DTO for category creation from the picker's inline create popup.
+/// </summary>
+public class CreateCategoryRequest
+{
+    public string? Name { get; set; }
+    public string? ParentId { get; set; }
+    /// <summary>Market the picker resolved (storeId) — the category is created in this market.</summary>
+    public string? MarketId { get; set; }
+}
+
+/// <summary>
 /// DTO for product creation — all nullable to avoid implicit [Required] from NRT + [ApiController]
 /// </summary>
 public class CreateProductRequest
 {
     public string? Name { get; set; }
     public string? Sku { get; set; }
+    /// <summary>categoryId the picker captured from products-for-node — used verbatim so the created product lands in the listed category.</summary>
+    public string? MarketId { get; set; }
+    /// <summary>Picker's own node key — fallback to resolve categoryId + market server-side when not supplied explicitly.</summary>
+    public Guid? NodeKey { get; set; }
     public decimal? Price { get; set; }
     public int? StockQuantity { get; set; }
     public string? Status { get; set; }

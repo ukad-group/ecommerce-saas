@@ -231,6 +231,49 @@ public class CommerceApiClient : ICommerceApiClient
         }
     }
 
+    public async Task<Category?> CreateCategoryAsync(Category category, string? marketId = null)
+    {
+        var settings = await _settingsService.GetSettingsAsync();
+        if (settings == null || !settings.IsValid)
+        {
+            _logger.LogWarning("Cannot create category: API settings not configured");
+            return null;
+        }
+
+        try
+        {
+            var client = await CreateClientAsync(settings);
+            var effectiveMarketId = marketId ?? settings.MarketId;
+
+            var json = JsonSerializer.Serialize(category, JsonOptions);
+            var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+            var request = new HttpRequestMessage(HttpMethod.Post, "categories") { Content = content };
+            request.Headers.Add("X-Tenant-ID", settings.TenantId);
+            request.Headers.Add("X-Market-ID", effectiveMarketId);
+
+            var response = await client.SendAsync(request);
+
+            if (response.IsSuccessStatusCode)
+            {
+                var created = await response.Content.ReadFromJsonAsync<Category>(JsonOptions);
+                // Drop the market's cached tree so the new category shows on next load.
+                _cache.Remove($"EComm_Categories_{effectiveMarketId}");
+                _logger.LogInformation("Category created successfully with ID {CategoryId}", created?.Id);
+                return created;
+            }
+
+            var error = await response.Content.ReadAsStringAsync();
+            _logger.LogError("Failed to create category: {StatusCode} - {Error}", response.StatusCode, error);
+            return null;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to create category");
+            return null;
+        }
+    }
+
     public async Task<ProductListResult> GetProductsAsync(string categoryId, int page = 1, int pageSize = 20, string? marketId = null)
     {
         var settings = await _settingsService.GetSettingsAsync();

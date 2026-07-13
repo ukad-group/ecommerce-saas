@@ -10,7 +10,11 @@ class ECommCategoryPicker extends UmbElementMixin(LitElement) {
     categories: { type: Array },
     loading: { type: Boolean },
     error: { type: String },
-    storeId: { type: String }
+    storeId: { type: String },
+    _showCreate: { type: Boolean, state: true },
+    _newName: { type: String, state: true },
+    _creating: { type: Boolean, state: true },
+    _createError: { type: String, state: true }
   };
 
   constructor() {
@@ -22,6 +26,10 @@ class ECommCategoryPicker extends UmbElementMixin(LitElement) {
     this.storeId = '';
     this.storeIdPropertyAlias = 'storeId';
     this._storeResolveSeq = 0;
+    this._showCreate = false;
+    this._newName = '';
+    this._creating = false;
+    this._createError = null;
 
     this.consumeContext(UMB_DOCUMENT_WORKSPACE_CONTEXT, (workspaceContext) => {
       this._workspaceContext = workspaceContext;
@@ -150,13 +158,64 @@ class ECommCategoryPicker extends UmbElementMixin(LitElement) {
   }
 
   handleChange(e) {
-    this.value = e.target.value;
+    this.selectCategory(e.target.value);
+  }
+
+  selectCategory(categoryId) {
+    this.value = categoryId;
     this.dispatchEvent(new CustomEvent('property-value-change', {
       detail: { value: this.value }, bubbles: true, composed: true
     }));
     this.dispatchEvent(new CustomEvent('change', {
       detail: { value: this.value }, bubbles: true, composed: true
     }));
+  }
+
+  openCreate() {
+    this._newName = '';
+    this._createError = null;
+    this._showCreate = true;
+  }
+
+  async submitCreate() {
+    const name = this._newName.trim();
+    if (!name) { this._createError = 'Name is required.'; return; }
+
+    this._creating = true;
+    this._createError = null;
+    try {
+      // Make sure the market is resolved before creating. If a create fires before the async
+      // effective-store lookup has settled, this.storeId is still empty and the category lands
+      // in the settings-default market — then vanishes when the picker later scopes to the
+      // node's real (inherited) market. Resolve it the same way the listing does, so create
+      // and list always target the same market.
+      if (!this.storeId) {
+        const nodeKey = this._workspaceContext?.getUnique?.();
+        if (nodeKey) this.storeId = (await this.fetchEffectiveStoreId(nodeKey)) || '';
+      }
+
+      const headers = await this.getAuthHeaders();
+      const response = await fetch('/umbraco/management/api/ecomm-commerce/categories', {
+        method: 'POST',
+        headers,
+        credentials: 'include',
+        body: JSON.stringify({ name, marketId: this.storeId || null })
+      });
+
+      if (response.ok) {
+        const created = await response.json();
+        this._showCreate = false;
+        await this.loadCategories(); // refresh the tree (server dropped the cache) so it lists
+        this.selectCategory(created.id);
+      } else {
+        this._createError = (await response.text()) || 'Failed to create category.';
+      }
+    } catch (err) {
+      console.error('Failed to create category:', err);
+      this._createError = 'Failed to create category: ' + err.message;
+    } finally {
+      this._creating = false;
+    }
   }
 
   flattenCategories(categories, level = 0) {
@@ -198,13 +257,58 @@ class ECommCategoryPicker extends UmbElementMixin(LitElement) {
     ];
 
     return html`
-      <uui-select
-        .value=${this.value}
-        .options=${options}
-        @change=${this.handleChange}
-        placeholder="Select a category">
-      </uui-select>
+      <div class="picker-row">
+        <uui-select
+          .value=${this.value}
+          .options=${options}
+          @change=${this.handleChange}
+          placeholder="Select a category">
+        </uui-select>
+        ${!this.value ? html`
+          <uui-button
+            look="outline"
+            label="Create category"
+            title="Create a new category"
+            @click=${this.openCreate}>
+            <uui-icon name="icon-add"></uui-icon>
+          </uui-button>
+        ` : ''}
+      </div>
       ${this.value ? html`<small class="selected-info">Selected: ${this.value}</small>` : ''}
+      ${this._showCreate ? this.renderCreatePopup() : ''}
+    `;
+  }
+
+  renderCreatePopup() {
+    return html`
+      <div class="overlay" @click=${() => { this._showCreate = false; }}>
+        <div class="dialog" @click=${(e) => e.stopPropagation()}>
+          <h3>Create category</h3>
+
+          <uui-label for="new-cat-name">Name</uui-label>
+          <uui-input
+            id="new-cat-name"
+            .value=${this._newName}
+            @input=${(e) => { this._newName = e.target.value; }}
+            placeholder="Category name">
+          </uui-input>
+
+          ${this._createError ? html`<div class="dialog-error">${this._createError}</div>` : ''}
+
+          <div class="dialog-actions">
+            <uui-button look="secondary" label="Cancel"
+              ?disabled=${this._creating}
+              @click=${() => { this._showCreate = false; }}>
+              Cancel
+            </uui-button>
+            <uui-button look="primary" color="positive" label="Create"
+              ?disabled=${this._creating}
+              @click=${this.submitCreate}>
+              ${this._creating ? 'Creating…' : 'Create'}
+            </uui-button>
+          </div>
+        </div>
+      </div>
     `;
   }
 
@@ -212,8 +316,16 @@ class ECommCategoryPicker extends UmbElementMixin(LitElement) {
     :host { display: block; }
     .loading { display: flex; align-items: center; gap: var(--uui-size-space-2); padding: var(--uui-size-space-2); }
     .error { display: flex; align-items: center; gap: var(--uui-size-space-2); padding: var(--uui-size-space-2); color: var(--uui-color-danger); }
+    .picker-row { display: flex; align-items: center; gap: var(--uui-size-space-2); }
+    .picker-row uui-select { flex: 1; }
     uui-select { width: 100%; }
     .selected-info { display: block; margin-top: var(--uui-size-space-1); color: var(--uui-color-text-alt); font-size: var(--uui-size-4); }
+    .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+    .dialog { background: var(--uui-color-surface); border-radius: var(--uui-border-radius); padding: var(--uui-size-space-5); width: 400px; max-width: 90vw; display: flex; flex-direction: column; gap: var(--uui-size-space-3); box-shadow: var(--uui-shadow-depth-3); }
+    .dialog h3 { margin: 0; }
+    .dialog uui-input { width: 100%; }
+    .dialog-error { color: var(--uui-color-danger); }
+    .dialog-actions { display: flex; justify-content: flex-end; gap: var(--uui-size-space-2); margin-top: var(--uui-size-space-2); }
   `;
 }
 
