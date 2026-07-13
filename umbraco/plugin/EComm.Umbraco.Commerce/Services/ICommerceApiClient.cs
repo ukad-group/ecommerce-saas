@@ -133,6 +133,9 @@ public interface ICommerceApiClient
     Task<CartItem?> UpdateCartItemAsync(string sessionId, string itemId, int quantity, string? marketId = null);
     Task<bool> RemoveCartItemAsync(string sessionId, string itemId, string? marketId = null);
 
+    /// <summary>Clears the whole cart for a session (e.g. after a paid order)</summary>
+    Task<bool> ClearCartAsync(string sessionId, string? marketId = null);
+
     /// <summary>Creates an order from the session's current cart</summary>
     Task<Order?> CreateOrderAsync(string sessionId, CreateOrderRequest request, string? marketId = null);
 }

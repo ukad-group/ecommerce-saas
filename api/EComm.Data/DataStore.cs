@@ -347,95 +347,15 @@ public class DataStore
     }
 
     /// <summary>
-    /// Syncs a cart to an order with status "new" (displays as "Cart" in admin UI)
-    /// Creates or updates an order matching the cart's session ID
-    /// If cart is empty, deletes the corresponding order
+    /// No-op. Carts live in the in-memory <see cref="_carts"/> store; they used to be mirrored as
+    /// "cart-{sessionId}" pseudo-orders (status "new", "Guest") purely for admin visibility, which
+    /// polluted the Orders list with CART-* junk (QA F-BACKOFFICE-1). Real orders are created via
+    /// OrdersController.CreateOrder. Kept as a no-op so the CartController call sites need no change.
     /// </summary>
     public void SyncCartToOrder(Cart cart)
     {
-        using var context = CreateContext();
-
-        // Find existing order for this session
-        var existingOrder = context.Orders.FirstOrDefault(o =>
-            o.Id == $"cart-{cart.SessionId}" && o.Status == "new");
-
-        // If cart is empty, delete the order
-        if (cart.Items.Count == 0)
-        {
-            if (existingOrder != null)
-            {
-                context.Orders.Remove(existingOrder);
-                context.SaveChanges();
-            }
-            return;
-        }
-
-        // Create or update order
-        var order = existingOrder ?? new Order
-        {
-            Id = $"cart-{cart.SessionId}",
-            TenantId = cart.TenantId,
-            MarketId = cart.MarketId,
-            OrderNumber = $"CART-{cart.SessionId.Substring(0, Math.Min(8, cart.SessionId.Length)).ToUpper()}",
-            Status = "new",
-            CreatedAt = cart.CreatedAt
-        };
-
-        // Update order details from cart
-        order.Subtotal = cart.Subtotal;
-        order.Tax = cart.Tax;
-        order.ShippingCost = 0m;
-        order.Total = cart.Total;
-        order.UpdatedAt = cart.UpdatedAt;
-
-        // Convert cart items to order items
-        var products = GetProducts(); // Get all products for lookup
-        var orderCurrency = GetMarket(cart.MarketId)?.Currency ?? "USD";
-        order.Items = cart.Items.Select(ci =>
-        {
-            var product = products.FirstOrDefault(p => p.Id == ci.ProductId);
-            string sku = "";
-            if (!string.IsNullOrEmpty(ci.VariantId))
-            {
-                var variant = product?.Variants?.FirstOrDefault(v => v.Id == ci.VariantId);
-                sku = variant?.Sku ?? "";
-            }
-            else
-            {
-                sku = product?.Sku ?? "";
-            }
-
-            return new OrderItem
-            {
-                Id = ci.Id,
-                ProductId = ci.ProductId,
-                VariantId = ci.VariantId,
-                OptionId = ci.OptionId,
-                ItemType = ci.ItemType,
-                ItemSubType = ci.ItemSubType,
-                ProductName = ci.ProductName,
-                Sku = sku,
-                ProductImageUrl = ci.ProductImageUrl,
-                UnitPrice = ci.UnitPrice,
-                Quantity = ci.Quantity,
-                Subtotal = ci.Subtotal,
-                Currency = orderCurrency
-            };
-        }).ToList();
-
-        // Add placeholder customer info (cart doesn't have customer yet)
-        order.Customer = new CustomerInfo
-        {
-            FullName = "Guest",
-            Email = ""
-        };
-
-        // Save order
-        if (existingOrder == null)
-        {
-            context.Orders.Add(order);
-        }
-        context.SaveChanges();
+        // ponytail: intentionally does nothing — see summary. Delete the CartController calls if this
+        // never comes back.
     }
 
     // Orders
@@ -475,7 +395,8 @@ public class DataStore
     public List<Order> GetAllOrders()
     {
         using var context = CreateContext();
-        return context.Orders.AsNoTracking().ToList();
+        // Exclude any leftover "cart-*" pseudo-orders (QA F-BACKOFFICE-1); real orders are "ord-"/GUID.
+        return context.Orders.AsNoTracking().Where(o => !o.Id.StartsWith("cart-")).ToList();
     }
 
     public void DeleteOrder(string orderId)

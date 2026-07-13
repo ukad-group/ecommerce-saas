@@ -54,6 +54,19 @@ public class CartController : ControllerBase
         return Ok(cart);
     }
 
+    // Clears the whole cart for a session (e.g. after a paid order — QA F-CART-1).
+    [HttpDelete]
+    public IActionResult ClearCart([FromHeader(Name = "X-Session-ID")] string? sessionId)
+    {
+        if (string.IsNullOrEmpty(sessionId))
+        {
+            return BadRequest("Session ID is required");
+        }
+
+        _store.ClearCart(sessionId);
+        return NoContent();
+    }
+
     [HttpPost("items")]
     public ActionResult<CartItem> AddCartItem(
         [FromHeader(Name = "X-Session-ID")] string? sessionId,

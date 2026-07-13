@@ -4,8 +4,10 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using EComm.Umbraco.Commerce.Models;
+using EComm.Umbraco.Commerce.Notifications;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
+using Umbraco.Cms.Core.Events;
 
 namespace EComm.Umbraco.Commerce.Services;
 
@@ -18,6 +20,7 @@ public class CommerceApiClient : ICommerceApiClient
     private readonly ICommerceSettingsService _settingsService;
     private readonly IMemoryCache _cache;
     private readonly ILogger<CommerceApiClient> _logger;
+    private readonly IEventAggregator _eventAggregator;
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -33,12 +36,14 @@ public class CommerceApiClient : ICommerceApiClient
         IHttpClientFactory httpClientFactory,
         ICommerceSettingsService settingsService,
         IMemoryCache cache,
-        ILogger<CommerceApiClient> logger)
+        ILogger<CommerceApiClient> logger,
+        IEventAggregator eventAggregator)
     {
         _httpClientFactory = httpClientFactory;
         _settingsService = settingsService;
         _cache = cache;
         _logger = logger;
+        _eventAggregator = eventAggregator;
     }
 
     private class OptionPresetsResponse
@@ -426,6 +431,10 @@ public class CommerceApiClient : ICommerceApiClient
                     // ProductContentFinder's own key used by /{category}/{slug} URLs).
                     InvalidateProductCaches(updated, productId);
 
+                    // Tell consumers (e.g. the site's catalog-index cache) the catalog changed so they can
+                    // drop their own caches - otherwise a changed price lags their TTL.
+                    await _eventAggregator.PublishAsync(new ECommCatalogChangedNotification(settings.MarketId, productId));
+
                     _logger.LogInformation("Product {ProductId} updated successfully (new version {Version})",
                         productId, updated.Version);
                 }
@@ -789,6 +798,29 @@ public class CommerceApiClient : ICommerceApiClient
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to remove cart item {ItemId}", itemId);
+            return false;
+        }
+    }
+
+    public async Task<bool> ClearCartAsync(string sessionId, string? marketId = null)
+    {
+        var settings = await _settingsService.GetSettingsAsync();
+        if (settings == null || !settings.IsValid) return false;
+
+        try
+        {
+            var client = await CreateClientAsync(settings);
+            var request = new HttpRequestMessage(HttpMethod.Delete, "cart");
+            request.Headers.Add("X-Session-ID", sessionId);
+            request.Headers.Add("X-Tenant-ID", settings.TenantId);
+            request.Headers.Add("X-Market-ID", marketId ?? settings.MarketId);
+
+            var response = await client.SendAsync(request);
+            return response.IsSuccessStatusCode;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to clear cart for session {SessionId}", sessionId);
             return false;
         }
     }
