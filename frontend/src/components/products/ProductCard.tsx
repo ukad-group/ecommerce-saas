@@ -13,6 +13,7 @@ import { getMediumImageUrl } from '../../utils/imageHelper';
 interface ProductCardProps {
   product: Product;
   onDelete?: (productId: string) => void;
+  onHardDelete?: (productId: string) => void;
 }
 
 const statusColors: Record<string, string> = {
@@ -21,7 +22,7 @@ const statusColors: Record<string, string> = {
   draft: 'bg-yellow-100 text-yellow-800',
 };
 
-export function ProductCard({ product, onDelete }: ProductCardProps) {
+export function ProductCard({ product, onDelete, onHardDelete }: ProductCardProps) {
   return (
     <div className="bg-white rounded-lg shadow hover:shadow-md transition-shadow border border-gray-200 overflow-hidden">
       {/* Product Image and Status */}
@@ -168,6 +169,15 @@ export function ProductCard({ product, onDelete }: ProductCardProps) {
               className="px-4 py-2 border border-red-300 text-red-700 text-sm font-medium rounded-md hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
             >
               Delete
+            </button>
+          )}
+          {onHardDelete && (
+            <button
+              onClick={() => onHardDelete(product.id)}
+              className="px-4 py-2 border border-red-500 bg-red-600 text-white text-sm font-medium rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-600"
+              title="Permanently delete this product and its version history"
+            >
+              Delete permanently
             </button>
           )}
         </div>

@@ -73,6 +73,13 @@ export async function deleteProduct(productId: string): Promise<void> {
 }
 
 /**
+ * Permanently delete a product and all its versions (hard delete, cannot be undone)
+ */
+export async function hardDeleteProduct(productId: string): Promise<void> {
+  return apiClient.delete<void>(`/products/${productId}/permanent`);
+}
+
+/**
  * Get all categories
  */
 export async function getCategories(): Promise<Category[]> {
@@ -140,6 +147,7 @@ export const productsApi = {
   createProduct,
   updateProduct,
   deleteProduct,
+  hardDeleteProduct,
   getCategories,
   getCategoryById,
   createCategory,

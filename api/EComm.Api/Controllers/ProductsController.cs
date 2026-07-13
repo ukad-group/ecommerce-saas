@@ -193,6 +193,21 @@ public class ProductsController : ControllerBase
         return NoContent();
     }
 
+    // Hard-delete: permanently removes all versions of the product (admin action). Resolves by
+    // any version so already soft-deleted products can still be purged.
+    [HttpDelete("{id}/permanent")]
+    public ActionResult HardDeleteProduct(string id)
+    {
+        var exists = _store.GetProductVersions(id).Any();
+        if (!exists)
+        {
+            return NotFound();
+        }
+
+        _store.HardDeleteProduct(id);
+        return NoContent();
+    }
+
     // Reject duplicate variants: same non-empty SKU, or same option-combination.
     private static string? ValidateVariants(Product product)
     {

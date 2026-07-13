@@ -12,6 +12,7 @@ import {
   createProduct,
   updateProduct,
   deleteProduct,
+  hardDeleteProduct,
   type ProductsQueryParams,
 } from '../api/productsApi';
 import type { Product } from '../../types/product';
@@ -96,6 +97,20 @@ export function useDeleteProduct() {
     mutationFn: (productId: string) => deleteProduct(productId),
     onSuccess: () => {
       // Invalidate and refetch products list
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+    },
+  });
+}
+
+/**
+ * Hook to permanently delete a product (hard delete, cannot be undone)
+ */
+export function useHardDeleteProduct() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (productId: string) => hardDeleteProduct(productId),
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['products'] });
     },
   });

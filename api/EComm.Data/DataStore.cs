@@ -160,6 +160,22 @@ public class DataStore
     }
 
     /// <summary>
+    /// Hard-delete: permanently remove every version/row of a product. Unlike the soft
+    /// DeleteProduct, this cannot be undone and drops version history. Existing order lines
+    /// that referenced it can no longer re-resolve the product (they keep their snapshot).
+    /// </summary>
+    public void HardDeleteProduct(string id)
+    {
+        using var context = CreateContext();
+        var rows = context.Products.Where(p => p.Id == id).ToList();
+        if (rows.Count > 0)
+        {
+            context.Products.RemoveRange(rows);
+            context.SaveChanges();
+        }
+    }
+
+    /// <summary>
     /// Get all versions of a product
     /// </summary>
     public List<Product> GetProductVersions(string productId)

@@ -92,7 +92,8 @@ GET    /api/v1/products                        // List products (market-scoped)
 POST   /api/v1/products                        // Create product
 GET    /api/v1/products/{id}                   // Get current version
 PUT    /api/v1/products/{id}                   // Update (creates new version)
-DELETE /api/v1/products/{id}                   // Delete product
+DELETE /api/v1/products/{id}                   // Soft-delete (marks status "deleted")
+DELETE /api/v1/products/{id}/permanent         // Hard-delete (removes all versions; cannot be undone)
 GET    /api/v1/products/{id}/versions          // Get version history
 GET    /api/v1/products/{id}/versions/{ver}    // Get specific version
 POST   /api/v1/products/{id}/versions/{ver}/restore // Restore version

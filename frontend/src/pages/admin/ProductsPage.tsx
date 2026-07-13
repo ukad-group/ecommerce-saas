@@ -11,6 +11,7 @@ import { ProductList } from '../../components/products/ProductList';
 import {
   useProducts,
   useDeleteProduct,
+  useHardDeleteProduct,
   useUpdateProductStock,
 } from '../../services/hooks/useProducts';
 import { useCategories } from '../../services/hooks/useCategories';
@@ -33,6 +34,7 @@ export function ProductsPage() {
   });
 
   const deleteProduct = useDeleteProduct();
+  const hardDeleteProduct = useHardDeleteProduct();
   const updateStock = useUpdateProductStock();
 
   const handleDelete = async (productId: string) => {
@@ -42,6 +44,21 @@ export function ProductsPage() {
       } catch (err) {
         console.error('Failed to delete product:', err);
         alert('Failed to delete product. Please try again.');
+      }
+    }
+  };
+
+  const handleHardDelete = async (productId: string) => {
+    if (
+      window.confirm(
+        'Permanently delete this product and its entire version history? This cannot be undone.'
+      )
+    ) {
+      try {
+        await hardDeleteProduct.mutateAsync(productId);
+      } catch (err) {
+        console.error('Failed to permanently delete product:', err);
+        alert('Failed to permanently delete product. Please try again.');
       }
     }
   };
@@ -200,6 +217,7 @@ export function ProductsPage() {
             <ProductList
               products={products || []}
               onDelete={handleDelete}
+              onHardDelete={handleHardDelete}
               onStockUpdate={handleStockUpdate}
               isUpdating={updateStock.isPending}
             />

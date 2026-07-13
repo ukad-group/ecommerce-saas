@@ -18,6 +18,7 @@ import { useResponsive } from '../../utils/useMediaQuery';
 interface ProductListProps {
   products: Product[];
   onDelete?: (productId: string) => void;
+  onHardDelete?: (productId: string) => void;
   onStockUpdate?: (productId: string, newStock: number) => void;
   isUpdating?: boolean;
 }
@@ -31,6 +32,7 @@ const statusColors: Record<string, string> = {
 export function ProductList({
   products,
   onDelete,
+  onHardDelete,
   onStockUpdate,
   isUpdating = false,
 }: ProductListProps) {
@@ -56,7 +58,12 @@ export function ProductList({
       <div className="space-y-4">
         <div className="grid grid-cols-1 gap-4">
           {products.map((product) => (
-            <ProductCard key={product.id} product={product} onDelete={onDelete} />
+            <ProductCard
+              key={product.id}
+              product={product}
+              onDelete={onDelete}
+              onHardDelete={onHardDelete}
+            />
           ))}
         </div>
 
@@ -216,9 +223,18 @@ export function ProductList({
                 {onDelete && (
                   <button
                     onClick={() => onDelete(product.id)}
-                    className="text-red-600 hover:text-red-900"
+                    className="text-red-600 hover:text-red-900 mr-4"
                   >
                     Delete
+                  </button>
+                )}
+                {onHardDelete && (
+                  <button
+                    onClick={() => onHardDelete(product.id)}
+                    className="text-red-700 hover:text-red-900 font-semibold"
+                    title="Permanently delete this product and its version history"
+                  >
+                    Delete permanently
                   </button>
                 )}
               </td>
