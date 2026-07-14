@@ -27,6 +27,8 @@ public class Product
     public List<CustomProperty>? CustomProperties { get; set; }
     public List<ProductOption>? Options { get; set; }
     public List<string> Highlights { get; set; } = new();
+    // Free-form editorial values shown on the storefront's customize/summary/email surfaces (one list per product).
+    public List<string> FreeOptions { get; set; } = new();
     public decimal? LeasingFactor { get; set; }
     public bool HidePrice { get; set; } = false;
     public string? HiddenPriceDescription { get; set; }

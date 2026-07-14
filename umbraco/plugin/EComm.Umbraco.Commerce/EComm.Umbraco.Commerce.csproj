@@ -7,7 +7,7 @@
 
     <!-- Package Info -->
     <PackageId>EComm.Umbraco.Commerce</PackageId>
-    <Version>1.0.0</Version>
+    <Version>1.0.3</Version>
     <Authors>UKAD</Authors>
     <Description>Umbraco plugin for eCommerce SaaS platform integration</Description>
     <PackageTags>umbraco;ecommerce;headless</PackageTags>

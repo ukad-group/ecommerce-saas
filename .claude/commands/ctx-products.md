@@ -23,6 +23,7 @@ interface Product {
   customProperties?: Record<string, any>;
   options?: ProductOption[];        // Add-on blocks (see Feature: Product Options below)
   highlights?: string[];
+  freeOptions?: string[];           // Free-text editorial values (customize/summary/email surfaces)
   leasingFactor?: number;           // Falls back to market's DefaultLeasingFactor
   hidePrice?: boolean;
   hiddenPriceDescription?: string;

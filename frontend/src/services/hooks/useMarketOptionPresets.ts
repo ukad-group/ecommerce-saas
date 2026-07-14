@@ -39,9 +39,25 @@ export function useAllSinglePresets() {
   });
 }
 
+/** Load all presets (singles + groups, no pagination) for the product option-block picker. */
+export function useAllPresets() {
+  const marketId = useAuthStore((state) => state.getMarketId()) ?? undefined;
+
+  return useQuery({
+    queryKey: ['market-option-presets-all', marketId],
+    queryFn: async () => {
+      const r = await getMarketOptionPresets(marketId!, { pageSize: 0 });
+      return r.presets;
+    },
+    enabled: !!marketId,
+    staleTime: 30000,
+  });
+}
+
 function invalidate(qc: ReturnType<typeof useQueryClient>, marketId: string | null | undefined) {
   qc.invalidateQueries({ queryKey: ['market-option-presets', marketId] });
   qc.invalidateQueries({ queryKey: ['market-option-presets-singles', marketId] });
+  qc.invalidateQueries({ queryKey: ['market-option-presets-all', marketId] });
 }
 
 export function useAddOptionPreset() {

@@ -120,6 +120,7 @@ public class DataStore
             CustomProperties = product.CustomProperties,
             Options = product.Options,
             Highlights = product.Highlights ?? new List<string>(),
+            FreeOptions = product.FreeOptions ?? new List<string>(),
             LeasingFactor = product.LeasingFactor,
             HidePrice = product.HidePrice,
             HiddenPriceDescription = product.HiddenPriceDescription,

@@ -50,6 +50,8 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
     editOptionsDraftNewValues: { type: Object },
     highlightsText: { type: String },
     newProductHighlightsText: { type: String },
+    freeOptionsText: { type: String },
+    newProductFreeOptionsText: { type: String },
     selectedProductId: { type: String },
     productSearchQuery: { type: String },
     variantSearchQuery: { type: String },
@@ -107,6 +109,8 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
     this.editOptionsDraftNewValues = {};
     this.highlightsText = '';
     this.newProductHighlightsText = '';
+    this.freeOptionsText = '';
+    this.newProductFreeOptionsText = '';
     this.selectedProductId = null;
     this.productSearchQuery = '';
     this.variantSearchQuery = '';
@@ -360,6 +364,7 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
       this.expandedProductId = product.id;
       this.editedProduct = { ...product };
       this.highlightsText = (product.highlights || []).join('\n');
+      this.freeOptionsText = (product.freeOptions || []).join('\n');
       this.editedVariantId = null;
       this.validationErrors = {};
       this.saveSuccess = null;
@@ -376,6 +381,7 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
     this.selectedProductId = product.id;
     this.editedProduct = { ...product };
     this.highlightsText = (product.highlights || []).join('\n');
+    this.freeOptionsText = (product.freeOptions || []).join('\n');
     this.editedVariantId = null;
     this.validationErrors = {};
     this.saveSuccess = null;
@@ -403,16 +409,58 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
     }
   }
 
-  handleHighlightsInput(text) {
-    this.highlightsText = text;
-    const lines = text.split('\n').map(s => s.trim()).filter(s => s.length > 0);
-    this.editedProduct = { ...this.editedProduct, highlights: lines };
+  // Repeatable string-list editors (Highlights, Free options content). `which` is the tracked
+  // product property to mutate ('editedProduct' | 'newProduct'); reassigned so Lit re-renders.
+  addListItem(which, field) {
+    const obj = this[which] || {};
+    this[which] = { ...obj, [field]: [...(obj[field] || []), ''] };
   }
 
-  handleNewProductHighlightsInput(text) {
-    this.newProductHighlightsText = text;
-    const lines = text.split('\n').map(s => s.trim()).filter(s => s.length > 0);
-    this.newProduct = { ...this.newProduct, highlights: lines };
+  updateListItem(which, field, index, value) {
+    const obj = this[which] || {};
+    const arr = [...(obj[field] || [])];
+    arr[index] = value;
+    this[which] = { ...obj, [field]: arr };
+  }
+
+  removeListItem(which, field, index) {
+    const obj = this[which] || {};
+    this[which] = { ...obj, [field]: (obj[field] || []).filter((_, i) => i !== index) };
+  }
+
+  renderStringListEditor(which, field, title, hint, addLabel, emptyText, disabled) {
+    const items = (this[which] && this[which][field]) || [];
+    return html`
+      <div class="string-list-editor">
+        <div class="sle-header">
+          <strong>${title}</strong>
+          <uui-button
+            look="primary"
+            label=${addLabel}
+            ?disabled=${disabled}
+            @click=${() => this.addListItem(which, field)}></uui-button>
+        </div>
+        <small class="field-hint">${hint}</small>
+        ${items.length > 0
+          ? html`<div class="sle-rows">
+              ${items.map((val, i) => html`
+                <div class="sle-row">
+                  <span class="sle-bullet">•</span>
+                  <uui-input
+                    class="sle-input"
+                    .value=${val}
+                    ?disabled=${disabled}
+                    @input=${(e) => this.updateListItem(which, field, i, e.target.value)}></uui-input>
+                  <button
+                    type="button"
+                    class="sle-remove"
+                    ?disabled=${disabled}
+                    @click=${() => this.removeListItem(which, field, i)}
+                    title="Remove">✕</button>
+                </div>`)}
+            </div>`
+          : html`<p class="sle-empty">${emptyText}</p>`}
+      </div>`;
   }
 
   handleProductInput(field, value) {
@@ -481,9 +529,11 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
         userName = this.currentUser.email || this.currentUser.name || this.currentUser.userName || 'system';
       }
 
-      // Set version creator on the product
+      // Set version creator on the product; drop blank string-list rows.
       const productToSave = {
         ...this.editedProduct,
+        highlights: (this.editedProduct.highlights || []).map(s => (s || '').trim()).filter(s => s.length > 0),
+        freeOptions: (this.editedProduct.freeOptions || []).map(s => (s || '').trim()).filter(s => s.length > 0),
         versionCreatedBy: userName
       };
 
@@ -510,6 +560,7 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
 
         this.editedProduct = { ...updated };
         this.highlightsText = (updated.highlights || []).join('\n');
+        this.freeOptionsText = (updated.freeOptions || []).join('\n');
         this.saveSuccess = `Product updated successfully (v${updated.version})`;
 
         setTimeout(() => { this.saveSuccess = null; }, 2000);
@@ -1509,6 +1560,7 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
     this.newProductVariantOptionValues = '';
     this.newProductOptionCardValues = {};
     this.newProductHighlightsText = '';
+    this.newProductFreeOptionsText = '';
   }
 
   addNewProductVariantOption() {
@@ -1621,6 +1673,8 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
         description: (this.newProduct.description || '').trim() || null,
         categoryId: this.categoryId || null,
         images: this.newProduct.images || [],
+        highlights: (this.newProduct.highlights || []).map(s => (s || '').trim()).filter(s => s.length > 0),
+        freeOptions: (this.newProduct.freeOptions || []).map(s => (s || '').trim()).filter(s => s.length > 0),
         versionCreatedBy: userName,
         hasVariants,
         variantOptions,
@@ -1646,6 +1700,7 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
         this.selectedProductId = created.id;
         this.editedProduct = { ...created };
         this.highlightsText = (created.highlights || []).join('\n');
+        this.freeOptionsText = (created.freeOptions || []).join('\n');
         this.variantSearchQuery = '';
       } else {
         const text = await response.text();
@@ -1795,16 +1850,13 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
         </div>
 
         <div class="form-group full-width">
-          <uui-label for="new-product-highlights">Highlights</uui-label>
-          <textarea
-            id="new-product-highlights"
-            class="description-textarea"
-            .value=${this.newProductHighlightsText}
-            @input=${(e) => this.handleNewProductHighlightsInput(e.target.value)}
-            ?disabled=${this.createSaving}
-            rows="3"
-            placeholder="One bullet point per line"></textarea>
-          <small class="field-hint">Each line becomes a separate bullet point on the product page.</small>
+          ${this.renderStringListEditor('newProduct', 'highlights', 'Highlights',
+            'Short bullet points shown on the product page.', '+ Highlight', 'No highlights yet.', this.createSaving)}
+        </div>
+
+        <div class="form-group full-width">
+          ${this.renderStringListEditor('newProduct', 'freeOptions', 'Free options content',
+            'Free-text values shown on the customize and summary pages and in quotation emails.', '+ Free option', 'No free options yet.', this.createSaving)}
         </div>
 
         <div class="form-group">
@@ -2589,16 +2641,14 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
 
               <!-- Highlights (full width) -->
               <div class="form-group full-width">
-                <uui-label for="product-highlights">Highlights</uui-label>
-                <textarea
-                  id="product-highlights"
-                  class="description-textarea"
-                  .value=${this.highlightsText}
-                  @input=${(e) => this.handleHighlightsInput(e.target.value)}
-                  ?disabled=${this.saving}
-                  rows="3"
-                  placeholder="One bullet point per line (e.g. Foldable sides&#10;Galvanised frame&#10;Braked axle)"></textarea>
-                <small class="field-hint">Each line becomes a separate bullet point on the product page.</small>
+                ${this.renderStringListEditor('editedProduct', 'highlights', 'Highlights',
+                  'Short bullet points shown on the product page.', '+ Highlight', 'No highlights yet.', this.saving)}
+              </div>
+
+              <!-- Free options content (full width) -->
+              <div class="form-group full-width">
+                ${this.renderStringListEditor('editedProduct', 'freeOptions', 'Free options content',
+                  'Free-text values shown on the customize and summary pages and in quotation emails.', '+ Free option', 'No free options yet.', this.saving)}
               </div>
 
               <!-- Images (full width) -->
@@ -3237,13 +3287,13 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
         </div>
 
         <div class="form-group full-width">
-          <uui-label for="sp-highlights">Highlights</uui-label>
-          <textarea id="sp-highlights" class="description-textarea"
-            .value=${this.highlightsText}
-            @input=${(e) => this.handleHighlightsInput(e.target.value)}
-            ?disabled=${this.saving} rows="3"
-            placeholder="One bullet point per line"></textarea>
-          <small class="field-hint">Each line becomes a separate bullet point on the product page.</small>
+          ${this.renderStringListEditor('editedProduct', 'highlights', 'Highlights',
+            'Short bullet points shown on the product page.', '+ Highlight', 'No highlights yet.', this.saving)}
+        </div>
+
+        <div class="form-group full-width">
+          ${this.renderStringListEditor('editedProduct', 'freeOptions', 'Free options content',
+            'Free-text values shown on the customize and summary pages and in quotation emails.', '+ Free option', 'No free options yet.', this.saving)}
         </div>
 
         <div class="form-group full-width">
@@ -3394,13 +3444,13 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
         </div>
 
         <div class="form-group full-width">
-          <uui-label for="vp-highlights">Highlights</uui-label>
-          <textarea id="vp-highlights" class="description-textarea"
-            .value=${this.highlightsText}
-            @input=${(e) => this.handleHighlightsInput(e.target.value)}
-            ?disabled=${this.saving} rows="3"
-            placeholder="One bullet point per line"></textarea>
-          <small class="field-hint">Each line becomes a separate bullet point on the product page.</small>
+          ${this.renderStringListEditor('editedProduct', 'highlights', 'Highlights',
+            'Short bullet points shown on the product page.', '+ Highlight', 'No highlights yet.', this.saving)}
+        </div>
+
+        <div class="form-group full-width">
+          ${this.renderStringListEditor('editedProduct', 'freeOptions', 'Free options content',
+            'Free-text values shown on the customize and summary pages and in quotation emails.', '+ Free option', 'No free options yet.', this.saving)}
         </div>
 
         <div class="form-group full-width">
@@ -3923,6 +3973,51 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
       font-size: var(--uui-size-3);
       margin-top: var(--uui-size-space-1);
       display: block;
+    }
+
+    /* Repeatable string-list editor (Highlights, Free options content) */
+    .string-list-editor .sle-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--uui-size-space-3);
+    }
+    .string-list-editor .sle-header strong {
+      font-size: var(--uui-size-5);
+    }
+    .string-list-editor .sle-rows {
+      margin-top: var(--uui-size-space-3);
+      display: flex;
+      flex-direction: column;
+      gap: var(--uui-size-space-2);
+    }
+    .string-list-editor .sle-row {
+      display: flex;
+      align-items: center;
+      gap: var(--uui-size-space-2);
+    }
+    .string-list-editor .sle-bullet {
+      color: var(--uui-color-text-alt);
+    }
+    .string-list-editor .sle-input {
+      flex: 1;
+      min-width: 0;
+    }
+    .string-list-editor .sle-remove {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--uui-color-danger);
+      font-size: var(--uui-size-5);
+      padding: 0 var(--uui-size-space-2);
+    }
+    .string-list-editor .sle-remove:hover {
+      color: var(--uui-color-danger-emphasis);
+    }
+    .string-list-editor .sle-empty {
+      color: var(--uui-color-text-alt);
+      font-style: italic;
+      margin-top: var(--uui-size-space-2);
     }
 
     .version-info {

@@ -49,6 +49,7 @@ export interface Product {
   customProperties?: CustomProperty[]; // Additional specification fields
   options?: ProductOption[];
   highlights?: string[]; // Short bullet-point feature highlights
+  freeOptions?: string[]; // Free-form editorial values shown on the customize/summary/email surfaces
   leasingFactor?: number; // Monthly leasing multiplier (e.g. 0.0219)
   hidePrice?: boolean; // When true, price is hidden on the storefront
   hiddenPriceDescription?: string; // Text shown instead of price when hidePrice is true

@@ -10,7 +10,7 @@
 import { Link } from 'react-router-dom';
 import { TagIcon, RectangleStackIcon } from '@heroicons/react/24/outline';
 import type { ProductOption, OptionPreset } from '../../types/product';
-import { useAllSinglePresets } from '../../services/hooks/useMarketOptionPresets';
+import { useAllPresets } from '../../services/hooks/useMarketOptionPresets';
 
 interface ProductOptionsEditorProps {
   options: ProductOption[];
@@ -23,7 +23,7 @@ export function ProductOptionsEditor({
   currency,
   onChange,
 }: ProductOptionsEditorProps) {
-  const { data: presets = [], isLoading } = useAllSinglePresets();
+  const { data: presets = [], isLoading } = useAllPresets();
   const presetById = new Map<string, OptionPreset>(presets.map((p) => [p.id, p]));
 
   const updateBlock = (id: string, patch: Partial<ProductOption>) => {

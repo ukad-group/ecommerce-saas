@@ -27,6 +27,8 @@ public class Product
     public List<string> Images { get; set; } = new();
     public List<CustomProperty>? CustomProperties { get; set; }
     public List<string> Highlights { get; set; } = new();
+    // Free-form editorial values (one list per product) shown on customize/summary/email surfaces.
+    public List<string> FreeOptions { get; set; } = new();
 
     [JsonNumberHandling(JsonNumberHandling.AllowReadingFromString)]
     public decimal? LeasingFactor { get; set; }
