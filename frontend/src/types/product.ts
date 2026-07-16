@@ -22,6 +22,40 @@ export interface CustomProperty {
 }
 
 /**
+ * Focal point (0..1 fractions of width/height), mirrors Umbraco's image cropper.
+ */
+export interface FocalPoint {
+  left: number;
+  top: number;
+}
+
+/**
+ * A named crop captured from Umbraco (stored for future use, not yet consumed by rendering).
+ */
+export interface ImageCrop {
+  alias: string;
+  width?: number;
+  height?: number;
+  coordinates?: { x1: number; y1: number; x2: number; y2: number };
+}
+
+/**
+ * A product image with optional metadata. The API always returns this object shape, but a bare
+ * URL string is still accepted (legacy / hand-entered), hence {@link ProductImageEntry}.
+ */
+export interface ProductImage {
+  url: string;
+  altText?: string;
+  focalPoint?: FocalPoint;
+  crops?: ImageCrop[];
+  /** Source Umbraco media GUID (set by the Umbraco plugin); ignored by the admin UI. */
+  mediaKey?: string;
+}
+
+/** A product image is either a rich object or a bare URL string. */
+export type ProductImageEntry = string | ProductImage;
+
+/**
  * Product entity
  * Represents a sellable item in the catalog (market-specific)
  */
@@ -38,7 +72,7 @@ export interface Product {
   stockQuantity?: number; // Optional when product has variants
   lowStockThreshold?: number; // Optional when product has variants
   currency: string;
-  images: string[];
+  images: ProductImageEntry[];
   categoryIds: string[];
   createdAt: string; // ISO 8601
   updatedAt: string; // ISO 8601

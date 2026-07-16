@@ -68,6 +68,7 @@ Thumbs.db
 tmp/
 temp/
 *.tmp
+Claude.local.md
 
 # Don't ignore spec-kit structure
 !specs/

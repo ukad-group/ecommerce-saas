@@ -1,3 +1,6 @@
+using System.Globalization;
+using ECommShowcase.Web.Models.DTOs;
+
 namespace ECommShowcase.Web.Helpers;
 
 /// <summary>
@@ -5,6 +8,18 @@ namespace ECommShowcase.Web.Helpers;
 /// </summary>
 public static class ImageHelper
 {
+    /// <summary>
+    /// CSS <c>object-position</c> declaration from an image's focal point, so an
+    /// <c>object-fit:cover</c> box keeps the subject in frame. Returns "" when no focal point.
+    /// </summary>
+    public static string FocalPointStyle(FocalPoint? focalPoint)
+    {
+        if (focalPoint == null) return string.Empty;
+        var x = (focalPoint.Left * 100).ToString("0.##", CultureInfo.InvariantCulture);
+        var y = (focalPoint.Top * 100).ToString("0.##", CultureInfo.InvariantCulture);
+        return $"object-position:{x}% {y}%;";
+    }
+
     /// <summary>
     /// Generate a resized image URL from an original image URL
     /// </summary>

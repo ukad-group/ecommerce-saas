@@ -40,6 +40,16 @@ public class CommerceSettingsService : ICommerceSettingsService
         var storeIdPropertyAlias = _keyValueService.GetValue($"{SettingsKeyPrefix}StoreIdPropertyAlias") ?? "storeId";
         var productIdPropertyAlias = _keyValueService.GetValue($"{SettingsKeyPrefix}ProductIdPropertyAlias") ?? "productId";
 
+        // Product image editor config
+        var enableFocalPoint = _keyValueService.GetValue($"{SettingsKeyPrefix}EnableFocalPoint");
+        var productImageCropJson = _keyValueService.GetValue($"{SettingsKeyPrefix}ProductImageCrop");
+        ImageCropPreset? productImageCrop = null;
+        if (!string.IsNullOrWhiteSpace(productImageCropJson))
+        {
+            try { productImageCrop = JsonSerializer.Deserialize<ImageCropPreset>(productImageCropJson); }
+            catch (JsonException) { /* ignore malformed stored value */ }
+        }
+
         if (string.IsNullOrEmpty(apiBaseUrl))
         {
             return Task.FromResult<CommerceSettings?>(null);
@@ -55,7 +65,10 @@ public class CommerceSettingsService : ICommerceSettingsService
             ProductPageAliases = productPageAliases,
             CategoryIdPropertyAlias = categoryIdPropertyAlias,
             StoreIdPropertyAlias = storeIdPropertyAlias,
-            ProductIdPropertyAlias = productIdPropertyAlias
+            ProductIdPropertyAlias = productIdPropertyAlias,
+            // Missing key ⇒ default enabled (backward compatible)
+            EnableFocalPoint = enableFocalPoint == null || enableFocalPoint == "true",
+            ProductImageCrop = productImageCrop
         });
     }
 
@@ -72,6 +85,11 @@ public class CommerceSettingsService : ICommerceSettingsService
         _keyValueService.SetValue($"{SettingsKeyPrefix}CategoryIdPropertyAlias", settings.CategoryIdPropertyAlias);
         _keyValueService.SetValue($"{SettingsKeyPrefix}StoreIdPropertyAlias", settings.StoreIdPropertyAlias);
         _keyValueService.SetValue($"{SettingsKeyPrefix}ProductIdPropertyAlias", settings.ProductIdPropertyAlias);
+
+        // Product image editor config
+        _keyValueService.SetValue($"{SettingsKeyPrefix}EnableFocalPoint", settings.EnableFocalPoint ? "true" : "false");
+        _keyValueService.SetValue($"{SettingsKeyPrefix}ProductImageCrop",
+            settings.ProductImageCrop == null ? string.Empty : JsonSerializer.Serialize(settings.ProductImageCrop));
 
         _logger.LogInformation("Commerce settings saved successfully");
 

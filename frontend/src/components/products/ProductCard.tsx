@@ -8,7 +8,7 @@
 import { Link } from 'react-router-dom';
 import type { Product } from '../../types/product';
 import { formatCurrency } from '../../utils/currency';
-import { getMediumImageUrl } from '../../utils/imageHelper';
+import { getMediumImageUrl, imageUrl, imageAlt, imageFocalPoint, focalPointStyle } from '../../utils/imageHelper';
 
 interface ProductCardProps {
   product: Product;
@@ -30,11 +30,12 @@ export function ProductCard({ product, onDelete, onHardDelete }: ProductCardProp
         <img
           src={
             product.images && product.images[0]
-              ? getMediumImageUrl(product.images[0])
+              ? getMediumImageUrl(imageUrl(product.images[0]))
               : 'https://dummyimage.com/400x300/AAA/fff.png&text=No+Image'
           }
-          alt={product.name}
+          alt={imageAlt(product.images?.[0], product.name)}
           className="w-full h-48 object-cover"
+          style={focalPointStyle(imageFocalPoint(product.images?.[0]))}
         />
         <div className="absolute top-2 right-2">
           <span

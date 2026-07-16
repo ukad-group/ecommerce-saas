@@ -118,6 +118,7 @@ async getAuthHeaders() {
 2. When categoryId changes, automatically fetches products from eCommerce API
 3. Displays products in a table with: Image, Name, Slug, Price, Stock quantity
 4. **Full editor** (no longer read-only): variant/options builder with a combinations table, Highlights, Leasing Factor, Hide Price + hidden-price message, SEO title/description, and an "Add-on Options" section for attaching option-preset blocks to a product, plus a "Manage Options" view for editing the market's option-presets library
+5. **Images**: rich `ProductImage` objects (`url`, `altText`, `focalPoint`, `crops`, `mediaKey`) edited via Umbraco's **native media picker** (`<umb-input-rich-media>`: pick / upload / reorder / native focal-point + crop editor); external provider/URL images in a secondary list. A single global crop (width×height) + focal-point toggle configured in Settings → Commerce Settings → **Images**. Bare URL strings still accepted (backward compatible). **How it works + how to render on your storefront: [umbraco/docs/PRODUCT-IMAGES.md](../../umbraco/docs/PRODUCT-IMAGES.md)**
 
 **Context Pattern**: Uses Umbraco's property dataset context for reactive updates
 ```javascript

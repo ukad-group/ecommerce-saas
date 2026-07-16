@@ -80,13 +80,15 @@ public class CommerceSettingsApiController : ManagementApiControllerBase
             ProductPageAliases = settings?.ProductPageAliasList ?? new[] { "productPage" },
             CategoryIdPropertyAlias = settings?.CategoryIdPropertyAlias ?? "categoryId",
             StoreIdPropertyAlias = settings?.StoreIdPropertyAlias ?? "storeId",
-            ProductIdPropertyAlias = settings?.ProductIdPropertyAlias ?? "productId"
+            ProductIdPropertyAlias = settings?.ProductIdPropertyAlias ?? "productId",
+            EnableFocalPoint = settings?.EnableFocalPoint ?? true,
+            ProductImageCrop = settings?.ProductImageCrop
         });
     }
 }
 
 /// <summary>
-/// DTO for default aliases
+/// DTO for default aliases + product-image editor config (lightweight, consumed by the workspace view)
 /// </summary>
 public class DefaultAliasesDto
 {
@@ -95,4 +97,6 @@ public class DefaultAliasesDto
     public string CategoryIdPropertyAlias { get; set; } = string.Empty;
     public string StoreIdPropertyAlias { get; set; } = string.Empty;
     public string ProductIdPropertyAlias { get; set; } = string.Empty;
+    public bool EnableFocalPoint { get; set; } = true;
+    public ImageCropPreset? ProductImageCrop { get; set; }
 }

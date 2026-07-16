@@ -406,7 +406,7 @@ public class CategoryPickerApiController : ManagementApiControllerBase
             VariantOptions = request.VariantOptions,
             Variants = request.Variants,
             VersionCreatedBy = request.VersionCreatedBy ?? "system",
-            Images = request.Images ?? new List<string>(),
+            Images = request.Images ?? new List<ProductImage>(),
             Highlights = request.Highlights ?? new List<string>(),
             LeasingFactor = request.LeasingFactor,
             HidePrice = request.HidePrice ?? false,
@@ -469,7 +469,7 @@ public class CreateProductRequest
     public string? Description { get; set; }
     public string? CategoryId { get; set; }
     public string? VersionCreatedBy { get; set; }
-    public List<string>? Images { get; set; }
+    public List<ProductImage>? Images { get; set; }
     public bool? HasVariants { get; set; }
     public List<VariantOption>? VariantOptions { get; set; }
     public List<ProductVariant>? Variants { get; set; }

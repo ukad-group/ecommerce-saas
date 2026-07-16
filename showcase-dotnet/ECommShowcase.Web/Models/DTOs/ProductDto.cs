@@ -36,7 +36,7 @@ public class ProductDto
     public decimal? SalePrice { get; set; }
     public string? ImageUrl { get; set; }
     public List<string> CategoryIds { get; set; } = new();
-    public List<string> Images { get; set; } = new();
+    public List<ProductImage> Images { get; set; } = new();
     public string Status { get; set; } = "active";
     public int? StockQuantity { get; set; }
     public int? LowStockThreshold { get; set; }

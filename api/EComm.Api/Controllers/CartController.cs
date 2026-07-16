@@ -177,7 +177,7 @@ public class CartController : ControllerBase
         {
             decimal effectivePrice;
             string productName = product.Name;
-            string? itemImage = product.Images?.FirstOrDefault();
+            string? itemImage = product.Images?.FirstOrDefault()?.Url;
 
             if (optionPreset != null)
             {

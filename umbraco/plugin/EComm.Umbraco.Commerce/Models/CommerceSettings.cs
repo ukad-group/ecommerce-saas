@@ -59,9 +59,32 @@ public class CommerceSettings
     public string ProductIdPropertyAlias { get; set; } = "productId";
 
     /// <summary>
+    /// Whether the product image editor exposes Umbraco's focal-point picker (default: true).
+    /// Passed to the native &lt;umb-input-rich-media&gt; element as focalPointEnabled.
+    /// </summary>
+    public bool EnableFocalPoint { get; set; } = true;
+
+    /// <summary>
+    /// The single crop preset applied to every product image added via the media picker
+    /// (null = no crop). Passed to the native editor as the one entry in preselectedCrops.
+    /// </summary>
+    public ImageCropPreset? ProductImageCrop { get; set; }
+
+    /// <summary>
     /// Validates that all required settings are configured
     /// </summary>
     public bool IsValid =>
         !string.IsNullOrWhiteSpace(ApiBaseUrl) &&
         !string.IsNullOrWhiteSpace(TenantId);
+}
+
+/// <summary>
+/// A crop preset (alias + target dimensions), matching Umbraco's UmbCropModel.
+/// </summary>
+public class ImageCropPreset
+{
+    public string Alias { get; set; } = "product";
+    public string? Label { get; set; }
+    public int Width { get; set; }
+    public int Height { get; set; }
 }

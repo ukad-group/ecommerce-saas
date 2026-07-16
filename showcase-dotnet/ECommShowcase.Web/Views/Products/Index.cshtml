@@ -90,16 +90,17 @@
                         <div class="col-md-6 col-lg-4">
                             <div class="card h-100 hover-shadow">
                                 @{
-                                    var thumbnailImage = product.Images != null && product.Images.Any()
-                                        ? product.Images.First()
-                                        : (product.ImageUrl ?? "https://dummyimage.com/300x200/6c757d/ffffff&text=" + Uri.EscapeDataString(product.Name));
+                                    var cardImg = product.Images != null && product.Images.Any() ? product.Images.First() : null;
+                                    var thumbnailImage = cardImg?.Url
+                                        ?? product.ImageUrl ?? "https://dummyimage.com/300x200/6c757d/ffffff&text=" + Uri.EscapeDataString(product.Name);
 
                                     // Use small resized version for product cards (300x300)
                                     var cardImageUrl = ImageHelper.GetResizedUrl(thumbnailImage, width: 300, height: 300);
+                                    var cardAlt = cardImg?.AltText ?? product.Name;
                                 }
                                 <a asp-controller="Products" asp-action="Details" asp-route-id="@product.Id">
                                     <img src="@cardImageUrl"
-                                         class="card-img-top" alt="@product.Name" style="height: 200px; object-fit: cover;">
+                                         class="card-img-top" alt="@cardAlt" style="height: 200px; object-fit: cover; @ImageHelper.FocalPointStyle(cardImg?.FocalPoint)">
                                 </a>
                                 <div class="card-body d-flex flex-column">
                                     <h5 class="card-title">

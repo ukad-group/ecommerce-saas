@@ -27,6 +27,12 @@ public class CommerceComposer : IComposer
         // Register services
         builder.Services.AddScoped<ICommerceSettingsService, CommerceSettingsService>();
         builder.Services.AddScoped<ICommerceApiClient, CommerceApiClient>();
+        // Storefront image URL builder — applies the configured crop + focal point at render time
+        builder.Services.AddScoped<IProductImageUrlHelper, ProductImageUrlHelper>();
+
+        // Photo provider (external photo sources; one active at a time, resolved by settings key)
+        builder.Services.AddScoped<PhotoProviderSettingsService>();
+        builder.Services.AddSingleton<IPhotoStorageProvider, AzureBlobPhotoProvider>();
 
         // Note: API controllers with [MapToApi] attribute are automatically discovered by Umbraco
         // No manual registration needed

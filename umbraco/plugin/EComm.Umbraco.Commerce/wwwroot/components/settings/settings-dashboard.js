@@ -11,7 +11,11 @@ class ECommSettingsDashboard extends UmbElementMixin(LitElement) {
     testResult: { type: Object },
     error: { type: String },
     activeTab: { type: String },
-    _productPageAliasRows: { type: Array, state: true }
+    _productPageAliasRows: { type: Array, state: true },
+    photoSettings: { type: Object },
+    photoSaving: { type: Boolean },
+    photoTesting: { type: Boolean },
+    photoTestResult: { type: Object }
   };
 
   constructor() {
@@ -26,6 +30,8 @@ class ECommSettingsDashboard extends UmbElementMixin(LitElement) {
       categoryIdPropertyAlias: 'categoryId',
       storeIdPropertyAlias: 'storeId',
       productIdPropertyAlias: 'productId',
+      enableFocalPoint: true,
+      productImageCrop: null,
     };
     this._productPageAliasRows = ['productPage'];
     this.loading = true;
@@ -34,6 +40,10 @@ class ECommSettingsDashboard extends UmbElementMixin(LitElement) {
     this.testResult = null;
     this.error = null;
     this.activeTab = 'connection';
+    this.photoSettings = { providerKey: '', connectionString: '', containerName: '', connectionStringSet: false };
+    this.photoSaving = false;
+    this.photoTesting = false;
+    this.photoTestResult = null;
 
     // Consume auth context
     this.consumeContext(UMB_AUTH_CONTEXT, (authContext) => {
@@ -70,11 +80,97 @@ class ECommSettingsDashboard extends UmbElementMixin(LitElement) {
         this.settings = await response.json();
         this._productPageAliasRows = this.parseAliasRows(this.settings.productPageAliases);
       }
+
+      const photoResponse = await fetch('/umbraco/management/api/ecomm-commerce/photo-provider/settings', {
+        headers: headers,
+        credentials: 'include'
+      });
+
+      if (photoResponse.ok) {
+        const dto = await photoResponse.json();
+        // connectionString stays client-side only; the API never returns the secret
+        this.photoSettings = {
+          providerKey: dto.providerKey || '',
+          connectionString: '',
+          containerName: dto.containerName || '',
+          connectionStringSet: dto.connectionStringSet
+        };
+      }
     } catch (err) {
       console.error('Failed to load settings:', err);
       this.error = 'Failed to load settings';
     } finally {
       this.loading = false;
+    }
+  }
+
+  handlePhotoInput(field, e) {
+    this.photoSettings = {
+      ...this.photoSettings,
+      [field]: e.target.value
+    };
+  }
+
+  async savePhotoSettings(e) {
+    e.preventDefault();
+    this.photoSaving = true;
+    this.photoTestResult = null;
+
+    try {
+      const headers = await this.getAuthHeaders();
+      const response = await fetch('/umbraco/management/api/ecomm-commerce/photo-provider/settings', {
+        method: 'POST',
+        headers: headers,
+        credentials: 'include',
+        body: JSON.stringify({
+          providerKey: this.photoSettings.providerKey,
+          connectionString: this.photoSettings.connectionString,
+          containerName: this.photoSettings.containerName
+        })
+      });
+
+      if (response.ok) {
+        this.photoTestResult = { success: true, message: 'Photo provider settings saved!' };
+        this.photoSettings = {
+          ...this.photoSettings,
+          connectionString: '',
+          connectionStringSet: !!this.photoSettings.providerKey
+            && (this.photoSettings.connectionStringSet || !!this.photoSettings.connectionString)
+        };
+      } else {
+        this.photoTestResult = { success: false, message: (await response.text()) || 'Failed to save settings' };
+      }
+    } catch (err) {
+      console.error('Failed to save photo provider settings:', err);
+      this.photoTestResult = { success: false, message: 'Failed to save settings' };
+    } finally {
+      this.photoSaving = false;
+    }
+  }
+
+  async testPhotoConnection() {
+    this.photoTesting = true;
+    this.photoTestResult = null;
+
+    try {
+      const headers = await this.getAuthHeaders();
+      const response = await fetch('/umbraco/management/api/ecomm-commerce/photo-provider/test', {
+        method: 'POST',
+        headers: headers,
+        credentials: 'include',
+        body: JSON.stringify({
+          providerKey: this.photoSettings.providerKey,
+          connectionString: this.photoSettings.connectionString,
+          containerName: this.photoSettings.containerName
+        })
+      });
+
+      this.photoTestResult = await response.json();
+    } catch (err) {
+      console.error('Photo provider test failed:', err);
+      this.photoTestResult = { success: false, message: 'Connection test failed: ' + err.message };
+    } finally {
+      this.photoTesting = false;
     }
   }
 
@@ -405,6 +501,143 @@ class ECommSettingsDashboard extends UmbElementMixin(LitElement) {
     `;
   }
 
+  setCropDim(field, value) {
+    const crop = { alias: 'product', width: 0, height: 0, ...(this.settings.productImageCrop || {}) };
+    crop[field] = value;
+    this.settings = { ...this.settings, productImageCrop: crop };
+  }
+
+  renderImagesTab() {
+    const crop = this.settings.productImageCrop || { alias: 'product', width: 0, height: 0 };
+    return html`
+      <div class="tab-content">
+        <p class="description">
+          Configure how images are edited on products. These apply to the eCommerce product image
+          editor (Umbraco's media picker embedded in the product workspace view).
+        </p>
+
+        ${this.error ? html`<uui-badge color="danger" look="primary">${this.error}</uui-badge>` : ''}
+
+        <form @submit=${this.saveSettings}>
+          <div class="form-group">
+            <uui-label>Enable Focal Point</uui-label>
+            <uui-toggle
+              .checked=${this.settings.enableFocalPoint !== false}
+              @change=${(e) => { this.settings = { ...this.settings, enableFocalPoint: e.target.checked }; }}>
+            </uui-toggle>
+            <small>
+              Lets editors set a focal point on each product image, so cover-cropped thumbnails on the
+              storefront stay centered on the subject.
+            </small>
+          </div>
+
+          <div class="form-group">
+            <uui-label>Image Crop</uui-label>
+            <small>
+              A single crop applied to <strong>every</strong> product image added via the media picker.
+              Set the target width and height (px). Leave either at 0 for no crop (focal point only).
+            </small>
+            <div class="crop-row" style="display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap;">
+              <uui-input type="number" placeholder="width" .value=${String(crop.width || '')}
+                @input=${(e) => this.setCropDim('width', parseInt(e.target.value, 10) || 0)}></uui-input>
+              <span>×</span>
+              <uui-input type="number" placeholder="height" .value=${String(crop.height || '')}
+                @input=${(e) => this.setCropDim('height', parseInt(e.target.value, 10) || 0)}></uui-input>
+            </div>
+          </div>
+
+          <div class="button-group">
+            <uui-button type="submit" look="primary" color="positive" ?disabled=${this.saving}>
+              ${this.saving ? 'Saving...' : 'Save Image Settings'}
+            </uui-button>
+          </div>
+        </form>
+      </div>
+    `;
+  }
+
+  renderPhotoProviderTab() {
+    const providerSelected = !!this.photoSettings.providerKey;
+    return html`
+      <div class="tab-content">
+        <p class="description">
+          Connect an external photo storage provider. When configured, product editors can browse the
+          provider's photo library and optionally copy uploads to it. Only one provider is active at a time.
+        </p>
+
+        ${this.photoTestResult ? html`
+          <uui-badge
+            color="${this.photoTestResult.success ? 'positive' : 'danger'}"
+            look="primary">
+            ${this.photoTestResult.message}
+          </uui-badge>
+        ` : ''}
+
+        <form @submit=${this.savePhotoSettings}>
+          <div class="form-group">
+            <uui-label for="photoProviderKey">Provider</uui-label>
+            <uui-select
+              id="photoProviderKey"
+              .options=${[
+                { name: 'None (disabled)', value: '', selected: !this.photoSettings.providerKey },
+                { name: 'Azure Blob Storage', value: 'azure-blob', selected: this.photoSettings.providerKey === 'azure-blob' }
+              ]}
+              @change=${(e) => this.handlePhotoInput('providerKey', e)}>
+            </uui-select>
+            <small>Select the photo storage provider, or None to disable the integration</small>
+          </div>
+
+          <div class="form-group">
+            <uui-label for="photoConnectionString" ?required=${providerSelected && !this.photoSettings.connectionStringSet}>
+              Connection String
+            </uui-label>
+            <uui-input
+              id="photoConnectionString"
+              type="password"
+              placeholder=${this.photoSettings.connectionStringSet
+                ? '•••••• (saved — leave blank to keep)'
+                : 'DefaultEndpointsProtocol=https;AccountName=...'}
+              .value=${this.photoSettings.connectionString}
+              ?disabled=${!providerSelected}
+              @input=${(e) => this.handlePhotoInput('connectionString', e)}>
+            </uui-input>
+            <small>Stored encrypted and never shown again. Leave blank to keep the saved value.</small>
+          </div>
+
+          <div class="form-group">
+            <uui-label for="photoContainerName" ?required=${providerSelected}>Container Name</uui-label>
+            <uui-input
+              id="photoContainerName"
+              placeholder="photos"
+              .value=${this.photoSettings.containerName}
+              ?disabled=${!providerSelected}
+              @input=${(e) => this.handlePhotoInput('containerName', e)}>
+            </uui-input>
+            <small>The blob container holding the photos. It should allow public blob read so picked photo URLs resolve on the website.</small>
+          </div>
+
+          <div class="button-group">
+            <uui-button
+              type="button"
+              look="secondary"
+              @click=${this.testPhotoConnection}
+              ?disabled=${this.photoTesting || !providerSelected || !this.photoSettings.containerName}>
+              ${this.photoTesting ? 'Testing...' : 'Test Connection'}
+            </uui-button>
+
+            <uui-button
+              type="submit"
+              look="primary"
+              color="positive"
+              ?disabled=${this.photoSaving}>
+              ${this.photoSaving ? 'Saving...' : 'Save Settings'}
+            </uui-button>
+          </div>
+        </form>
+      </div>
+    `;
+  }
+
   render() {
     if (this.loading) {
       return html`
@@ -432,9 +665,24 @@ class ECommSettingsDashboard extends UmbElementMixin(LitElement) {
             @click=${() => this.activeTab = 'defaults'}>
             Defaults
           </uui-tab>
+          <uui-tab
+            label="Images"
+            ?active=${this.activeTab === 'images'}
+            @click=${() => this.activeTab = 'images'}>
+            Images
+          </uui-tab>
+          <uui-tab
+            label="Photo Provider"
+            ?active=${this.activeTab === 'photoProvider'}
+            @click=${() => this.activeTab = 'photoProvider'}>
+            Photo Provider
+          </uui-tab>
         </uui-tab-group>
 
-        ${this.activeTab === 'connection' ? this.renderConnectionTab() : this.renderDefaultsTab()}
+        ${this.activeTab === 'connection' ? this.renderConnectionTab()
+          : this.activeTab === 'photoProvider' ? this.renderPhotoProviderTab()
+          : this.activeTab === 'images' ? this.renderImagesTab()
+          : this.renderDefaultsTab()}
       </uui-box>
     `;
   }
@@ -501,7 +749,8 @@ class ECommSettingsDashboard extends UmbElementMixin(LitElement) {
       margin-bottom: var(--uui-size-space-1);
     }
 
-    .form-group uui-input {
+    .form-group uui-input,
+    .form-group uui-select {
       width: 100%;
     }
 

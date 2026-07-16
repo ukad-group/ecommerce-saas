@@ -63,6 +63,14 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
     _optionPickerPage:    { type: Number },
     productId: { type: String },
     _mode: { type: String },
+    // External photo provider
+    _photoProviderConfigured: { type: Boolean, state: true },
+    providerBrowserOpen: { type: Boolean },
+    providerPhotos: { type: Array },
+    providerContinuationToken: { type: String },
+    providerLoading: { type: Boolean },
+    uploadToProviderAlso: { type: Boolean },
+    providerWarning: { type: String },
   };
 
   constructor() {
@@ -121,6 +129,15 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
     this.productId = null;
     this._mode = 'category';
     this._storeResolveSeq = 0;
+    // External photo provider
+    this._photoProviderConfigured = false;
+    this.providerBrowserOpen = false;
+    this._providerBrowserContext = 'edit';
+    this.providerPhotos = [];
+    this.providerContinuationToken = null;
+    this.providerLoading = false;
+    this.uploadToProviderAlso = false; // must default OFF — uploads only copy to the provider on explicit opt-in
+    this.providerWarning = null;
 
     // Consume auth context for API calls. loadDefaultAliases() is fired from here rather
     // than connectedCallback() - the auth context resolves asynchronously, so calling it
@@ -129,6 +146,7 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
     this.consumeContext(UMB_AUTH_CONTEXT, (authContext) => {
       this._authContext = authContext;
       this.loadDefaultAliases();
+      this.loadPhotoProviderState();
     });
 
     // Consume current user context
@@ -1044,9 +1062,14 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
 
     this.imageUploading = true;
     this.error = null;
+    this.providerWarning = null;
     try {
       const url = await this.uploadToUmbracoMedia(file);
       if (url) {
+        // Optional copy to the external provider — additive; never affects the primary upload
+        if (this.uploadToProviderAlso && this._photoProviderConfigured) {
+          await this.uploadFileToProvider(file);
+        }
         if (context === 'edit') {
           this.editedProduct = {
             ...this.editedProduct,
@@ -1142,7 +1165,8 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
     if (this._imageMediaTypeId) return this._imageMediaTypeId;
 
     try {
-      const res = await fetch('/umbraco/management/api/v1/media-type?skip=0&take=50', {
+      // Umbraco 17 has no flat /media-type collection endpoint — list root media types via the tree API
+      const res = await fetch('/umbraco/management/api/v1/tree/media-type/root?skip=0&take=100', {
         headers: { 'Authorization': authHeader },
         credentials: 'include',
       });
@@ -1228,6 +1252,143 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
       console.error('Media picker error:', err);
       this.error = 'Media picker failed. Please try again.';
     }
+  }
+
+  // ─── External photo provider ──────────────────────────────────────────────
+
+  async loadPhotoProviderState() {
+    try {
+      const headers = await this.getAuthHeaders();
+      const res = await fetch('/umbraco/management/api/ecomm-commerce/photo-provider/settings', {
+        headers: headers,
+        credentials: 'include',
+      });
+      if (res.ok) {
+        const dto = await res.json();
+        this._photoProviderConfigured = !!(dto.providerKey && dto.connectionStringSet);
+      }
+    } catch (err) {
+      console.error('Failed to load photo provider state:', err);
+    }
+  }
+
+  async openProviderBrowser(context) {
+    this._providerBrowserContext = context;
+    this.providerBrowserOpen = true;
+    this.providerPhotos = [];
+    this.providerContinuationToken = null;
+    this.providerWarning = null;
+    await this.loadProviderPhotos();
+  }
+
+  closeProviderBrowser() {
+    this.providerBrowserOpen = false;
+  }
+
+  async loadProviderPhotos() {
+    this.providerLoading = true;
+    try {
+      const headers = await this.getAuthHeaders();
+      const tokenParam = this.providerContinuationToken
+        ? `&continuationToken=${encodeURIComponent(this.providerContinuationToken)}`
+        : '';
+      const res = await fetch(`/umbraco/management/api/ecomm-commerce/photo-provider/photos?pageSize=24${tokenParam}`, {
+        headers: headers,
+        credentials: 'include',
+      });
+      if (!res.ok) {
+        this.providerWarning = `Could not load provider photos: ${(await res.text()) || res.statusText}`;
+        return;
+      }
+      const page = await res.json();
+      this.providerPhotos = [...this.providerPhotos, ...(page.items || [])];
+      this.providerContinuationToken = page.continuationToken || null;
+    } catch (err) {
+      console.error('Failed to load provider photos:', err);
+      this.providerWarning = 'Could not load provider photos.';
+    } finally {
+      this.providerLoading = false;
+    }
+  }
+
+  pickProviderPhoto(url) {
+    // Provider photos are external blob URLs (no Umbraco mediaKey) — store as a plain ProductImage.
+    if (this._providerBrowserContext === 'edit') {
+      this.editedProduct = {
+        ...this.editedProduct,
+        images: [...(this.editedProduct.images || []), { url }],
+      };
+    } else {
+      this.newProduct = {
+        ...this.newProduct,
+        images: [...(this.newProduct.images || []), { url }],
+      };
+    }
+    this.providerBrowserOpen = false;
+  }
+
+  async uploadFileToProvider(file) {
+    try {
+      const token = await this._authContext?.getLatestToken();
+      const form = new FormData();
+      form.append('file', file);
+      // Raw auth header only — getAuthHeaders() forces JSON content-type, which breaks multipart
+      const res = await fetch('/umbraco/management/api/ecomm-commerce/photo-provider/upload', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+        credentials: 'include',
+        body: form,
+      });
+      if (!res.ok) {
+        this.providerWarning = `Image saved to the media library, but the copy to provider storage failed: ${(await res.text()) || res.statusText}`;
+      }
+    } catch (err) {
+      console.error('Provider upload failed:', err);
+      this.providerWarning = 'Image saved to the media library, but the copy to provider storage failed.';
+    }
+  }
+
+  renderProviderBrowser() {
+    if (!this.providerBrowserOpen) return '';
+    return html`
+      <div class="provider-browser-backdrop" @click=${this.closeProviderBrowser}>
+        <div class="provider-browser-panel" @click=${(e) => e.stopPropagation()}>
+          <div class="provider-browser-header">
+            <h3>Provider Photos</h3>
+            <uui-button look="secondary" compact @click=${this.closeProviderBrowser}>Close</uui-button>
+          </div>
+
+          ${this.providerWarning ? html`
+            <uui-badge color="danger" look="primary">${this.providerWarning}</uui-badge>
+          ` : ''}
+
+          ${this.providerPhotos.length === 0 && !this.providerLoading ? html`
+            <p class="no-images-hint">No photos found in the provider container.</p>
+          ` : html`
+            <div class="provider-photos-grid">
+              ${this.providerPhotos.map((photo) => html`
+                <button class="provider-photo-item" title=${photo.name}
+                  @click=${() => this.pickProviderPhoto(photo.url)}>
+                  <img src="${photo.url}" alt="${photo.name}" loading="lazy"
+                    @error=${(e) => { e.target.style.display = 'none'; e.target.nextElementSibling.style.display = 'flex'; }} />
+                  <div class="image-error-placeholder" style="display:none;">
+                    <uui-icon name="icon-picture"></uui-icon>
+                  </div>
+                  <span class="provider-photo-name">${photo.name}</span>
+                </button>
+              `)}
+            </div>
+          `}
+
+          <div class="provider-browser-footer">
+            ${this.providerLoading ? html`<uui-loader></uui-loader>` : ''}
+            ${this.providerContinuationToken && !this.providerLoading ? html`
+              <uui-button look="secondary" @click=${this.loadProviderPhotos}>Load more</uui-button>
+            ` : ''}
+          </div>
+        </div>
+      </div>
+    `;
   }
 
   // ─── Product Options (add-on accessories) handlers ───────────────────────
@@ -1471,62 +1632,179 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
     `;
   }
 
-  renderImageGallery(images, onRemove, urlValue, onUrlInput, onAdd, context) {
+  /**
+   * Product image editor. Umbraco-media images are managed by the NATIVE <umb-input-rich-media>
+   * element (pick / dropzone-upload / drag-reorder / focal-point + crop editor). External images
+   * (provider blobs, pasted URLs) are kept in a secondary list. `onChange(newImages)` receives the
+   * combined ProductImage[] to store on the product.
+   */
+  renderImageGallery(images, onChange, context) {
+    const imgs = images || [];
+    const mediaValue = this._toRichMediaValue(imgs);
+    const externals = [];
+    imgs.forEach((im, i) => { if (!(im && im.mediaKey)) externals.push({ im, index: i }); });
+    const urlField = context === 'create' ? 'newCreateImageUrl' : 'newProductImageUrl';
+
     return html`
       <div class="images-section">
-        <input type="file" id="file-input-${context}" accept="image/*" style="display:none"
-          @change=${(e) => this.handleFileSelected(e, context)}>
+        <umb-input-rich-media
+          .value=${mediaValue}
+          ?multiple=${true}
+          .focalPointEnabled=${this.defaultAliases?.enableFocalPoint ?? true}
+          .preselectedCrops=${this._preselectedCrops()}
+          @change=${(e) => this._onRichMediaChange(e.target.value, imgs, onChange)}>
+        </umb-input-rich-media>
 
-        ${images && images.length > 0 ? html`
-          <div class="images-grid">
-            ${images.map((url, index) => html`
-              <div class="image-item">
-                <img src="${url}" alt="Product image ${index + 1}" class="image-preview"
-                  @error=${(e) => { e.target.style.display = 'none'; e.target.nextElementSibling.style.display = 'flex'; }} />
-                <div class="image-error-placeholder" style="display:none;">
-                  <uui-icon name="icon-picture"></uui-icon>
+        ${externals.length > 0 ? html`
+          <div class="external-images">
+            <span class="ext-label">External images (provider / URL)</span>
+            <div class="images-grid">
+              ${externals.map(({ im, index }) => html`
+                <div class="image-item">
+                  <img src="${im.url}" alt="${im.altText || ''}" class="image-preview"
+                    @error=${(e) => { e.target.style.display = 'none'; e.target.nextElementSibling.style.display = 'flex'; }} />
+                  <div class="image-error-placeholder" style="display:none;"><uui-icon name="icon-picture"></uui-icon></div>
+                  <button class="image-remove-btn" title="Remove"
+                    @click=${() => onChange(imgs.filter((_, i) => i !== index))}>×</button>
+                  <uui-input class="ext-alt" placeholder="Alt text" .value=${im.altText || ''}
+                    @change=${(e) => onChange(imgs.map((x, i) => i === index ? { ...x, altText: e.target.value || undefined } : x))}>
+                  </uui-input>
                 </div>
-                <button class="image-remove-btn" @click=${() => onRemove(index)} title="Remove">×</button>
-                <div class="image-index">${index + 1}</div>
-              </div>
-            `)}
-          </div>
-        ` : html`
-          <p class="no-images-hint">No images yet. Upload from PC, pick from media library, or paste a URL below.</p>
-        `}
-
-        ${this.imageUploading ? html`
-          <div class="image-uploading-row">
-            <uui-loader></uui-loader>
-            <span>Uploading image...</span>
+              `)}
+            </div>
           </div>
         ` : ''}
 
+        ${this.imageUploading ? html`
+          <div class="image-uploading-row"><uui-loader></uui-loader><span>Working…</span></div>
+        ` : ''}
+
         <div class="image-upload-actions">
-          <uui-button look="secondary" @click=${() => this.openFilePicker(context)} ?disabled=${this.imageUploading}>
-            <uui-icon name="icon-arrow-up" slot="icon"></uui-icon>
-            Upload from PC
-          </uui-button>
-          <uui-button look="secondary" @click=${() => this.pickFromUmbraco(context)} ?disabled=${this.imageUploading}>
-            <uui-icon name="icon-picture" slot="icon"></uui-icon>
-            Pick from Media Library
-          </uui-button>
+          ${this._photoProviderConfigured ? html`
+            <uui-button look="secondary" @click=${() => this.openProviderBrowser(context)} ?disabled=${this.imageUploading}>
+              <uui-icon name="icon-cloud" slot="icon"></uui-icon>
+              Browse Provider Photos
+            </uui-button>
+          ` : ''}
         </div>
+
+        ${this.providerWarning && !this.providerBrowserOpen ? html`
+          <uui-badge color="warning" look="primary">${this.providerWarning}</uui-badge>
+        ` : ''}
 
         <div class="add-image-row">
           <uui-input
             type="url"
             placeholder="https://example.com/image.jpg"
-            .value=${urlValue}
-            @input=${onUrlInput}
-            @keydown=${(e) => { if (e.key === 'Enter') { e.preventDefault(); onAdd(); } }}>
+            .value=${this[urlField] || ''}
+            @input=${(e) => { this[urlField] = e.target.value; }}
+            @keydown=${(e) => { if (e.key === 'Enter') { e.preventDefault(); this._addExternalUrl(imgs, onChange, urlField); } }}>
           </uui-input>
-          <uui-button look="secondary" @click=${onAdd} ?disabled=${this.imageUploading}>
+          <uui-button look="secondary" @click=${() => this._addExternalUrl(imgs, onChange, urlField)} ?disabled=${this.imageUploading}>
             Add URL
           </uui-button>
         </div>
       </div>
     `;
+  }
+
+  /** The single configured crop preset (Settings → Images), as the native picker's preselectedCrops. */
+  _preselectedCrops() {
+    const c = this.defaultAliases?.productImageCrop;
+    if (!c || !(c.width > 0) || !(c.height > 0)) return [];
+    return [{ alias: c.alias || 'product', label: c.label, width: c.width, height: c.height }];
+  }
+
+  /** Build the <umb-input-rich-media> value (media-backed images only) from our ProductImage[]. */
+  _toRichMediaValue(images) {
+    return (images || [])
+      .filter((im) => im && im.mediaKey)
+      .map((im) => ({
+        key: im.mediaKey,
+        mediaKey: im.mediaKey,
+        mediaTypeAlias: '',
+        focalPoint: im.focalPoint || null,
+        crops: im.crops || [],
+      }));
+  }
+
+  /** Map the native element value back to ProductImage[], resolving URLs + alt, keeping externals. */
+  async _onRichMediaChange(value, currentImages, onChange) {
+    const entries = Array.isArray(value) ? value : [];
+    const current = currentImages || [];
+    const externals = current.filter((im) => !(im && im.mediaKey));
+    const byKey = new Map(current.filter((im) => im && im.mediaKey).map((im) => [im.mediaKey, im]));
+
+    const mediaImages = [];
+    for (const entry of entries) {
+      const mediaKey = entry && entry.mediaKey;
+      if (!mediaKey) continue;
+      const existing = byKey.get(mediaKey);
+      const info = await this._mediaInfo(mediaKey);
+      // Store the CLEAN base URL (strip any legacy crop querystring). The global crop is applied
+      // dynamically when the storefront renders (IProductImageUrlHelper), so changing the crop
+      // setting updates every image without re-saving products.
+      const baseUrl = (info.url && info.url.split('?')[0])
+        || (existing && existing.url && existing.url.split('?')[0]) || '';
+      mediaImages.push({
+        url: baseUrl,
+        mediaKey,
+        altText: (existing && existing.altText) || info.altText || undefined,
+        focalPoint: entry.focalPoint || undefined,
+        crops: (entry.crops && entry.crops.length) ? entry.crops : undefined,
+      });
+    }
+    onChange([...mediaImages, ...externals]);
+  }
+
+  /** Resolve a media item's public URL + a default alt text (cached per session). */
+  async _mediaInfo(mediaKey) {
+    this._mediaInfoCache = this._mediaInfoCache || {};
+    if (this._mediaInfoCache[mediaKey]) return this._mediaInfoCache[mediaKey];
+
+    const token = await this._authContext?.getLatestToken();
+    const authHeader = `Bearer ${token}`;
+    let url = '';
+    try { url = (await this.resolveUmbracoMediaUrls([mediaKey], authHeader))[0] || ''; } catch { /* ignore */ }
+
+    let altText;
+    try {
+      const res = await fetch(`/umbraco/management/api/v1/media/${mediaKey}`, {
+        headers: { Authorization: authHeader }, credentials: 'include',
+      });
+      if (res.ok) altText = this._readAltFromMediaDetail(await res.json());
+    } catch { /* ignore */ }
+
+    const info = { url, altText };
+    this._mediaInfoCache[mediaKey] = info;
+    return info;
+  }
+
+  /** Alt text fallback chain: altText / alt / alternativeText property, then the media item name. */
+  _readAltFromMediaDetail(detail) {
+    const values = (detail && detail.values) || [];
+    const aliases = ['alttext', 'alt', 'alternativetext'];
+    for (const alias of aliases) {
+      const v = values.find((x) =>
+        (x.alias || '').toLowerCase() === alias &&
+        typeof x.value === 'string' && x.value.trim());
+      if (v) return v.value.trim();
+    }
+    const name = detail && detail.variants && detail.variants[0] && detail.variants[0].name;
+    return name || undefined;
+  }
+
+  _addExternalUrl(images, onChange, urlField) {
+    const url = (this[urlField] || '').trim();
+    if (!url) return;
+    onChange([...(images || []), { url }]);
+    this[urlField] = '';
+  }
+
+  /** URL accessor tolerant of both the object shape and legacy bare-string entries. */
+  _imgSrc(entry) {
+    if (!entry) return '';
+    return typeof entry === 'string' ? entry : (entry.url || '');
   }
 
   startCreateProduct() {
@@ -1877,10 +2155,7 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
           <uui-label>Images</uui-label>
           ${this.renderImageGallery(
             this.newProduct?.images || [],
-            (i) => this.removeImageFromNewProduct(i),
-            this.newCreateImageUrl,
-            (e) => { this.newCreateImageUrl = e.target.value; },
-            () => this.addImageToNewProduct(),
+            (imgs) => { this.newProduct = { ...this.newProduct, images: imgs }; },
             'create'
           )}
         </div>
@@ -1934,10 +2209,7 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
           <uui-label>Images</uui-label>
           ${this.renderImageGallery(
             this.newProduct?.images || [],
-            (i) => this.removeImageFromNewProduct(i),
-            this.newCreateImageUrl,
-            (e) => { this.newCreateImageUrl = e.target.value; },
-            () => this.addImageToNewProduct(),
+            (imgs) => { this.newProduct = { ...this.newProduct, images: imgs }; },
             'create'
           )}
         </div>
@@ -2053,7 +2325,7 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
         <!-- Image -->
         <uui-table-cell style="width: 80px;">
           ${product.images?.length > 0 ? html`
-            <img src="${product.images[0]}" alt="${product.name}" class="product-thumbnail" />
+            <img src="${this._imgSrc(product.images[0])}" alt="${product.name}" class="product-thumbnail" />
           ` : html`
             <uui-icon name="icon-picture" class="no-image-icon"></uui-icon>
           `}
@@ -2656,10 +2928,7 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
                 <uui-label>Images</uui-label>
                 ${this.renderImageGallery(
                   this.editedProduct.images || [],
-                  (i) => this.removeImageFromEditedProduct(i),
-                  this.newProductImageUrl,
-                  (e) => { this.newProductImageUrl = e.target.value; },
-                  () => this.addImageToEditedProduct(),
+                  (imgs) => { this.editedProduct = { ...this.editedProduct, images: imgs }; },
                   'edit'
                 )}
               </div>
@@ -3129,7 +3398,7 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
         @click=${() => this.selectProduct(product)}>
         <div class="product-list-item-image">
           ${product.images?.length > 0 ? html`
-            <img src="${product.images[0]}" alt="${product.name}" class="product-list-thumb" />
+            <img src="${this._imgSrc(product.images[0])}" alt="${product.name}" class="product-list-thumb" />
           ` : html`
             <div class="product-list-thumb-placeholder">
               <uui-icon name="icon-picture"></uui-icon>
@@ -3300,10 +3569,7 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
           <uui-label>Images</uui-label>
           ${this.renderImageGallery(
             product.images || [],
-            (i) => this.removeImageFromEditedProduct(i),
-            this.newProductImageUrl,
-            (e) => { this.newProductImageUrl = e.target.value; },
-            () => this.addImageToEditedProduct(),
+            (imgs) => { this.editedProduct = { ...this.editedProduct, images: imgs }; },
             'edit'
           )}
         </div>
@@ -3457,10 +3723,7 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
           <uui-label>Images</uui-label>
           ${this.renderImageGallery(
             product.images || [],
-            (i) => this.removeImageFromEditedProduct(i),
-            this.newProductImageUrl,
-            (e) => { this.newProductImageUrl = e.target.value; },
-            () => this.addImageToEditedProduct(),
+            (imgs) => { this.editedProduct = { ...this.editedProduct, images: imgs }; },
             'edit'
           )}
         </div>
@@ -3692,10 +3955,92 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
           ${this.renderProductDetailPanel()}
         </div>
       </uui-box>
+      ${this.renderProviderBrowser()}
     `;
   }
 
   static styles = css`
+    .provider-upload-toggle {
+      display: block;
+      margin-top: var(--uui-size-space-2);
+    }
+
+    .provider-browser-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.4);
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .provider-browser-panel {
+      background: var(--uui-color-surface);
+      border-radius: var(--uui-border-radius);
+      box-shadow: var(--uui-shadow-depth-5);
+      width: min(760px, 90vw);
+      max-height: 80vh;
+      display: flex;
+      flex-direction: column;
+      padding: var(--uui-size-space-5);
+    }
+
+    .provider-browser-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: var(--uui-size-space-4);
+    }
+
+    .provider-browser-header h3 {
+      margin: 0;
+    }
+
+    .provider-photos-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+      gap: var(--uui-size-space-3);
+      overflow-y: auto;
+      flex: 1;
+    }
+
+    .provider-photo-item {
+      border: 1px solid var(--uui-color-border);
+      border-radius: var(--uui-border-radius);
+      background: var(--uui-color-surface);
+      padding: var(--uui-size-space-2);
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: var(--uui-size-space-1);
+    }
+
+    .provider-photo-item:hover {
+      border-color: var(--uui-color-selected);
+      background: var(--uui-color-surface-alt);
+    }
+
+    .provider-photo-item img {
+      width: 100%;
+      height: 100px;
+      object-fit: contain;
+    }
+
+    .provider-photo-name {
+      font-size: var(--uui-size-4);
+      color: var(--uui-color-text-alt);
+      word-break: break-all;
+      max-width: 100%;
+    }
+
+    .provider-browser-footer {
+      display: flex;
+      justify-content: center;
+      padding-top: var(--uui-size-space-4);
+    }
+
     :host {
       display: block;
       padding: var(--uui-size-space-5);
@@ -4455,6 +4800,22 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
       display: flex;
       flex-direction: column;
       gap: var(--uui-size-space-3);
+    }
+
+    .external-images {
+      display: flex;
+      flex-direction: column;
+      gap: var(--uui-size-space-2);
+    }
+
+    .ext-label {
+      font-size: 0.8rem;
+      color: var(--uui-color-text-alt);
+    }
+
+    .ext-alt {
+      width: 100%;
+      margin-top: var(--uui-size-space-1);
     }
 
     .images-grid {

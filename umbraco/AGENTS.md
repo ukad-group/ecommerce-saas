@@ -324,6 +324,17 @@ Allowed At Root: false
 
 ## Products Workspace View - Advanced Features
 
+### Product Images (focal point, crops, alt text)
+
+Product images are rich `ProductImage` objects (`url`, `altText`, `focalPoint`, `crops`,
+`mediaKey`), edited via Umbraco's **native media picker** (`<umb-input-rich-media>`: pick / upload /
+reorder / native focal-point + crop editor); external provider/URL images live in a secondary list.
+A single global crop (width×height) and a focal-point toggle are configured in **Settings →
+Commerce Settings → Images**, applied to every image added via the picker. Bare URL strings are still accepted end-to-end (backward compatible — no DB reset).
+
+**Full guide, including how to render focal-point-aware images on a storefront:
+[docs/PRODUCT-IMAGES.md](docs/PRODUCT-IMAGES.md).**
+
 ### User Authentication & Version Tracking
 
 The products workspace view properly tracks which Umbraco user makes product edits using Umbraco's `UMB_CURRENT_USER_CONTEXT`.

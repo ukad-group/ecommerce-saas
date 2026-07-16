@@ -9,7 +9,7 @@
 import { Link } from 'react-router-dom';
 import type { Product } from '../../types/product';
 import { formatCurrency } from '../../utils/currency';
-import { getThumbnailUrl } from '../../utils/imageHelper';
+import { getThumbnailUrl, imageUrl, imageAlt, imageFocalPoint, focalPointStyle } from '../../utils/imageHelper';
 import { Button } from '../common/Button';
 import { QuickStockUpdate } from './QuickStockUpdate';
 import { ProductCard } from './ProductCard';
@@ -110,9 +110,10 @@ export function ProductList({
               <td className="px-6 py-4">
                 <div className="flex items-center">
                   <img
-                    src={product.images && product.images[0] ? getThumbnailUrl(product.images[0]) : 'https://dummyimage.com/96x96/AAA/fff.png&text=No+Image'}
-                    alt={product.name}
+                    src={product.images && product.images[0] ? getThumbnailUrl(imageUrl(product.images[0])) : 'https://dummyimage.com/96x96/AAA/fff.png&text=No+Image'}
+                    alt={imageAlt(product.images?.[0], product.name)}
                     className="h-10 w-10 rounded object-cover mr-3"
+                    style={focalPointStyle(imageFocalPoint(product.images?.[0]))}
                   />
                   <div>
                     <Link

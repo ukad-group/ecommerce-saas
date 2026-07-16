@@ -41,10 +41,12 @@ public class ECommDbContext : DbContext
             entity.Property(e => e.SalePrice).HasColumnType("decimal(18,2)");
 
             // Store complex types as JSON
+            // ProductImage has a string-or-object JsonConverter, so legacy ["url", …] rows
+            // deserialize transparently — no DB reset needed.
             entity.Property(e => e.Images)
                 .HasConversion(
                     v => JsonSerializer.Serialize(v, (JsonSerializerOptions?)null),
-                    v => JsonSerializer.Deserialize<List<string>>(v, (JsonSerializerOptions?)null) ?? new List<string>());
+                    v => JsonSerializer.Deserialize<List<ProductImage>>(v, (JsonSerializerOptions?)null) ?? new List<ProductImage>());
 
             entity.Property(e => e.CategoryIds)
                 .HasConversion(

@@ -19,7 +19,7 @@ import { useAuthStore } from '../../store/authStore';
 import { Role } from '../../types/auth';
 import { VersionBadge } from './VersionBadge';
 import { VersionHistoryModal } from './VersionHistoryModal';
-import type { Product, ProductStatus, VariantOption, ProductVariant, CustomProperty, ProductOption } from '../../types/product';
+import type { Product, ProductStatus, VariantOption, ProductVariant, CustomProperty, ProductOption, ProductImageEntry } from '../../types/product';
 import { ProductOptionsEditor } from './ProductOptionsEditor';
 
 // Extended property type for merged display
@@ -32,7 +32,7 @@ interface ProductFormProps {
   onSubmit: (data: Partial<Product>) => void;
   onCancel: () => void;
   isSubmitting?: boolean;
-  images?: string[];
+  images?: ProductImageEntry[];
 }
 
 interface ProductFormData {
@@ -88,7 +88,7 @@ export function ProductForm({
   const [options, setOptions] = useState<ProductOption[]>(product?.options || []);
 
   // State for images management
-  const [images, setImages] = useState<string[]>(product?.images || []);
+  const [images, setImages] = useState<ProductImageEntry[]>(product?.images || []);
 
   // State for version history modal
   const [isVersionHistoryOpen, setIsVersionHistoryOpen] = useState(false);

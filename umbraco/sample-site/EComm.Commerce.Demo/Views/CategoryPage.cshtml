@@ -2,6 +2,7 @@
 @using Umbraco.Cms.Core.Models.PublishedContent
 @using Microsoft.AspNetCore.Mvc.ViewFeatures
 @inherits Umbraco.Cms.Web.Common.Views.UmbracoViewPage<CategoryPageViewModel>
+@inject EComm.Umbraco.Commerce.Services.IProductImageUrlHelper ProductImages
 @{
     Layout = "master.cshtml";
     ViewData["Title"] = Model.CategoryName ?? "Products";
@@ -74,9 +75,12 @@
                             <div class="col-md-6 col-lg-4 col-xl-3">
                                 <div class="card h-100 hover-shadow">
                                     @{
-                                        var thumbnailImage = product.Images != null && product.Images.Any()
-                                        ? product.Images.First()
-                                        : "https://via.placeholder.com/300x300?text=" + Uri.EscapeDataString(product.Name ?? "Product");
+                                        var thumb = product.Images != null && product.Images.Any() ? product.Images.First() : null;
+                                        var thumbnailUrl = thumb != null
+                                            ? ProductImages.CropUrl(thumb)
+                                            : "https://via.placeholder.com/300x300?text=" + Uri.EscapeDataString(product.Name ?? "Product");
+                                        var thumbAlt = thumb?.AltText ?? product.Name;
+                                        var thumbFocal = thumb?.FocalPoint == null ? "" : $"object-position:{(thumb.FocalPoint.Left * 100).ToString(System.Globalization.CultureInfo.InvariantCulture)}% {(thumb.FocalPoint.Top * 100).ToString(System.Globalization.CultureInfo.InvariantCulture)}%;";
                                     }
                                     @{
                                         var productSlug = !string.IsNullOrEmpty(product.Slug) ? product.Slug : product.Id;
@@ -124,18 +128,18 @@
                                     @if (productUrl != null)
                                     {
                                         <a href="@productUrl">
-                                            <img src="@thumbnailImage"
+                                            <img src="@thumbnailUrl"
                                                  class="card-img-top"
-                                                 alt="@product.Name"
-                                                 style="height: 200px; object-fit: cover;">
+                                                 alt="@thumbAlt"
+                                                 style="height: 200px; object-fit: cover; @thumbFocal">
                                         </a>
                                     }
                                     else
                                     {
-                                        <img src="@thumbnailImage"
+                                        <img src="@thumbnailUrl"
                                              class="card-img-top"
-                                             alt="@product.Name"
-                                             style="height: 200px; object-fit: cover;">
+                                             alt="@thumbAlt"
+                                             style="height: 200px; object-fit: cover; @thumbFocal">
                                     }
                                     <div class="card-body d-flex flex-column">
                                         <h5 class="card-title">

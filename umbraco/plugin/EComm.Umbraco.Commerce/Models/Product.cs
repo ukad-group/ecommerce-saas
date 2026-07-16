@@ -24,7 +24,7 @@ public class Product
     [JsonNumberHandling(JsonNumberHandling.AllowReadingFromString)]
     public int? StockQuantity { get; set; }
 
-    public List<string> Images { get; set; } = new();
+    public List<ProductImage> Images { get; set; } = new();
     public List<CustomProperty>? CustomProperties { get; set; }
     public List<string> Highlights { get; set; } = new();
     // Free-form editorial values (one list per product) shown on customize/summary/email surfaces.

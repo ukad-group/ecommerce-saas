@@ -1,8 +1,44 @@
 /**
  * Image Helper Utilities
  *
- * Generates optimized image URLs with automatic resizing
+ * Generates optimized image URLs with automatic resizing, and normalizes product image
+ * entries that may be either a bare URL string or a rich { url, altText, focalPoint } object.
  */
+
+import type { CSSProperties } from 'react';
+import type { FocalPoint, ProductImageEntry } from '../types/product';
+
+/** Extract the URL from a product image entry (string or object). */
+export function imageUrl(entry: ProductImageEntry | undefined | null): string {
+  if (!entry) return '';
+  return typeof entry === 'string' ? entry : entry.url;
+}
+
+/** Extract alt text from a product image entry, with an optional fallback. */
+export function imageAlt(
+  entry: ProductImageEntry | undefined | null,
+  fallback = ''
+): string {
+  if (entry && typeof entry !== 'string' && entry.altText) return entry.altText;
+  return fallback;
+}
+
+/** Extract the focal point from a product image entry, if any. */
+export function imageFocalPoint(
+  entry: ProductImageEntry | undefined | null
+): FocalPoint | undefined {
+  if (entry && typeof entry !== 'string') return entry.focalPoint;
+  return undefined;
+}
+
+/**
+ * CSS object-position derived from a focal point, so an object-fit:cover box keeps the subject
+ * in frame. Returns an empty object when there is no focal point.
+ */
+export function focalPointStyle(focalPoint: FocalPoint | undefined | null): CSSProperties {
+  if (!focalPoint) return {};
+  return { objectPosition: `${focalPoint.left * 100}% ${focalPoint.top * 100}%` };
+}
 
 /**
  * Generate a resized image URL from an original image URL

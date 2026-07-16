@@ -1,6 +1,7 @@
 using EComm.Data.Entities;
 using EComm.Data.ValueObjects.Cart;
 using EComm.Data.ValueObjects.Order;
+using EComm.Data.ValueObjects.Product;
 using Microsoft.EntityFrameworkCore;
 using System.Collections.Concurrent;
 
@@ -111,7 +112,7 @@ public class DataStore
             StockQuantity = product.StockQuantity,
             LowStockThreshold = product.LowStockThreshold,
             Currency = product.Currency,
-            Images = product.Images ?? new List<string>(),
+            Images = product.Images?.Select(img => img.Clone()).ToList() ?? new List<ProductImage>(),
             CategoryIds = product.CategoryIds ?? new List<string>(),
             Metadata = product.Metadata,
             HasVariants = product.HasVariants,

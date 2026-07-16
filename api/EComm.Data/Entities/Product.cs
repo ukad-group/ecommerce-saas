@@ -16,7 +16,7 @@ public class Product
     public int? StockQuantity { get; set; } // Optional when product has variants
     public int? LowStockThreshold { get; set; } // Optional when product has variants
     public string Currency { get; set; } = "USD";
-    public List<string> Images { get; set; } = new();
+    public List<ProductImage> Images { get; set; } = new();
     public List<string> CategoryIds { get; set; } = new(); // Multiple categories
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }

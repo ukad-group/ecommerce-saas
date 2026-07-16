@@ -59,6 +59,11 @@ None
   - Templates auto-appear on all products
   - Properties with "Market" badge cannot be removed
   - SortOrder support with drag reordering
+- **Rich product images** - Images are objects (`url`, `altText`, `focalPoint`, `crops`, `mediaKey`), not bare URL strings
+  - Focal-point-aware cover cropping on storefronts (`object-position`) + alt text
+  - Umbraco plugin edits them via the native media picker (focal point + crop editor); React admin has a focal-point/alt editor
+  - Backward compatible: bare URL strings still accepted (no DB reset)
+  - Umbraco integration + storefront rendering guide: `umbraco/docs/PRODUCT-IMAGES.md`
 
 ### API Endpoints
 ```

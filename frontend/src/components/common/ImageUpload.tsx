@@ -7,12 +7,20 @@
 import { useState, useRef } from 'react';
 import { useFileUpload } from '../../services/hooks/useFileUpload';
 import { Button } from './Button';
+import { ImageMetaEditor } from './ImageMetaEditor';
+import type { ProductImage, ProductImageEntry } from '../../types/product';
+import { imageUrl, imageAlt, imageFocalPoint, focalPointStyle } from '../../utils/imageHelper';
 
 interface ImageUploadProps {
-  images: string[];
-  onChange: (images: string[]) => void;
+  images: ProductImageEntry[];
+  onChange: (images: ProductImageEntry[]) => void;
   maxImages?: number;
   disabled?: boolean;
+}
+
+/** Normalize a bare URL string entry into a rich object so metadata can be attached. */
+function toProductImage(entry: ProductImageEntry): ProductImage {
+  return typeof entry === 'string' ? { url: entry } : entry;
 }
 
 export function ImageUpload({
@@ -26,6 +34,7 @@ export function ImageUpload({
   const [localError, setLocalError] = useState<string | null>(null);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
 
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files || []);
@@ -41,7 +50,7 @@ export function ImageUpload({
 
     try {
       const urls = await upload(files);
-      onChange([...images, ...urls]);
+      onChange([...images, ...urls.map((url) => ({ url }))]);
     } catch (error) {
       // Error is already handled by the hook
     }
@@ -55,6 +64,12 @@ export function ImageUpload({
   const handleRemoveImage = (index: number) => {
     const newImages = images.filter((_, i) => i !== index);
     onChange(newImages);
+  };
+
+  const handleSaveMeta = (index: number, updated: ProductImage) => {
+    const newImages = images.map((img, i) => (i === index ? updated : img));
+    onChange(newImages);
+    setEditingIndex(null);
   };
 
   const handleBrowseClick = () => {
@@ -125,7 +140,7 @@ export function ImageUpload({
             Drag and drop images to reorder. First image is the primary image.
           </p>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {images.map((imageUrl, index) => (
+            {images.map((entry, index) => (
               <div
                 key={index}
                 draggable={!disabled}
@@ -142,10 +157,27 @@ export function ImageUpload({
                 }`}
               >
                 <img
-                  src={imageUrl}
-                  alt={`Product image ${index + 1}`}
+                  src={imageUrl(entry)}
+                  alt={imageAlt(entry, `Product image ${index + 1}`)}
                   className="w-full h-32 object-cover rounded-md border border-gray-300 pointer-events-none"
+                  style={focalPointStyle(imageFocalPoint(entry))}
                 />
+                <button
+                  type="button"
+                  onClick={() => setEditingIndex(index)}
+                  disabled={disabled}
+                  className="absolute top-1 right-8 bg-[#4a6ba8] text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-50 z-10"
+                  title="Edit alt text & focal point"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                    />
+                  </svg>
+                </button>
                 <button
                   type="button"
                   onClick={() => handleRemoveImage(index)}
@@ -167,6 +199,16 @@ export function ImageUpload({
                     />
                   </svg>
                 </button>
+                {imageFocalPoint(entry) && (
+                  <div
+                    className="absolute w-3 h-3 -ml-1.5 -mt-1.5 rounded-full border-2 border-white bg-[#4a6ba8] shadow pointer-events-none z-10"
+                    style={{
+                      left: `${imageFocalPoint(entry)!.left * 100}%`,
+                      top: `${imageFocalPoint(entry)!.top * 100}%`,
+                    }}
+                    title="Focal point"
+                  />
+                )}
                 {index === 0 && (
                   <div className="absolute bottom-1 left-1 bg-blue-500 text-white text-xs px-2 py-1 rounded">
                     Primary
@@ -200,6 +242,15 @@ export function ImageUpload({
           <p className="mt-2 text-sm text-gray-500">No images uploaded</p>
           <p className="text-xs text-gray-400">Click "Upload Images" to add product images</p>
         </div>
+      )}
+
+      {/* Per-image metadata editor */}
+      {editingIndex !== null && images[editingIndex] !== undefined && (
+        <ImageMetaEditor
+          image={toProductImage(images[editingIndex])}
+          onSave={(updated) => handleSaveMeta(editingIndex, updated)}
+          onClose={() => setEditingIndex(null)}
+        />
       )}
     </div>
   );

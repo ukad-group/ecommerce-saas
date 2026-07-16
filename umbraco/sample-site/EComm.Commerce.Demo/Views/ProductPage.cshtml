@@ -1,5 +1,6 @@
 ﻿@using EComm.Commerce.Demo.Controllers
 @inherits Umbraco.Cms.Web.Common.Views.UmbracoViewPage<ProductPageViewModel>
+@inject EComm.Umbraco.Commerce.Services.IProductImageUrlHelper ProductImages
 @{
     Layout = "master.cshtml";
     ViewData["Title"] = Model.Product?.Name ?? "Product";
@@ -58,16 +59,18 @@
                 @{
                     var productImages = product.Images != null && product.Images.Any()
                         ? product.Images.ToList()
-                        : new List<string> { "https://via.placeholder.com/600x400?text=" + Uri.EscapeDataString(product.Name ?? "Product") };
+                        : new List<EComm.Umbraco.Commerce.Models.ProductImage> { "https://via.placeholder.com/600x400?text=" + Uri.EscapeDataString(product.Name ?? "Product") };
                     var mainImage = productImages.First();
+                    Func<EComm.Umbraco.Commerce.Models.FocalPoint, string> focalStyle = fp =>
+                        fp == null ? "" : $"object-position:{(fp.Left * 100).ToString(System.Globalization.CultureInfo.InvariantCulture)}% {(fp.Top * 100).ToString(System.Globalization.CultureInfo.InvariantCulture)}%;";
                 }
 
                 <!-- Main Image -->
                 <div class="card mb-3">
                     <img id="mainImage"
-                         src="@mainImage"
+                         src="@ProductImages.CropUrl(mainImage)"
                          class="card-img-top"
-                         alt="@product.Name"
+                         alt="@(mainImage.AltText ?? product.Name)"
                          style="max-height: 500px; object-fit: contain;">
                 </div>
 
@@ -77,11 +80,12 @@
                     <div class="d-flex gap-2 flex-wrap">
                         @foreach (var image in productImages)
                         {
-                            <img src="@image"
-                                 alt="@product.Name thumbnail"
+                            var cropped = ProductImages.CropUrl(image);
+                            <img src="@cropped"
+                                 alt="@(image.AltText ?? $"{product.Name} thumbnail")"
                                  class="img-thumbnail"
-                                 style="width: 80px; height: 80px; object-fit: cover; cursor: pointer;"
-                                 onclick="document.getElementById('mainImage').src='@image'" />
+                                 style="width: 80px; height: 80px; object-fit: cover; cursor: pointer; @focalStyle(image.FocalPoint)"
+                                 onclick="document.getElementById('mainImage').src='@cropped'" />
                         }
                     </div>
                 }
