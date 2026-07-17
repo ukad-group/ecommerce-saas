@@ -63,6 +63,8 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
     _optionPickerPage:    { type: Number },
     productId: { type: String },
     _mode: { type: String },
+    // Market property templates (global custom fields shown on every product)
+    propertyTemplates: { type: Array },
     // External photo provider
     _photoProviderConfigured: { type: Boolean, state: true },
     providerBrowserOpen: { type: Boolean },
@@ -77,6 +79,7 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
     super();
     this.categoryId = null;
     this.storeId = null;
+    this.propertyTemplates = [];
     this.products = [];
     this.loading = false;
     this.error = null;
@@ -232,7 +235,102 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
       }
     }
 
+    this.loadPropertyTemplates();
     this._refreshView();
+  }
+
+  // Global custom fields defined for this market (shown as editable fields on every product).
+  async loadPropertyTemplates() {
+    try {
+      const qs = this.storeId ? `?marketId=${encodeURIComponent(this.storeId)}` : '';
+      const headers = await this.getAuthHeaders();
+      const res = await fetch(`/umbraco/management/api/ecomm-commerce/property-templates${qs}`, {
+        headers, credentials: 'include',
+      });
+      this.propertyTemplates = res.ok ? (await res.json()) || [] : [];
+    } catch { this.propertyTemplates = []; }
+  }
+
+  // Merge the product's own custom properties with the market templates (unfilled templates
+  // seeded from their default value), mirroring the React admin's ProductForm. Template-backed
+  // rows are flagged so they can't be removed. Sorted by sortOrder.
+  _mergedCustomProperties() {
+    const templates = this.propertyTemplates || [];
+    const props = Array.isArray(this.editedProduct?.customProperties) ? this.editedProduct.customProperties : [];
+    const templateNames = new Set(templates.map(t => (t.name || '').toLowerCase()));
+    const productProps = props.map((p, i) => ({
+      name: p.name, value: p.value ?? '',
+      sortOrder: p.sortOrder ?? i + 1,
+      isMarketTemplate: templateNames.has((p.name || '').toLowerCase()),
+    }));
+    const existing = new Set(productProps.map(p => (p.name || '').toLowerCase()));
+    const unfilled = templates
+      .filter(t => !existing.has((t.name || '').toLowerCase()))
+      .map(t => ({ name: t.name, value: t.defaultValue || '', sortOrder: (t.sortOrder ?? 0) + 1000, isMarketTemplate: true }));
+    return [...productProps, ...unfilled].sort((a, b) => a.sortOrder - b.sortOrder);
+  }
+
+  // Write an edited value/name back into editedProduct.customProperties, materializing an
+  // unfilled template row on first edit.
+  _setCustomProperty(mergedProp, field, value) {
+    const props = Array.isArray(this.editedProduct?.customProperties) ? [...this.editedProduct.customProperties] : [];
+    const idx = props.findIndex(p => (p.name || '').toLowerCase() === (mergedProp.name || '').toLowerCase());
+    if (idx !== -1) {
+      props[idx] = { ...props[idx], [field]: value };
+    } else {
+      const maxSort = props.reduce((m, p) => Math.max(m, p.sortOrder ?? 0), 0);
+      props.push({
+        name: field === 'name' ? value : mergedProp.name,
+        value: field === 'value' ? value : (mergedProp.value || ''),
+        sortOrder: maxSort + 1,
+      });
+    }
+    this.editedProduct = { ...this.editedProduct, customProperties: props };
+  }
+
+  _addCustomProperty() {
+    const props = Array.isArray(this.editedProduct?.customProperties) ? [...this.editedProduct.customProperties] : [];
+    const maxSort = props.reduce((m, p) => Math.max(m, p.sortOrder ?? 0), 0);
+    props.push({ name: '', value: '', sortOrder: maxSort + 1 });
+    this.editedProduct = { ...this.editedProduct, customProperties: props };
+  }
+
+  _removeCustomProperty(mergedProp) {
+    if (mergedProp.isMarketTemplate) return; // template-backed rows aren't removable
+    const props = (this.editedProduct?.customProperties || [])
+      .filter(p => (p.name || '').toLowerCase() !== (mergedProp.name || '').toLowerCase());
+    this.editedProduct = { ...this.editedProduct, customProperties: props };
+  }
+
+  // Editable "Attributes" block: global custom fields (from market templates) + ad-hoc ones.
+  renderCustomPropertiesEditor() {
+    const merged = this._mergedCustomProperties();
+    return html`
+      <div class="attributes-section">
+        <h4 class="section-heading">Attributes</h4>
+        <div class="custom-props-list">
+          ${merged.map(prop => html`
+            <div class="custom-prop-row" @click=${(e) => e.stopPropagation()}>
+              ${prop.isMarketTemplate
+                ? html`<span class="attribute-label" title="Global field for this market">${prop.name}</span>`
+                : html`<uui-input class="cp-name" placeholder="Name" .value=${prop.name || ''}
+                    ?disabled=${this.saving}
+                    @input=${(e) => this._setCustomProperty(prop, 'name', e.target.value)}></uui-input>`}
+              <uui-input class="cp-value" placeholder="Value" .value=${prop.value || ''}
+                ?disabled=${this.saving}
+                @input=${(e) => this._setCustomProperty(prop, 'value', e.target.value)}></uui-input>
+              ${prop.isMarketTemplate
+                ? html`<uui-badge look="secondary" title="Applied to all products">global</uui-badge>`
+                : html`<uui-button compact look="secondary" color="danger" label="Remove"
+                    ?disabled=${this.saving}
+                    @click=${() => this._removeCustomProperty(prop)}>✕</uui-button>`}
+            </div>
+          `)}
+        </div>
+        <uui-button look="secondary" compact ?disabled=${this.saving}
+          @click=${() => this._addCustomProperty()}>+ Add attribute</uui-button>
+      </div>
+    `;
   }
 
   async _fetchEffectiveStoreId(nodeKey) {
@@ -2807,17 +2905,7 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
               </uui-badge>
             ` : ''}
 
-            ${productOptions.length > 0 ? html`
-              <div class="attributes-section">
-                <h4 class="section-heading">Attributes</h4>
-                <div class="attributes-grid">
-                  ${productOptions.map(prop => html`
-                    <span class="attribute-label">${prop.name}</span>
-                    <span class="attribute-value">${prop.value}</span>
-                  `)}
-                </div>
-              </div>
-            ` : ''}
+            ${this.renderCustomPropertiesEditor()}
 
             <h4 class="section-heading">Content</h4>
             <div class="edit-form-grid">
@@ -3472,17 +3560,7 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
         <uui-badge color="danger" look="primary" class="save-error">${this.error}</uui-badge>
       ` : ''}
 
-      ${productOptions.length > 0 ? html`
-        <div class="attributes-section">
-          <h4 class="section-heading">Attributes</h4>
-          <div class="attributes-grid">
-            ${productOptions.map(prop => html`
-              <span class="attribute-label">${prop.name}</span>
-              <span class="attribute-value">${prop.value}</span>
-            `)}
-          </div>
-        </div>
-      ` : ''}
+      ${this.renderCustomPropertiesEditor()}
 
       <h4 class="section-heading">Content</h4>
       <div class="edit-form-grid">
@@ -3666,17 +3744,7 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
         <uui-badge color="danger" look="primary" class="save-error">${this.error}</uui-badge>
       ` : ''}
 
-      ${productOptions.length > 0 ? html`
-        <div class="attributes-section">
-          <h4 class="section-heading">Attributes</h4>
-          <div class="attributes-grid">
-            ${productOptions.map(prop => html`
-              <span class="attribute-label">${prop.name}</span>
-              <span class="attribute-value">${prop.value}</span>
-            `)}
-          </div>
-        </div>
-      ` : ''}
+      ${this.renderCustomPropertiesEditor()}
 
       <h4 class="section-heading">Product</h4>
       <div class="edit-form-grid">
@@ -4533,6 +4601,31 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
 
     .attribute-value {
       color: var(--uui-color-text-alt);
+    }
+
+    .custom-props-list {
+      display: flex;
+      flex-direction: column;
+      gap: var(--uui-size-space-2);
+      margin-bottom: var(--uui-size-space-3);
+    }
+
+    .custom-prop-row {
+      display: grid;
+      grid-template-columns: minmax(8rem, 12rem) 1fr auto;
+      gap: var(--uui-size-space-3);
+      align-items: center;
+    }
+
+    .custom-prop-row .attribute-label {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .custom-prop-row .cp-name,
+    .custom-prop-row .cp-value {
+      width: 100%;
     }
 
     .variant-status-select {

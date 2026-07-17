@@ -81,9 +81,9 @@ public class CommerceAdminApiController : ManagementApiControllerBase
 
     [HttpPut("option-presets")]
     [ProducesResponseType(StatusCodes.Status200OK)]
-    public async Task<IActionResult> UpdateOptionPresets([FromBody] UpdateOptionPresetsRequest request)
+    public async Task<IActionResult> UpdateOptionPresets([FromQuery] string? marketId, [FromBody] UpdateOptionPresetsRequest request)
     {
-        var ok = await _apiClient.UpdateOptionPresetsAsync(request.Presets);
+        var ok = await _apiClient.UpdateOptionPresetsAsync(marketId, request.Presets);
         return ok ? Ok() : StatusCode(StatusCodes.Status502BadGateway, "Failed to update option presets");
     }
 

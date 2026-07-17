@@ -59,6 +59,7 @@ None
   - Templates auto-appear on all products
   - Properties with "Market" badge cannot be removed
   - SortOrder support with drag reordering
+  - Umbraco plugin: template values are editable per-product on the product's eCommerce tab (templates merged into the editor, unfilled ones seeded from their default)
 - **Rich product images** - Images are objects (`url`, `altText`, `focalPoint`, `crops`, `mediaKey`), not bare URL strings
   - Focal-point-aware cover cropping on storefronts (`object-position`) + alt text
   - Umbraco plugin edits them via the native media picker (focal point + crop editor); React admin has a focal-point/alt editor
@@ -227,7 +228,8 @@ None
 
 ### Implemented
 - Market-scoped library of reusable "option presets" (purchasable add-ons): `single` (standalone) or `group` (bundles related singles via `SubOptionIds`)
-- Managed in admin at `/admin/products/option-presets` (search, add, inline edit, delete)
+- Managed in admin at `/admin/products/option-presets` (search, add, inline edit, delete), and in the Umbraco plugin's Commerce dashboard (Option Presets tab, scoped to the selected market)
+- Optional preset photo: a rich `Image` (`url`, `altText`, `focalPoint`, `crops`, `mediaKey`) pickable from Umbraco Media in the plugin, rendered focal-point-cropped on the storefront; legacy `imageUrl` string still accepted
 - Products attach "option blocks" (title + description + disable toggle) referencing presets from `ProductForm`
 - Showcase product detail page renders attached option blocks as purchasable add-ons; add-to-cart accepts `optionId`
 

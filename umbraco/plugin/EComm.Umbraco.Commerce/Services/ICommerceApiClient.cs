@@ -93,14 +93,14 @@ public interface ICommerceApiClient
     Task<List<OrderStatusDefinition>> GetOrderStatusDefinitionsAsync();
 
     /// <summary>
-    /// Gets the store-global option presets library for the configured market
+    /// Gets the store-global option presets library for the given market (falls back to settings)
     /// </summary>
-    Task<List<OptionPreset>> GetOptionPresetsAsync();
+    Task<List<OptionPreset>> GetOptionPresetsAsync(string? marketId = null);
 
     /// <summary>
-    /// Replaces the full option presets list for the configured market
+    /// Replaces the full option presets list for the given market (falls back to settings)
     /// </summary>
-    Task<bool> UpdateOptionPresetsAsync(List<OptionPreset> presets);
+    Task<bool> UpdateOptionPresetsAsync(string? marketId, List<OptionPreset> presets);
 
     // ── Property Templates ────────────────────────────────────────────────────
 

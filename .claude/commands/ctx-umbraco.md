@@ -119,6 +119,7 @@ async getAuthHeaders() {
 3. Displays products in a table with: Image, Name, Slug, Price, Stock quantity
 4. **Full editor** (no longer read-only): variant/options builder with a combinations table, Highlights, Leasing Factor, Hide Price + hidden-price message, SEO title/description, and an "Add-on Options" section for attaching option-preset blocks to a product, plus a "Manage Options" view for editing the market's option-presets library
 5. **Images**: rich `ProductImage` objects (`url`, `altText`, `focalPoint`, `crops`, `mediaKey`) edited via Umbraco's **native media picker** (`<umb-input-rich-media>`: pick / upload / reorder / native focal-point + crop editor); external provider/URL images in a secondary list. A single global crop (width×height) + focal-point toggle configured in Settings → Commerce Settings → **Images**. Bare URL strings still accepted (backward compatible). **How it works + how to render on your storefront: [umbraco/docs/PRODUCT-IMAGES.md](../../umbraco/docs/PRODUCT-IMAGES.md)**
+6. **Global custom fields**: the market's property templates are merged into the product editor as an editable **Attributes** block (`renderCustomPropertiesEditor`) — template-backed rows show a "global" badge and can't be removed (unfilled ones seeded from the template default), ad-hoc rows are add/edit/remove. Edited values are written to `editedProduct.customProperties` and saved with the product.
 
 **Context Pattern**: Uses Umbraco's property dataset context for reactive updates
 ```javascript
@@ -204,6 +205,7 @@ request.Headers.Add("X-API-Key", settings.ApiKey);
 **Purpose**: Full commerce back-office inside Umbraco, in a dedicated "Commerce" section (auto-granted to the Administrators group by `Migrations/AddCommerceSectionToAdminGroupMigration.cs`)
 **Tabs**: Orders, Carts, Discounts, Option Presets, Order Statuses, Property Templates, Analytics
 **API Route**: `/umbraco/management/api/ecomm-commerce` - `markets`, `orders`, `orders/{id}`, `orders/{id}/status`, `order-statuses`, `option-presets`, `property-templates`, `discounts` (CRUD)
+**Option Presets tab**: full CRUD (single + group), **scoped to the selected market** — load + save both pass `?marketId=<selectedMarketId>` (previously read the removed global `settings.MarketId`, so the tab showed empty). Each preset can carry a photo picked from **Umbraco Media** (rich `Image` object, same picker/helpers as product images) with the legacy `imageUrl` kept as a paste-a-URL fallback.
 
 #### 9. Product Picker & Store Picker
 **Files**: `wwwroot/components/propertyEditors/product-picker.js`, `store-picker.js`

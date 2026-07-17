@@ -1,3 +1,5 @@
+using EComm.Data.ValueObjects.Product;
+
 namespace EComm.Data.ValueObjects.Tenant;
 
 /// <summary>
@@ -18,7 +20,8 @@ public class OptionPreset
     public string? Sku { get; set; }
     public decimal Price { get; set; }
     public string? Description { get; set; }
-    public string? ImageUrl { get; set; }               // Main image
+    public string? ImageUrl { get; set; }               // Main image (legacy plain URL; fallback)
+    public ProductImage? Image { get; set; }            // Rich image picked from Umbraco Media (preferred)
     public int StockQuantity { get; set; }
     public string Status { get; set; } = "active";
 

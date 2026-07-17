@@ -1,6 +1,7 @@
 import { LitElement, html, css } from '@umbraco-cms/backoffice/external/lit';
 import { UmbElementMixin } from '@umbraco-cms/backoffice/element-api';
 import { UMB_AUTH_CONTEXT } from '@umbraco-cms/backoffice/auth';
+import '@umbraco-cms/backoffice/media'; // registers the native <umb-input-rich-media> element
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -88,6 +89,8 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
     optionPresetsLoading: { type: Boolean },
     optionPresetsError:   { type: String  },
     editingPreset:        { type: Object  },
+    defaultAliases:       { type: Object  },
+    optionImageWorking:   { type: Boolean },
     optionPresetsSearch:  { type: String  },
     optionPresetsPage:    { type: Number  },
     _presetPickerOpen:    { type: Boolean },
@@ -126,6 +129,7 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
 
     this.discounts = []; this.discountsLoading = false; this.discountsError = null; this.editingDiscount = null;
     this.optionPresets = []; this.optionPresetsLoading = false; this.optionPresetsError = null; this.editingPreset = null;
+    this.defaultAliases = null; this.optionImageWorking = false;
     this.optionPresetsSearch = ''; this.optionPresetsPage = 1;
     this._presetPickerOpen = false; this._presetPickerSearch = ''; this._presetPickerPage = 1;
     this.propertyTemplates = []; this.propertyTemplatesLoading = false; this.propertyTemplatesError = null; this.editingTemplate = null;
@@ -162,8 +166,113 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
       }
     } catch { if (s?.marketId) this.marketName = s.marketId; }
 
+    this.loadDefaultAliases();
     await this.loadStatusDefs();
     this.loadOrders();
+  }
+
+  async loadDefaultAliases() {
+    try {
+      this.defaultAliases = await this._get('/umbraco/management/api/ecomm-commerce/settings/defaults');
+    } catch { /* focal point defaults on, no crop */ }
+  }
+
+  // ─── Umbraco media picker helpers (single option image) ─────────────────────
+
+  async resolveUmbracoMediaUrls(keys, authHeader) {
+    try {
+      if (!authHeader) authHeader = `Bearer ${await this._authContext?.getLatestToken()}`;
+      const params = keys.map(k => `id=${encodeURIComponent(k)}`).join('&');
+      const res = await fetch(`/umbraco/management/api/v1/media/urls?${params}`, {
+        headers: { 'Authorization': authHeader }, credentials: 'include',
+      });
+      if (!res.ok) return [];
+      const data = await res.json();
+      return (Array.isArray(data) ? data : []).map(i => i.urlInfos?.[0]?.url || null).filter(Boolean);
+    } catch { return []; }
+  }
+
+  async _mediaInfo(mediaKey) {
+    this._mediaInfoCache = this._mediaInfoCache || {};
+    if (this._mediaInfoCache[mediaKey]) return this._mediaInfoCache[mediaKey];
+    const authHeader = `Bearer ${await this._authContext?.getLatestToken()}`;
+    let url = '';
+    try { url = (await this.resolveUmbracoMediaUrls([mediaKey], authHeader))[0] || ''; } catch { /* ignore */ }
+    let altText;
+    try {
+      const res = await fetch(`/umbraco/management/api/v1/media/${mediaKey}`, {
+        headers: { Authorization: authHeader }, credentials: 'include',
+      });
+      if (res.ok) altText = this._readAltFromMediaDetail(await res.json());
+    } catch { /* ignore */ }
+    const info = { url, altText };
+    this._mediaInfoCache[mediaKey] = info;
+    return info;
+  }
+
+  _readAltFromMediaDetail(detail) {
+    const values = (detail && detail.values) || [];
+    const aliases = ['alttext', 'alt', 'alternativetext'];
+    for (const alias of aliases) {
+      const v = values.find(x => (x.alias || '').toLowerCase() === alias && typeof x.value === 'string' && x.value.trim());
+      if (v) return v.value.trim();
+    }
+    return (detail && detail.variants && detail.variants[0] && detail.variants[0].name) || undefined;
+  }
+
+  /** The single configured crop preset (Settings → Images), as the native picker's preselectedCrops. */
+  _preselectedCrops() {
+    const c = this.defaultAliases?.productImageCrop;
+    if (!c || !(c.width > 0) || !(c.height > 0)) return [];
+    return [{ alias: c.alias || 'product', label: c.label, width: c.width, height: c.height }];
+  }
+
+  /** Build the <umb-input-rich-media> value from a single option image (media-backed only). */
+  _optionImageRichValue(image) {
+    if (!image || !image.mediaKey) return [];
+    return [{ key: image.mediaKey, mediaKey: image.mediaKey, mediaTypeAlias: '', focalPoint: image.focalPoint || null, crops: image.crops || [] }];
+  }
+
+  /** Map the native element value back to a single option image, resolving URL + alt. */
+  async _onOptionImageChange(value) {
+    const p = this.editingPreset;
+    if (!p) return;
+    const entry = (Array.isArray(value) ? value : []).find(e => e && e.mediaKey);
+    if (!entry) { this.editingPreset = { ...p, image: null }; return; }
+    this.optionImageWorking = true;
+    try {
+      const info = await this._mediaInfo(entry.mediaKey);
+      const baseUrl = (info.url && info.url.split('?')[0]) || (p.image && p.image.url) || '';
+      this.editingPreset = {
+        ...this.editingPreset,
+        image: {
+          url: baseUrl,
+          mediaKey: entry.mediaKey,
+          altText: (p.image && p.image.altText) || info.altText || undefined,
+          focalPoint: entry.focalPoint || undefined,
+          crops: (entry.crops && entry.crops.length) ? entry.crops : undefined,
+        },
+      };
+    } finally { this.optionImageWorking = false; }
+  }
+
+  /** Reusable image-picker form row for the option editor (single photo + legacy URL fallback). */
+  _renderOptionImageField(p) {
+    return html`
+      <div class="form-row"><label>Image</label>
+        <div style="flex:1">
+          <umb-input-rich-media
+            .value=${this._optionImageRichValue(p.image)}
+            ?multiple=${false}
+            .focalPointEnabled=${this.defaultAliases?.enableFocalPoint ?? true}
+            .preselectedCrops=${this._preselectedCrops()}
+            @change=${e => this._onOptionImageChange(e.target.value)}>
+          </umb-input-rich-media>
+          ${this.optionImageWorking ? html`<div style="display:flex;align-items:center;gap:6px;margin-top:4px"><uui-loader></uui-loader><span style="font-size:0.8rem;color:#999">Working…</span></div>` : ''}
+          <input class="form-input" style="margin-top:6px" .value=${p.imageUrl || ''} placeholder="…or paste an image URL"
+            @input=${e => { this.editingPreset = { ...this.editingPreset, imageUrl: e.target.value }; }}>
+        </div>
+      </div>`;
   }
 
   _selectMarket(m) {
@@ -176,6 +285,7 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
     else if (this.activeView === 'discounts') this.loadDiscounts();
     else if (this.activeView === 'analytics') this.loadAnalytics();
     else if (this.activeView === 'property-templates') this.loadPropertyTemplates();
+    else if (this.activeView === 'option-presets') { this.editingPreset = null; this.loadOptionPresets(); }
   }
 
   async loadStatusDefs() {
@@ -356,7 +466,8 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
   async loadOptionPresets() {
     this.optionPresetsLoading = true; this.optionPresetsError = null; this.optionPresetsPage = 1;
     try {
-      const data = await this._get('/umbraco/management/api/ecomm-commerce/option-presets');
+      const qs = this.selectedMarketId ? `?marketId=${encodeURIComponent(this.selectedMarketId)}` : '';
+      const data = await this._get(`/umbraco/management/api/ecomm-commerce/option-presets${qs}`);
       // API now returns { presets: [...], total, page, pageSize }
       this.optionPresets = Array.isArray(data) ? data : (data?.presets ?? []);
     } catch (e) { this.optionPresetsError = e.message; }
@@ -365,7 +476,8 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
 
   async _saveOptionPresets(presets) {
     const headers = await this.getAuthHeaders();
-    const r = await fetch('/umbraco/management/api/ecomm-commerce/option-presets', {
+    const qs = this.selectedMarketId ? `?marketId=${encodeURIComponent(this.selectedMarketId)}` : '';
+    const r = await fetch(`/umbraco/management/api/ecomm-commerce/option-presets${qs}`, {
       method: 'PUT', headers, credentials: 'include',
       body: JSON.stringify({ presets })
     });
@@ -1215,10 +1327,7 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
                   <option value="active">Active</option><option value="inactive">Inactive</option><option value="draft">Draft</option>
                 </select>
               </div>
-              <div class="form-row"><label>Image URL</label>
-                <input class="form-input" .value=${p.imageUrl||''} placeholder="https://…"
-                  @input=${e => { this.editingPreset = {...p, imageUrl: e.target.value}; }}>
-              </div>
+              ${this._renderOptionImageField(p)}
               <div class="form-row"><label>Description</label>
                 <textarea class="form-input" rows="2" .value=${p.description||''} placeholder="Optional"
                   @input=${e => { this.editingPreset = {...p, description: e.target.value}; }}></textarea>
@@ -1304,10 +1413,7 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
                 <input class="form-input" type="number" min="0" .value=${p.stockQuantity||0}
                   @input=${e => { this.editingPreset = {...p, stockQuantity: parseInt(e.target.value)||0}; }}>
               </div>
-              <div class="form-row"><label>Image URL</label>
-                <input class="form-input" .value=${p.imageUrl||''} placeholder="https://…"
-                  @input=${e => { this.editingPreset = {...p, imageUrl: e.target.value}; }}>
-              </div>
+              ${this._renderOptionImageField(p)}
               <div class="form-row"><label>Status</label>
                 <select class="form-input" .value=${p.status||'active'}
                   @change=${e => { this.editingPreset = {...p, status: e.target.value}; }}>

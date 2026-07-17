@@ -25,7 +25,8 @@ public class OptionPreset
     public string? Sku { get; set; }
     public decimal Price { get; set; }
     public string? Description { get; set; }
-    public string? ImageUrl { get; set; }
+    public string? ImageUrl { get; set; }               // legacy plain URL (fallback)
+    public ProductImage? Image { get; set; }            // rich image picked from Umbraco Media (preferred)
     public int StockQuantity { get; set; }
     public string Status { get; set; } = "active";
     public string Kind { get; set; } = "single";

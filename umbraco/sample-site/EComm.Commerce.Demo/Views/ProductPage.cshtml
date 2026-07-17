@@ -229,14 +229,19 @@
                         .Where(b => !b.Disabled && b.OptionIds.Any(id => Model.OptionPresets.ContainsKey(id)))
                         .ToList();
 
+                    // Prefer the rich Umbraco-Media image (focal-point cropped); fall back to the legacy URL.
+                    Func<EComm.Umbraco.Commerce.Models.OptionPreset, string> addonImgSrc = o =>
+                        o.Image != null ? ProductImages.CropUrl(o.Image) : o.ImageUrl;
+
                     // Renders one purchasable single option as an add row (shared by
                     // standalone singles and the sub-options of a group).
                     Func<dynamic, object> renderAddonRow = @<text>
                         @{ var opt = (EComm.Umbraco.Commerce.Models.OptionPreset)item; var inStock = opt.StockQuantity > 0; }
                         <div class="addon-row d-flex align-items-center gap-2 py-2">
-                            @if (!string.IsNullOrEmpty(opt.ImageUrl))
+                            @{ var optSrc = addonImgSrc(opt); }
+                            @if (!string.IsNullOrEmpty(optSrc))
                             {
-                                <img src="@opt.ImageUrl" alt="@opt.Name" class="rounded"
+                                <img src="@optSrc" alt="@(opt.Image?.AltText ?? opt.Name)" class="rounded"
                                      style="width:48px;height:48px;object-fit:cover;" />
                             }
                             <div class="flex-grow-1">
@@ -291,9 +296,10 @@
                                         {
                                             <div class="addon-group ps-2 border-start">
                                                 <div class="d-flex align-items-center gap-2 mt-2">
-                                                    @if (!string.IsNullOrEmpty(opt.ImageUrl))
+                                                    @{ var grpSrc = addonImgSrc(opt); }
+                                                    @if (!string.IsNullOrEmpty(grpSrc))
                                                     {
-                                                        <img src="@opt.ImageUrl" alt="@opt.Name" class="rounded"
+                                                        <img src="@grpSrc" alt="@(opt.Image?.AltText ?? opt.Name)" class="rounded"
                                                              style="width:40px;height:40px;object-fit:cover;" />
                                                     }
                                                     <div>

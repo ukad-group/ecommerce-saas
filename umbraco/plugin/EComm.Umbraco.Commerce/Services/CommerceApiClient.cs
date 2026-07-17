@@ -83,7 +83,7 @@ public class CommerceApiClient : ICommerceApiClient
         public List<MarketInfo>? Markets { get; set; }
     }
 
-    public async Task<List<OptionPreset>> GetOptionPresetsAsync()
+    public async Task<List<OptionPreset>> GetOptionPresetsAsync(string? marketId = null)
     {
         var settings = await _settingsService.GetSettingsAsync();
         if (settings == null || !settings.IsValid)
@@ -94,8 +94,9 @@ public class CommerceApiClient : ICommerceApiClient
 
         try
         {
+            var mid = marketId ?? settings.MarketId;
             var client = await CreateClientAsync(settings);
-            var url = $"admin/markets/{settings.MarketId}/option-presets?pageSize=0";
+            var url = $"admin/markets/{mid}/option-presets?pageSize=0";
 
             var response = await client.GetAsync(url);
             response.EnsureSuccessStatusCode();
@@ -935,17 +936,18 @@ public class CommerceApiClient : ICommerceApiClient
         }
     }
 
-    public async Task<bool> UpdateOptionPresetsAsync(List<OptionPreset> presets)
+    public async Task<bool> UpdateOptionPresetsAsync(string? marketId, List<OptionPreset> presets)
     {
         var settings = await _settingsService.GetSettingsAsync();
         if (settings == null || !settings.IsValid) return false;
 
         try
         {
+            var mid = marketId ?? settings.MarketId;
             var client = await CreateClientAsync(settings);
             var json = JsonSerializer.Serialize(new { presets }, JsonOptions);
             var content = new StringContent(json, Encoding.UTF8, "application/json");
-            var response = await client.PutAsync($"admin/markets/{settings.MarketId}/option-presets", content);
+            var response = await client.PutAsync($"admin/markets/{mid}/option-presets", content);
             return response.IsSuccessStatusCode;
         }
         catch (Exception ex)

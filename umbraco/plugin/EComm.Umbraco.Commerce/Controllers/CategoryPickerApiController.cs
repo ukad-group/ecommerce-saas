@@ -83,9 +83,9 @@ public class CategoryPickerApiController : ManagementApiControllerBase
     /// </summary>
     [HttpGet("option-presets")]
     [ProducesResponseType(typeof(List<OptionPreset>), StatusCodes.Status200OK)]
-    public async Task<IActionResult> GetOptionPresets()
+    public async Task<IActionResult> GetOptionPresets([FromQuery] string? marketId = null)
     {
-        var presets = await _apiClient.GetOptionPresetsAsync();
+        var presets = await _apiClient.GetOptionPresetsAsync(marketId);
         return Ok(presets);
     }
 
