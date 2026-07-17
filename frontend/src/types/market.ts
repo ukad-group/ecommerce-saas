@@ -1,4 +1,5 @@
 import type { Address } from './address';
+import type { ProductAttribute, ProductAttributePreset } from './product';
 
 export type MarketType = 'physical' | 'online' | 'hybrid';
 export type MarketStatus = 'active' | 'inactive';
@@ -7,6 +8,7 @@ export interface CustomPropertyTemplate {
   name: string;
   defaultValue?: string;
   sortOrder: number;
+  attributeId?: string; // when set, the product value is picked from this attribute's predefined values
 }
 
 export interface MarketSettings {
@@ -14,6 +16,8 @@ export interface MarketSettings {
   taxRate?: number;       // Default tax rate
   shippingZones?: string[];
   customPropertyTemplates?: CustomPropertyTemplate[];
+  attributes?: ProductAttribute[];              // Product attributes library (variant axes)
+  attributePresets?: ProductAttributePreset[];  // Named bundles of attributes
 }
 
 export interface Market {

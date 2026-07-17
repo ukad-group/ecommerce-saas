@@ -12,6 +12,8 @@ public class MarketSettings
     public List<string>? ShippingZones { get; set; }
     public List<CustomPropertyTemplate>? CustomPropertyTemplates { get; set; }
     public List<OptionPreset>? OptionPresets { get; set; }
+    public List<ProductAttribute>? Attributes { get; set; }
+    public List<ProductAttributePreset>? AttributePresets { get; set; }
     public List<ShippingMethod>? ShippingMethods { get; set; }
     public List<LeasingPeriod>? LeasingPeriods { get; set; }
     public string CartOrderStatus { get; set; } = "new";

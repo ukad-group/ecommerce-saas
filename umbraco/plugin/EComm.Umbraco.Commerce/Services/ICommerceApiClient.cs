@@ -107,6 +107,13 @@ public interface ICommerceApiClient
     Task<List<PropertyTemplate>> GetPropertyTemplatesAsync(string? marketId = null);
     Task<bool> UpdatePropertyTemplatesAsync(string marketId, List<PropertyTemplate> templates);
 
+    // ── Product Attributes (market-scoped variant-axis library) + presets ──────
+
+    Task<List<ProductAttribute>> GetAttributesAsync(string? marketId = null);
+    Task<bool> UpdateAttributesAsync(string? marketId, List<ProductAttribute> attributes);
+    Task<List<ProductAttributePreset>> GetAttributePresetsAsync(string? marketId = null);
+    Task<bool> UpdateAttributePresetsAsync(string? marketId, List<ProductAttributePreset> presets);
+
     // ── Shipping Methods ─────────────────────────────────────────────────────
 
     Task<List<ShippingMethod>> GetShippingMethodsAsync(string? marketId = null);

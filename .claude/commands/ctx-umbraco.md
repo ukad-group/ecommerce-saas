@@ -119,7 +119,8 @@ async getAuthHeaders() {
 3. Displays products in a table with: Image, Name, Slug, Price, Stock quantity
 4. **Full editor** (no longer read-only): variant/options builder with a combinations table, Highlights, Leasing Factor, Hide Price + hidden-price message, SEO title/description, and an "Add-on Options" section for attaching option-preset blocks to a product, plus a "Manage Options" view for editing the market's option-presets library
 5. **Images**: rich `ProductImage` objects (`url`, `altText`, `focalPoint`, `crops`, `mediaKey`) edited via Umbraco's **native media picker** (`<umb-input-rich-media>`: pick / upload / reorder / native focal-point + crop editor); external provider/URL images in a secondary list. A single global crop (width×height) + focal-point toggle configured in Settings → Commerce Settings → **Images**. Bare URL strings still accepted (backward compatible). **How it works + how to render on your storefront: [umbraco/docs/PRODUCT-IMAGES.md](../../umbraco/docs/PRODUCT-IMAGES.md)**
-6. **Global custom fields**: the market's property templates are merged into the product editor as an editable **Attributes** block (`renderCustomPropertiesEditor`) — template-backed rows show a "global" badge and can't be removed (unfilled ones seeded from the template default), ad-hoc rows are add/edit/remove. Edited values are written to `editedProduct.customProperties` and saved with the product.
+6. **Global custom fields**: the market's property templates are merged into the product editor as an editable **Attributes** block (`renderCustomPropertiesEditor`) — template-backed rows show a "global" badge and can't be removed (unfilled ones seeded from the template default), ad-hoc rows are add/edit/remove. Edited values are written to `editedProduct.customProperties` and saved with the product. A property whose template is bound to a **Product Attribute** (`attributeId`) renders its value as a **dropdown** of that attribute's predefined values (`_propertyOptions`), not free text.
+7. **Product attributes / variants**: variant axes use the market's Product Attribute library. `VariantOption.Values` are `{name, alias}` objects (API model) — normalized to plain strings on load and denormalized on save (`_normalizeVariantOptions`/`_denormalizeVariantOptions`) so the existing variant editor keeps working. Variant-combination uniqueness is validated on save (no two variants may share the same attribute-value combination).
 
 **Context Pattern**: Uses Umbraco's property dataset context for reactive updates
 ```javascript
@@ -173,7 +174,7 @@ import { UMB_CURRENT_USER_CONTEXT } from '@umbraco-cms/backoffice/current-user';
 - Methods: `GetCategoriesAsync`, `GetCategoryAsync`, `CreateCategoryAsync`, `GetProductsAsync`, `GetProductBySlugAsync`, `GetMarketsAsync`, `GetCountriesAsync`, `CreateProductAsync`, `DeleteProductAsync`
 - **Cart**: `GetCartAsync`, `AddCartItemAsync`, `UpdateCartItemAsync`, `RemoveCartItemAsync`, `CreateOrderAsync` (session-based)
 - **Orders**: `GetOrdersAsync`, `GetOrderAsync`, `UpdateOrderStatusAsync`, `GetOrderStatusDefinitionsAsync`, `CreatePaymentAsync` (Nets Easy)
-- **Market config**: `GetOptionPresetsAsync`/`UpdateOptionPresetsAsync`, shipping methods, leasing periods, property templates, discounts (full CRUD)
+- **Market config**: `GetOptionPresetsAsync`/`UpdateOptionPresetsAsync`, `GetAttributesAsync`/`UpdateAttributesAsync`, `GetAttributePresetsAsync`/`UpdateAttributePresetsAsync`, shipping methods, leasing periods, property templates, discounts (full CRUD)
 
 **Connection Testing**: Uses dedicated TenantInfo endpoint for connectivity validation
 ```csharp
@@ -203,8 +204,9 @@ request.Headers.Add("X-API-Key", settings.ApiKey);
 #### 8. Commerce Admin Dashboard & API
 **Files**: `wwwroot/components/commerce-admin/commerce-admin-dashboard.js`, `Controllers/CommerceAdminApiController.cs`
 **Purpose**: Full commerce back-office inside Umbraco, in a dedicated "Commerce" section (auto-granted to the Administrators group by `Migrations/AddCommerceSectionToAdminGroupMigration.cs`)
-**Tabs**: Orders, Carts, Discounts, Option Presets, Order Statuses, Property Templates, Analytics
-**API Route**: `/umbraco/management/api/ecomm-commerce` - `markets`, `orders`, `orders/{id}`, `orders/{id}/status`, `order-statuses`, `option-presets`, `property-templates`, `discounts` (CRUD)
+**Tabs**: Orders, Carts, Discounts, Option Presets, **Product Attributes**, **Product Attribute Presets**, Order Statuses, Property Templates, Analytics
+**API Route**: `/umbraco/management/api/ecomm-commerce` - `markets`, `orders`, `orders/{id}`, `orders/{id}/status`, `order-statuses`, `option-presets`, `attributes`, `attribute-presets`, `property-templates`, `discounts` (CRUD)
+**Product Attributes tabs**: per-store attribute library (Name+Alias, values Name+Alias) and named presets (bundles of attributes), scoped to the selected market (`?marketId=`). Property Templates tab gains a "Values from attribute" binding so a template's product value becomes a dropdown of that attribute's values.
 **Option Presets tab**: full CRUD (single + group), **scoped to the selected market** — load + save both pass `?marketId=<selectedMarketId>` (previously read the removed global `settings.MarketId`, so the tab showed empty). Each preset can carry a photo picked from **Umbraco Media** (rich `Image` object, same picker/helpers as product images) with the legacy `imageUrl` kept as a paste-a-URL fallback.
 
 #### 9. Product Picker & Store Picker

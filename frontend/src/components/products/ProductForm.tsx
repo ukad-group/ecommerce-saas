@@ -15,12 +15,14 @@ import { Button } from '../common/Button';
 import { ImageUpload } from '../common/ImageUpload';
 import { useCategories } from '../../services/hooks/useCategories';
 import { useMarketPropertyTemplates } from '../../services/hooks/useMarketPropertyTemplates';
+import { useAllAttributes, useAllAttributePresets } from '../../services/hooks/useMarketAttributes';
 import { useAuthStore } from '../../store/authStore';
 import { Role } from '../../types/auth';
 import { VersionBadge } from './VersionBadge';
 import { VersionHistoryModal } from './VersionHistoryModal';
-import type { Product, ProductStatus, VariantOption, ProductVariant, CustomProperty, ProductOption, ProductImageEntry } from '../../types/product';
+import type { Product, ProductStatus, VariantOption, ProductVariant, CustomProperty, ProductOption, ProductImageEntry, ProductAttribute } from '../../types/product';
 import { ProductOptionsEditor } from './ProductOptionsEditor';
+import { slugify } from '../../pages/admin/ProductAttributesPage';
 
 // Extended property type for merged display
 interface MergedCustomProperty extends CustomProperty {
@@ -61,6 +63,8 @@ export function ProductForm({
 }: ProductFormProps) {
   const { data: categories } = useCategories();
   const { data: marketTemplates = [] } = useMarketPropertyTemplates();
+  const { data: libraryAttributes = [] } = useAllAttributes();
+  const { data: attributePresets = [] } = useAllAttributePresets();
   const role = useAuthStore((state) => state.getRole());
   const isAdmin = role === Role.SUPERADMIN || role === Role.TENANT_ADMIN;
 
@@ -195,12 +199,54 @@ export function ProductForm({
 
     const existing = variantOptions.find((opt) => opt.name === newOptionName);
     if (existing) {
-      alert('Variant option with this name already exists');
+      alert('Attribute with this name already exists');
       return;
     }
 
-    setVariantOptions([...variantOptions, { name: newOptionName, values: [] }]);
+    // Local (ad-hoc) attribute, not linked to the store library
+    setVariantOptions([...variantOptions, { name: newOptionName.trim(), alias: slugify(newOptionName), values: [] }]);
     setNewOptionName('');
+  };
+
+  /** Add a store-library (global) attribute with all its values pre-selected. */
+  const handleAddGlobalAttribute = (attributeId: string) => {
+    const attr = libraryAttributes.find((a: ProductAttribute) => a.id === attributeId);
+    if (!attr) return;
+    if (variantOptions.find((opt) => opt.attributeId === attr.id || opt.name === attr.name)) {
+      alert('This attribute is already added');
+      return;
+    }
+    setVariantOptions([
+      ...variantOptions,
+      {
+        name: attr.name,
+        alias: attr.alias,
+        attributeId: attr.id,
+        values: attr.values.map((v) => ({ ...v })),
+      },
+    ]);
+  };
+
+  /** Apply an attribute preset: add every attribute it bundles (skipping duplicates). */
+  const handleApplyPreset = (presetId: string) => {
+    const preset = attributePresets.find((p) => p.id === presetId);
+    if (!preset) return;
+    const toAdd: VariantOption[] = [];
+    for (const attrId of preset.attributeIds) {
+      const attr = libraryAttributes.find((a: ProductAttribute) => a.id === attrId);
+      if (!attr) continue;
+      if (
+        variantOptions.find((opt) => opt.attributeId === attr.id || opt.name === attr.name) ||
+        toAdd.find((opt) => opt.attributeId === attr.id)
+      ) continue;
+      toAdd.push({
+        name: attr.name,
+        alias: attr.alias,
+        attributeId: attr.id,
+        values: attr.values.map((v) => ({ ...v })),
+      });
+    }
+    if (toAdd.length) setVariantOptions([...variantOptions, ...toAdd]);
   };
 
   const handleAddVariantValue = (optionName: string) => {
@@ -210,7 +256,7 @@ export function ProductForm({
     setVariantOptions(
       variantOptions.map((opt) =>
         opt.name === optionName
-          ? { ...opt, values: [...opt.values, value] }
+          ? { ...opt, values: [...opt.values, { name: value.trim(), alias: slugify(value) }] }
           : opt
       )
     );
@@ -223,16 +269,16 @@ export function ProductForm({
     setVariants(variants.filter((v) => !(optionName in v.options)));
   };
 
-  const handleRemoveVariantValue = (optionName: string, value: string) => {
+  const handleRemoveVariantValue = (optionName: string, valueName: string) => {
     setVariantOptions(
       variantOptions.map((opt) =>
         opt.name === optionName
-          ? { ...opt, values: opt.values.filter((v) => v !== value) }
+          ? { ...opt, values: opt.values.filter((v) => v.name !== valueName) }
           : opt
       )
     );
     // Remove variants that used this value
-    setVariants(variants.filter((v) => v.options[optionName] !== value));
+    setVariants(variants.filter((v) => v.options[optionName] !== valueName));
   };
 
   const generateVariants = () => {
@@ -248,7 +294,7 @@ export function ProductForm({
 
       const option = variantOptions[index];
       for (const value of option.values) {
-        generate(index + 1, { ...current, [option.name]: value });
+        generate(index + 1, { ...current, [option.name]: value.name });
       }
     };
 
@@ -322,6 +368,18 @@ export function ProductForm({
       (a, b) => a.sortOrder - b.sortOrder
     );
   }, [customProperties, marketTemplates]);
+
+  // Map a property (by name) to its market template's bound attribute values, if any.
+  // When present, the product value is chosen from these predefined values (a dropdown).
+  const propertyOptionsByName = useMemo(() => {
+    const map = new Map<string, string[]>();
+    for (const t of marketTemplates) {
+      if (!t.attributeId) continue;
+      const attr = libraryAttributes.find((a: ProductAttribute) => a.id === t.attributeId);
+      if (attr) map.set(t.name.toLowerCase(), attr.values.map((v) => v.name));
+    }
+    return map;
+  }, [marketTemplates, libraryAttributes]);
 
   // Custom properties handlers
   const handleAddCustomProperty = () => {
@@ -459,6 +517,20 @@ export function ProductForm({
       if (dup) {
         alert(`Duplicate variant SKU '${dup}'. Each variant must have a unique SKU.`);
         return;
+      }
+
+      // Each variant must be a unique combination of attribute values (all values identical => duplicate)
+      const comboKey = (opts: Record<string, string>) =>
+        Object.keys(opts).sort().map((k) => `${k}=${opts[k]}`).join('|');
+      const seen = new Map<string, string>();
+      for (const v of variants) {
+        const key = comboKey(v.options);
+        if (seen.has(key)) {
+          const label = Object.entries(v.options).map(([k, val]) => `${k}: ${val}`).join(', ') || '(no attributes)';
+          alert(`Duplicate variant combination — ${label}. Each variant must have a unique set of attribute values.`);
+          return;
+        }
+        seen.set(key, v.id);
       }
     }
 
@@ -652,15 +724,36 @@ export function ProductForm({
                     />
                   </div>
                   <div className="flex-1 w-full w-full">
-                    <input
-                      type="text"
-                      placeholder="Property value (e.g., Aluminum)"
-                      value={property.value}
-                      onChange={(e) =>
-                        handleUpdateCustomProperty(index, 'value', e.target.value)
+                    {(() => {
+                      const options = propertyOptionsByName.get(property.name.toLowerCase());
+                      if (options) {
+                        return (
+                          <select
+                            value={property.value}
+                            onChange={(e) => handleUpdateCustomProperty(index, 'value', e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#4a6ba8] focus:border-[#4a6ba8] text-sm bg-white"
+                          >
+                            <option value="">Select a value…</option>
+                            {/* keep a stale/custom value visible even if it's not in the attribute list */}
+                            {property.value && !options.includes(property.value) && (
+                              <option value={property.value}>{property.value}</option>
+                            )}
+                            {options.map((opt) => (
+                              <option key={opt} value={opt}>{opt}</option>
+                            ))}
+                          </select>
+                        );
                       }
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#4a6ba8] focus:border-[#4a6ba8] text-sm"
-                    />
+                      return (
+                        <input
+                          type="text"
+                          placeholder="Property value (e.g., Aluminum)"
+                          value={property.value}
+                          onChange={(e) => handleUpdateCustomProperty(index, 'value', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#4a6ba8] focus:border-[#4a6ba8] text-sm"
+                        />
+                      );
+                    })()}
                   </div>
                   {property.isMarketTemplate ? (
                     <div
@@ -905,37 +998,82 @@ export function ProductForm({
         </>
       ) : (
         <>
-          {/* Variant Options Configuration */}
+          {/* Attributes Configuration */}
           <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-lg font-medium text-gray-900 mb-4">
-              Configure Variant Options
-            </h2>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-medium text-gray-900">Attributes</h2>
+              <Link to="/admin/products/attributes" className="text-sm text-[#4a6ba8] hover:text-[#3d5789]">
+                Manage store attributes →
+              </Link>
+            </div>
             <p className="text-sm text-gray-600 mb-4">
-              Define variant types (e.g., Size, Color) and their values
+              Add attributes (e.g. Size, Color) and their values to build variants. Pick global attributes
+              from the store library, apply a preset, or add a local one just for this product.
             </p>
 
-            {/* Add New Variant Option */}
-            <div className="mb-6 p-4 bg-gray-50 rounded-md">
-              <div className="flex gap-2">
+            {/* Add attributes: global library + preset + local */}
+            <div className="mb-6 p-4 bg-gray-50 rounded-md space-y-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {/* Global attribute picker */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Add store attribute</label>
+                  <select
+                    value=""
+                    onChange={(e) => { if (e.target.value) handleAddGlobalAttribute(e.target.value); }}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#4a6ba8]"
+                  >
+                    <option value="">Select an attribute…</option>
+                    {libraryAttributes
+                      .filter((a: ProductAttribute) => !variantOptions.find((o) => o.attributeId === a.id || o.name === a.name))
+                      .map((a: ProductAttribute) => (
+                        <option key={a.id} value={a.id}>{a.name} ({a.values.length} values)</option>
+                      ))}
+                  </select>
+                </div>
+                {/* Preset picker */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Apply preset</label>
+                  <select
+                    value=""
+                    onChange={(e) => { if (e.target.value) handleApplyPreset(e.target.value); }}
+                    disabled={attributePresets.length === 0}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#4a6ba8] disabled:bg-gray-100"
+                  >
+                    <option value="">{attributePresets.length ? 'Select a preset…' : 'No presets defined'}</option>
+                    {attributePresets.map((p) => (
+                      <option key={p.id} value={p.id}>{p.name} ({p.attributeIds.length} attributes)</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              {/* Local attribute */}
+              <div className="flex gap-2 border-t pt-3">
                 <Input
-                  label="Option Name (e.g., Size, Color)"
+                  label="Or add a local attribute (e.g. Size, Color)"
                   value={newOptionName}
                   onChange={(e) => setNewOptionName(e.target.value)}
                   placeholder="Size"
                 />
                 <div className="flex items-end">
                   <Button type="button" onClick={handleAddVariantOption}>
-                    Add Option
+                    Add Local
                   </Button>
                 </div>
               </div>
             </div>
 
-            {/* Display Variant Options */}
+            {/* Display Attributes */}
             {variantOptions.map((option) => (
               <div key={option.name} className="mb-4 p-4 border rounded-md">
                 <div className="flex justify-between items-center mb-3">
-                  <h3 className="font-medium text-gray-900">{option.name}</h3>
+                  <h3 className="font-medium text-gray-900 flex items-center gap-2">
+                    {option.name}
+                    {option.attributeId ? (
+                      <span className="inline-flex items-center rounded-full bg-[#4a6ba8]/10 px-2 py-0.5 text-xs font-medium text-[#4a6ba8]">global</span>
+                    ) : (
+                      <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-500">local</span>
+                    )}
+                  </h3>
                   <button
                     type="button"
                     onClick={() => handleRemoveVariantOption(option.name)}
@@ -967,13 +1105,14 @@ export function ProductForm({
                 <div className="flex flex-wrap gap-2">
                   {option.values.map((value) => (
                     <span
-                      key={value}
+                      key={value.name}
                       className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-primary-100 text-primary-800"
+                      title={value.alias ? `alias: ${value.alias}` : undefined}
                     >
-                      {value}
+                      {value.name}
                       <button
                         type="button"
-                        onClick={() => handleRemoveVariantValue(option.name, value)}
+                        onClick={() => handleRemoveVariantValue(option.name, value.name)}
                         className="ml-2 text-primary-600 hover:text-primary-800"
                       >
                         ×

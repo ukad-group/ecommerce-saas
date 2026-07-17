@@ -200,6 +200,35 @@ public static class DatabaseSeeder
                         new OptionPreset { Id = "opt-spare-wheel", Name = "Spare Wheel", Sku = "OPT-SPARE", Price = 65.00m, Description = "Full-size spare wheel", StockQuantity = 40, Status = "active", Kind = "single" },
                         // Group: bundles the two towbar singles under one display unit
                         new OptionPreset { Id = "grp-couplings", Name = "Couplings", Description = "Pick a towbar coupling size", ImageUrl = null, Status = "active", Kind = "group", SubOptionIds = new List<string> { "opt-towbar-50", "opt-towbar-90" } }
+                    },
+                    Attributes = new List<ProductAttribute>
+                    {
+                        new ProductAttribute
+                        {
+                            Id = "attr-size", Name = "Size", Alias = "size",
+                            Values = new List<ProductAttributeValue>
+                            {
+                                new ProductAttributeValue { Name = "Small", Alias = "small" },
+                                new ProductAttributeValue { Name = "Medium", Alias = "medium" },
+                                new ProductAttributeValue { Name = "Large", Alias = "large" },
+                                new ProductAttributeValue { Name = "XL", Alias = "xl" }
+                            }
+                        },
+                        new ProductAttribute
+                        {
+                            Id = "attr-color", Name = "Color", Alias = "color",
+                            Values = new List<ProductAttributeValue>
+                            {
+                                new ProductAttributeValue { Name = "White", Alias = "white" },
+                                new ProductAttributeValue { Name = "Black", Alias = "black" },
+                                new ProductAttributeValue { Name = "Navy", Alias = "navy" },
+                                new ProductAttributeValue { Name = "Gray", Alias = "gray" }
+                            }
+                        }
+                    },
+                    AttributePresets = new List<ProductAttributePreset>
+                    {
+                        new ProductAttributePreset { Id = "attr-preset-apparel", Name = "Apparel", Alias = "apparel", AttributeIds = new List<string> { "attr-size", "attr-color" } }
                     }
                 },
                 ApiKeyCount = 2,
@@ -605,8 +634,28 @@ public static class DatabaseSeeder
                 HasVariants = true,
                 VariantOptions = new List<VariantOption>
                 {
-                    new VariantOption { Name = "Size", Values = new List<string> { "Small", "Medium", "Large", "XL" } },
-                    new VariantOption { Name = "Color", Values = new List<string> { "White", "Black", "Navy", "Gray" } }
+                    new VariantOption
+                    {
+                        Name = "Size", Alias = "size", AttributeId = "attr-size",
+                        Values = new List<ProductAttributeValue>
+                        {
+                            new ProductAttributeValue { Name = "Small", Alias = "small" },
+                            new ProductAttributeValue { Name = "Medium", Alias = "medium" },
+                            new ProductAttributeValue { Name = "Large", Alias = "large" },
+                            new ProductAttributeValue { Name = "XL", Alias = "xl" }
+                        }
+                    },
+                    new VariantOption
+                    {
+                        Name = "Color", Alias = "color", AttributeId = "attr-color",
+                        Values = new List<ProductAttributeValue>
+                        {
+                            new ProductAttributeValue { Name = "White", Alias = "white" },
+                            new ProductAttributeValue { Name = "Black", Alias = "black" },
+                            new ProductAttributeValue { Name = "Navy", Alias = "navy" },
+                            new ProductAttributeValue { Name = "Gray", Alias = "gray" }
+                        }
+                    }
                 },
                 Variants = new List<ProductVariant>
                 {

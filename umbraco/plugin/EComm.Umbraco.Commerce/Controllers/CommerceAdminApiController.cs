@@ -105,6 +105,40 @@ public class CommerceAdminApiController : ManagementApiControllerBase
         return ok ? Ok() : StatusCode(StatusCodes.Status502BadGateway, "Failed to update property templates");
     }
 
+    // ── Product Attributes + presets ───────────────────────────────────────────
+
+    [HttpGet("attributes")]
+    [ProducesResponseType(typeof(List<ProductAttribute>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetAttributes([FromQuery] string? marketId = null)
+    {
+        var attributes = await _apiClient.GetAttributesAsync(marketId);
+        return Ok(attributes);
+    }
+
+    [HttpPut("attributes")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<IActionResult> UpdateAttributes([FromQuery] string? marketId, [FromBody] UpdateAttributesRequest request)
+    {
+        var ok = await _apiClient.UpdateAttributesAsync(marketId, request.Attributes);
+        return ok ? Ok() : StatusCode(StatusCodes.Status502BadGateway, "Failed to update attributes");
+    }
+
+    [HttpGet("attribute-presets")]
+    [ProducesResponseType(typeof(List<ProductAttributePreset>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetAttributePresets([FromQuery] string? marketId = null)
+    {
+        var presets = await _apiClient.GetAttributePresetsAsync(marketId);
+        return Ok(presets);
+    }
+
+    [HttpPut("attribute-presets")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<IActionResult> UpdateAttributePresets([FromQuery] string? marketId, [FromBody] UpdateAttributePresetsRequest request)
+    {
+        var ok = await _apiClient.UpdateAttributePresetsAsync(marketId, request.Presets);
+        return ok ? Ok() : StatusCode(StatusCodes.Status502BadGateway, "Failed to update attribute presets");
+    }
+
     // ── Discounts ─────────────────────────────────────────────────────────────
 
     [HttpGet("discounts")]
@@ -159,4 +193,14 @@ public class UpdateOptionPresetsRequest
 public class UpdatePropertyTemplatesRequest
 {
     public List<PropertyTemplate> Templates { get; set; } = new();
+}
+
+public class UpdateAttributesRequest
+{
+    public List<ProductAttribute> Attributes { get; set; } = new();
+}
+
+public class UpdateAttributePresetsRequest
+{
+    public List<ProductAttributePreset> Presets { get; set; } = new();
 }

@@ -23,12 +23,16 @@ const NAV_ITEMS = [
 ];
 
 const OPTIONS_SUBITEMS = [
-  { key: 'order-statuses',      label: 'Order Statuses',       icon: 'icon-settings', enabled: true },
-  { key: 'option-presets',      label: 'Option Presets',       icon: 'icon-code',     enabled: true },
-  { key: 'property-templates',  label: 'Property Templates',   icon: 'icon-list',     enabled: true },
+  { key: 'order-statuses',        label: 'Order Statuses',              icon: 'icon-settings', enabled: true },
+  { key: 'option-presets',        label: 'Option Presets',              icon: 'icon-code',     enabled: true },
+  { key: 'attributes',            label: 'Product Attributes',          icon: 'icon-tag',      enabled: true },
+  { key: 'attribute-presets',     label: 'Product Attribute Presets',   icon: 'icon-tags',     enabled: true },
+  { key: 'property-templates',    label: 'Property Templates',          icon: 'icon-list',     enabled: true },
 ];
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
+
+const slugify = s => (s || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 
 const getOrderStatusLabel  = s => ORDER_STATUS_LABELS[s]   || s || 'Unknown';
 const getPaymentStatusLabel = s => PAYMENT_STATUS_LABELS[s] || s || 'Unknown';
@@ -103,6 +107,20 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
     editingTemplate:          { type: Object  },
     propertyTemplatesSearch:  { type: String  },
     propertyTemplatesPage:    { type: Number  },
+    // product attributes
+    attributes:               { type: Array   },
+    attributesLoading:        { type: Boolean },
+    attributesError:          { type: String  },
+    editingAttribute:         { type: Object  },
+    attributesSearch:         { type: String  },
+    attributesPage:           { type: Number  },
+    // product attribute presets
+    attributePresets:         { type: Array   },
+    attributePresetsLoading:  { type: Boolean },
+    attributePresetsError:    { type: String  },
+    editingAttributePreset:   { type: Object  },
+    attributePresetsSearch:   { type: String  },
+    attributePresetsPage:     { type: Number  },
   };
 
   constructor() {
@@ -134,6 +152,10 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
     this._presetPickerOpen = false; this._presetPickerSearch = ''; this._presetPickerPage = 1;
     this.propertyTemplates = []; this.propertyTemplatesLoading = false; this.propertyTemplatesError = null; this.editingTemplate = null;
     this.propertyTemplatesSearch = ''; this.propertyTemplatesPage = 1;
+    this.attributes = []; this.attributesLoading = false; this.attributesError = null; this.editingAttribute = null;
+    this.attributesSearch = ''; this.attributesPage = 1;
+    this.attributePresets = []; this.attributePresetsLoading = false; this.attributePresetsError = null; this.editingAttributePreset = null;
+    this.attributePresetsSearch = ''; this.attributePresetsPage = 1;
 
     this.consumeContext(UMB_AUTH_CONTEXT, ctx => { this._authContext = ctx; });
     this._closeMenus = () => { this.showOSMenu = false; this.showPSMenu = false; };
@@ -284,8 +306,10 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
     else if (this.activeView === 'carts') this.loadCarts();
     else if (this.activeView === 'discounts') this.loadDiscounts();
     else if (this.activeView === 'analytics') this.loadAnalytics();
-    else if (this.activeView === 'property-templates') this.loadPropertyTemplates();
+    else if (this.activeView === 'property-templates') { this.loadPropertyTemplates(); this.loadAttributes(); }
     else if (this.activeView === 'option-presets') { this.editingPreset = null; this.loadOptionPresets(); }
+    else if (this.activeView === 'attributes') { this.editingAttribute = null; this.loadAttributes(); }
+    else if (this.activeView === 'attribute-presets') { this.editingAttributePreset = null; this.loadAttributes(); this.loadAttributePresets(); }
   }
 
   async loadStatusDefs() {
@@ -531,7 +555,7 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
     if (!t || !t.name?.trim()) { this.propertyTemplatesError = 'Name is required'; return; }
     try {
       const sortOrder = t._isNew ? this.propertyTemplates.length : t.sortOrder;
-      const tmpl = { name: t.name.trim(), defaultValue: t.defaultValue || '', sortOrder };
+      const tmpl = { name: t.name.trim(), defaultValue: t.defaultValue || '', sortOrder, attributeId: t.attributeId || null };
       const list = t._isNew
         ? [...this.propertyTemplates, tmpl]
         : this.propertyTemplates.map((x, i) => i === t._idx ? tmpl : x);
@@ -539,6 +563,94 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
       this.editingTemplate = null;
       this.loadPropertyTemplates();
     } catch (e) { this.propertyTemplatesError = e.message; }
+  }
+
+  // ── Product Attributes ───────────────────────────────────────────────────────
+
+  async loadAttributes() {
+    this.attributesLoading = true; this.attributesError = null;
+    try {
+      const qs = this.selectedMarketId ? `?marketId=${encodeURIComponent(this.selectedMarketId)}` : '';
+      const data = await this._get(`/umbraco/management/api/ecomm-commerce/attributes${qs}`);
+      this.attributes = Array.isArray(data) ? data : (data?.attributes ?? []);
+    } catch (e) { this.attributesError = e.message; }
+    finally { this.attributesLoading = false; }
+  }
+
+  async _saveAttributes(attributes) {
+    const headers = await this.getAuthHeaders();
+    const qs = this.selectedMarketId ? `?marketId=${encodeURIComponent(this.selectedMarketId)}` : '';
+    const r = await fetch(`/umbraco/management/api/ecomm-commerce/attributes${qs}`, {
+      method: 'PUT', headers, credentials: 'include', body: JSON.stringify({ attributes })
+    });
+    if (!r.ok) throw new Error(r.statusText);
+  }
+
+  async saveAttribute() {
+    const a = this.editingAttribute;
+    if (!a || !a.name?.trim()) { this.attributesError = 'Name is required'; return; }
+    try {
+      const clean = {
+        id: a.id, name: a.name.trim(), alias: (a.alias || slugify(a.name)).trim(),
+        values: (a.values || []).filter(v => v.name?.trim()).map(v => ({ name: v.name.trim(), alias: (v.alias || slugify(v.name)).trim() })),
+      };
+      const exists = this.attributes.find(x => x.id === a.id);
+      const list = exists ? this.attributes.map(x => x.id === a.id ? clean : x) : [...this.attributes, clean];
+      await this._saveAttributes(list);
+      this.editingAttribute = null;
+      this.loadAttributes();
+    } catch (e) { this.attributesError = e.message; }
+  }
+
+  async deleteAttribute(id) {
+    try {
+      await this._saveAttributes(this.attributes.filter(x => x.id !== id));
+      this.loadAttributes();
+    } catch (e) { this.attributesError = e.message; }
+  }
+
+  // ── Product Attribute Presets ─────────────────────────────────────────────────
+
+  async loadAttributePresets() {
+    this.attributePresetsLoading = true; this.attributePresetsError = null;
+    try {
+      const qs = this.selectedMarketId ? `?marketId=${encodeURIComponent(this.selectedMarketId)}` : '';
+      const data = await this._get(`/umbraco/management/api/ecomm-commerce/attribute-presets${qs}`);
+      this.attributePresets = Array.isArray(data) ? data : (data?.presets ?? []);
+    } catch (e) { this.attributePresetsError = e.message; }
+    finally { this.attributePresetsLoading = false; }
+  }
+
+  async _saveAttributePresets(presets) {
+    const headers = await this.getAuthHeaders();
+    const qs = this.selectedMarketId ? `?marketId=${encodeURIComponent(this.selectedMarketId)}` : '';
+    const r = await fetch(`/umbraco/management/api/ecomm-commerce/attribute-presets${qs}`, {
+      method: 'PUT', headers, credentials: 'include', body: JSON.stringify({ presets })
+    });
+    if (!r.ok) throw new Error(r.statusText);
+  }
+
+  async saveAttributePreset() {
+    const p = this.editingAttributePreset;
+    if (!p || !p.name?.trim()) { this.attributePresetsError = 'Name is required'; return; }
+    try {
+      const clean = {
+        id: p.id, name: p.name.trim(), alias: (p.alias || slugify(p.name)).trim(),
+        attributeIds: p.attributeIds || [],
+      };
+      const exists = this.attributePresets.find(x => x.id === p.id);
+      const list = exists ? this.attributePresets.map(x => x.id === p.id ? clean : x) : [...this.attributePresets, clean];
+      await this._saveAttributePresets(list);
+      this.editingAttributePreset = null;
+      this.loadAttributePresets();
+    } catch (e) { this.attributePresetsError = e.message; }
+  }
+
+  async deleteAttributePreset(id) {
+    try {
+      await this._saveAttributePresets(this.attributePresets.filter(x => x.id !== id));
+      this.loadAttributePresets();
+    } catch (e) { this.attributePresetsError = e.message; }
   }
 
   async deleteTemplate(idx) {
@@ -578,7 +690,9 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
     if (key === 'order-statuses' && !this.orderStatuses.length   && !this.orderStatusesLoading) this.loadOrderStatuses();
     if (key === 'discounts'      && !this.discounts.length       && !this.discountsLoading)      this.loadDiscounts();
     if (key === 'option-presets'     && !this.optionPresets.length      && !this.optionPresetsLoading)     this.loadOptionPresets();
-    if (key === 'property-templates' && !this.propertyTemplates.length  && !this.propertyTemplatesLoading) this.loadPropertyTemplates();
+    if (key === 'property-templates') { if (!this.propertyTemplates.length && !this.propertyTemplatesLoading) this.loadPropertyTemplates(); if (!this.attributes.length && !this.attributesLoading) this.loadAttributes(); }
+    if (key === 'attributes'         && !this.attributes.length         && !this.attributesLoading)        this.loadAttributes();
+    if (key === 'attribute-presets') { if (!this.attributes.length && !this.attributesLoading) this.loadAttributes(); if (!this.attributePresets.length && !this.attributePresetsLoading) this.loadAttributePresets(); }
   }
 
   // ── Formatting ─────────────────────────────────────────────────────────────
@@ -1509,9 +1623,27 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
               <input class="form-input" .value=${t.name || ''} @input=${e => { this.editingTemplate = { ...t, name: e.target.value }; }} placeholder="e.g. Material">
             </div>
             <div class="form-row">
-              <label>Default Value</label>
-              <input class="form-input" .value=${t.defaultValue || ''} @input=${e => { this.editingTemplate = { ...t, defaultValue: e.target.value }; }} placeholder="Optional">
+              <label>Values from attribute</label>
+              <select class="form-input" .value=${t.attributeId || ''}
+                @change=${e => { this.editingTemplate = { ...t, attributeId: e.target.value || null }; }}>
+                <option value="">Free text</option>
+                ${this.attributes.map(a => html`<option value=${a.id} ?selected=${t.attributeId === a.id}>${a.name}</option>`)}
+              </select>
             </div>
+            ${(() => {
+              const boundAttr = this.attributes.find(a => a.id === t.attributeId);
+              return html`
+                <div class="form-row">
+                  <label>Default Value</label>
+                  ${boundAttr ? html`
+                    <select class="form-input" .value=${t.defaultValue || ''}
+                      @change=${e => { this.editingTemplate = { ...t, defaultValue: e.target.value }; }}>
+                      <option value="">(no default)</option>
+                      ${boundAttr.values.map(v => html`<option value=${v.name} ?selected=${t.defaultValue === v.name}>${v.name}</option>`)}
+                    </select>` : html`
+                    <input class="form-input" .value=${t.defaultValue || ''} @input=${e => { this.editingTemplate = { ...t, defaultValue: e.target.value }; }} placeholder="Optional">`}
+                </div>`;
+            })()}
             <div class="form-actions">
               <uui-button look="primary" @click=${() => this.saveTemplate()}>Save</uui-button>
               <uui-button look="secondary" @click=${() => { this.editingTemplate = null; }}>Cancel</uui-button>
@@ -1539,13 +1671,15 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
             <div class="table-scroll">
               <table class="data-table">
                 <thead><tr>
-                  <th>#</th><th>Name</th><th>Default Value</th><th></th>
+                  <th>#</th><th>Name</th><th>Values from</th><th>Default Value</th><th></th>
                 </tr></thead>
                 <tbody>
-                  ${paged.map((tmpl, i) => { const idx = (page - 1) * PAGE_SIZE + i; return html`
+                  ${paged.map((tmpl, i) => { const idx = (page - 1) * PAGE_SIZE + i;
+                    const boundAttr = this.attributes.find(a => a.id === tmpl.attributeId); return html`
                     <tr class="data-row">
                       <td>${tmpl.sortOrder ?? idx}</td>
                       <td><strong>${tmpl.name}</strong></td>
+                      <td>${boundAttr ? html`<span class="pill pill--single">${boundAttr.name}</span>` : html`<em style="color:#999">free text</em>`}</td>
                       <td>${tmpl.defaultValue || '—'}</td>
                       <td class="row-actions">
                         <uui-button look="secondary" compact @click=${(e) => { e.stopPropagation(); this.editingTemplate = { ...tmpl, _idx: idx }; }}>Edit</uui-button>
@@ -1560,6 +1694,191 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
         <div class="view-footer">
           <span class="breadcrumb">${this.marketName} / Options / Property Templates</span>
           ${filtered.length > 0 ? html`<span class="breadcrumb" style="margin-left:auto">${filtered.length} template${filtered.length !== 1 ? 's' : ''}</span>` : ''}
+        </div>
+      </div>`;
+  }
+
+  // ── Product Attributes ───────────────────────────────────────────────────────
+
+  _renderAttributesView() {
+    const a = this.editingAttribute;
+    const PAGE_SIZE = 10;
+    const q = (this.attributesSearch || '').toLowerCase();
+    const filtered = q ? this.attributes.filter(x => x.name?.toLowerCase().includes(q) || x.alias?.toLowerCase().includes(q)) : this.attributes;
+    const page = this.attributesPage;
+    const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+    return html`
+      <div class="view-container">
+        ${this._viewHeader('Product Attributes', html`
+          <uui-button look="primary" @click=${() => { this.editingAttribute = { id: crypto.randomUUID(), name: '', alias: '', values: [] }; }}>
+            + Create Product Attribute
+          </uui-button>`)}
+
+        ${this._errorBanner(this.attributesError, () => { this.attributesError = null; })}
+
+        ${a ? html`
+          <div class="form-panel">
+            <h3>${this.attributes.find(x => x.id === a.id) ? 'Edit Attribute' : 'New Attribute'}</h3>
+            <div class="form-row"><label>Name</label>
+              <input class="form-input" .value=${a.name || ''} placeholder="e.g. Size"
+                @input=${e => { const name = e.target.value; this.editingAttribute = { ...a, name, alias: a.alias || slugify(name) }; }}>
+            </div>
+            <div class="form-row"><label>Alias</label>
+              <input class="form-input" .value=${a.alias || ''} placeholder="e.g. size"
+                @input=${e => { this.editingAttribute = { ...a, alias: e.target.value }; }}>
+            </div>
+            <div class="form-row"><label>Values</label>
+              <div style="display:flex;flex-direction:column;gap:6px">
+                ${(a.values || []).map((v, i) => html`
+                  <div style="display:flex;gap:6px;align-items:center">
+                    <input class="form-input" style="flex:1" .value=${v.name || ''} placeholder="Value name (e.g. Small)"
+                      @input=${e => { const name = e.target.value; const values = a.values.map((x, j) => j === i ? { ...x, name, alias: x.alias || slugify(name) } : x); this.editingAttribute = { ...a, values }; }}>
+                    <input class="form-input" style="flex:1" .value=${v.alias || ''} placeholder="alias (e.g. small)"
+                      @input=${e => { const values = a.values.map((x, j) => j === i ? { ...x, alias: e.target.value } : x); this.editingAttribute = { ...a, values }; }}>
+                    <button style="background:none;border:none;cursor:pointer;color:#999;font-size:1rem"
+                      @click=${() => { this.editingAttribute = { ...a, values: a.values.filter((_, j) => j !== i) }; }}>×</button>
+                  </div>`)}
+                <button style="background:none;border:1px dashed #ccc;border-radius:4px;padding:6px;font-size:0.85rem;color:#999;cursor:pointer;width:100%"
+                  @click=${() => { this.editingAttribute = { ...a, values: [...(a.values || []), { name: '', alias: '' }] }; }}>+ Add value</button>
+              </div>
+            </div>
+            <div class="form-actions">
+              <uui-button look="primary" @click=${() => this.saveAttribute()}>Save</uui-button>
+              <uui-button look="secondary" @click=${() => { this.editingAttribute = null; }}>Cancel</uui-button>
+            </div>
+          </div>` : ''}
+
+        <div class="filters-bar">
+          <div class="filters-left"></div>
+          <div class="filters-right">
+            <div class="search-wrap">
+              <uui-icon name="icon-search" class="search-icon"></uui-icon>
+              <input class="search-input" type="search" placeholder="Search attributes…"
+                .value=${this.attributesSearch}
+                @input=${e => { this.attributesSearch = e.target.value; this.attributesPage = 1; }}>
+            </div>
+          </div>
+        </div>
+
+        ${this.attributesLoading ? this._stateCenter(html`<uui-loader></uui-loader><p>Loading…</p>`) :
+          filtered.length === 0 ? this._stateCenter(html`
+            <uui-icon name="icon-tag" style="font-size:3rem;opacity:0.25"></uui-icon>
+            <p>${q ? 'No attributes match your search' : 'No product attributes yet'}</p>`) :
+          html`
+            <div class="table-scroll">
+              <table class="data-table">
+                <thead><tr><th>Name</th><th>Alias</th><th>Values</th><th></th></tr></thead>
+                <tbody>
+                  ${paged.map(attr => html`
+                    <tr class="data-row">
+                      <td><strong>${attr.name}</strong></td>
+                      <td><code>${attr.alias || '—'}</code></td>
+                      <td>${(attr.values || []).length} value${(attr.values || []).length !== 1 ? 's' : ''}</td>
+                      <td class="row-actions">
+                        <uui-button look="secondary" compact @click=${(e) => { e.stopPropagation(); this.editingAttribute = { ...attr, values: (attr.values || []).map(v => ({ ...v })) }; }}>Edit</uui-button>
+                        <uui-button look="secondary" color="danger" compact @click=${(e) => { e.stopPropagation(); this.deleteAttribute(attr.id); }}>Del</uui-button>
+                      </td>
+                    </tr>`)}
+                </tbody>
+              </table>
+            </div>
+            ${this._renderLocalPagination(filtered.length, page, PAGE_SIZE, p => { this.attributesPage = p; })}`}
+
+        <div class="view-footer">
+          <span class="breadcrumb">${this.marketName} / Options / Product Attributes</span>
+          ${filtered.length > 0 ? html`<span class="breadcrumb" style="margin-left:auto">${filtered.length} attribute${filtered.length !== 1 ? 's' : ''}</span>` : ''}
+        </div>
+      </div>`;
+  }
+
+  // ── Product Attribute Presets ─────────────────────────────────────────────────
+
+  _renderAttributePresetsView() {
+    const p = this.editingAttributePreset;
+    const PAGE_SIZE = 10;
+    const q = (this.attributePresetsSearch || '').toLowerCase();
+    const filtered = q ? this.attributePresets.filter(x => x.name?.toLowerCase().includes(q) || x.alias?.toLowerCase().includes(q)) : this.attributePresets;
+    const page = this.attributePresetsPage;
+    const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+    return html`
+      <div class="view-container">
+        ${this._viewHeader('Product Attribute Presets', html`
+          <uui-button look="primary" @click=${() => { this.editingAttributePreset = { id: crypto.randomUUID(), name: '', alias: '', attributeIds: [] }; }}>
+            + Create Preset
+          </uui-button>`)}
+
+        ${this._errorBanner(this.attributePresetsError, () => { this.attributePresetsError = null; })}
+
+        ${p ? html`
+          <div class="form-panel">
+            <h3>${this.attributePresets.find(x => x.id === p.id) ? 'Edit Preset' : 'New Preset'}</h3>
+            <div class="form-row"><label>Name</label>
+              <input class="form-input" .value=${p.name || ''} placeholder="e.g. Apparel"
+                @input=${e => { const name = e.target.value; this.editingAttributePreset = { ...p, name, alias: p.alias || slugify(name) }; }}>
+            </div>
+            <div class="form-row"><label>Alias</label>
+              <input class="form-input" .value=${p.alias || ''} placeholder="e.g. apparel"
+                @input=${e => { this.editingAttributePreset = { ...p, alias: e.target.value }; }}>
+            </div>
+            <div class="form-row"><label>Attributes in this preset</label>
+              ${this.attributes.length === 0 ? html`<em style="color:#999">No attributes defined yet.</em>` : html`
+                <div style="display:flex;flex-wrap:wrap;gap:6px">
+                  ${this.attributes.map(attr => {
+                    const sel = (p.attributeIds || []).includes(attr.id);
+                    return html`<button
+                      style="display:inline-flex;align-items:center;gap:4px;border-radius:999px;padding:4px 12px;font-size:0.8rem;cursor:pointer;border:1px solid ${sel ? '#4a6ba8' : '#d1d5db'};background:${sel ? '#4a6ba8' : '#fff'};color:${sel ? '#fff' : '#374151'}"
+                      @click=${() => { const ids = p.attributeIds || []; this.editingAttributePreset = { ...p, attributeIds: ids.includes(attr.id) ? ids.filter(x => x !== attr.id) : [...ids, attr.id] }; }}>
+                      ${attr.name || '(unnamed)'}</button>`;
+                  })}
+                </div>`}
+            </div>
+            <div class="form-actions">
+              <uui-button look="primary" @click=${() => this.saveAttributePreset()}>Save</uui-button>
+              <uui-button look="secondary" @click=${() => { this.editingAttributePreset = null; }}>Cancel</uui-button>
+            </div>
+          </div>` : ''}
+
+        <div class="filters-bar">
+          <div class="filters-left"></div>
+          <div class="filters-right">
+            <div class="search-wrap">
+              <uui-icon name="icon-search" class="search-icon"></uui-icon>
+              <input class="search-input" type="search" placeholder="Search presets…"
+                .value=${this.attributePresetsSearch}
+                @input=${e => { this.attributePresetsSearch = e.target.value; this.attributePresetsPage = 1; }}>
+            </div>
+          </div>
+        </div>
+
+        ${this.attributePresetsLoading ? this._stateCenter(html`<uui-loader></uui-loader><p>Loading…</p>`) :
+          filtered.length === 0 ? this._stateCenter(html`
+            <uui-icon name="icon-tags" style="font-size:3rem;opacity:0.25"></uui-icon>
+            <p>${q ? 'No presets match your search' : 'No attribute presets yet'}</p>`) :
+          html`
+            <div class="table-scroll">
+              <table class="data-table">
+                <thead><tr><th>Name</th><th>Alias</th><th>Attributes</th><th></th></tr></thead>
+                <tbody>
+                  ${paged.map(preset => html`
+                    <tr class="data-row">
+                      <td><strong>${preset.name}</strong></td>
+                      <td><code>${preset.alias || '—'}</code></td>
+                      <td>${(preset.attributeIds || []).map(id => (this.attributes.find(a => a.id === id)?.name || id)).join(', ') || '—'}</td>
+                      <td class="row-actions">
+                        <uui-button look="secondary" compact @click=${(e) => { e.stopPropagation(); this.editingAttributePreset = { ...preset, attributeIds: [...(preset.attributeIds || [])] }; }}>Edit</uui-button>
+                        <uui-button look="secondary" color="danger" compact @click=${(e) => { e.stopPropagation(); this.deleteAttributePreset(preset.id); }}>Del</uui-button>
+                      </td>
+                    </tr>`)}
+                </tbody>
+              </table>
+            </div>
+            ${this._renderLocalPagination(filtered.length, page, PAGE_SIZE, p => { this.attributePresetsPage = p; })}`}
+
+        <div class="view-footer">
+          <span class="breadcrumb">${this.marketName} / Options / Product Attribute Presets</span>
+          ${filtered.length > 0 ? html`<span class="breadcrumb" style="margin-left:auto">${filtered.length} preset${filtered.length !== 1 ? 's' : ''}</span>` : ''}
         </div>
       </div>`;
   }
@@ -1641,6 +1960,8 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
       case 'order-statuses': return this._renderOrderStatusesView();
       case 'discounts':      return this._renderDiscountsView();
       case 'option-presets':      return this._renderOptionPresetsView();
+      case 'attributes':          return this._renderAttributesView();
+      case 'attribute-presets':   return this._renderAttributePresetsView();
       case 'property-templates':  return this._renderPropertyTemplatesView();
       default: {
         const found = [...NAV_ITEMS, ...OPTIONS_SUBITEMS].find(i => i.key === this.activeView);

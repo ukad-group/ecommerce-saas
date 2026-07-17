@@ -65,6 +65,8 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
     _mode: { type: String },
     // Market property templates (global custom fields shown on every product)
     propertyTemplates: { type: Array },
+    // Market product-attributes library (predefined values for bound property templates)
+    marketAttributes: { type: Array },
     // External photo provider
     _photoProviderConfigured: { type: Boolean, state: true },
     providerBrowserOpen: { type: Boolean },
@@ -80,6 +82,7 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
     this.categoryId = null;
     this.storeId = null;
     this.propertyTemplates = [];
+    this.marketAttributes = [];
     this.products = [];
     this.loading = false;
     this.error = null;
@@ -236,6 +239,7 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
     }
 
     this.loadPropertyTemplates();
+    this.loadMarketAttributes();
     this._refreshView();
   }
 
@@ -249,6 +253,55 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
       });
       this.propertyTemplates = res.ok ? (await res.json()) || [] : [];
     } catch { this.propertyTemplates = []; }
+  }
+
+  // The market's product-attributes library (supplies predefined values for bound property templates).
+  async loadMarketAttributes() {
+    try {
+      const qs = this.storeId ? `?marketId=${encodeURIComponent(this.storeId)}` : '';
+      const headers = await this.getAuthHeaders();
+      const res = await fetch(`/umbraco/management/api/ecomm-commerce/attributes${qs}`, {
+        headers, credentials: 'include',
+      });
+      this.marketAttributes = res.ok ? (await res.json()) || [] : [];
+    } catch { this.marketAttributes = []; }
+  }
+
+  // Predefined value names for a property (by its template's bound attribute), or null for free text.
+  _propertyOptions(name) {
+    const tmpl = (this.propertyTemplates || []).find(t => (t.name || '').toLowerCase() === (name || '').toLowerCase());
+    if (!tmpl?.attributeId) return null;
+    const attr = (this.marketAttributes || []).find(a => a.id === tmpl.attributeId);
+    return attr ? attr.values.map(v => v.name) : null;
+  }
+
+  // ── Variant option value-shape helpers ──────────────────────────────────────
+  // The API stores attribute values as { name, alias } objects, but this view's variant
+  // editing works with plain value-name strings. Normalize on load, denormalize on save.
+  _slug(s) { return (s || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, ''); }
+
+  _normalizeVariantOptions(variantOptions) {
+    return (variantOptions || []).map(o => ({
+      ...o,
+      values: (o.values || []).map(v => (v && typeof v === 'object') ? v.name : v),
+    }));
+  }
+
+  _denormalizeVariantOptions(variantOptions) {
+    return (variantOptions || []).map(o => ({
+      name: o.name,
+      alias: o.alias || this._slug(o.name),
+      attributeId: o.attributeId || null,
+      values: (o.values || []).map(v => (v && typeof v === 'object')
+        ? { name: v.name, alias: v.alias || this._slug(v.name) }
+        : { name: v, alias: this._slug(v) }),
+    }));
+  }
+
+  // Returns a product copy with variant-option values normalized to strings for editing.
+  _productFromApi(product) {
+    if (!product) return product;
+    return { ...product, variantOptions: this._normalizeVariantOptions(product.variantOptions) };
   }
 
   // Merge the product's own custom properties with the market templates (unfilled templates
@@ -316,9 +369,21 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
                 : html`<uui-input class="cp-name" placeholder="Name" .value=${prop.name || ''}
                     ?disabled=${this.saving}
                     @input=${(e) => this._setCustomProperty(prop, 'name', e.target.value)}></uui-input>`}
-              <uui-input class="cp-value" placeholder="Value" .value=${prop.value || ''}
-                ?disabled=${this.saving}
-                @input=${(e) => this._setCustomProperty(prop, 'value', e.target.value)}></uui-input>
+              ${(() => {
+                const opts = this._propertyOptions(prop.name);
+                if (opts) {
+                  return html`<select class="cp-value variant-status-select" ?disabled=${this.saving}
+                    @change=${(e) => this._setCustomProperty(prop, 'value', e.target.value)}>
+                    <option value="" ?selected=${!prop.value}>Select a value…</option>
+                    ${prop.value && !opts.includes(prop.value)
+                      ? html`<option value=${prop.value} selected>${prop.value}</option>` : ''}
+                    ${opts.map(o => html`<option value=${o} ?selected=${o === prop.value}>${o}</option>`)}
+                  </select>`;
+                }
+                return html`<uui-input class="cp-value" placeholder="Value" .value=${prop.value || ''}
+                  ?disabled=${this.saving}
+                  @input=${(e) => this._setCustomProperty(prop, 'value', e.target.value)}></uui-input>`;
+              })()}
               ${prop.isMarketTemplate
                 ? html`<uui-badge look="secondary" title="Applied to all products">global</uui-badge>`
                 : html`<uui-button compact look="secondary" color="danger" label="Remove"
@@ -478,7 +543,7 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
     } else {
       // Expand and create editable copy
       this.expandedProductId = product.id;
-      this.editedProduct = { ...product };
+      this.editedProduct = this._productFromApi(product);
       this.highlightsText = (product.highlights || []).join('\n');
       this.freeOptionsText = (product.freeOptions || []).join('\n');
       this.editedVariantId = null;
@@ -495,7 +560,7 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
 
   selectProduct(product) {
     this.selectedProductId = product.id;
-    this.editedProduct = { ...product };
+    this.editedProduct = this._productFromApi(product);
     this.highlightsText = (product.highlights || []).join('\n');
     this.freeOptionsText = (product.freeOptions || []).join('\n');
     this.editedVariantId = null;
@@ -617,6 +682,20 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
           const variantErrors = this.validateVariant(variant);
           Object.assign(errors, variantErrors);
         });
+
+        // Each variant must be a unique combination of attribute values (all values identical => duplicate)
+        const comboKey = (opts) => Object.keys(opts || {}).sort()
+          .map(k => `${k}=${opts[k]}`).join('|');
+        const seen = new Set();
+        for (const v of this.editedProduct.variants) {
+          const key = comboKey(v.options);
+          if (seen.has(key)) {
+            const label = Object.entries(v.options || {}).map(([k, val]) => `${k}: ${val}`).join(', ') || '(no attributes)';
+            errors.variants = `Duplicate variant combination — ${label}. Each variant must have a unique set of attribute values.`;
+            break;
+          }
+          seen.add(key);
+        }
       }
     }
 
@@ -650,6 +729,7 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
         ...this.editedProduct,
         highlights: (this.editedProduct.highlights || []).map(s => (s || '').trim()).filter(s => s.length > 0),
         freeOptions: (this.editedProduct.freeOptions || []).map(s => (s || '').trim()).filter(s => s.length > 0),
+        variantOptions: this._denormalizeVariantOptions(this.editedProduct.variantOptions),
         versionCreatedBy: userName
       };
 
@@ -674,7 +754,7 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
           p.id === updated.id ? updated : p
         );
 
-        this.editedProduct = { ...updated };
+        this.editedProduct = this._productFromApi(updated);
         this.highlightsText = (updated.highlights || []).join('\n');
         this.freeOptionsText = (updated.freeOptions || []).join('\n');
         this.saveSuccess = `Product updated successfully (v${updated.version})`;
@@ -2038,7 +2118,7 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
       const userName = this.currentUser?.email || this.currentUser?.name || 'system';
 
       const hasVariants = this.newProductType === 'variants';
-      const variantOptions = hasVariants ? (this.newProduct?.variantOptions || []) : [];
+      const variantOptions = hasVariants ? this._denormalizeVariantOptions(this.newProduct?.variantOptions || []) : [];
 
       const payload = {
         name: (this.newProduct.name || '').trim(),

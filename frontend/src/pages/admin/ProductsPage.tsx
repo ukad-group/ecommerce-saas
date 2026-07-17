@@ -172,6 +172,25 @@ export function ProductsPage() {
                 />
               </svg>
             </Link>
+            <Link
+              to="/admin/products/attributes"
+              className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
+              title="Manage product attributes"
+            >
+              <svg
+                className="w-6 h-6"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"
+                />
+              </svg>
+            </Link>
             <Link to="/admin/products/new" className="w-full sm:w-auto">
               <Button className="w-full sm:w-auto">Create Product</Button>
             </Link>

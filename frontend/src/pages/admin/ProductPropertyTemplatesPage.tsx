@@ -11,14 +11,17 @@ import {
   useMarketPropertyTemplates,
   useUpdateMarketPropertyTemplates,
 } from '../../services/hooks/useMarketPropertyTemplates';
+import { useAllAttributes } from '../../services/hooks/useMarketAttributes';
 import { useAuthStore } from '../../store/authStore';
 import { Role } from '../../types/auth';
 import type { CustomPropertyTemplate } from '../../types/market';
+import type { ProductAttribute } from '../../types/product';
 import { Button } from '../../components/common/Button';
 import { LoadingSpinner } from '../../components/common/LoadingSpinner';
 
 export function ProductPropertyTemplatesPage() {
   const { data: templates = [], isLoading } = useMarketPropertyTemplates();
+  const { data: libraryAttributes = [] } = useAllAttributes();
   const updateMutation = useUpdateMarketPropertyTemplates();
   const role = useAuthStore((state) => state.getRole());
 
@@ -171,6 +174,9 @@ export function ProductPropertyTemplatesPage() {
                   Property Name
                 </th>
                 <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">
+                  Values from attribute
+                </th>
+                <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">
                   Default Value
                 </th>
                 {isAdmin && (
@@ -184,7 +190,7 @@ export function ProductPropertyTemplatesPage() {
               {localTemplates.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={isAdmin ? 4 : 3}
+                    colSpan={isAdmin ? 5 : 4}
                     className="px-4 py-8 text-center text-gray-500"
                   >
                     No property templates defined.
@@ -243,21 +249,55 @@ export function ProductPropertyTemplatesPage() {
                       )}
                     </td>
                     <td className="px-4 py-3">
-                      {isAdmin ? (
-                        <input
-                          type="text"
-                          value={template.defaultValue || ''}
-                          onChange={(e) =>
-                            handleUpdateTemplate(index, 'defaultValue', e.target.value)
-                          }
-                          placeholder="(optional)"
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                        />
-                      ) : (
-                        <span className="text-gray-600">
-                          {template.defaultValue || '(no default)'}
-                        </span>
-                      )}
+                      {(() => {
+                        const boundAttr = libraryAttributes.find((a: ProductAttribute) => a.id === template.attributeId);
+                        if (!isAdmin) {
+                          return <span className="text-gray-600">{boundAttr ? boundAttr.name : '(free text)'}</span>;
+                        }
+                        return (
+                          <select
+                            value={template.attributeId || ''}
+                            onChange={(e) => handleUpdateTemplate(index, 'attributeId', e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                          >
+                            <option value="">Free text</option>
+                            {libraryAttributes.map((a: ProductAttribute) => (
+                              <option key={a.id} value={a.id}>{a.name}</option>
+                            ))}
+                          </select>
+                        );
+                      })()}
+                    </td>
+                    <td className="px-4 py-3">
+                      {(() => {
+                        const boundAttr = libraryAttributes.find((a: ProductAttribute) => a.id === template.attributeId);
+                        if (!isAdmin) {
+                          return <span className="text-gray-600">{template.defaultValue || '(no default)'}</span>;
+                        }
+                        if (boundAttr) {
+                          return (
+                            <select
+                              value={template.defaultValue || ''}
+                              onChange={(e) => handleUpdateTemplate(index, 'defaultValue', e.target.value)}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                            >
+                              <option value="">(no default)</option>
+                              {boundAttr.values.map((v) => (
+                                <option key={v.alias || v.name} value={v.name}>{v.name}</option>
+                              ))}
+                            </select>
+                          );
+                        }
+                        return (
+                          <input
+                            type="text"
+                            value={template.defaultValue || ''}
+                            onChange={(e) => handleUpdateTemplate(index, 'defaultValue', e.target.value)}
+                            placeholder="(optional)"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                          />
+                        );
+                      })()}
                     </td>
                     {isAdmin && (
                       <td className="px-4 py-3 text-right">

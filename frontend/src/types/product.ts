@@ -138,12 +138,44 @@ export interface OptionPreset {
 }
 
 /**
- * Variant option definition
- * Defines a type of variant attribute (e.g., "Size", "Color")
+ * A single value of a product attribute (e.g. "Small" / "small").
+ */
+export interface ProductAttributeValue {
+  name: string;  // display name, e.g. "Small"
+  alias: string; // stable key, e.g. "small"
+}
+
+/**
+ * Market-scoped (per-store) product attribute definition — the reusable variant axis
+ * (e.g. Size, Color) picked onto products. Lives in the market's attribute library.
+ */
+export interface ProductAttribute {
+  id: string;
+  name: string;
+  alias: string;
+  values: ProductAttributeValue[];
+}
+
+/**
+ * Market-scoped named bundle of attributes, applied to a product all at once.
+ */
+export interface ProductAttributePreset {
+  id: string;
+  name: string;
+  alias: string;
+  attributeIds: string[]; // references ProductAttribute.id
+}
+
+/**
+ * A product's variant axis (a "product attribute" assignment). Either global — linked to
+ * a market {@link ProductAttribute} via `attributeId` with a selected subset of its
+ * values — or local, defined inline on the product (`attributeId` undefined).
  */
 export interface VariantOption {
   name: string; // e.g., "Size", "Color"
-  values: string[]; // e.g., ["Small", "Medium", "Large"]
+  alias?: string;
+  attributeId?: string; // set => global (references market ProductAttribute.id)
+  values: ProductAttributeValue[];
 }
 
 /**

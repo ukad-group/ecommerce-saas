@@ -89,6 +89,22 @@ public class CategoryPickerApiController : ManagementApiControllerBase
         return Ok(presets);
     }
 
+    [HttpGet("attributes")]
+    [ProducesResponseType(typeof(List<ProductAttribute>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetAttributes([FromQuery] string? marketId = null)
+    {
+        var attributes = await _apiClient.GetAttributesAsync(marketId);
+        return Ok(attributes);
+    }
+
+    [HttpGet("attribute-presets")]
+    [ProducesResponseType(typeof(List<ProductAttributePreset>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetAttributePresets([FromQuery] string? marketId = null)
+    {
+        var presets = await _apiClient.GetAttributePresetsAsync(marketId);
+        return Ok(presets);
+    }
+
     /// <summary>
     /// Gets a specific category by ID
     /// </summary>

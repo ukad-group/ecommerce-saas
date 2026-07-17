@@ -356,4 +356,196 @@ public class MarketsController : ControllerBase
 
         return Ok(new { presets = market.Settings.OptionPresets });
     }
+
+    // ----- Product Attributes (market-scoped variant-axis library) -----
+
+    [HttpGet("{id}/attributes")]
+    [AllowAnonymous]
+    public ActionResult GetAttributes(
+        string id,
+        [FromQuery] string? search = null,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20)
+    {
+        var market = _store.GetMarket(id);
+        if (market == null) return NotFound();
+
+        var all = market.Settings?.Attributes ?? new List<ProductAttribute>();
+
+        var filtered = string.IsNullOrWhiteSpace(search)
+            ? all
+            : all.Where(a =>
+                a.Name.Contains(search, StringComparison.OrdinalIgnoreCase) ||
+                a.Alias.Contains(search, StringComparison.OrdinalIgnoreCase)).ToList();
+
+        var total = filtered.Count;
+        var attributes = pageSize > 0
+            ? filtered.Skip((page - 1) * pageSize).Take(pageSize).ToList()
+            : filtered;
+
+        return Ok(new { attributes, total, page, pageSize });
+    }
+
+    [HttpPost("{id}/attributes")]
+    public ActionResult AddAttribute(string id, [FromBody] ProductAttribute attribute)
+    {
+        var market = _store.GetMarket(id);
+        if (market == null) return NotFound();
+
+        market.Settings ??= new MarketSettings();
+        market.Settings.Attributes ??= new List<ProductAttribute>();
+
+        if (string.IsNullOrEmpty(attribute.Id)) attribute.Id = Guid.NewGuid().ToString();
+        market.Settings.Attributes.Add(attribute);
+        market.UpdatedAt = DateTime.UtcNow;
+        _store.UpdateMarket(market);
+
+        return StatusCode(201, attribute);
+    }
+
+    [HttpPut("{id}/attributes/{attributeId}")]
+    public ActionResult UpdateSingleAttribute(string id, string attributeId, [FromBody] ProductAttribute attribute)
+    {
+        var market = _store.GetMarket(id);
+        if (market == null) return NotFound();
+
+        var list = market.Settings?.Attributes ?? new List<ProductAttribute>();
+        var idx = list.FindIndex(a => a.Id == attributeId);
+        if (idx < 0) return NotFound();
+
+        attribute.Id = attributeId;
+        list[idx] = attribute;
+        market.Settings!.Attributes = list;
+        market.UpdatedAt = DateTime.UtcNow;
+        _store.UpdateMarket(market);
+
+        return Ok(attribute);
+    }
+
+    [HttpDelete("{id}/attributes/{attributeId}")]
+    public ActionResult DeleteAttribute(string id, string attributeId)
+    {
+        var market = _store.GetMarket(id);
+        if (market == null) return NotFound();
+
+        var list = market.Settings?.Attributes ?? new List<ProductAttribute>();
+        var removed = list.RemoveAll(a => a.Id == attributeId);
+        if (removed == 0) return NotFound();
+
+        market.Settings!.Attributes = list;
+        market.UpdatedAt = DateTime.UtcNow;
+        _store.UpdateMarket(market);
+
+        return NoContent();
+    }
+
+    [HttpPut("{id}/attributes")]
+    public ActionResult UpdateAttributes(string id, [FromBody] UpdateAttributesRequest request)
+    {
+        var market = _store.GetMarket(id);
+        if (market == null) return NotFound();
+
+        market.Settings ??= new MarketSettings();
+        market.Settings.Attributes = request.Attributes;
+        market.UpdatedAt = DateTime.UtcNow;
+        _store.UpdateMarket(market);
+
+        return Ok(new { attributes = market.Settings.Attributes });
+    }
+
+    // ----- Product Attribute Presets (named bundles of attributes) -----
+
+    [HttpGet("{id}/attribute-presets")]
+    [AllowAnonymous]
+    public ActionResult GetAttributePresets(
+        string id,
+        [FromQuery] string? search = null,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20)
+    {
+        var market = _store.GetMarket(id);
+        if (market == null) return NotFound();
+
+        var all = market.Settings?.AttributePresets ?? new List<ProductAttributePreset>();
+
+        var filtered = string.IsNullOrWhiteSpace(search)
+            ? all
+            : all.Where(p =>
+                p.Name.Contains(search, StringComparison.OrdinalIgnoreCase) ||
+                p.Alias.Contains(search, StringComparison.OrdinalIgnoreCase)).ToList();
+
+        var total = filtered.Count;
+        var presets = pageSize > 0
+            ? filtered.Skip((page - 1) * pageSize).Take(pageSize).ToList()
+            : filtered;
+
+        return Ok(new { presets, total, page, pageSize });
+    }
+
+    [HttpPost("{id}/attribute-presets")]
+    public ActionResult AddAttributePreset(string id, [FromBody] ProductAttributePreset preset)
+    {
+        var market = _store.GetMarket(id);
+        if (market == null) return NotFound();
+
+        market.Settings ??= new MarketSettings();
+        market.Settings.AttributePresets ??= new List<ProductAttributePreset>();
+
+        if (string.IsNullOrEmpty(preset.Id)) preset.Id = Guid.NewGuid().ToString();
+        market.Settings.AttributePresets.Add(preset);
+        market.UpdatedAt = DateTime.UtcNow;
+        _store.UpdateMarket(market);
+
+        return StatusCode(201, preset);
+    }
+
+    [HttpPut("{id}/attribute-presets/{presetId}")]
+    public ActionResult UpdateSingleAttributePreset(string id, string presetId, [FromBody] ProductAttributePreset preset)
+    {
+        var market = _store.GetMarket(id);
+        if (market == null) return NotFound();
+
+        var list = market.Settings?.AttributePresets ?? new List<ProductAttributePreset>();
+        var idx = list.FindIndex(p => p.Id == presetId);
+        if (idx < 0) return NotFound();
+
+        preset.Id = presetId;
+        list[idx] = preset;
+        market.Settings!.AttributePresets = list;
+        market.UpdatedAt = DateTime.UtcNow;
+        _store.UpdateMarket(market);
+
+        return Ok(preset);
+    }
+
+    [HttpDelete("{id}/attribute-presets/{presetId}")]
+    public ActionResult DeleteAttributePreset(string id, string presetId)
+    {
+        var market = _store.GetMarket(id);
+        if (market == null) return NotFound();
+
+        var list = market.Settings?.AttributePresets ?? new List<ProductAttributePreset>();
+        var removed = list.RemoveAll(p => p.Id == presetId);
+        if (removed == 0) return NotFound();
+
+        market.Settings!.AttributePresets = list;
+        market.UpdatedAt = DateTime.UtcNow;
+        _store.UpdateMarket(market);
+
+        return NoContent();
+    }
+
+    [HttpPut("{id}/attribute-presets")]
+    public ActionResult UpdateAttributePresets(string id, [FromBody] UpdateAttributePresetsRequest request)
+    {
+        var market = _store.GetMarket(id);
+        if (market == null) return NotFound();
+
+        market.Settings ??= new MarketSettings();
+        market.Settings.AttributePresets = request.Presets;
+        market.UpdatedAt = DateTime.UtcNow;
+        _store.UpdateMarket(market);
+
+        return Ok(new { presets = market.Settings.AttributePresets });
+    }
 }

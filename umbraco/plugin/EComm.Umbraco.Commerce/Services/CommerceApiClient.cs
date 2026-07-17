@@ -1003,6 +1003,100 @@ public class CommerceApiClient : ICommerceApiClient
         }
     }
 
+    private class AttributesResponse
+    {
+        public List<ProductAttribute> Attributes { get; set; } = new();
+    }
+
+    private class AttributePresetsResponse
+    {
+        public List<ProductAttributePreset> Presets { get; set; } = new();
+    }
+
+    public async Task<List<ProductAttribute>> GetAttributesAsync(string? marketId = null)
+    {
+        var settings = await _settingsService.GetSettingsAsync();
+        if (settings == null || !settings.IsValid) return new List<ProductAttribute>();
+
+        try
+        {
+            var mid = marketId ?? settings.MarketId;
+            var client = await CreateClientAsync(settings);
+            var response = await client.GetAsync($"admin/markets/{mid}/attributes?pageSize=0");
+            response.EnsureSuccessStatusCode();
+            var wrapper = await response.Content.ReadFromJsonAsync<AttributesResponse>(JsonOptions);
+            return wrapper?.Attributes ?? new List<ProductAttribute>();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to fetch product attributes for market {MarketId}", marketId);
+            return new List<ProductAttribute>();
+        }
+    }
+
+    public async Task<bool> UpdateAttributesAsync(string? marketId, List<ProductAttribute> attributes)
+    {
+        var settings = await _settingsService.GetSettingsAsync();
+        if (settings == null || !settings.IsValid) return false;
+
+        try
+        {
+            var mid = marketId ?? settings.MarketId;
+            var client = await CreateClientAsync(settings);
+            var json = JsonSerializer.Serialize(new { attributes }, JsonOptions);
+            var content = new StringContent(json, Encoding.UTF8, "application/json");
+            var response = await client.PutAsync($"admin/markets/{mid}/attributes", content);
+            return response.IsSuccessStatusCode;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to update product attributes for market {MarketId}", marketId);
+            return false;
+        }
+    }
+
+    public async Task<List<ProductAttributePreset>> GetAttributePresetsAsync(string? marketId = null)
+    {
+        var settings = await _settingsService.GetSettingsAsync();
+        if (settings == null || !settings.IsValid) return new List<ProductAttributePreset>();
+
+        try
+        {
+            var mid = marketId ?? settings.MarketId;
+            var client = await CreateClientAsync(settings);
+            var response = await client.GetAsync($"admin/markets/{mid}/attribute-presets?pageSize=0");
+            response.EnsureSuccessStatusCode();
+            var wrapper = await response.Content.ReadFromJsonAsync<AttributePresetsResponse>(JsonOptions);
+            return wrapper?.Presets ?? new List<ProductAttributePreset>();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to fetch attribute presets for market {MarketId}", marketId);
+            return new List<ProductAttributePreset>();
+        }
+    }
+
+    public async Task<bool> UpdateAttributePresetsAsync(string? marketId, List<ProductAttributePreset> presets)
+    {
+        var settings = await _settingsService.GetSettingsAsync();
+        if (settings == null || !settings.IsValid) return false;
+
+        try
+        {
+            var mid = marketId ?? settings.MarketId;
+            var client = await CreateClientAsync(settings);
+            var json = JsonSerializer.Serialize(new { presets }, JsonOptions);
+            var content = new StringContent(json, Encoding.UTF8, "application/json");
+            var response = await client.PutAsync($"admin/markets/{mid}/attribute-presets", content);
+            return response.IsSuccessStatusCode;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to update attribute presets for market {MarketId}", marketId);
+            return false;
+        }
+    }
+
     private class ShippingMethodsResponse
     {
         public List<ShippingMethod> Methods { get; set; } = new();

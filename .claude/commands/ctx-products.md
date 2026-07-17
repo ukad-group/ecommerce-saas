@@ -101,6 +101,16 @@ interface ProductVersion {
 - **QuickStockUpdate**: Inline stock editing
 - **ProductVersionHistory**: Version list with restore
 
+### Feature: Product Attributes (per-store variant axes)
+- **Market-scoped library** in `Market.Settings.Attributes` — each `ProductAttribute { id, name, alias, values: { name, alias }[] }`. Plus `Market.Settings.AttributePresets` = `ProductAttributePreset { id, name, alias, attributeIds[] }` (named bundles).
+- A product's variant axes use `VariantOption { name, alias?, attributeId?, values: ProductAttributeValue[] }` — **global** when `attributeId` links a library attribute (values = selected subset), **local** when defined inline. `ProductVariant.options` stays `Record<string,string>` (attribute name → value name), so variant generation/matching + the showcase are unchanged.
+- **Variant uniqueness**: enforced in `ProductsController.ValidateVariants` (server) and `ProductForm`/workspace view (client) — no two variants may share the same attribute-value combination (order-independent) or SKU.
+- **Property templates → attribute binding**: `CustomPropertyTemplate.attributeId`, when set, makes that custom-property field a **dropdown** of the attribute's values (React `ProductForm` + Umbraco workspace view); free text otherwise.
+- **React admin**: `ProductAttributesPage` (`/admin/products/attributes`), `ProductAttributePresetsPage` (`/admin/products/attribute-presets`), `marketAttributesApi` + `useMarketAttributes`. ProductForm "Attributes" section: add-global-attribute + apply-preset + add-local.
+- **Umbraco plugin**: Commerce dashboard "Product Attributes" / "Product Attribute Presets" tabs; workspace-view custom-property dropdowns.
+- **API**: `GET/POST/PUT/DELETE /api/v1/admin/markets/:id/attributes` and `.../attribute-presets` (+ bulk PUT).
+- **Migration**: `VariantOption.Values` moved string → `{name, alias}` (no `ecomm.db` reset — data migrated in place; seeder writes new shape).
+
 ### Feature: Product Options / Add-ons
 - Presets are **market-scoped** (not a tenant-global library, despite some UI copy saying "store-global")
 - A preset's `kind` is `single` (standalone add-on) or `group` (bundles related singles via `subOptionIds`)

@@ -151,6 +151,8 @@ DELETE /api/v1/markets/{id}            // Delete market
 GET/PUT   /api/v1/markets/{id}/shipping-methods       // Market's delivery options
 GET/PUT   /api/v1/markets/{id}/leasing-periods        // Market's rental duration presets
 GET/POST/PUT/DELETE /api/v1/markets/{id}/option-presets // Market's add-on presets library (search+pagination)
+GET/POST/PUT/DELETE /api/v1/markets/{id}/attributes       // Market's product-attribute library (variant axes; + bulk PUT)
+GET/POST/PUT/DELETE /api/v1/markets/{id}/attribute-presets // Named bundles of attributes (+ bulk PUT)
 ```
 
 ### 8. ApiKeysController
@@ -211,6 +213,8 @@ GET/POST/DELETE  /api/v1/admin/tenants/{tenantId}/api-keys // Tenant-level API k
 
 `Market.Settings` (`MarketSettings`) now also holds, managed via the `MarketsController` sub-resources above:
 - `ShippingMethods`, `LeasingPeriods`, `OptionPresets`
+- `Attributes` (product-attribute library — variant axes with `{name, alias}` values) + `AttributePresets` (named bundles)
+- `CustomPropertyTemplates` (each may carry an `AttributeId` to render its product value as a dropdown of the attribute's values)
 - `DefaultLeasingFactor`, `CartOrderStatus`
 - Nets Easy credentials (`NetsSecretApiKey`, `NetsCheckoutKey`, `NetsTestMode`)
 

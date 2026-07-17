@@ -76,7 +76,8 @@ dotnet run
 - Hierarchical categories
 - Quick stock updates
 - Market-scoped catalogs
-- **Custom property templates** - Define market-level property templates that appear on all products
+- **Custom property templates** - Define market-level property templates that appear on all products (a template can bind to a Product Attribute so its value becomes a dropdown)
+- **Product attributes** - Per-store (market-scoped) library of variant axes (Name + Alias, values Name + Alias) + named presets; drive product variants (global or local); variant combinations are unique
 - **Use `/ctx-products` for details**
 
 ### Orders & Cart
@@ -115,6 +116,8 @@ dotnet run
 - `/admin` - Dashboard
 - `/admin/products` - Product management
 - `/admin/products/property-templates` - Market property templates
+- `/admin/products/attributes` - Product attribute library
+- `/admin/products/attribute-presets` - Product attribute presets
 - `/admin/categories` - Category management
 - `/admin/orders` - Order management
 - `/admin/order-statuses` - Order status management

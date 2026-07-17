@@ -4,7 +4,7 @@
 
 ## Quick Reference
 
-**What Works**: Products, Categories, Orders (admin), Cart, Tenants, Markets, API Keys, Superadmin Auth, Product Add-ons, Discounts (API), Nets Easy Payments, **Responsive UI**, **UKAD Branding**
+**What Works**: Products, Categories, Orders (admin), Cart, Tenants, Markets, API Keys, Superadmin Auth, Product Add-ons, **Product Attributes** (per-store variant-axis library + presets), Discounts (API), Nets Easy Payments, **Responsive UI**, **UKAD Branding**
 **What's Missing**: Tenant Admin/User login flows, Checkout UI (showcase-dotnet), Cart persistence, Nets Easy webhook signature verification
 
 ---
@@ -240,6 +240,30 @@ None
 ```
 GET/POST/PUT/DELETE   /api/v1/markets/:id/option-presets
 GET   /api/v1/option-presets   # public, active-only (used by showcase/storefronts)
+```
+
+---
+
+## Feature 008: Product Attributes
+
+**Status**: ✅ Complete (API, React admin, Umbraco plugin) — showcase renders variants unchanged
+
+### Implemented
+- **Per-store (market-scoped) attribute library** — each attribute has a Name + **Alias** and a list of values (each Name + Alias). Stored in `Market.Settings.Attributes` (JSON column). This is the renamed/expanded "variant options" concept.
+- **Attribute Presets** — named bundles of attributes (`Market.Settings.AttributePresets`) applied to a product all at once.
+- **Product variant axes** (`VariantOption`) can be **global** (linked to a library attribute via `AttributeId`, with a selected subset of values) or **local** (defined inline). Values are now `{ name, alias }` objects. `ProductVariant.Options` stays a `name → valueName` dict, so variant generation/matching (and the showcase) are unchanged.
+- **Variant uniqueness** enforced server-side (`ProductsController.ValidateVariants`) + client-side: no two variants may share the same attribute-value combination (order-independent) or SKU.
+- **Property templates → attribute binding**: a market property template can carry an `AttributeId`; on a product that custom-property renders as a **dropdown of the attribute's predefined values** instead of free text.
+- **React admin**: `/admin/products/attributes` and `/admin/products/attribute-presets` library pages; ProductForm "Attributes" section (global picker + apply-preset + local add); Property Templates page "Values from attribute" column.
+- **Umbraco plugin**: Commerce dashboard **Product Attributes** + **Product Attribute Presets** tabs; Property Templates tab attribute binding; product workspace view custom-property dropdowns + variant uniqueness.
+
+### Migration note
+The `VariantOption.Values` JSON shape changed (string → `{name, alias}`). Existing data was migrated in place (no `ecomm.db` reset); the seeder writes the new shape. The Umbraco plugin is consumed by Westbay via NuGet — repackage + bump the reference to pick up the model change (Westbay.Core consuming code updated to the new shape).
+
+### API Endpoints
+```
+GET/POST/PUT/DELETE   /api/v1/admin/markets/:id/attributes            # + bulk PUT
+GET/POST/PUT/DELETE   /api/v1/admin/markets/:id/attribute-presets     # + bulk PUT
 ```
 
 ---
