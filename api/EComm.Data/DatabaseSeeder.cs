@@ -12,6 +12,13 @@ namespace EComm.Data;
 /// </summary>
 public static class DatabaseSeeder
 {
+    // Builds the Size + Color variant-option selections for the seeded t-shirt (attr-size/attr-color).
+    private static List<VariantOptionSelection> SeedVariantOptions(string size, string sizeAlias, string color, string colorAlias) => new()
+    {
+        new VariantOptionSelection { AttributeId = "attr-size", Alias = "size", Name = "Size", ValueAlias = sizeAlias, ValueName = size },
+        new VariantOptionSelection { AttributeId = "attr-color", Alias = "color", Name = "Color", ValueAlias = colorAlias, ValueName = color },
+    };
+
     public static void SeedDatabase(ECommDbContext context)
     {
         // Check if database is already seeded
@@ -660,15 +667,15 @@ public static class DatabaseSeeder
                 Variants = new List<ProductVariant>
                 {
                     // White variants
-                    new ProductVariant { Id = "var-1", Sku = "TSH-004-WH-S", Price = 19.99m, StockQuantity = 25, LowStockThreshold = 5, Options = new Dictionary<string, string> { { "Size", "Small" }, { "Color", "White" } }, Status = "active" },
-                    new ProductVariant { Id = "var-2", Sku = "TSH-004-WH-M", Price = 19.99m, StockQuantity = 30, LowStockThreshold = 5, Options = new Dictionary<string, string> { { "Size", "Medium" }, { "Color", "White" } }, Status = "active" },
-                    new ProductVariant { Id = "var-3", Sku = "TSH-004-WH-L", Price = 19.99m, StockQuantity = 28, LowStockThreshold = 5, Options = new Dictionary<string, string> { { "Size", "Large" }, { "Color", "White" } }, Status = "active" },
-                    new ProductVariant { Id = "var-4", Sku = "TSH-004-WH-XL", Price = 19.99m, StockQuantity = 20, LowStockThreshold = 5, Options = new Dictionary<string, string> { { "Size", "XL" }, { "Color", "White" } }, Status = "active" },
+                    new ProductVariant { Id = "var-1", Sku = "TSH-004-WH-S", Price = 19.99m, StockQuantity = 25, LowStockThreshold = 5, Options = SeedVariantOptions("Small", "small", "White", "white"), Status = "active" },
+                    new ProductVariant { Id = "var-2", Sku = "TSH-004-WH-M", Price = 19.99m, StockQuantity = 30, LowStockThreshold = 5, Options = SeedVariantOptions("Medium", "medium", "White", "white"), Status = "active" },
+                    new ProductVariant { Id = "var-3", Sku = "TSH-004-WH-L", Price = 19.99m, StockQuantity = 28, LowStockThreshold = 5, Options = SeedVariantOptions("Large", "large", "White", "white"), Status = "active" },
+                    new ProductVariant { Id = "var-4", Sku = "TSH-004-WH-XL", Price = 19.99m, StockQuantity = 20, LowStockThreshold = 5, Options = SeedVariantOptions("XL", "xl", "White", "white"), Status = "active" },
                     // Black variants
-                    new ProductVariant { Id = "var-5", Sku = "TSH-004-BK-S", Price = 19.99m, StockQuantity = 22, LowStockThreshold = 5, Options = new Dictionary<string, string> { { "Size", "Small" }, { "Color", "Black" } }, Status = "active" },
-                    new ProductVariant { Id = "var-6", Sku = "TSH-004-BK-M", Price = 19.99m, StockQuantity = 35, LowStockThreshold = 5, Options = new Dictionary<string, string> { { "Size", "Medium" }, { "Color", "Black" } }, Status = "active" },
-                    new ProductVariant { Id = "var-7", Sku = "TSH-004-BK-L", Price = 19.99m, StockQuantity = 32, LowStockThreshold = 5, Options = new Dictionary<string, string> { { "Size", "Large" }, { "Color", "Black" } }, Status = "active" },
-                    new ProductVariant { Id = "var-8", Sku = "TSH-004-BK-XL", Price = 19.99m, StockQuantity = 18, LowStockThreshold = 5, Options = new Dictionary<string, string> { { "Size", "XL" }, { "Color", "Black" } }, Status = "active" },
+                    new ProductVariant { Id = "var-5", Sku = "TSH-004-BK-S", Price = 19.99m, StockQuantity = 22, LowStockThreshold = 5, Options = SeedVariantOptions("Small", "small", "Black", "black"), Status = "active" },
+                    new ProductVariant { Id = "var-6", Sku = "TSH-004-BK-M", Price = 19.99m, StockQuantity = 35, LowStockThreshold = 5, Options = SeedVariantOptions("Medium", "medium", "Black", "black"), Status = "active" },
+                    new ProductVariant { Id = "var-7", Sku = "TSH-004-BK-L", Price = 19.99m, StockQuantity = 32, LowStockThreshold = 5, Options = SeedVariantOptions("Large", "large", "Black", "black"), Status = "active" },
+                    new ProductVariant { Id = "var-8", Sku = "TSH-004-BK-XL", Price = 19.99m, StockQuantity = 18, LowStockThreshold = 5, Options = SeedVariantOptions("XL", "xl", "Black", "black"), Status = "active" },
                 },
                 Version = 1,
                 IsCurrentVersion = true,

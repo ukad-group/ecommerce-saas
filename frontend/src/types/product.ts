@@ -179,6 +179,18 @@ export interface VariantOption {
 }
 
 /**
+ * A variant's chosen value for one axis. Identity is the stable alias(es), not the display name,
+ * so renaming an attribute/value never breaks the variant. name/valueName are display snapshots.
+ */
+export interface VariantOptionSelection {
+  attributeId?: string; // set => global (references market ProductAttribute.id)
+  alias: string;        // attribute alias — stable match key
+  name: string;         // attribute display name (snapshot)
+  valueAlias: string;   // chosen value alias — stable match key
+  valueName: string;    // chosen value display name (snapshot)
+}
+
+/**
  * Product variant
  * Represents a specific combination of variant options
  */
@@ -190,7 +202,7 @@ export interface ProductVariant {
   stockQuantity: number;
   lowStockThreshold: number;
   images?: string[]; // Variant-specific images
-  options: Record<string, string>; // e.g., { "Size": "Medium", "Color": "Blue" }
+  options: VariantOptionSelection[]; // one selection per axis (was Record<name,value>)
   status: ProductStatus;
   isDefault?: boolean; // Marks the default variant for display
 }

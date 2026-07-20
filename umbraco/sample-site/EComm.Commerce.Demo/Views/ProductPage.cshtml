@@ -134,9 +134,9 @@
                                     {
                                         <button type="button"
                                                 class="btn btn-outline-primary variant-option flex-fill"
-                                                data-option-name="@option.Name"
-                                                data-option-value="@value">
-                                            @value
+                                                data-option-name="@(option.Alias ?? option.Name)"
+                                                data-option-value="@value.Alias">
+                                            @value.Name
                                         </button>
                                     }
                                 </div>
@@ -404,8 +404,10 @@
                     var sv = window.selectedOptions || {};
                     if (Object.keys(sv).length > 0 && window.variants) {
                         var match = window.variants.find(function(v) {
-                            var opts = v.options || {};
-                            return Object.entries(sv).every(function(e) { return opts[e[0]] === e[1]; });
+                            var opts = Array.isArray(v.options) ? v.options : [];
+                            return Object.entries(sv).every(function(e) {
+                                return opts.some(function(o) { return o.alias === e[0] && o.valueAlias === e[1]; });
+                            });
                         });
                         if (match) variantId = match.id;
                     }
@@ -497,9 +499,9 @@
                 // Initialize with default variant options
                 @if (defaultVariant != null)
                 {
-                    foreach (var kvp in defaultVariant.Options)
+                    foreach (var sel in defaultVariant.Options)
                     {
-                        <text>selectedOptions['@kvp.Key'] = '@kvp.Value';</text>
+                        <text>selectedOptions['@(sel.Alias)'] = '@(sel.ValueAlias)';</text>
                     }
                 }
 
@@ -541,9 +543,9 @@
                 function updateVariantDisplay() {
                     // Find variant that matches all selected options
                     const matchingVariant = variants.find(variant => {
-                        const options = variant.options || {};
+                        const options = Array.isArray(variant.options) ? variant.options : [];
                         return Object.entries(selectedOptions).every(([key, value]) => {
-                            return options[key] === value;
+                            return options.some(o => o.alias === key && o.valueAlias === value);
                         });
                     });
 

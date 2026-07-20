@@ -390,10 +390,15 @@ public class ProductVariant
     public int StockQuantity { get; set; }
     public int LowStockThreshold { get; set; }
     public List<string>? Images { get; set; }
-    public Dictionary<string, string> Options { get; set; }  // e.g., {"Size": "Large", "Color": "Red"}
+    // Chosen value per axis, keyed by STABLE alias (not display name) so renames never break variants.
+    public List<VariantOptionSelection> Options { get; set; }  // { attributeId?, alias, name, valueAlias, valueName }
     public string Status { get; set; } = "active";
     public bool IsDefault { get; set; }
 }
+// VariantOptionSelection { AttributeId?, Alias, Name, ValueAlias, ValueName }
+// Identity = (AttributeId ?? Alias) + ValueAlias; Name/ValueName are display snapshots.
+// The workspace view edits variants as a { axisName: valueName } dict and converts to/from this
+// list on load/save (resolving fresh names from the market attribute library).
 
 // VariantOption.cs
 public class VariantOption

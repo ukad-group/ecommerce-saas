@@ -9,7 +9,7 @@ public class ProductVariant
     public int StockQuantity { get; set; }
     public int LowStockThreshold { get; set; }
     public List<string>? Images { get; set; }
-    public Dictionary<string, string> Options { get; set; } = new();
+    public List<VariantOptionSelection> Options { get; set; } = new();
     public string Status { get; set; } = "active";
     public bool IsDefault { get; set; } = false;
     public string? DisplayName { get; set; }

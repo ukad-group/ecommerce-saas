@@ -20,9 +20,13 @@ import { useAuthStore } from '../../store/authStore';
 import { Role } from '../../types/auth';
 import { VersionBadge } from './VersionBadge';
 import { VersionHistoryModal } from './VersionHistoryModal';
-import type { Product, ProductStatus, VariantOption, ProductVariant, CustomProperty, ProductOption, ProductImageEntry, ProductAttribute } from '../../types/product';
+import type { Product, ProductStatus, VariantOption, ProductVariant, VariantOptionSelection, CustomProperty, ProductOption, ProductImageEntry, ProductAttribute } from '../../types/product';
 import { ProductOptionsEditor } from './ProductOptionsEditor';
 import { slugify } from '../../pages/admin/ProductAttributesPage';
+
+/** Order-independent identity key for a variant's option selections, by stable alias (rename-proof). */
+const variantComboKey = (opts: VariantOptionSelection[]) =>
+  opts.map((o) => `${o.attributeId || o.alias}=${o.valueAlias}`).sort().join('|');
 
 // Extended property type for merged display
 interface MergedCustomProperty extends CustomProperty {
@@ -265,8 +269,8 @@ export function ProductForm({
 
   const handleRemoveVariantOption = (optionName: string) => {
     setVariantOptions(variantOptions.filter((opt) => opt.name !== optionName));
-    // Remove variants that used this option
-    setVariants(variants.filter((v) => !(optionName in v.options)));
+    // Remove variants that used this axis
+    setVariants(variants.filter((v) => !v.options.some((o) => o.name === optionName)));
   };
 
   const handleRemoveVariantValue = (optionName: string, valueName: string) => {
@@ -278,35 +282,37 @@ export function ProductForm({
       )
     );
     // Remove variants that used this value
-    setVariants(variants.filter((v) => v.options[optionName] !== valueName));
+    setVariants(variants.filter((v) => !v.options.some((o) => o.name === optionName && o.valueName === valueName)));
   };
 
   const generateVariants = () => {
     if (variantOptions.length === 0) return;
 
-    // Generate all possible combinations
-    const combinations: Record<string, string>[] = [];
-    const generate = (index: number, current: Record<string, string>) => {
+    // Generate all combinations as selection lists (alias-keyed, rename-proof).
+    const combinations: VariantOptionSelection[][] = [];
+    const generate = (index: number, current: VariantOptionSelection[]) => {
       if (index === variantOptions.length) {
-        combinations.push({ ...current });
+        combinations.push([...current]);
         return;
       }
-
       const option = variantOptions[index];
       for (const value of option.values) {
-        generate(index + 1, { ...current, [option.name]: value.name });
+        generate(index + 1, [...current, {
+          attributeId: option.attributeId,
+          alias: option.alias || slugify(option.name),
+          name: option.name,
+          valueAlias: value.alias || slugify(value.name),
+          valueName: value.name,
+        }]);
       }
     };
 
-    generate(0, {});
+    generate(0, []);
 
     // Create variants from combinations
     const newVariants: ProductVariant[] = combinations.map((options, idx) => {
-      // Check if variant already exists
-      const existing = variants.find(
-        (v) => JSON.stringify(v.options) === JSON.stringify(options)
-      );
-
+      // Reuse an existing variant with the same alias-combo (order-independent)
+      const existing = variants.find((v) => variantComboKey(v.options) === variantComboKey(options));
       if (existing) return existing;
 
       return {
@@ -519,14 +525,12 @@ export function ProductForm({
         return;
       }
 
-      // Each variant must be a unique combination of attribute values (all values identical => duplicate)
-      const comboKey = (opts: Record<string, string>) =>
-        Object.keys(opts).sort().map((k) => `${k}=${opts[k]}`).join('|');
+      // Each variant must be a unique combination of attribute values (order-independent, by alias)
       const seen = new Map<string, string>();
       for (const v of variants) {
-        const key = comboKey(v.options);
+        const key = variantComboKey(v.options);
         if (seen.has(key)) {
-          const label = Object.entries(v.options).map(([k, val]) => `${k}: ${val}`).join(', ') || '(no attributes)';
+          const label = v.options.map((o) => `${o.name}: ${o.valueName}`).join(', ') || '(no attributes)';
           alert(`Duplicate variant combination — ${label}. Each variant must have a unique set of attribute values.`);
           return;
         }
@@ -1141,12 +1145,12 @@ export function ProductForm({
                   <div key={variant.id} className="p-4 border rounded-md">
                     <div className="flex justify-between items-start mb-3">
                       <div className="flex gap-2 flex-wrap">
-                        {Object.entries(variant.options).map(([key, value]) => (
+                        {variant.options.map((o) => (
                           <span
-                            key={key}
+                            key={o.attributeId || o.alias}
                             className="px-2 py-1 bg-gray-100 text-gray-700 rounded text-sm"
                           >
-                            {key}: {value}
+                            {o.name}: {o.valueName}
                           </span>
                         ))}
                       </div>

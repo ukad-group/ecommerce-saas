@@ -315,10 +315,79 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
     return (this.marketAttributes || []).filter(a => !used.has(a.id) && !used.has((a.name || '').toLowerCase()));
   }
 
+  // ── Variant selection shape helpers ─────────────────────────────────────────
+  // Persisted variant.options is a list of { attributeId?, alias, name, valueAlias, valueName }.
+  // This view edits variants as a plain { axisName: valueName } dict, so we convert on load/save.
+  // On load we resolve the CURRENT display name/value from the market library (global axes), so a
+  // renamed attribute/value shows fresh — the original bug was frozen name→value pairs going stale.
+
+  // Chosen value's alias for an axis + value name (from the library when global, else a slug).
+  _valueAlias(ax, valueName) {
+    if (ax?.attributeId) {
+      const attr = (this.marketAttributes || []).find(a => a.id === ax.attributeId);
+      const v = (attr?.values || []).find(x => ((x && typeof x === 'object') ? x.name : x) === valueName);
+      if (v && typeof v === 'object' && v.alias) return v.alias;
+    }
+    return this._slug(valueName);
+  }
+
+  // One persisted selection → [freshName, freshValueName] for the editing dict.
+  _resolveSelection(o) {
+    let name = o.name, value = o.valueName;
+    if (o.attributeId) {
+      const attr = (this.marketAttributes || []).find(a => a.id === o.attributeId);
+      if (attr) {
+        name = attr.name || name;
+        const v = (attr.values || []).find(x => (x && typeof x === 'object') && x.alias === o.valueAlias);
+        if (v) value = v.name;
+      }
+    }
+    return [name, value];
+  }
+
+  _variantsFromApi(variants) {
+    return (variants || []).map(v => ({
+      ...v,
+      options: Array.isArray(v.options)
+        ? Object.fromEntries(v.options.map(o => this._resolveSelection(o)))
+        : (v.options || {}),   // tolerate legacy dict rows until migration runs
+    }));
+  }
+
+  _variantsToApi(variants, axes) {
+    const axByName = new Map((axes || []).map(a => [a.name, a]));
+    return (variants || []).map(v => ({
+      ...v,
+      options: Object.entries(v.options || {}).map(([name, valueName]) => {
+        const ax = axByName.get(name);
+        return {
+          attributeId: ax?.attributeId || null,
+          alias: ax?.alias || this._slug(name),
+          name,
+          valueAlias: this._valueAlias(ax, valueName),
+          valueName,
+        };
+      }),
+    }));
+  }
+
   // Returns a product copy with variant-option values normalized to strings for editing.
+  // Global axis names are refreshed from the market library so a renamed attribute shows fresh
+  // (and stays consistent with the value names resolved in _variantsFromApi, which key the dict).
   _productFromApi(product) {
     if (!product) return product;
-    return { ...product, variantOptions: this._normalizeVariantOptions(product.variantOptions) };
+    const axes = this._normalizeVariantOptions(product.variantOptions).map(o => {
+      if (o.attributeId) {
+        const attr = (this.marketAttributes || []).find(a => a.id === o.attributeId);
+        if (attr?.name) return { ...o, name: attr.name, alias: attr.alias || o.alias };
+      }
+      return o;
+    });
+    return {
+      ...product,
+      variantOptions: axes,
+      variants: this._variantsFromApi(product.variants),
+    };
   }
 
   // Merge the product's own custom properties with the market templates (unfilled templates
@@ -747,6 +816,7 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
         highlights: (this.editedProduct.highlights || []).map(s => (s || '').trim()).filter(s => s.length > 0),
         freeOptions: (this.editedProduct.freeOptions || []).map(s => (s || '').trim()).filter(s => s.length > 0),
         variantOptions: this._denormalizeVariantOptions(this.editedProduct.variantOptions),
+        variants: this._variantsToApi(this.editedProduct.variants, this.editedProduct.variantOptions),
         versionCreatedBy: userName
       };
 
@@ -3388,11 +3458,7 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
                     <div class="option-draft-name-row">
                       <strong class="option-draft-global-name">${opt.name}</strong>
                       <uui-badge look="secondary" title="From the store attribute library">global</uui-badge>
-                      <uui-button look="secondary" color="danger"
-                        @click=${() => this.removeOptionDraft(index)}
-                        ?disabled=${this.saving}>
-                        Remove
-                      </uui-button>
+                      <!-- Global attributes are managed in Commerce → Attributes; not detachable per product. -->
                     </div>
                     <div class="option-draft-values">
                       <div class="option-value-chips">

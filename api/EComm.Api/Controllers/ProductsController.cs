@@ -224,10 +224,15 @@ public class ProductsController : ControllerBase
                 return $"Duplicate variant SKU '{variant.Sku}'. Each variant must have a unique SKU.";
             }
 
-            // Order-independent key for the option combination (e.g. "color=red|size=m")
+            // Order-independent key for the option combination, by stable alias/id (rename-proof).
             var combo = string.Join("|", variant.Options
-                .OrderBy(o => o.Key, StringComparer.OrdinalIgnoreCase)
-                .Select(o => $"{o.Key.Trim().ToLowerInvariant()}={o.Value.Trim().ToLowerInvariant()}"));
+                .Select(o => new
+                {
+                    Attr = (o.AttributeId ?? o.Alias ?? string.Empty).Trim().ToLowerInvariant(),
+                    Val = (o.ValueAlias ?? string.Empty).Trim().ToLowerInvariant()
+                })
+                .OrderBy(o => o.Attr, StringComparer.OrdinalIgnoreCase)
+                .Select(o => $"{o.Attr}={o.Val}"));
             if (!seenCombos.Add(combo))
             {
                 return "Duplicate variant: two variants share the same option combination.";

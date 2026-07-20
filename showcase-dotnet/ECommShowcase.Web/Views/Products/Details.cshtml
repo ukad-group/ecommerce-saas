@@ -152,9 +152,9 @@
                                 @foreach (var value in option.Values)
                                 {
                                     <button type="button" class="btn btn-outline-primary variant-option"
-                                            data-option="@option.Name"
-                                            data-value="@value">
-                                        @value
+                                            data-option="@(option.Alias ?? option.Name)"
+                                            data-value="@value.Alias">
+                                        @value.Name
                                     </button>
                                 }
                             </div>

@@ -122,10 +122,10 @@ function initializeVariantSelection(variants) {
             // Store selection
             selectedOptions[option] = value;
 
-            // Find matching variant
+            // Find matching variant by attribute alias -> value alias (rename-proof)
             const matchingVariant = variants.find(v => {
                 return Object.keys(selectedOptions).every(key =>
-                    v.Options && v.Options[key] === selectedOptions[key]
+                    Array.isArray(v.Options) && v.Options.some(o => o.Alias === key && o.ValueAlias === selectedOptions[key])
                 );
             });
 

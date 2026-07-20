@@ -6,10 +6,28 @@ public class CustomProperty
     public string Value { get; set; } = string.Empty;
 }
 
+public class VariantOptionValue
+{
+    public string Name { get; set; } = string.Empty;
+    public string Alias { get; set; } = string.Empty;
+}
+
 public class VariantOption
 {
     public string Name { get; set; } = string.Empty;
-    public List<string> Values { get; set; } = new();
+    public string? Alias { get; set; }
+    public string? AttributeId { get; set; }
+    public List<VariantOptionValue> Values { get; set; } = new();
+}
+
+// A variant's chosen value for one axis — identity is the stable alias(es), not the display name.
+public class VariantOptionSelection
+{
+    public string? AttributeId { get; set; }
+    public string Alias { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public string ValueAlias { get; set; } = string.Empty;
+    public string ValueName { get; set; } = string.Empty;
 }
 
 public class ProductVariant
@@ -20,7 +38,7 @@ public class ProductVariant
     public decimal? SalePrice { get; set; }
     public int StockQuantity { get; set; }
     public int LowStockThreshold { get; set; }
-    public Dictionary<string, string> Options { get; set; } = new();
+    public List<VariantOptionSelection> Options { get; set; } = new();
     public string Status { get; set; } = "active";
 }
 

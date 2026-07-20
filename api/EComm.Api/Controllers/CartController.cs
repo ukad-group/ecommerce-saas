@@ -194,7 +194,7 @@ public class CartController : ControllerBase
                 effectivePrice = variant.SalePrice ?? variant.Price;
                 if (variant.Options != null && variant.Options.Any())
                 {
-                    var optionsText = string.Join(", ", variant.Options.Values);
+                    var optionsText = string.Join(", ", variant.Options.Select(o => o.ValueName));
                     productName = $"{product.Name} - {optionsText}";
                 }
             }
