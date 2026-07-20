@@ -408,9 +408,12 @@ public class VariantOption
 **Global vs local axes**: the products workspace view labels variant axes **"Attributes"**
 (product custom fields are **"Custom properties"**). An axis is **global** when `AttributeId`
 links a market attribute (Commerce → Attributes library) or **local** when defined inline. The
-Attributes editor offers an "Add store attribute" picker; per-variant value dropdowns resolve a
-global axis's full unique value set from the library. `AttributeId` is preserved across every
-save path (main save, "Update Attributes", create-variants, new product).
+Attributes editor offers an "Add store attribute" picker (on all three axis surfaces: edit
+"Update Attributes", create-product form, and the create-variants panel); per-variant value
+dropdowns resolve a global axis's full unique value set from the library. `AttributeId` is
+preserved across every save path (main save, "Update Attributes", create-variants, new product).
+The create-variants panel auto-generates the value cross-product, so it caps at 500 combinations
+(a warning replaces the preview past that) — for large global libraries, add variants manually.
 
 **UI Features**:
 - Products with variants display badge showing variant count (e.g., "5 variants")

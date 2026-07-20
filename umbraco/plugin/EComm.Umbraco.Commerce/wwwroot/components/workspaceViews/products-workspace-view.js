@@ -1145,7 +1145,13 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
     this.newVariantOptions = this.newVariantOptions.filter((_, i) => i !== index);
   }
 
+  // Cross-product of all axis values → variant combos. Returns null when the product would
+  // exceed MAX_VARIANT_COMBINATIONS (e.g. a global axis with a large value library) — callers
+  // warn instead of freezing the browser building millions of rows. Add variants manually then.
   generateVariantCombinations() {
+    const total = this.newVariantOptions.reduce(
+      (n, opt) => n * Math.max(1, (opt.values || []).length), 1);
+    if (total > 500) return null;
     let combinations = [{}];
     for (const opt of this.newVariantOptions) {
       const next = [];
@@ -1161,6 +1167,10 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
 
   async saveProductWithVariants() {
     const combinations = this.generateVariantCombinations();
+    if (!combinations) {
+      this.error = 'Too many combinations (over 500). Use fewer values, or save and add variants manually.';
+      return;
+    }
     const basePrice = parseFloat(this.defaultVariantPrice) || 0;
     const baseStock = parseInt(this.defaultVariantStock) || 0;
     const baseSku = (this.newBaseSku || '').trim() || this.editedProduct?.id || 'variant';
@@ -2479,7 +2489,22 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
 
           ${(this.newProduct?.variantOptions || []).length > 0 ? html`
             <div class="new-product-option-list">
-              ${(this.newProduct?.variantOptions || []).map((opt, optIndex) => html`
+              ${(this.newProduct?.variantOptions || []).map((opt, optIndex) => opt.attributeId ? html`
+                <div class="new-product-option-card">
+                  <div class="new-product-option-header">
+                    <strong>${opt.name}</strong>
+                    <uui-badge look="secondary" title="From the store attribute library">global</uui-badge>
+                    <button class="option-tag-remove"
+                      @click=${() => this.removeNewProductVariantOption(optIndex)}
+                      ?disabled=${this.createSaving}
+                      type="button">Remove</button>
+                  </div>
+                  <div class="option-value-chips">
+                    ${this._optionValueNames(opt).map(val => html`<span class="option-value-chip">${val}</span>`)}
+                  </div>
+                  <p class="no-values-hint">Values are managed in Commerce → Attributes.</p>
+                </div>
+              ` : html`
                 <div class="new-product-option-card">
                   <div class="new-product-option-header">
                     <strong>${opt.name}</strong>
@@ -2522,11 +2547,24 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
             </div>
           ` : ''}
 
+          ${this._availableGlobalAttributes(this.newProduct?.variantOptions).length > 0 ? html`
+            <div class="add-option-card">
+              <select class="variant-status-select"
+                @change=${(e) => { if (e.target.value) { this.addGlobalNewProductOption(e.target.value); e.target.value = ''; } }}
+                ?disabled=${this.createSaving}>
+                <option value="">+ Add store attribute…</option>
+                ${this._availableGlobalAttributes(this.newProduct?.variantOptions).map(a => html`
+                  <option value="${a.id}">${a.name} (${(a.values || []).length} values)</option>
+                `)}
+              </select>
+            </div>
+          ` : ''}
+
           <div class="add-option-card">
             <div class="add-option-name-row">
               <uui-input
                 type="text"
-                placeholder="Attribute name (e.g., Size)"
+                placeholder="Local attribute name (e.g., Size)"
                 .value=${this.newProductVariantOptionName}
                 @input=${(e) => { this.newProductVariantOptionName = e.target.value; }}
                 @keydown=${(e) => { if (e.key === 'Enter') { e.preventDefault(); this.addNewProductVariantOption(); } }}
@@ -3459,6 +3497,8 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
 
   renderVariantBuilder() {
     const combinations = this.generateVariantCombinations();
+    const tooMany = combinations === null;
+    const combos = combinations || [];
     const previewBaseSku = (this.newBaseSku || '').trim() || this.editedProduct?.id || 'variant';
 
     return html`
@@ -3490,6 +3530,7 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
                     <div class="option-type-card">
                       <div class="option-type-header">
                         <strong>${opt.name}</strong>
+                        ${opt.attributeId ? html`<uui-badge look="secondary" title="From the store attribute library">global</uui-badge>` : ''}
                         <uui-button look="secondary"
                           @click=${() => this.removeVariantOption(index)}
                           ?disabled=${this.saving}>
@@ -3497,7 +3538,7 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
                         </uui-button>
                       </div>
                       <div class="option-values-list">
-                        ${opt.values.map(val => html`<span class="option-value-tag">${val}</span>`)}
+                        ${this._optionValueNames(opt).map(val => html`<span class="option-value-tag">${val}</span>`)}
                       </div>
                     </div>
                   `)}
@@ -3506,7 +3547,20 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
                 <p class="no-options-hint">No attributes yet. Add one below (e.g., Size with values Small, Medium, Large).</p>
               `}
 
-              <!-- Add option form -->
+              ${this._availableGlobalAttributes(this.newVariantOptions).length > 0 ? html`
+                <div class="add-option-form">
+                  <select class="variant-status-select"
+                    @change=${(e) => { if (e.target.value) { this.addGlobalVariantOption(e.target.value); e.target.value = ''; } }}
+                    ?disabled=${this.saving}>
+                    <option value="">+ Add store attribute…</option>
+                    ${this._availableGlobalAttributes(this.newVariantOptions).map(a => html`
+                      <option value="${a.id}">${a.name} (${(a.values || []).length} values)</option>
+                    `)}
+                  </select>
+                </div>
+              ` : ''}
+
+              <!-- Add local option form -->
               <div class="add-option-form">
                 <div class="add-option-inputs">
                   <div class="form-group">
@@ -3578,9 +3632,13 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
             </div>
 
             <!-- Combinations Preview -->
-            ${combinations.length > 0 ? html`
+            ${tooMany ? html`
+              <uui-badge color="warning" look="primary" class="save-error">
+                Too many combinations (over 500) — reduce the number of values, or save and add variants manually.
+              </uui-badge>
+            ` : combos.length > 0 ? html`
               <div class="builder-section">
-                <h5 class="section-heading">Preview — ${combinations.length} variant${combinations.length !== 1 ? 's' : ''} will be created</h5>
+                <h5 class="section-heading">Preview — ${combos.length} variant${combos.length !== 1 ? 's' : ''} will be created</h5>
                 <div class="combinations-table-wrapper">
                   <table class="combinations-table">
                     <thead>
@@ -3592,7 +3650,7 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
                       </tr>
                     </thead>
                     <tbody>
-                      ${combinations.slice(0, 12).map((combo) => html`
+                      ${combos.slice(0, 12).map((combo) => html`
                         <tr>
                           ${this.newVariantOptions.map(opt => html`<td>${combo[opt.name]}</td>`)}
                           <td><code class="sku">${previewBaseSku}${Object.keys(combo).length > 0 ? '-' + Object.values(combo).join('-').toLowerCase().replace(/\s+/g, '-') : ''}</code></td>
@@ -3600,10 +3658,10 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
                           <td>${parseInt(this.defaultVariantStock || '0')}</td>
                         </tr>
                       `)}
-                      ${combinations.length > 12 ? html`
+                      ${combos.length > 12 ? html`
                         <tr>
                           <td colspan="${this.newVariantOptions.length + 3}" class="more-combinations">
-                            … and ${combinations.length - 12} more variants
+                            … and ${combos.length - 12} more variants
                           </td>
                         </tr>
                       ` : ''}
@@ -3625,10 +3683,10 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
                 look="primary"
                 color="positive"
                 @click=${this.saveProductWithVariants}
-                ?disabled=${this.saving}>
+                ?disabled=${this.saving || tooMany}>
                 ${this.saving
                   ? 'Saving...'
-                  : `Create ${combinations.length} Variant${combinations.length !== 1 ? 's' : ''}`}
+                  : `Create ${combos.length} Variant${combos.length !== 1 ? 's' : ''}`}
               </uui-button>
             </div>
 
