@@ -977,11 +977,21 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
   _renderLocalPagination(total, page, pageSize, goTo) {
     const totalPages = Math.ceil(total / pageSize);
     if (totalPages <= 1) return '';
+    // Windowed: first, last, and current ±2, with … gaps — never render every page (could be 100s).
+    const wanted = new Set([1, totalPages]);
+    for (let p = page - 2; p <= page + 2; p++) if (p >= 1 && p <= totalPages) wanted.add(p);
+    const sorted = [...wanted].sort((a, b) => a - b);
+    const items = [];
+    for (let i = 0; i < sorted.length; i++) {
+      if (i > 0 && sorted[i] - sorted[i - 1] > 1) items.push(null);
+      items.push(sorted[i]);
+    }
     return html`
       <div class="pagination-bar">
         <button class="page-btn" ?disabled=${page <= 1} @click=${() => goTo(page - 1)}>←</button>
-        ${Array.from({ length: totalPages }, (_, i) => i + 1).map(p => html`
-          <button class="page-btn ${page === p ? 'page-btn--active' : ''}" @click=${() => goTo(p)}>${p}</button>`)}
+        ${items.map(p => p === null
+          ? html`<span class="page-ellipsis">…</span>`
+          : html`<button class="page-btn ${page === p ? 'page-btn--active' : ''}" @click=${() => goTo(p)}>${p}</button>`)}
         <button class="page-btn" ?disabled=${page >= totalPages} @click=${() => goTo(page + 1)}>→</button>
       </div>`;
   }
@@ -1413,7 +1423,8 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
         ${this._errorBanner(this.optionPresetsError, () => { this.optionPresetsError = null; })}
 
         ${p ? html`
-          <div class="form-panel">
+          <div class="modal-overlay" @click=${(e) => { if (e.target === e.currentTarget) this.editingPreset = null; }}>
+          <div class="form-panel form-panel--modal">
             <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
               <h3 style="margin:0">${p.id && this.optionPresets.find(x=>x.id===p.id) ? 'Edit Preset' : 'New Preset'}</h3>
               <span class="pill ${(p.kind||'single')==='group' ? 'pill--group' : 'pill--single'}">${p.kind||'single'}</span>
@@ -1542,6 +1553,7 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
               <uui-button look="primary" @click=${() => this.savePreset()}>Save</uui-button>
               <uui-button look="secondary" @click=${() => { this.editingPreset = null; }}>Cancel</uui-button>
             </div>
+          </div>
           </div>` : ''}
 
         <div class="filters-bar">
@@ -1568,7 +1580,8 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
                 </tr></thead>
                 <tbody>
                   ${paged.map(preset => html`
-                    <tr class="data-row">
+                    <tr class="data-row" style="cursor:pointer"
+                      @click=${() => { this.editingPreset = {...preset, subOptionIds: preset.subOptionIds||[]}; }}>
                       <td>
                         <strong>${preset.name}</strong>
                         ${preset.description ? html`<div style="font-size:0.75rem;color:#999;margin-top:2px">${preset.description}</div>` : ''}
@@ -1579,7 +1592,6 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
                       <td><span class="pill ${(preset.kind||'single')==='group' ? 'pill--group' : 'pill--single'}">${preset.kind||'single'}</span></td>
                       <td><span class="pill ${preset.status === 'active' ? 'pill--active' : 'pill--inactive'}">${preset.status}</span></td>
                       <td class="row-actions">
-                        <uui-button look="secondary" compact @click=${(e) => { e.stopPropagation(); this.editingPreset = {...preset, subOptionIds: preset.subOptionIds||[]}; }}>Edit</uui-button>
                         <uui-button look="secondary" color="danger" compact @click=${(e) => { e.stopPropagation(); this.deletePreset(preset.id); }}>Del</uui-button>
                       </td>
                     </tr>`)}
@@ -1717,7 +1729,8 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
         ${this._errorBanner(this.attributesError, () => { this.attributesError = null; })}
 
         ${a ? html`
-          <div class="form-panel">
+          <div class="modal-overlay" @click=${(e) => { if (e.target === e.currentTarget) this.editingAttribute = null; }}>
+          <div class="form-panel form-panel--modal">
             <h3>${this.attributes.find(x => x.id === a.id) ? 'Edit Attribute' : 'New Attribute'}</h3>
             <div class="form-row"><label>Name</label>
               <input class="form-input" .value=${a.name || ''} placeholder="e.g. Size"
@@ -1746,6 +1759,7 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
               <uui-button look="primary" @click=${() => this.saveAttribute()}>Save</uui-button>
               <uui-button look="secondary" @click=${() => { this.editingAttribute = null; }}>Cancel</uui-button>
             </div>
+          </div>
           </div>` : ''}
 
         <div class="filters-bar">
@@ -2327,6 +2341,24 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
     }
     .form-input:focus { border-color: #3b82f6; }
     .form-actions { display: flex; gap: 10px; margin-top: 14px; padding-top: 10px; border-top: 1px solid #f0f0f0; }
+
+    /* Modal editor: dim backdrop + centered, scrollable panel with a sticky action footer so
+       Save/Cancel stay reachable no matter how many values the attribute has. */
+    .modal-overlay {
+      position: fixed; inset: 0; z-index: 1000;
+      background: rgba(0, 0, 0, 0.45);
+      display: flex; align-items: flex-start; justify-content: center;
+      padding: 4vh 16px; overflow-y: auto;
+    }
+    .form-panel--modal {
+      margin: 0; width: min(920px, 100%); max-height: 90vh;
+      display: flex; flex-direction: column; overflow-y: auto;
+      box-shadow: 0 12px 48px rgba(0, 0, 0, 0.28);
+    }
+    .form-panel--modal .form-actions {
+      position: sticky; bottom: 0; margin-top: 14px;
+      background: #ffffff; padding-bottom: 4px;
+    }
 
     .row-actions { display: flex; gap: 4px; white-space: nowrap; }
   `;
