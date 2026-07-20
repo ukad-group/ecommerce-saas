@@ -89,21 +89,9 @@ public class CategoryPickerApiController : ManagementApiControllerBase
         return Ok(presets);
     }
 
-    [HttpGet("attributes")]
-    [ProducesResponseType(typeof(List<ProductAttribute>), StatusCodes.Status200OK)]
-    public async Task<IActionResult> GetAttributes([FromQuery] string? marketId = null)
-    {
-        var attributes = await _apiClient.GetAttributesAsync(marketId);
-        return Ok(attributes);
-    }
-
-    [HttpGet("attribute-presets")]
-    [ProducesResponseType(typeof(List<ProductAttributePreset>), StatusCodes.Status200OK)]
-    public async Task<IActionResult> GetAttributePresets([FromQuery] string? marketId = null)
-    {
-        var presets = await _apiClient.GetAttributePresetsAsync(marketId);
-        return Ok(presets);
-    }
+    // NOTE: GET "attributes" / "attribute-presets" are served by CommerceAdminApiController
+    // (same ecomm-commerce route group). Do NOT redeclare them here — duplicate routes cause an
+    // AmbiguousMatchException (500) on every GET. The workspace view calls the same URLs.
 
     /// <summary>
     /// Gets a specific category by ID
