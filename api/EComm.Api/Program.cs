@@ -72,6 +72,14 @@ builder.Services.AddAuthorization(options =>
         policy.AddAuthenticationSchemes(JwtBearerDefaults.AuthenticationScheme);
         policy.RequireAuthenticatedUser();
     });
+
+    // Admin backoffice OR a valid API key — for endpoints the Umbraco plugin manages via its
+    // API key (which AdminOnly rejects, being JWT-only). Requires an authenticated caller.
+    options.AddPolicy("AdminOrApiKey", policy =>
+    {
+        policy.AddAuthenticationSchemes(JwtBearerDefaults.AuthenticationScheme, ApiKeyAuthenticationDefaults.AuthenticationScheme);
+        policy.RequireAuthenticatedUser();
+    });
 });
 
 // Add services to the container

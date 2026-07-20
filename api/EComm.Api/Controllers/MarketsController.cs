@@ -360,7 +360,7 @@ public class MarketsController : ControllerBase
     // ----- Product Attributes (market-scoped variant-axis library) -----
 
     [HttpGet("{id}/attributes")]
-    [AllowAnonymous]
+    [Authorize(Policy = "AdminOrApiKey")]
     public ActionResult GetAttributes(
         string id,
         [FromQuery] string? search = null,
@@ -398,6 +398,7 @@ public class MarketsController : ControllerBase
     }
 
     [HttpPost("{id}/attributes")]
+    [Authorize(Policy = "AdminOrApiKey")]
     public ActionResult AddAttribute(string id, [FromBody] ProductAttribute attribute)
     {
         var market = _store.GetMarket(id);
@@ -416,6 +417,7 @@ public class MarketsController : ControllerBase
     }
 
     [HttpPut("{id}/attributes/{attributeId}")]
+    [Authorize(Policy = "AdminOrApiKey")]
     public ActionResult UpdateSingleAttribute(string id, string attributeId, [FromBody] ProductAttribute attribute)
     {
         var market = _store.GetMarket(id);
@@ -436,6 +438,7 @@ public class MarketsController : ControllerBase
     }
 
     [HttpDelete("{id}/attributes/{attributeId}")]
+    [Authorize(Policy = "AdminOrApiKey")]
     public ActionResult DeleteAttribute(string id, string attributeId)
     {
         var market = _store.GetMarket(id);
@@ -453,6 +456,7 @@ public class MarketsController : ControllerBase
     }
 
     [HttpPut("{id}/attributes")]
+    [Authorize(Policy = "AdminOrApiKey")]
     public ActionResult UpdateAttributes(string id, [FromBody] UpdateAttributesRequest request)
     {
         var market = _store.GetMarket(id);

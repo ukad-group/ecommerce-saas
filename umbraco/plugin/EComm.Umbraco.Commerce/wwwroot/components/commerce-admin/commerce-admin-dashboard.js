@@ -26,7 +26,6 @@ const OPTIONS_SUBITEMS = [
   { key: 'order-statuses',        label: 'Order Statuses',              icon: 'icon-settings', enabled: true },
   { key: 'option-presets',        label: 'Option Presets',              icon: 'icon-code',     enabled: true },
   { key: 'attributes',            label: 'Product Attributes',          icon: 'icon-tag',      enabled: true },
-  { key: 'attribute-presets',     label: 'Product Attribute Presets',   icon: 'icon-tags',     enabled: true },
   { key: 'property-templates',    label: 'Property Templates',          icon: 'icon-list',     enabled: true },
 ];
 
@@ -1771,12 +1770,12 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
                 <thead><tr><th>Name</th><th>Alias</th><th>Values</th><th></th></tr></thead>
                 <tbody>
                   ${paged.map(attr => html`
-                    <tr class="data-row">
-                      <td><strong>${attr.name}</strong></td>
+                    <tr class="data-row" style="cursor:pointer"
+                      @click=${() => { this.editingAttribute = { ...attr, values: (attr.values || []).map(v => ({ ...v })) }; }}>
+                      <td><uui-icon name="icon-tag" style="opacity:0.5;margin-right:6px"></uui-icon><strong>${attr.name}</strong></td>
                       <td><code>${attr.alias || '—'}</code></td>
                       <td>${(attr.values || []).length} value${(attr.values || []).length !== 1 ? 's' : ''}</td>
                       <td class="row-actions">
-                        <uui-button look="secondary" compact @click=${(e) => { e.stopPropagation(); this.editingAttribute = { ...attr, values: (attr.values || []).map(v => ({ ...v })) }; }}>Edit</uui-button>
                         <uui-button look="secondary" color="danger" compact @click=${(e) => { e.stopPropagation(); this.deleteAttribute(attr.id); }}>Del</uui-button>
                       </td>
                     </tr>`)}
