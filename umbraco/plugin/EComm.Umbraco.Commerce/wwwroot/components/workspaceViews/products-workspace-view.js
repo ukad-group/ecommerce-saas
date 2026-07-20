@@ -3169,7 +3169,6 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
               </uui-badge>
             ` : ''}
 
-            ${this.renderCustomPropertiesEditor()}
 
             <h4 class="section-heading">Content</h4>
             <div class="edit-form-grid">
@@ -3871,7 +3870,6 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
         <uui-badge color="danger" look="primary" class="save-error">${this.error}</uui-badge>
       ` : ''}
 
-      ${this.renderCustomPropertiesEditor()}
 
       <h4 class="section-heading">Content</h4>
       <div class="edit-form-grid">
@@ -4055,7 +4053,6 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
         <uui-badge color="danger" look="primary" class="save-error">${this.error}</uui-badge>
       ` : ''}
 
-      ${this.renderCustomPropertiesEditor()}
 
       <h4 class="section-heading">Product</h4>
       <div class="edit-form-grid">
