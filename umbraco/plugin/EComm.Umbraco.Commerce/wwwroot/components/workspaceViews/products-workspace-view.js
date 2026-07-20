@@ -2797,6 +2797,9 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
                 <uui-button look="secondary" color="positive" @click=${this.startAddVariant} ?disabled=${this.saving}>
                   Add Variant
                 </uui-button>
+                <uui-button look="secondary" @click=${this.startEditOptions} ?disabled=${this.saving}>
+                  Attributes
+                </uui-button>
                 <uui-button look="secondary" @click=${this.startManageOptions} ?disabled=${this.saving}>
                   Add-on Options (${(this.editedProduct?.options || []).length})
                 </uui-button>
@@ -3386,6 +3389,9 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
                 Create product Variants
               </uui-button>
 
+              <uui-button look="secondary" @click=${this.startEditOptions} ?disabled=${this.saving}>
+                Attributes
+              </uui-button>
 
               <uui-button look="secondary" @click=${this.startManageOptions} ?disabled=${this.saving}>
                 Add-on Options (${(this.editedProduct?.options || []).length})
@@ -4113,6 +4119,9 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
       <div class="button-group">
         <uui-button look="secondary" @click=${this.cancelEdit} ?disabled=${this.saving}>
           Close
+        </uui-button>
+        <uui-button look="secondary" @click=${this.startEditOptions} ?disabled=${this.saving}>
+          Attributes
         </uui-button>
         <uui-button look="secondary" @click=${this.startManageOptions} ?disabled=${this.saving}>
           Add-on Options (${(this.editedProduct?.options || []).length})
