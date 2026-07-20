@@ -613,7 +613,7 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
     }
   }
 
-  toggleProductEdit(product) {
+  async toggleProductEdit(product) {
     if (this.expandedProductId === product.id) {
       // Collapse if already editing
       this.expandedProductId = null;
@@ -627,7 +627,10 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
       this.newOptionValues = '';
       this.newBaseSku = '';
     } else {
-      // Expand and create editable copy
+      // Expand and create editable copy. Refresh the attribute library first so global axis /
+      // value names resolve to their CURRENT names (they may have been renamed in Commerce →
+      // Attributes; the stored variant snapshots hold the old names).
+      await this.loadMarketAttributes();
       this.expandedProductId = product.id;
       this.editedProduct = this._productFromApi(product);
       this.highlightsText = (product.highlights || []).join('\n');
@@ -644,8 +647,9 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
     }
   }
 
-  selectProduct(product) {
+  async selectProduct(product) {
     this.selectedProductId = product.id;
+    await this.loadMarketAttributes();   // fresh attribute names before resolving stale snapshots
     this.editedProduct = this._productFromApi(product);
     this.highlightsText = (product.highlights || []).join('\n');
     this.freeOptionsText = (product.freeOptions || []).join('\n');
