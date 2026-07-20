@@ -107,9 +107,9 @@ interface ProductVersion {
 - **Variant uniqueness**: enforced in `ProductsController.ValidateVariants` (server) and `ProductForm`/workspace view (client) — no two variants may share the same attribute-value combination (order-independent) or SKU.
 - **Property templates → attribute binding**: `CustomPropertyTemplate.attributeId`, when set, makes that custom-property field a **dropdown** of the attribute's values (React `ProductForm` + Umbraco workspace view); free text otherwise.
 - **React admin**: `ProductAttributesPage` (`/admin/products/attributes`), `ProductAttributePresetsPage` (`/admin/products/attribute-presets`), `marketAttributesApi` + `useMarketAttributes`. ProductForm "Attributes" section: add-global-attribute + apply-preset + add-local.
-- **Umbraco plugin**: Commerce dashboard "Product Attributes" / "Product Attribute Presets" tabs; workspace-view custom-property dropdowns.
-- **API**: `GET/POST/PUT/DELETE /api/v1/admin/markets/:id/attributes` and `.../attribute-presets` (+ bulk PUT).
-- **Migration**: `VariantOption.Values` moved string → `{name, alias}` (no `ecomm.db` reset — data migrated in place; seeder writes new shape).
+- **Umbraco plugin**: Commerce dashboard "Product Attributes" / "Product Attribute Presets" tabs; workspace-view custom-property dropdowns. The product workspace view labels variant axes **"Attributes"** (custom fields are **"Custom properties"**) and supports **global** axes: an "Add store attribute" picker on the Attributes editor, `global`/`local` badges, and per-variant value dropdowns that resolve a global axis's full unique value set from the library (`attributeId` is preserved across all save paths).
+- **API**: `GET/POST/PUT/DELETE /api/v1/admin/markets/:id/attributes` and `.../attribute-presets` (+ bulk PUT). Attribute **values are deduped by name** (case-insensitive) on add/update/bulk in `MarketsController`.
+- **Migration**: `VariantOption.Values` moved string → `{name, alias}` (no `ecomm.db` reset — data migrated in place; seeder writes new shape). `scripts/migration/migrate_westbay_attributes.py` promotes a market's local variant axes into global store attributes (unique unioned values) and relinks products via `attributeId` (dry-run by default, `--apply` backs up first).
 
 ### Feature: Product Options / Add-ons
 - Presets are **market-scoped** (not a tenant-global library, despite some UI copy saying "store-global")

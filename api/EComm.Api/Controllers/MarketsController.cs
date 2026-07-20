@@ -386,6 +386,17 @@ public class MarketsController : ControllerBase
         return Ok(new { attributes, total, page, pageSize });
     }
 
+    // A product attribute's values must be unique — dedupe by Name (case-insensitive, keep first).
+    private static ProductAttribute DedupeAttributeValues(ProductAttribute attribute)
+    {
+        if (attribute?.Values == null) return attribute;
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        attribute.Values = attribute.Values
+            .Where(v => v?.Name != null && seen.Add(v.Name.Trim()))
+            .ToList();
+        return attribute;
+    }
+
     [HttpPost("{id}/attributes")]
     public ActionResult AddAttribute(string id, [FromBody] ProductAttribute attribute)
     {
@@ -396,6 +407,7 @@ public class MarketsController : ControllerBase
         market.Settings.Attributes ??= new List<ProductAttribute>();
 
         if (string.IsNullOrEmpty(attribute.Id)) attribute.Id = Guid.NewGuid().ToString();
+        DedupeAttributeValues(attribute);
         market.Settings.Attributes.Add(attribute);
         market.UpdatedAt = DateTime.UtcNow;
         _store.UpdateMarket(market);
@@ -414,6 +426,7 @@ public class MarketsController : ControllerBase
         if (idx < 0) return NotFound();
 
         attribute.Id = attributeId;
+        DedupeAttributeValues(attribute);
         list[idx] = attribute;
         market.Settings!.Attributes = list;
         market.UpdatedAt = DateTime.UtcNow;
@@ -446,7 +459,8 @@ public class MarketsController : ControllerBase
         if (market == null) return NotFound();
 
         market.Settings ??= new MarketSettings();
-        market.Settings.Attributes = request.Attributes;
+        market.Settings.Attributes = (request.Attributes ?? new List<ProductAttribute>())
+            .Select(DedupeAttributeValues).ToList();
         market.UpdatedAt = DateTime.UtcNow;
         _store.UpdateMarket(market);
 

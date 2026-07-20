@@ -399,9 +399,18 @@ public class ProductVariant
 public class VariantOption
 {
     public string Name { get; set; }      // e.g., "Size"
-    public List<string> Values { get; set; }  // e.g., ["Small", "Medium", "Large"]
+    public string? Alias { get; set; }
+    public string? AttributeId { get; set; }  // set => global (links a market ProductAttribute); null => local
+    public List<ProductAttributeValue> Values { get; set; }  // { Name, Alias }
 }
 ```
+
+**Global vs local axes**: the products workspace view labels variant axes **"Attributes"**
+(product custom fields are **"Custom properties"**). An axis is **global** when `AttributeId`
+links a market attribute (Commerce → Attributes library) or **local** when defined inline. The
+Attributes editor offers an "Add store attribute" picker; per-variant value dropdowns resolve a
+global axis's full unique value set from the library. `AttributeId` is preserved across every
+save path (main save, "Update Attributes", create-variants, new product).
 
 **UI Features**:
 - Products with variants display badge showing variant count (e.g., "5 variants")

@@ -298,6 +298,23 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
     }));
   }
 
+  // Value-name options for a variant axis. Global axes (attributeId set) resolve to the store
+  // attribute's full unique value set (from the market library) so any value is reusable per
+  // variant; local axes use their own inline values.
+  _optionValueNames(opt) {
+    if (opt?.attributeId) {
+      const attr = (this.marketAttributes || []).find(a => a.id === opt.attributeId);
+      if (attr) return (attr.values || []).map(v => (v && typeof v === 'object') ? v.name : v);
+    }
+    return (opt?.values || []).map(v => (v && typeof v === 'object') ? v.name : v);
+  }
+
+  // Store-library attributes not yet used by the given axis list (for the "add global" pickers).
+  _availableGlobalAttributes(existing) {
+    const used = new Set((existing || []).flatMap(o => [o.attributeId, (o.name || '').toLowerCase()]));
+    return (this.marketAttributes || []).filter(a => !used.has(a.id) && !used.has((a.name || '').toLowerCase()));
+  }
+
   // Returns a product copy with variant-option values normalized to strings for editing.
   _productFromApi(product) {
     if (!product) return product;
@@ -360,7 +377,7 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
     const merged = this._mergedCustomProperties();
     return html`
       <div class="attributes-section">
-        <h4 class="section-heading">Attributes</h4>
+        <h4 class="section-heading">Custom properties</h4>
         <div class="custom-props-list">
           ${merged.map(prop => html`
             <div class="custom-prop-row" @click=${(e) => e.stopPropagation()}>
@@ -393,7 +410,7 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
           `)}
         </div>
         <uui-button look="secondary" compact ?disabled=${this.saving}
-          @click=${() => this._addCustomProperty()}>+ Add attribute</uui-button>
+          @click=${() => this._addCustomProperty()}>+ Add field</uui-button>
       </div>
     `;
   }
@@ -800,6 +817,8 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
     this.editOptionsDraft = (this.editedProduct?.variantOptions || []).map(opt => ({
       originalName: opt.name,
       name: opt.name,
+      alias: opt.alias,
+      attributeId: opt.attributeId || null,
       values: [...(opt.values || [])],
     }));
     this.editOptionsNewName = '';
@@ -833,8 +852,25 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
       this.error = `Option "${name}" already exists`;
       return;
     }
-    this.editOptionsDraft = [...this.editOptionsDraft, { originalName: null, name, values: [] }];
+    this.editOptionsDraft = [...this.editOptionsDraft,
+      { originalName: null, name, alias: this._slug(name), attributeId: null, values: [] }];
     this.editOptionsNewName = '';
+    this.error = null;
+  }
+
+  /** Add a store-library (global) attribute to the edit-options draft. */
+  addGlobalOptionDraft(attrId) {
+    const attr = (this.marketAttributes || []).find(a => a.id === attrId);
+    if (!attr) return;
+    if (this.editOptionsDraft.some(o => o.attributeId === attr.id
+        || (o.name || '').toLowerCase() === (attr.name || '').toLowerCase())) {
+      this.error = `"${attr.name}" is already added`;
+      return;
+    }
+    this.editOptionsDraft = [...this.editOptionsDraft, {
+      originalName: null, name: attr.name, alias: attr.alias, attributeId: attr.id,
+      values: (attr.values || []).map(v => (v && typeof v === 'object') ? v.name : v),
+    }];
     this.error = null;
   }
 
@@ -867,7 +903,7 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
     // Validate: no duplicate or empty names
     const names = this.editOptionsDraft.map(o => o.name.trim()).filter(Boolean);
     if (names.length !== new Set(names.map(n => n.toLowerCase())).size) {
-      this.error = 'Option names must be unique';
+      this.error = 'Attribute names must be unique';
       return;
     }
 
@@ -904,7 +940,9 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
 
     this.editedProduct = {
       ...this.editedProduct,
-      variantOptions: this.editOptionsDraft.map(d => ({ name: d.name.trim(), values: d.values })),
+      variantOptions: this.editOptionsDraft.map(d => ({
+        name: d.name.trim(), alias: d.alias || this._slug(d.name), attributeId: d.attributeId || null, values: d.values
+      })),
       variants: updatedVariants,
     };
 
@@ -981,7 +1019,7 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
     // Pre-fill options with first available value for each existing option type
     const options = {};
     for (const opt of (this.editedProduct?.variantOptions || [])) {
-      options[opt.name] = opt.values[0] || '';
+      options[opt.name] = this._optionValueNames(opt)[0] || '';
     }
     this.addingVariant = true;
     this.newVariant = {
@@ -1063,7 +1101,7 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
     const valuesRaw = (this.newOptionValues || '').trim();
 
     if (!name) {
-      this.error = 'Option name is required';
+      this.error = 'Attribute name is required';
       return;
     }
     if (!valuesRaw) {
@@ -1081,9 +1119,25 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
       return;
     }
 
-    this.newVariantOptions = [...this.newVariantOptions, { name, values }];
+    this.newVariantOptions = [...this.newVariantOptions, { name, alias: this._slug(name), attributeId: null, values }];
     this.newOptionName = '';
     this.newOptionValues = '';
+    this.error = null;
+  }
+
+  /** Add a store-library (global) attribute to the create-variants draft. */
+  addGlobalVariantOption(attrId) {
+    const attr = (this.marketAttributes || []).find(a => a.id === attrId);
+    if (!attr) return;
+    if (this.newVariantOptions.some(o => o.attributeId === attr.id
+        || (o.name || '').toLowerCase() === (attr.name || '').toLowerCase())) {
+      this.error = `"${attr.name}" is already added`;
+      return;
+    }
+    this.newVariantOptions = [...this.newVariantOptions, {
+      name: attr.name, alias: attr.alias, attributeId: attr.id,
+      values: (attr.values || []).map(v => (v && typeof v === 'object') ? v.name : v),
+    }];
     this.error = null;
   }
 
@@ -1129,7 +1183,9 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
     this.editedProduct = {
       ...this.editedProduct,
       hasVariants: true,
-      variantOptions: this.newVariantOptions.map(o => ({ name: o.name, values: o.values })),
+      variantOptions: this.newVariantOptions.map(o => ({
+        name: o.name, alias: o.alias || this._slug(o.name), attributeId: o.attributeId || null, values: o.values
+      })),
       variants,
     };
 
@@ -2034,10 +2090,30 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
 
     this.newProduct = {
       ...this.newProduct,
-      variantOptions: [...existing, { name, values }],
+      variantOptions: [...existing, { name, alias: this._slug(name), attributeId: null, values }],
     };
     this.newProductVariantOptionName = '';
     this.newProductVariantOptionValues = '';
+    this.error = null;
+  }
+
+  /** Add a store-library (global) attribute to the new-product draft. */
+  addGlobalNewProductOption(attrId) {
+    const attr = (this.marketAttributes || []).find(a => a.id === attrId);
+    if (!attr) return;
+    const existing = this.newProduct?.variantOptions || [];
+    if (existing.some(o => o.attributeId === attr.id
+        || (o.name || '').toLowerCase() === (attr.name || '').toLowerCase())) {
+      this.error = `"${attr.name}" is already added`;
+      return;
+    }
+    this.newProduct = {
+      ...this.newProduct,
+      variantOptions: [...existing, {
+        name: attr.name, alias: attr.alias, attributeId: attr.id,
+        values: (attr.values || []).map(v => (v && typeof v === 'object') ? v.name : v),
+      }],
+    };
     this.error = null;
   }
 
@@ -2100,7 +2176,7 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
       // variants: at least one option with at least one value required
       const validOptions = (this.newProduct?.variantOptions || []).filter(o => o.values && o.values.length > 0);
       if (validOptions.length === 0) {
-        errors.variantOptions = 'Add at least one option with values (e.g., Size: S, M, L)';
+        errors.variantOptions = 'Add at least one attribute with values (e.g., Size: S, M, L)';
       }
     }
     this.createProductErrors = errors;
@@ -2394,8 +2470,8 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
 
         <!-- Variant Options (required for this type) -->
         <div class="form-group full-width">
-          <uui-label required>Variant Options</uui-label>
-          <p class="variant-options-hint">Define option types and their values (e.g., Size: S, M, L). At least one option is required.</p>
+          <uui-label required>Attributes</uui-label>
+          <p class="variant-options-hint">Define attributes and their values (e.g., Size: S, M, L). At least one attribute is required.</p>
 
           ${this.createProductErrors.variantOptions ? html`
             <small class="error-text">${this.createProductErrors.variantOptions}</small>
@@ -2450,7 +2526,7 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
             <div class="add-option-name-row">
               <uui-input
                 type="text"
-                placeholder="Option name (e.g., Size)"
+                placeholder="Attribute name (e.g., Size)"
                 .value=${this.newProductVariantOptionName}
                 @input=${(e) => { this.newProductVariantOptionName = e.target.value; }}
                 @keydown=${(e) => { if (e.key === 'Enter') { e.preventDefault(); this.addNewProductVariantOption(); } }}
@@ -2465,7 +2541,7 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
                 ?disabled=${this.createSaving}>
               </uui-input>
               <uui-button look="secondary" @click=${this.addNewProductVariantOption} ?disabled=${this.createSaving}>
-                Add Option
+                Add Attribute
               </uui-button>
             </div>
           </div>
@@ -2614,7 +2690,7 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
                   Add Variant
                 </uui-button>
                 <uui-button look="secondary" @click=${this.startEditOptions} ?disabled=${this.saving}>
-                  Variant Options
+                  Attributes
                 </uui-button>
                 <uui-button look="secondary" @click=${this.startManageOptions} ?disabled=${this.saving}>
                   Add-on Options (${(this.editedProduct?.options || []).length})
@@ -2653,7 +2729,7 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
 
   renderAddVariantForm() {
     const variantOptions = this.editedProduct?.variantOptions || [];
-    const optionsWithValues = variantOptions.filter(opt => opt.values && opt.values.length > 0);
+    const optionsWithValues = variantOptions.filter(opt => this._optionValueNames(opt).length > 0);
 
     return html`
       <div class="add-variant-form">
@@ -2724,7 +2800,7 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
 
           ${optionsWithValues.length > 0 ? html`
             <div class="form-group full-width">
-              <uui-label>Variant Options</uui-label>
+              <uui-label>Attributes</uui-label>
               <div class="edit-form-grid">
                 ${optionsWithValues.map(opt => html`
                   <div class="form-group">
@@ -2733,9 +2809,9 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
                       class="variant-status-select"
                       @change=${(e) => this.handleNewVariantOption(opt.name, e.target.value)}
                       ?disabled=${this.saving}>
-                      ${opt.values.map(v => html`
+                      ${this._optionValueNames(opt).map(v => html`
                         <option value="${v}"
-                          ?selected=${(this.newVariant?.options?.[opt.name] ?? opt.values[0]) === v}>
+                          ?selected=${(this.newVariant?.options?.[opt.name] ?? this._optionValueNames(opt)[0]) === v}>
                           ${v}
                         </option>
                       `)}
@@ -2823,18 +2899,18 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
 
         ${optionsToShow.length > 0 ? html`
           <div class="attributes-section">
-            <h4 class="section-heading">Variant Options</h4>
+            <h4 class="section-heading">Attributes</h4>
             <div class="edit-form-grid">
               ${optionsToShow.map(opt => html`
                 <div class="form-group">
                   <uui-label>${opt.name}</uui-label>
-                  ${opt.values && opt.values.length > 0 ? html`
+                  ${this._optionValueNames(opt).length > 0 ? html`
                     <select
                       class="variant-status-select"
                       @change=${(e) => this.handleVariantOptionInput(variant.id, opt.name, e.target.value)}
                       ?disabled=${this.saving}>
-                      ${opt.values.map(v => html`
-                        <option value="${v}" ?selected=${(variant.options?.[opt.name] ?? opt.values[0]) === v}>
+                      ${this._optionValueNames(opt).map(v => html`
+                        <option value="${v}" ?selected=${(variant.options?.[opt.name] ?? this._optionValueNames(opt)[0]) === v}>
                           ${v}
                         </option>
                       `)}
@@ -3206,7 +3282,7 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
               </uui-button>
 
               <uui-button look="secondary" @click=${this.startEditOptions} ?disabled=${this.saving}>
-                Variant Options
+                Attributes
               </uui-button>
 
               <uui-button look="secondary" @click=${this.startManageOptions} ?disabled=${this.saving}>
@@ -3253,14 +3329,14 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
       <div class="options-editor-container">
 
             <div class="options-editor-header">
-              <h4 class="options-editor-title">Update Variant Options</h4>
+              <h4 class="options-editor-title">Update Attributes</h4>
               <uui-button look="secondary" @click=${this.cancelEditOptions} ?disabled=${this.saving}>
                 Cancel
               </uui-button>
             </div>
 
             <p class="options-editor-intro">
-              Rename or remove option types. Renaming updates all existing variants automatically.
+              Rename or remove attributes. Renaming updates all existing variants automatically.
             </p>
 
             ${this.error ? html`
@@ -3269,12 +3345,30 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
 
             ${this.editOptionsDraft.length > 0 ? html`
               <div class="options-draft-list">
-                ${this.editOptionsDraft.map((opt, index) => html`
+                ${this.editOptionsDraft.map((opt, index) => opt.attributeId ? html`
+                  <div class="option-draft-card">
+                    <div class="option-draft-name-row">
+                      <strong class="option-draft-global-name">${opt.name}</strong>
+                      <uui-badge look="secondary" title="From the store attribute library">global</uui-badge>
+                      <uui-button look="secondary" color="danger"
+                        @click=${() => this.removeOptionDraft(index)}
+                        ?disabled=${this.saving}>
+                        Remove
+                      </uui-button>
+                    </div>
+                    <div class="option-draft-values">
+                      <div class="option-value-chips">
+                        ${this._optionValueNames(opt).map(val => html`<span class="option-value-chip">${val}</span>`)}
+                      </div>
+                      <p class="no-values-hint">Values are managed in Commerce → Attributes.</p>
+                    </div>
+                  </div>
+                ` : html`
                   <div class="option-draft-card">
                     <div class="option-draft-name-row">
                       <uui-input
                         type="text"
-                        placeholder="Option name"
+                        placeholder="Attribute name"
                         .value=${opt.name}
                         @input=${(e) => this.handleOptionDraftName(index, e.target.value)}
                         ?disabled=${this.saving}>
@@ -3320,20 +3414,33 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
                 `)}
               </div>
             ` : html`
-              <p class="no-options-hint">No options configured yet. Add one below.</p>
+              <p class="no-options-hint">No attributes configured yet. Add one below.</p>
             `}
+
+            ${this._availableGlobalAttributes(this.editOptionsDraft).length > 0 ? html`
+              <div class="add-option-draft-row">
+                <select class="variant-status-select"
+                  @change=${(e) => { if (e.target.value) { this.addGlobalOptionDraft(e.target.value); e.target.value = ''; } }}
+                  ?disabled=${this.saving}>
+                  <option value="">+ Add store attribute…</option>
+                  ${this._availableGlobalAttributes(this.editOptionsDraft).map(a => html`
+                    <option value="${a.id}">${a.name} (${(a.values || []).length} values)</option>
+                  `)}
+                </select>
+              </div>
+            ` : ''}
 
             <div class="add-option-draft-row">
               <uui-input
                 type="text"
-                placeholder="New option name (e.g., Size)"
+                placeholder="New local attribute (e.g., Size)"
                 .value=${this.editOptionsNewName}
                 @input=${(e) => { this.editOptionsNewName = e.target.value; }}
                 @keydown=${(e) => { if (e.key === 'Enter') { e.preventDefault(); this.addOptionDraft(); } }}
                 ?disabled=${this.saving}>
               </uui-input>
               <uui-button look="secondary" @click=${this.addOptionDraft} ?disabled=${this.saving}>
-                Add Option
+                Add Local
               </uui-button>
             </div>
 
@@ -3365,7 +3472,7 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
             </div>
 
             <p class="variant-builder-intro">
-              Define option types and their values. All combinations are auto-generated as variants.
+              Define attributes and their values. All combinations are auto-generated as variants.
               The product will be converted to a variant product when saved.
             </p>
 
@@ -3375,7 +3482,7 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
 
             <!-- Option Types -->
             <div class="builder-section">
-              <h5 class="section-heading">Option Types</h5>
+              <h5 class="section-heading">Attributes</h5>
 
               ${this.newVariantOptions.length > 0 ? html`
                 <div class="option-types-list">
@@ -3396,14 +3503,14 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
                   `)}
                 </div>
               ` : html`
-                <p class="no-options-hint">No option types yet. Add one below (e.g., Size with values Small, Medium, Large).</p>
+                <p class="no-options-hint">No attributes yet. Add one below (e.g., Size with values Small, Medium, Large).</p>
               `}
 
               <!-- Add option form -->
               <div class="add-option-form">
                 <div class="add-option-inputs">
                   <div class="form-group">
-                    <uui-label>Option Name</uui-label>
+                    <uui-label>Attribute Name</uui-label>
                     <uui-input
                       type="text"
                       placeholder="e.g., Size"
@@ -3426,7 +3533,7 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
                   </div>
                 </div>
                 <uui-button look="secondary" @click=${this.addVariantOption} ?disabled=${this.saving}>
-                  Add Option
+                  Add Attribute
                 </uui-button>
               </div>
             </div>
@@ -3890,7 +3997,7 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
           Close
         </uui-button>
         <uui-button look="secondary" @click=${this.startEditOptions} ?disabled=${this.saving}>
-          Variant Options
+          Attributes
         </uui-button>
         <uui-button look="secondary" @click=${this.startManageOptions} ?disabled=${this.saving}>
           Add-on Options (${(this.editedProduct?.options || []).length})
