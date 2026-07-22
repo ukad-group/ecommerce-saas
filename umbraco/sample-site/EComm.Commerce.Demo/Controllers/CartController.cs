@@ -56,7 +56,7 @@ public class CartController : Controller
     public async Task<IActionResult> Add([FromBody] AddToCartRequest request)
     {
         var sessionId = GetOrCreateSessionId();
-        var (success, error) = await _cartService.AddItemAsync(sessionId, request.ProductId, request.VariantId, request.Quantity, request.OptionId);
+        var (success, error) = await _cartService.AddItemAsync(sessionId, request.ProductId, request.VariantId, request.Quantity);
 
         if (!success)
             return BadRequest(new { error });

@@ -20,8 +20,7 @@ import { useAuthStore } from '../../store/authStore';
 import { Role } from '../../types/auth';
 import { VersionBadge } from './VersionBadge';
 import { VersionHistoryModal } from './VersionHistoryModal';
-import type { Product, ProductStatus, VariantOption, ProductVariant, VariantOptionSelection, CustomProperty, ProductOption, ProductImageEntry, ProductAttribute } from '../../types/product';
-import { ProductOptionsEditor } from './ProductOptionsEditor';
+import type { Product, ProductStatus, VariantOption, ProductVariant, VariantOptionSelection, CustomProperty, ProductImageEntry, ProductAttribute } from '../../types/product';
 import { slugify } from '../../pages/admin/ProductAttributesPage';
 
 /** Order-independent identity key for a variant's option selections, by stable alias (rename-proof). */
@@ -89,12 +88,6 @@ export function ProductForm({
   // State for highlights
   const [highlights, setHighlights] = useState<string[]>(product?.highlights || []);
 
-  // State for free options content (one editable list per product)
-  const [freeOptions, setFreeOptions] = useState<string[]>(product?.freeOptions || []);
-
-  // State for options management
-  const [options, setOptions] = useState<ProductOption[]>(product?.options || []);
-
   // State for images management
   const [images, setImages] = useState<ProductImageEntry[]>(product?.images || []);
 
@@ -149,8 +142,6 @@ export function ProductForm({
       setVariants(product.variants || []);
       setImages(product.images || []);
       setHighlights(product.highlights || []);
-      setFreeOptions(product.freeOptions || []);
-      setOptions(product.options || []);
 
       // Reset form with new product data
       reset({
@@ -496,21 +487,6 @@ export function ProductForm({
     setHighlights(highlights.filter((_, i) => i !== index));
   };
 
-  // Free options handlers
-  const handleAddFreeOption = () => {
-    setFreeOptions([...freeOptions, '']);
-  };
-
-  const handleUpdateFreeOption = (index: number, value: string) => {
-    const updated = [...freeOptions];
-    updated[index] = value;
-    setFreeOptions(updated);
-  };
-
-  const handleRemoveFreeOption = (index: number) => {
-    setFreeOptions(freeOptions.filter((_, i) => i !== index));
-  };
-
   const handleFormSubmit = (data: ProductFormData) => {
     // Variant SKUs must be present and unique (API enforces this too)
     if (hasVariants) {
@@ -562,10 +538,8 @@ export function ProductForm({
       variantOptions: hasVariants ? variantOptions : undefined,
       variants: hasVariants ? variants : undefined,
       customProperties: preparedProperties.length > 0 ? preparedProperties : undefined,
-      options: options.length > 0 ? options : undefined,
       images: images.length > 0 ? images : [],
       highlights: highlights.filter((h) => h.trim()).length > 0 ? highlights.filter((h) => h.trim()) : undefined,
-      freeOptions: freeOptions.filter((f) => f.trim()).length > 0 ? freeOptions.filter((f) => f.trim()) : undefined,
       leasingFactor: data.leasingFactor || undefined,
       hidePrice: data.hidePrice || false,
       hiddenPriceDescription: data.hiddenPriceDescription || undefined,
@@ -849,44 +823,6 @@ export function ProductForm({
           </div>
         ) : (
           <p className="text-sm text-gray-400 italic">No highlights yet.</p>
-        )}
-      </div>
-
-      {/* Free options content */}
-      <div className="bg-white rounded-lg shadow p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-medium text-gray-900">Free options content</h2>
-          <Button type="button" onClick={handleAddFreeOption} className="text-sm">
-            + Free option
-          </Button>
-        </div>
-        <p className="text-sm text-gray-500 mb-3">
-          Free-text values shown on the customize and summary pages and in quotation emails.
-        </p>
-        {freeOptions.length > 0 ? (
-          <div className="space-y-2">
-            {freeOptions.map((f, i) => (
-              <div key={i} className="flex gap-2 items-center">
-                <span className="text-gray-400 text-sm">•</span>
-                <input
-                  type="text"
-                  value={f}
-                  onChange={(e) => handleUpdateFreeOption(i, e.target.value)}
-                  placeholder="e.g. Takräcke - 150 kg utbredd last"
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#4a6ba8] focus:border-[#4a6ba8]"
-                />
-                <button
-                  type="button"
-                  onClick={() => handleRemoveFreeOption(i)}
-                  className="text-red-500 hover:text-red-700 text-sm px-2"
-                >
-                  ✕
-                </button>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="text-sm text-gray-400 italic">No free options yet.</p>
         )}
       </div>
 
@@ -1318,13 +1254,6 @@ export function ProductForm({
           </div>
         </div>
       </div>
-
-      {/* Options — full CRUD editor */}
-      <ProductOptionsEditor
-        options={options}
-        currency={watch('currency') || 'SEK'}
-        onChange={setOptions}
-      />
 
       {/* Form Actions */}
       <div className="flex justify-end gap-4">

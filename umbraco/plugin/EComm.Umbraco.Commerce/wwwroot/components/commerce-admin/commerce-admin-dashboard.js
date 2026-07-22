@@ -24,7 +24,6 @@ const NAV_ITEMS = [
 
 const OPTIONS_SUBITEMS = [
   { key: 'order-statuses',        label: 'Order Statuses',              icon: 'icon-settings', enabled: true },
-  { key: 'option-presets',        label: 'Option Presets',              icon: 'icon-code',     enabled: true },
   { key: 'attributes',            label: 'Product Attributes',          icon: 'icon-tag',      enabled: true },
   { key: 'property-templates',    label: 'Property Templates',          icon: 'icon-list',     enabled: true },
 ];
@@ -87,18 +86,7 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
     discountsLoading: { type: Boolean },
     discountsError:   { type: String  },
     editingDiscount:  { type: Object  },
-    // option presets
-    optionPresets:        { type: Array   },
-    optionPresetsLoading: { type: Boolean },
-    optionPresetsError:   { type: String  },
-    editingPreset:        { type: Object  },
     defaultAliases:       { type: Object  },
-    optionImageWorking:   { type: Boolean },
-    optionPresetsSearch:  { type: String  },
-    optionPresetsPage:    { type: Number  },
-    _presetPickerOpen:    { type: Boolean },
-    _presetPickerSearch:  { type: String  },
-    _presetPickerPage:    { type: Number  },
     // property templates
     propertyTemplates:        { type: Array   },
     propertyTemplatesLoading: { type: Boolean },
@@ -145,10 +133,7 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
     this.statusDefs = [];
 
     this.discounts = []; this.discountsLoading = false; this.discountsError = null; this.editingDiscount = null;
-    this.optionPresets = []; this.optionPresetsLoading = false; this.optionPresetsError = null; this.editingPreset = null;
-    this.defaultAliases = null; this.optionImageWorking = false;
-    this.optionPresetsSearch = ''; this.optionPresetsPage = 1;
-    this._presetPickerOpen = false; this._presetPickerSearch = ''; this._presetPickerPage = 1;
+    this.defaultAliases = null;
     this.propertyTemplates = []; this.propertyTemplatesLoading = false; this.propertyTemplatesError = null; this.editingTemplate = null;
     this.propertyTemplatesSearch = ''; this.propertyTemplatesPage = 1;
     this.attributes = []; this.attributesLoading = false; this.attributesError = null; this.editingAttribute = null;
@@ -198,104 +183,6 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
     } catch { /* focal point defaults on, no crop */ }
   }
 
-  // ─── Umbraco media picker helpers (single option image) ─────────────────────
-
-  async resolveUmbracoMediaUrls(keys, authHeader) {
-    try {
-      if (!authHeader) authHeader = `Bearer ${await this._authContext?.getLatestToken()}`;
-      const params = keys.map(k => `id=${encodeURIComponent(k)}`).join('&');
-      const res = await fetch(`/umbraco/management/api/v1/media/urls?${params}`, {
-        headers: { 'Authorization': authHeader }, credentials: 'include',
-      });
-      if (!res.ok) return [];
-      const data = await res.json();
-      return (Array.isArray(data) ? data : []).map(i => i.urlInfos?.[0]?.url || null).filter(Boolean);
-    } catch { return []; }
-  }
-
-  async _mediaInfo(mediaKey) {
-    this._mediaInfoCache = this._mediaInfoCache || {};
-    if (this._mediaInfoCache[mediaKey]) return this._mediaInfoCache[mediaKey];
-    const authHeader = `Bearer ${await this._authContext?.getLatestToken()}`;
-    let url = '';
-    try { url = (await this.resolveUmbracoMediaUrls([mediaKey], authHeader))[0] || ''; } catch { /* ignore */ }
-    let altText;
-    try {
-      const res = await fetch(`/umbraco/management/api/v1/media/${mediaKey}`, {
-        headers: { Authorization: authHeader }, credentials: 'include',
-      });
-      if (res.ok) altText = this._readAltFromMediaDetail(await res.json());
-    } catch { /* ignore */ }
-    const info = { url, altText };
-    this._mediaInfoCache[mediaKey] = info;
-    return info;
-  }
-
-  _readAltFromMediaDetail(detail) {
-    const values = (detail && detail.values) || [];
-    const aliases = ['alttext', 'alt', 'alternativetext'];
-    for (const alias of aliases) {
-      const v = values.find(x => (x.alias || '').toLowerCase() === alias && typeof x.value === 'string' && x.value.trim());
-      if (v) return v.value.trim();
-    }
-    return (detail && detail.variants && detail.variants[0] && detail.variants[0].name) || undefined;
-  }
-
-  /** The single configured crop preset (Settings → Images), as the native picker's preselectedCrops. */
-  _preselectedCrops() {
-    const c = this.defaultAliases?.productImageCrop;
-    if (!c || !(c.width > 0) || !(c.height > 0)) return [];
-    return [{ alias: c.alias || 'product', label: c.label, width: c.width, height: c.height }];
-  }
-
-  /** Build the <umb-input-rich-media> value from a single option image (media-backed only). */
-  _optionImageRichValue(image) {
-    if (!image || !image.mediaKey) return [];
-    return [{ key: image.mediaKey, mediaKey: image.mediaKey, mediaTypeAlias: '', focalPoint: image.focalPoint || null, crops: image.crops || [] }];
-  }
-
-  /** Map the native element value back to a single option image, resolving URL + alt. */
-  async _onOptionImageChange(value) {
-    const p = this.editingPreset;
-    if (!p) return;
-    const entry = (Array.isArray(value) ? value : []).find(e => e && e.mediaKey);
-    if (!entry) { this.editingPreset = { ...p, image: null }; return; }
-    this.optionImageWorking = true;
-    try {
-      const info = await this._mediaInfo(entry.mediaKey);
-      const baseUrl = (info.url && info.url.split('?')[0]) || (p.image && p.image.url) || '';
-      this.editingPreset = {
-        ...this.editingPreset,
-        image: {
-          url: baseUrl,
-          mediaKey: entry.mediaKey,
-          altText: (p.image && p.image.altText) || info.altText || undefined,
-          focalPoint: entry.focalPoint || undefined,
-          crops: (entry.crops && entry.crops.length) ? entry.crops : undefined,
-        },
-      };
-    } finally { this.optionImageWorking = false; }
-  }
-
-  /** Reusable image-picker form row for the option editor (single photo + legacy URL fallback). */
-  _renderOptionImageField(p) {
-    return html`
-      <div class="form-row"><label>Image</label>
-        <div style="flex:1">
-          <umb-input-rich-media
-            .value=${this._optionImageRichValue(p.image)}
-            ?multiple=${false}
-            .focalPointEnabled=${this.defaultAliases?.enableFocalPoint ?? true}
-            .preselectedCrops=${this._preselectedCrops()}
-            @change=${e => this._onOptionImageChange(e.target.value)}>
-          </umb-input-rich-media>
-          ${this.optionImageWorking ? html`<div style="display:flex;align-items:center;gap:6px;margin-top:4px"><uui-loader></uui-loader><span style="font-size:0.8rem;color:#999">Working…</span></div>` : ''}
-          <input class="form-input" style="margin-top:6px" .value=${p.imageUrl || ''} placeholder="…or paste an image URL"
-            @input=${e => { this.editingPreset = { ...this.editingPreset, imageUrl: e.target.value }; }}>
-        </div>
-      </div>`;
-  }
-
   _selectMarket(m) {
     this.selectedMarketId = m.id;
     this.marketName = m.name;
@@ -306,7 +193,6 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
     else if (this.activeView === 'discounts') this.loadDiscounts();
     else if (this.activeView === 'analytics') this.loadAnalytics();
     else if (this.activeView === 'property-templates') { this.loadPropertyTemplates(); this.loadAttributes(); }
-    else if (this.activeView === 'option-presets') { this.editingPreset = null; this.loadOptionPresets(); }
     else if (this.activeView === 'attributes') { this.editingAttribute = null; this.loadAttributes(); }
     else if (this.activeView === 'attribute-presets') { this.editingAttributePreset = null; this.loadAttributes(); this.loadAttributePresets(); }
   }
@@ -484,50 +370,6 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
     } catch (e) { this.discountsError = e.message; }
   }
 
-  // ── Option Presets ─────────────────────────────────────────────────────────
-
-  async loadOptionPresets() {
-    this.optionPresetsLoading = true; this.optionPresetsError = null; this.optionPresetsPage = 1;
-    try {
-      const qs = this.selectedMarketId ? `?marketId=${encodeURIComponent(this.selectedMarketId)}` : '';
-      const data = await this._get(`/umbraco/management/api/ecomm-commerce/option-presets${qs}`);
-      // API now returns { presets: [...], total, page, pageSize }
-      this.optionPresets = Array.isArray(data) ? data : (data?.presets ?? []);
-    } catch (e) { this.optionPresetsError = e.message; }
-    finally { this.optionPresetsLoading = false; }
-  }
-
-  async _saveOptionPresets(presets) {
-    const headers = await this.getAuthHeaders();
-    const qs = this.selectedMarketId ? `?marketId=${encodeURIComponent(this.selectedMarketId)}` : '';
-    const r = await fetch(`/umbraco/management/api/ecomm-commerce/option-presets${qs}`, {
-      method: 'PUT', headers, credentials: 'include',
-      body: JSON.stringify({ presets })
-    });
-    if (!r.ok) throw new Error(r.statusText);
-  }
-
-  async savePreset() {
-    const p = this.editingPreset;
-    if (!p) return;
-    try {
-      const list = p.id
-        ? this.optionPresets.map(x => x.id === p.id ? p : x)
-        : [...this.optionPresets, { ...p, id: crypto.randomUUID() }];
-      await this._saveOptionPresets(list);
-      this.editingPreset = null;
-      this.loadOptionPresets();
-    } catch (e) { this.optionPresetsError = e.message; }
-  }
-
-  async deletePreset(id) {
-    try {
-      const list = this.optionPresets.filter(x => x.id !== id);
-      await this._saveOptionPresets(list);
-      this.loadOptionPresets();
-    } catch (e) { this.optionPresetsError = e.message; }
-  }
-
   // ── Property Templates ─────────────────────────────────────────────────────
 
   async loadPropertyTemplates() {
@@ -688,7 +530,6 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
     if (key === 'analytics'      && !this.analyticsOrders.length && !this.analyticsLoading)     this.loadAnalytics();
     if (key === 'order-statuses' && !this.orderStatuses.length   && !this.orderStatusesLoading) this.loadOrderStatuses();
     if (key === 'discounts'      && !this.discounts.length       && !this.discountsLoading)      this.loadDiscounts();
-    if (key === 'option-presets'     && !this.optionPresets.length      && !this.optionPresetsLoading)     this.loadOptionPresets();
     if (key === 'property-templates') { if (!this.propertyTemplates.length && !this.propertyTemplatesLoading) this.loadPropertyTemplates(); if (!this.attributes.length && !this.attributesLoading) this.loadAttributes(); }
     if (key === 'attributes'         && !this.attributes.length         && !this.attributesLoading)        this.loadAttributes();
     if (key === 'attribute-presets') { if (!this.attributes.length && !this.attributesLoading) this.loadAttributes(); if (!this.attributePresets.length && !this.attributePresetsLoading) this.loadAttributePresets(); }
@@ -1395,218 +1236,6 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
       </div>`;
   }
 
-  // ── Option Presets ─────────────────────────────────────────────────────────
-
-  _renderOptionPresetsView() {
-    const p = this.editingPreset;
-    const PAGE_SIZE = 10;
-    const q = (this.optionPresetsSearch || '').toLowerCase();
-    const filtered = q
-      ? this.optionPresets.filter(x => x.name?.toLowerCase().includes(q) || x.sku?.toLowerCase().includes(q))
-      : this.optionPresets;
-    const page = this.optionPresetsPage;
-    const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
-    const singles = this.optionPresets.filter(x => (x.kind || 'single') === 'single');
-
-    return html`
-      <div class="view-container">
-        ${this._viewHeader('Option Presets', html`
-          <div style="display:flex;gap:6px">
-            <uui-button look="primary" @click=${() => { this.editingPreset = { id: crypto.randomUUID(), name:'', sku:'', price:0, stockQuantity:0, kind:'single', status:'active', description:'', imageUrl:'' }; }}>
-              + Single
-            </uui-button>
-            <uui-button look="secondary" @click=${() => { this.editingPreset = { id: crypto.randomUUID(), name:'', sku:'', price:0, stockQuantity:0, kind:'group', status:'active', description:'', imageUrl:'', subOptionIds:[] }; }}>
-              + Group
-            </uui-button>
-          </div>`)}
-
-        ${this._errorBanner(this.optionPresetsError, () => { this.optionPresetsError = null; })}
-
-        ${p ? html`
-          <div class="modal-overlay" @click=${(e) => { if (e.target === e.currentTarget) this.editingPreset = null; }}>
-          <div class="form-panel form-panel--modal">
-            <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
-              <h3 style="margin:0">${p.id && this.optionPresets.find(x=>x.id===p.id) ? 'Edit Preset' : 'New Preset'}</h3>
-              <span class="pill ${(p.kind||'single')==='group' ? 'pill--group' : 'pill--single'}">${p.kind||'single'}</span>
-              <select class="form-input" style="width:auto;font-size:0.8rem" .value=${p.kind||'single'}
-                @change=${e => {
-                  const k = e.target.value;
-                  this.editingPreset = k === 'group'
-                    ? {...p, kind:'group', subOptionIds: p.subOptionIds||[]}
-                    : {...p, kind:'single', subOptionIds: undefined};
-                }}>
-                <option value="single">Single option</option>
-                <option value="group">Group (sub-options)</option>
-              </select>
-            </div>
-
-            ${(p.kind||'single') === 'group' ? html`
-              <div class="form-row"><label>Name</label>
-                <input class="form-input" .value=${p.name||''} placeholder="e.g. Couplings"
-                  @input=${e => { this.editingPreset = {...p, name: e.target.value}; }}>
-              </div>
-              <div class="form-row"><label>Status</label>
-                <select class="form-input" .value=${p.status||'active'}
-                  @change=${e => { this.editingPreset = {...p, status: e.target.value}; }}>
-                  <option value="active">Active</option><option value="inactive">Inactive</option><option value="draft">Draft</option>
-                </select>
-              </div>
-              ${this._renderOptionImageField(p)}
-              <div class="form-row"><label>Description</label>
-                <textarea class="form-input" rows="2" .value=${p.description||''} placeholder="Optional"
-                  @input=${e => { this.editingPreset = {...p, description: e.target.value}; }}></textarea>
-              </div>
-              <div class="form-row"><label>Sub options</label>
-                <div style="display:flex;flex-direction:column;gap:4px">
-                  ${(p.subOptionIds||[]).map((id, i) => {
-                    const s = singles.find(x => x.id === id);
-                    return html`
-                      <div style="display:flex;align-items:center;gap:6px;padding:4px 8px;border:1px solid var(--uui-color-interactive,#4a6ba8);border-radius:4px;background:#eff6ff;font-size:0.875rem">
-                        <span style="color:#999;width:1.2rem;flex-shrink:0">${i+1}.</span>
-                        <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s ? s.name : id}</span>
-                        ${s ? html`<span style="color:#999;font-size:0.8rem;flex-shrink:0">${this.formatCurrency(s.price)}</span>` : ''}
-                        <button style="background:none;border:none;cursor:pointer;color:#999;font-size:1rem;line-height:1;padding:0 2px;flex-shrink:0"
-                          @click=${() => { const cur = p.subOptionIds||[]; this.editingPreset = {...p, subOptionIds: cur.filter(x=>x!==id)}; }}>×</button>
-                      </div>`;
-                  })}
-                  <button style="background:none;border:1px dashed #ccc;border-radius:4px;padding:6px;font-size:0.85rem;color:#999;cursor:pointer;text-align:center;width:100%"
-                    @click=${() => { this._presetPickerSearch = ''; this._presetPickerPage = 1; this._presetPickerOpen = true; }}>
-                    ── Add new ──
-                  </button>
-                </div>
-                ${this._presetPickerOpen ? html`
-                  <div style="position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center"
-                    @click=${() => { this._presetPickerOpen = false; }}>
-                    <div style="background:#fff;border-radius:8px;box-shadow:0 8px 32px rgba(0,0,0,0.18);width:320px;max-width:90vw;overflow:hidden"
-                      @click=${e => e.stopPropagation()}>
-                      <div style="padding:10px 12px;border-bottom:1px solid #e5e7eb;display:flex;gap:8px;align-items:center">
-                        <input style="flex:1;border:1px solid #d1d5db;border-radius:4px;padding:4px 8px;font-size:0.875rem;outline:none"
-                          type="search" placeholder="Search singles…"
-                          .value=${this._presetPickerSearch}
-                          @input=${e => { this._presetPickerSearch = e.target.value; this._presetPickerPage = 1; }}>
-                        <button style="background:none;border:none;cursor:pointer;font-size:1.25rem;color:#6b7280;line-height:1"
-                          @click=${() => { this._presetPickerOpen = false; }}>×</button>
-                      </div>
-                      <div style="max-height:280px;overflow-y:auto">
-                        ${(() => {
-                          const PICKER_SIZE = 8;
-                          const q = (this._presetPickerSearch||'').toLowerCase();
-                          const cur = p.subOptionIds||[];
-                          const avail = singles.filter(s => s.id !== p.id && !cur.includes(s.id) && (!q || s.name?.toLowerCase().includes(q)));
-                          if (!avail.length) return html`<p style="padding:1rem;text-align:center;color:#9ca3af;font-size:0.875rem">${q ? 'No matches.' : 'All singles already added.'}</p>`;
-                          const pg = this._presetPickerPage;
-                          const totalPg = Math.ceil(avail.length / PICKER_SIZE);
-                          const paged = avail.slice((pg-1)*PICKER_SIZE, pg*PICKER_SIZE);
-                          return html`
-                            ${paged.map(s => html`
-                              <button style="width:100%;display:flex;align-items:center;gap:8px;padding:8px 12px;background:none;border:none;border-bottom:1px solid #f3f4f6;cursor:pointer;font-size:0.875rem;text-align:left"
-                                @click=${() => {
-                                  const cur2 = p.subOptionIds||[];
-                                  this.editingPreset = {...p, subOptionIds: [...cur2, s.id]};
-                                  this._presetPickerOpen = false; this._presetPickerSearch = ''; this._presetPickerPage = 1;
-                                }}>
-                                <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.name||'(unnamed)'}</span>
-                                <span style="color:#6b7280;flex-shrink:0;font-size:0.8rem">${this.formatCurrency(s.price)}</span>
-                              </button>`)}
-                            ${totalPg > 1 ? html`
-                              <div style="display:flex;align-items:center;justify-content:center;gap:8px;padding:6px 12px;border-top:1px solid #e5e7eb;font-size:0.8rem;color:#6b7280">
-                                <button style="background:none;border:none;cursor:pointer;padding:2px 6px;border-radius:3px;color:${pg<=1?'#d1d5db':'#374151'}" ?disabled=${pg<=1}
-                                  @click=${() => { this._presetPickerPage = pg-1; }}>←</button>
-                                <span>${pg} / ${totalPg}</span>
-                                <button style="background:none;border:none;cursor:pointer;padding:2px 6px;border-radius:3px;color:${pg>=totalPg?'#d1d5db':'#374151'}" ?disabled=${pg>=totalPg}
-                                  @click=${() => { this._presetPickerPage = pg+1; }}>→</button>
-                              </div>` : ''}`;
-                        })()}
-                      </div>
-                    </div>
-                  </div>` : ''}
-              </div>` : html`
-              <div class="form-row"><label>Name</label>
-                <input class="form-input" .value=${p.name||''} placeholder="e.g. Towbar 50mm"
-                  @input=${e => { this.editingPreset = {...p, name: e.target.value}; }}>
-              </div>
-              <div class="form-row"><label>SKU</label>
-                <input class="form-input" .value=${p.sku||''} placeholder="OPT-TOWBAR-50"
-                  @input=${e => { this.editingPreset = {...p, sku: e.target.value}; }}>
-              </div>
-              <div class="form-row"><label>Price</label>
-                <input class="form-input" type="number" min="0" step="0.01" .value=${p.price||0}
-                  @input=${e => { this.editingPreset = {...p, price: parseFloat(e.target.value)||0}; }}>
-              </div>
-              <div class="form-row"><label>Stock</label>
-                <input class="form-input" type="number" min="0" .value=${p.stockQuantity||0}
-                  @input=${e => { this.editingPreset = {...p, stockQuantity: parseInt(e.target.value)||0}; }}>
-              </div>
-              ${this._renderOptionImageField(p)}
-              <div class="form-row"><label>Status</label>
-                <select class="form-input" .value=${p.status||'active'}
-                  @change=${e => { this.editingPreset = {...p, status: e.target.value}; }}>
-                  <option value="active">Active</option><option value="inactive">Inactive</option><option value="draft">Draft</option>
-                </select>
-              </div>
-              <div class="form-row"><label>Description</label>
-                <textarea class="form-input" rows="2" .value=${p.description||''} placeholder="Optional"
-                  @input=${e => { this.editingPreset = {...p, description: e.target.value}; }}></textarea>
-              </div>`}
-
-            <div class="form-actions">
-              <uui-button look="primary" @click=${() => this.savePreset()}>Save</uui-button>
-              <uui-button look="secondary" @click=${() => { this.editingPreset = null; }}>Cancel</uui-button>
-            </div>
-          </div>
-          </div>` : ''}
-
-        <div class="filters-bar">
-          <div class="filters-left"></div>
-          <div class="filters-right">
-            <div class="search-wrap">
-              <uui-icon name="icon-search" class="search-icon"></uui-icon>
-              <input class="search-input" type="search" placeholder="Search presets…"
-                .value=${this.optionPresetsSearch}
-                @input=${e => { this.optionPresetsSearch = e.target.value; this.optionPresetsPage = 1; }}>
-            </div>
-          </div>
-        </div>
-
-        ${this.optionPresetsLoading ? this._stateCenter(html`<uui-loader></uui-loader><p>Loading…</p>`) :
-          filtered.length === 0 ? this._stateCenter(html`
-            <uui-icon name="icon-code" style="font-size:3rem;opacity:0.25"></uui-icon>
-            <p>${q ? 'No presets match your search' : 'No option presets yet'}</p>`) :
-          html`
-            <div class="table-scroll">
-              <table class="data-table">
-                <thead><tr>
-                  <th>Name</th><th>SKU</th><th>Price</th><th>Stock</th><th>Kind</th><th>Status</th><th></th>
-                </tr></thead>
-                <tbody>
-                  ${paged.map(preset => html`
-                    <tr class="data-row" style="cursor:pointer"
-                      @click=${() => { this.editingPreset = {...preset, subOptionIds: preset.subOptionIds||[]}; }}>
-                      <td>
-                        <strong>${preset.name}</strong>
-                        ${preset.description ? html`<div style="font-size:0.75rem;color:#999;margin-top:2px">${preset.description}</div>` : ''}
-                      </td>
-                      <td><code>${preset.sku || '—'}</code></td>
-                      <td>${(preset.kind||'single')==='group' ? html`<em style="color:#999">—</em>` : this.formatCurrency(preset.price)}</td>
-                      <td>${(preset.kind||'single')==='group' ? html`<em style="color:#999">—</em>` : (preset.stockQuantity ?? '—')}</td>
-                      <td><span class="pill ${(preset.kind||'single')==='group' ? 'pill--group' : 'pill--single'}">${preset.kind||'single'}</span></td>
-                      <td><span class="pill ${preset.status === 'active' ? 'pill--active' : 'pill--inactive'}">${preset.status}</span></td>
-                      <td class="row-actions">
-                        <uui-button look="secondary" color="danger" compact @click=${(e) => { e.stopPropagation(); this.deletePreset(preset.id); }}>Del</uui-button>
-                      </td>
-                    </tr>`)}
-                </tbody>
-              </table>
-            </div>
-            ${this._renderLocalPagination(filtered.length, page, PAGE_SIZE, p => { this.optionPresetsPage = p; })}`}
-
-        <div class="view-footer">
-          <span class="breadcrumb">${this.marketName} / Options / Option Presets</span>
-          ${filtered.length > 0 ? html`<span class="breadcrumb" style="margin-left:auto">${filtered.length} preset${filtered.length !== 1 ? 's' : ''}</span>` : ''}
-        </div>
-      </div>`;
-  }
-
   _renderPropertyTemplatesView() {
     const t = this.editingTemplate;
     const PAGE_SIZE = 10;
@@ -1972,7 +1601,6 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
       case 'analytics':      return this._renderAnalyticsView();
       case 'order-statuses': return this._renderOrderStatusesView();
       case 'discounts':      return this._renderDiscountsView();
-      case 'option-presets':      return this._renderOptionPresetsView();
       case 'attributes':          return this._renderAttributesView();
       case 'attribute-presets':   return this._renderAttributePresetsView();
       case 'property-templates':  return this._renderPropertyTemplatesView();

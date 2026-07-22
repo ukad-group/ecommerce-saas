@@ -74,20 +74,11 @@ public class ProductsController : Controller
 
             var category = await _apiClient.GetCategoryByIdAsync(product.CategoryId);
 
-            // Resolve the product's option blocks against the store-global presets
-            var optionPresets = new Dictionary<string, OptionPresetDto>();
-            if (product.Options != null && product.Options.Any(b => !b.Disabled && b.OptionIds.Any()))
-            {
-                var presets = await _apiClient.GetOptionPresetsAsync();
-                optionPresets = presets.ToDictionary(p => p.Id);
-            }
-
             var viewModel = new ProductDetailViewModel
             {
                 Product = product,
                 Category = category,
-                CurrencySymbol = _settings.CurrencySymbol,
-                OptionPresets = optionPresets
+                CurrencySymbol = _settings.CurrencySymbol
             };
 
             return View(viewModel);

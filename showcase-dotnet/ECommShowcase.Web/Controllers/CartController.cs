@@ -59,8 +59,6 @@ public class CartController : Controller
     public async Task<IActionResult> AddItem(
         string productId,
         string? variantId = null,
-        string? optionId = null,
-        string? optionVariantId = null,
         int quantity = 1)
     {
         try
@@ -70,8 +68,6 @@ public class CartController : Controller
             {
                 ProductId = productId,
                 VariantId = variantId,
-                OptionId = optionId,
-                OptionVariantId = optionVariantId,
                 Quantity = quantity
             };
 

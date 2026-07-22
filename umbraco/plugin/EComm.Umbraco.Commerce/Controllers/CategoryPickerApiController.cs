@@ -77,18 +77,6 @@ public class CategoryPickerApiController : ManagementApiControllerBase
         return rootCategories.OrderBy(c => c.DisplayOrder).ToList();
     }
 
-    /// <summary>
-    /// Gets the store-global option presets library (the "prefilled options"
-    /// picked into product option blocks).
-    /// </summary>
-    [HttpGet("option-presets")]
-    [ProducesResponseType(typeof(List<OptionPreset>), StatusCodes.Status200OK)]
-    public async Task<IActionResult> GetOptionPresets([FromQuery] string? marketId = null)
-    {
-        var presets = await _apiClient.GetOptionPresetsAsync(marketId);
-        return Ok(presets);
-    }
-
     // NOTE: GET "attributes" / "attribute-presets" are served by CommerceAdminApiController
     // (same ecomm-commerce route group). Do NOT redeclare them here — duplicate routes cause an
     // AmbiguousMatchException (500) on every GET. The workspace view calls the same URLs.
@@ -142,9 +130,17 @@ public class CategoryPickerApiController : ManagementApiControllerBase
     [HttpGet("products/{categoryId}")]
     [ProducesResponseType(typeof(ProductListResult), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> GetProductsForCategory(string categoryId, [FromQuery] string? marketId = null)
+    public async Task<IActionResult> GetProductsForCategory(
+        string categoryId,
+        [FromQuery] string? marketId = null,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 100,
+        [FromQuery] string? search = null)
     {
-        var result = await _apiClient.GetProductsAsync(categoryId, page: 1, pageSize: 100, marketId);
+        // Server-side paginated + name/SKU search (returns the true total across all pages).
+        // Default pageSize=100 preserves the products workspace view's existing behavior;
+        // the category-filtered product picker passes its own page/pageSize/search.
+        var result = await _apiClient.GetCategoryProductsPagedAsync(categoryId, page, pageSize, search, marketId);
         return Ok(result);
     }
 

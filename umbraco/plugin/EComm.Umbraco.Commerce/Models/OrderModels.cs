@@ -51,7 +51,6 @@ public class OrderItem
     public string Id { get; set; } = string.Empty;
     public string ProductId { get; set; } = string.Empty;
     public string? VariantId { get; set; }
-    public string? OptionId { get; set; }
 
     /// <summary>Caller-supplied line classifier, e.g. "Trailer"/"TrailerOption"/"Accessory".</summary>
     public string? ItemType { get; set; }

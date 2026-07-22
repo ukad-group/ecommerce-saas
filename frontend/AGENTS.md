@@ -73,13 +73,13 @@ VITE_USE_MOCKS=false
     /auth/       # LoginPage, ProfileSelector, TenantSelector
     /cart/       # CartItem, CartSummary
     /orders/     # OrderStatusBadge
-    /products/   # ProductForm, ProductOptionsEditor (product option blocks)
+    /products/   # ProductForm
     /common/     # Button, Input, Select, LoadingSpinner
     /layout/     # Navigation, Layout, MobileMenu
     /tenants/    # TenantList, MarketList
 
   /pages/        # Route handlers
-    /admin/      # AdminDashboardPage, ProductsPage, OptionPresetsPage, etc.
+    /admin/      # AdminDashboardPage, ProductsPage, etc.
       /tenants/  # TenantsPage, TenantApiKeysPage (superadmin, tenant-level keys)
     LoginPage.tsx
     CartPage.tsx
@@ -92,9 +92,8 @@ VITE_USE_MOCKS=false
       productsApi.ts              # Products endpoints
       categoriesApi.ts            # Categories endpoints
       tenantsApi.ts               # Tenants endpoints
-      marketOptionPresetsApi.ts   # Market-scoped option presets (add-ons library)
     /hooks/      # TanStack Query hooks
-      useCart.ts, useOrders.ts, useProducts.ts, useMarketOptionPresets.ts, etc.
+      useCart.ts, useOrders.ts, useProducts.ts, etc.
 
   /store/        # Zustand state
     authStore.ts          # Auth session (persisted)

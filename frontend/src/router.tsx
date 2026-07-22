@@ -16,7 +16,6 @@ import { AdminOrderDetailsPage } from './pages/admin/AdminOrderDetailsPage';
 import { ProductsPage } from './pages/admin/ProductsPage';
 import { ProductEditPage } from './pages/admin/ProductEditPage';
 import { ProductPropertyTemplatesPage } from './pages/admin/ProductPropertyTemplatesPage';
-import { OptionPresetsPage } from './pages/admin/OptionPresetsPage';
 import { ProductAttributesPage } from './pages/admin/ProductAttributesPage';
 import { ProductAttributePresetsPage } from './pages/admin/ProductAttributePresetsPage';
 import { CategoriesPage } from './pages/admin/CategoriesPage';
@@ -112,14 +111,6 @@ export const router = createBrowserRouter([
         element: (
           <ProtectedRoute>
             <ProductPropertyTemplatesPage />
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: 'admin/products/option-presets',
-        element: (
-          <ProtectedRoute>
-            <OptionPresetsPage />
           </ProtectedRoute>
         ),
       },

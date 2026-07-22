@@ -84,6 +84,39 @@
       }
     },
     {
+      "type": "propertyEditorUi",
+      "alias": "EComm.PropertyEditorUi.CategoryConfigPicker",
+      "name": "Commerce Category Config Picker",
+      "element": "/App_Plugins/ECommCommerce/components/propertyEditors/category-config-picker.js",
+      "meta": {
+        "label": "Category (config)",
+        "icon": "icon-folder",
+        "group": "ecomm-commerce"
+      }
+    },
+    {
+      "type": "propertyEditorUi",
+      "alias": "EComm.PropertyEditorUi.ProductsByCategoryPicker",
+      "name": "Commerce Products By Category Picker",
+      "element": "/App_Plugins/ECommCommerce/components/propertyEditors/products-by-category-picker.js",
+      "meta": {
+        "label": "Products By Category",
+        "icon": "icon-box",
+        "group": "ecomm-commerce",
+        "propertyEditorSchemaAlias": "Umbraco.Plain.Json",
+        "settings": {
+          "properties": [
+            {
+              "alias": "category",
+              "label": "Category",
+              "description": "Products offered by this picker are filtered to this commerce category.",
+              "propertyEditorUiAlias": "EComm.PropertyEditorUi.CategoryConfigPicker"
+            }
+          ]
+        }
+      }
+    },
+    {
       "type": "condition",
       "alias": "EComm.Condition.IsProductPage",
       "name": "eCommerce: Is Product Page",

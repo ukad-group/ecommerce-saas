@@ -36,6 +36,12 @@ public interface ICommerceApiClient
     Task<ProductListResult> GetProductsAsync(string categoryId, int page = 1, int pageSize = 20, string? marketId = null);
 
     /// <summary>
+    /// Gets a single page of products in a category, filtered by an optional name/SKU search,
+    /// using the API's server-side pagination (returns the true total count across all pages).
+    /// </summary>
+    Task<ProductListResult> GetCategoryProductsPagedAsync(string categoryId, int page, int pageSize, string? search = null, string? marketId = null);
+
+    /// <summary>
     /// Gets all products across all categories with pagination, in the configured (or specified) market
     /// </summary>
     Task<ProductListResult> GetAllProductsAsync(int page = 1, int pageSize = 100, string? marketId = null);
@@ -92,16 +98,6 @@ public interface ICommerceApiClient
     /// </summary>
     Task<List<OrderStatusDefinition>> GetOrderStatusDefinitionsAsync();
 
-    /// <summary>
-    /// Gets the store-global option presets library for the given market (falls back to settings)
-    /// </summary>
-    Task<List<OptionPreset>> GetOptionPresetsAsync(string? marketId = null);
-
-    /// <summary>
-    /// Replaces the full option presets list for the given market (falls back to settings)
-    /// </summary>
-    Task<bool> UpdateOptionPresetsAsync(string? marketId, List<OptionPreset> presets);
-
     // ── Property Templates ────────────────────────────────────────────────────
 
     Task<List<PropertyTemplate>> GetPropertyTemplatesAsync(string? marketId = null);
@@ -136,7 +132,7 @@ public interface ICommerceApiClient
     /// <summary>Gets (or implicitly creates) the cart for a session</summary>
     Task<Cart?> GetCartAsync(string sessionId, string? marketId = null);
 
-    Task<CartItem?> AddCartItemAsync(string sessionId, string productId, string? variantId, string? optionId,
+    Task<CartItem?> AddCartItemAsync(string sessionId, string productId, string? variantId,
         int quantity, string? itemType = null, string? itemSubType = null, string? marketId = null);
 
     Task<CartItem?> UpdateCartItemAsync(string sessionId, string itemId, int quantity, string? marketId = null);

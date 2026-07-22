@@ -100,7 +100,6 @@ public class OrdersController : ControllerBase
                     Id = Guid.NewGuid().ToString(),
                     ProductId = ci.ProductId,
                     VariantId = ci.VariantId,  // CRITICAL: Include VariantId
-                    OptionId = ci.OptionId,
                     ItemType = ci.ItemType,
                     ItemSubType = ci.ItemSubType,
                     ProductName = ci.ProductName,

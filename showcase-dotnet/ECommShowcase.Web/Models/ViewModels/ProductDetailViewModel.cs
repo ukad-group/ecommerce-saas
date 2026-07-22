@@ -8,7 +8,4 @@ public class ProductDetailViewModel
     public CategoryDto? Category { get; set; }
     public string CurrencySymbol { get; set; } = "$";
     public bool IsInStock => Product.StockQuantity > 0;
-
-    /// <summary>Store-global option presets, keyed by id, for resolving option blocks.</summary>
-    public Dictionary<string, OptionPresetDto> OptionPresets { get; set; } = new();
 }

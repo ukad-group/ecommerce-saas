@@ -6,7 +6,7 @@ This document outlines the architecture and implementation plan for an Umbraco p
 
 **Target Umbraco Version**: 17.0.0 (LTS - Long Term Support with .NET 10)
 
-**Status**: Phase 1-4 Complete - Core Implementation + Products Workspace View, Upgraded to Umbraco 17, Configurable Defaults, Product Variant Support, Product Options/Add-ons, real Cart & Checkout with Nets Easy payments, and a "Commerce" backoffice section (Orders/Carts/Discounts/Option Presets/Order Statuses/Property Templates/Analytics)
+**Status**: Phase 1-4 Complete - Core Implementation + Products Workspace View, Upgraded to Umbraco 17, Configurable Defaults, Product Variant Support, real Cart & Checkout with Nets Easy payments, and a "Commerce" backoffice section (Orders/Carts/Discounts/Order Statuses/Property Templates/Analytics)
 
 **Last Updated**: 2026-07-08
 
@@ -527,7 +527,7 @@ dotnet run
 **Deliverable**: Product pages render dynamically with eCommerce data
 
 ### Phase 4: Polish & Features
-- [x] Add Commerce Dashboard - full "Commerce" backoffice section (Orders, Carts, Discounts, Option Presets, Order Statuses, Property Templates, Analytics tabs)
+- [x] Add Commerce Dashboard - full "Commerce" backoffice section (Orders, Carts, Discounts, Order Statuses, Property Templates, Analytics tabs)
 - [x] Implement cart integration - real session-based cart + checkout in the sample site, with Nets Easy payments
 - [ ] Add image optimization/CDN support
 - [ ] Performance optimization and caching

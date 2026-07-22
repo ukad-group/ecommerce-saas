@@ -14,12 +14,15 @@ public class ProductsController : ControllerBase
     private readonly DataStore _store = DataStore.Instance;
 
     [HttpGet]
-    public ActionResult<List<Product>> GetProducts(
+    public IActionResult GetProducts(
         [FromQuery] string? status = null,
         [FromQuery] string? categoryId = null,
         [FromQuery] string? search = null,
         [FromQuery] string? tenantId = null,
         [FromQuery] string? marketId = null,
+        [FromQuery] bool paged = false,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20,
         [FromHeader(Name = "X-Tenant-ID")] string? headerTenantId = null,
         [FromHeader(Name = "X-Market-ID")] string? headerMarketId = null)
     {
@@ -74,6 +77,16 @@ public class ProductsController : ControllerBase
         }
 
         var result = products.OrderBy(p => p.Name).ToList();
+
+        // Opt-in server-side pagination envelope. Existing callers (which never send
+        // paged=true) keep receiving a plain array — unchanged contract.
+        if (paged)
+        {
+            if (page < 1) page = 1;
+            if (pageSize < 1) pageSize = 20;
+            var items = result.Skip((page - 1) * pageSize).Take(pageSize).ToList();
+            return Ok(new { items, total = result.Count, page, pageSize });
+        }
 
         return Ok(result);
     }

@@ -7,7 +7,7 @@
 
 import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Bars3Icon, UserCircleIcon } from '@heroicons/react/24/outline';
+import { Bars3Icon } from '@heroicons/react/24/outline';
 import { UserInfo } from '../auth/UserInfo';
 import { HeaderTenantSelector } from '../auth/HeaderTenantSelector';
 import { HeaderMarketSelector } from '../auth/HeaderMarketSelector';

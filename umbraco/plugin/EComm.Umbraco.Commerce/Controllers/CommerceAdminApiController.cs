@@ -77,16 +77,6 @@ public class CommerceAdminApiController : ManagementApiControllerBase
         return Ok(statuses);
     }
 
-    // ── Option Presets ────────────────────────────────────────────────────────
-
-    [HttpPut("option-presets")]
-    [ProducesResponseType(StatusCodes.Status200OK)]
-    public async Task<IActionResult> UpdateOptionPresets([FromQuery] string? marketId, [FromBody] UpdateOptionPresetsRequest request)
-    {
-        var ok = await _apiClient.UpdateOptionPresetsAsync(marketId, request.Presets);
-        return ok ? Ok() : StatusCode(StatusCodes.Status502BadGateway, "Failed to update option presets");
-    }
-
     // ── Property Templates ────────────────────────────────────────────────────
 
     [HttpGet("property-templates")]
@@ -183,11 +173,6 @@ public class UpdateOrderStatusRequest
 {
     public string Status { get; set; } = string.Empty;
     public string? Notes { get; set; }
-}
-
-public class UpdateOptionPresetsRequest
-{
-    public List<OptionPreset> Presets { get; set; } = new();
 }
 
 public class UpdatePropertyTemplatesRequest

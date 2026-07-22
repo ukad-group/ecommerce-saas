@@ -2,7 +2,7 @@ Review Umbraco CMS plugin implementation before proceeding.
 
 ## Umbraco Plugin Context
 
-**Status**: Umbraco 17 (.NET 10) integration - Plugin implemented, Static assets working. Now includes Product Options/Add-ons, a real cart/checkout with Nets Easy payments, and a full "Commerce" backoffice section (Orders, Carts, Discounts, Option Presets, Order Statuses, Property Templates, Analytics)
+**Status**: Umbraco 17 (.NET 10) integration - Plugin implemented, Static assets working. Now includes a real cart/checkout with Nets Easy payments, and a full "Commerce" backoffice section (Orders, Carts, Discounts, Order Statuses, Property Templates, Analytics)
 
 ### Overview
 Umbraco CMS plugin that integrates the eCommerce SaaS platform into Umbraco's content management system. Enables editors to link categories and products from the eCommerce API into Umbraco content nodes.
@@ -48,11 +48,13 @@ umbraco/
 │               ├── propertyEditors/
 │               │   ├── category-picker.js  # Category picker UI (market/store-aware)
 │               │   ├── product-picker.js   # Pick a specific product for a product page node
-│               │   └── store-picker.js     # Pick which market/store a node belongs to
+│               │   ├── store-picker.js     # Pick which market/store a node belongs to
+│               │   ├── category-config-picker.js       # Config-only category dropdown (the "Category" data-type setting)
+│               │   └── products-by-category-picker.js  # Pick many products from a configured category (server-side search+paging)
 │               ├── conditions/
 │               │   └── is-product-page.condition.js  # Gates the eCommerce tab to product pages only
 │               ├── workspaceViews/
-│               │   └── products-workspace-view.js  # Full product editor (variants, add-ons, SEO, leasing)
+│               │   └── products-workspace-view.js  # Full product editor (variants, SEO, leasing)
 │               ├── commerce-admin/
 │               │   └── commerce-admin-dashboard.js  # "Commerce" section: Orders/Carts/Discounts/Analytics/etc.
 │               └── settings/
@@ -106,6 +108,13 @@ async getAuthHeaders() {
 **Usage**: Add to document type properties (stores category ID as string)
 **API Route**: `/umbraco/management/api/ecomm-commerce/categories`
 
+#### 2b. Products-By-Category Picker Property Editor
+**Alias**: `EComm.PropertyEditorUi.ProductsByCategoryPicker` (+ config-only `EComm.PropertyEditorUi.CategoryConfigPicker`)
+**File**: `wwwroot/components/propertyEditors/products-by-category-picker.js`
+**Purpose**: Pick one or more commerce products, filtered to a category set **once on the data type** via the single "Category" setting (`meta.settings.properties`, the repo's first property-editor config). Stores an **array of product ids** (`Umbraco.Plain.Json`).
+**Config UI**: `category-config-picker.js` — no document context on the data-type settings screen, so it scopes to the default market via `GET .../settings`.
+**API Route**: `GET /umbraco/management/api/ecomm-commerce/products/{categoryId}?page&pageSize&search` (server-side paged + name/SKU search, returns `{products, totalCount, page, pageSize}`). Consumed by Westbay to render a trailer's "options" as real products.
+
 #### 3. Products Workspace View
 **Alias**: `ecomm.workspaceView.products`
 **File**: `wwwroot/components/workspaceViews/products-workspace-view.js`
@@ -117,7 +126,7 @@ async getAuthHeaders() {
 1. Consumes `UMB_PROPERTY_DATASET_CONTEXT` to reactively observe `categoryId` property
 2. When categoryId changes, automatically fetches products from eCommerce API
 3. Displays products in a table with: Image, Name, Slug, Price, Stock quantity
-4. **Full editor** (no longer read-only): variant/options builder with a combinations table, Highlights, Leasing Factor, Hide Price + hidden-price message, SEO title/description, and an "Add-on Options" section for attaching option-preset blocks to a product, plus a "Manage Options" view for editing the market's option-presets library
+4. **Full editor** (no longer read-only): variant/options builder with a combinations table, Highlights, Leasing Factor, Hide Price + hidden-price message, and SEO title/description
 5. **Images**: rich `ProductImage` objects (`url`, `altText`, `focalPoint`, `crops`, `mediaKey`) edited via Umbraco's **native media picker** (`<umb-input-rich-media>`: pick / upload / reorder / native focal-point + crop editor); external provider/URL images in a secondary list. A single global crop (width×height) + focal-point toggle configured in Settings → Commerce Settings → **Images**. Bare URL strings still accepted (backward compatible). **How it works + how to render on your storefront: [umbraco/docs/PRODUCT-IMAGES.md](../../umbraco/docs/PRODUCT-IMAGES.md)**
 6. **Global custom fields**: the market's property templates are merged into the product editor as an editable **Attributes** block (`renderCustomPropertiesEditor`) — template-backed rows show a "global" badge and can't be removed (unfilled ones seeded from the template default), ad-hoc rows are add/edit/remove. Edited values are written to `editedProduct.customProperties` and saved with the product. A property whose template is bound to a **Product Attribute** (`attributeId`) renders its value as a **dropdown** of that attribute's predefined values (`_propertyOptions`), not free text.
 7. **Product attributes / variants**: variant axes use the market's Product Attribute library. `VariantOption.Values` are `{name, alias}` objects (API model) — normalized to plain strings on load and denormalized on save (`_normalizeVariantOptions`/`_denormalizeVariantOptions`) so the existing variant editor keeps working. Variant-combination uniqueness is validated on save (no two variants may share the same attribute-value combination).
@@ -174,7 +183,7 @@ import { UMB_CURRENT_USER_CONTEXT } from '@umbraco-cms/backoffice/current-user';
 - Methods: `GetCategoriesAsync`, `GetCategoryAsync`, `CreateCategoryAsync`, `GetProductsAsync`, `GetProductBySlugAsync`, `GetMarketsAsync`, `GetCountriesAsync`, `CreateProductAsync`, `DeleteProductAsync`
 - **Cart**: `GetCartAsync`, `AddCartItemAsync`, `UpdateCartItemAsync`, `RemoveCartItemAsync`, `CreateOrderAsync` (session-based)
 - **Orders**: `GetOrdersAsync`, `GetOrderAsync`, `UpdateOrderStatusAsync`, `GetOrderStatusDefinitionsAsync`, `CreatePaymentAsync` (Nets Easy)
-- **Market config**: `GetOptionPresetsAsync`/`UpdateOptionPresetsAsync`, `GetAttributesAsync`/`UpdateAttributesAsync`, `GetAttributePresetsAsync`/`UpdateAttributePresetsAsync`, shipping methods, leasing periods, property templates, discounts (full CRUD)
+- **Market config**: `GetAttributesAsync`/`UpdateAttributesAsync`, `GetAttributePresetsAsync`/`UpdateAttributePresetsAsync`, shipping methods, leasing periods, property templates, discounts (full CRUD)
 
 **Connection Testing**: Uses dedicated TenantInfo endpoint for connectivity validation
 ```csharp
@@ -194,7 +203,6 @@ request.Headers.Add("X-API-Key", settings.ApiKey);
 - `GET /umbraco/management/api/ecomm-commerce/categories` - Get all categories (hierarchical tree, optional `marketId`)
 - `GET /umbraco/management/api/ecomm-commerce/categories/{id}` - Get specific category
 - `GET /umbraco/management/api/ecomm-commerce/products/{categoryId}` - Get products for workspace view (max 100, optional `marketId`)
-- `GET /umbraco/management/api/ecomm-commerce/option-presets` - Get the market's option presets
 - `GET /umbraco/management/api/ecomm-commerce/products-for-node/{nodeKey}` - Products for a node, resolving parent's categoryId/storeId server-side (works around Umbraco CMS #19213)
 - `GET /umbraco/management/api/ecomm-commerce/product/{productId}` - Get a single product
 - `POST /umbraco/management/api/ecomm-commerce/products` - Create a product (accepts `nodeKey` to resolve category/market server-side, and `categoryId`/`marketId` sent verbatim by the picker)
@@ -204,10 +212,9 @@ request.Headers.Add("X-API-Key", settings.ApiKey);
 #### 8. Commerce Admin Dashboard & API
 **Files**: `wwwroot/components/commerce-admin/commerce-admin-dashboard.js`, `Controllers/CommerceAdminApiController.cs`
 **Purpose**: Full commerce back-office inside Umbraco, in a dedicated "Commerce" section (auto-granted to the Administrators group by `Migrations/AddCommerceSectionToAdminGroupMigration.cs`)
-**Tabs**: Orders, Carts, Discounts, Option Presets, **Product Attributes**, **Product Attribute Presets**, Order Statuses, Property Templates, Analytics
-**API Route**: `/umbraco/management/api/ecomm-commerce` - `markets`, `orders`, `orders/{id}`, `orders/{id}/status`, `order-statuses`, `option-presets`, `attributes`, `attribute-presets`, `property-templates`, `discounts` (CRUD)
+**Tabs**: Orders, Carts, Discounts, **Product Attributes**, **Product Attribute Presets**, Order Statuses, Property Templates, Analytics
+**API Route**: `/umbraco/management/api/ecomm-commerce` - `markets`, `orders`, `orders/{id}`, `orders/{id}/status`, `order-statuses`, `attributes`, `attribute-presets`, `property-templates`, `discounts` (CRUD)
 **Product Attributes tabs**: per-store attribute library (Name+Alias, values Name+Alias) and named presets (bundles of attributes), scoped to the selected market (`?marketId=`). Property Templates tab gains a "Values from attribute" binding so a template's product value becomes a dropdown of that attribute's values.
-**Option Presets tab**: full CRUD (single + group), **scoped to the selected market** — load + save both pass `?marketId=<selectedMarketId>` (previously read the removed global `settings.MarketId`, so the tab showed empty). Each preset can carry a photo picked from **Umbraco Media** (rich `Image` object, same picker/helpers as product images) with the legacy `imageUrl` kept as a paste-a-URL fallback.
 
 #### 9. Product Picker & Store Picker
 **Files**: `wwwroot/components/propertyEditors/product-picker.js`, `store-picker.js`

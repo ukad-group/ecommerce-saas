@@ -200,14 +200,6 @@ public static class DatabaseSeeder
                     OrderPrefix = "DT",
                     TaxRate = 0.0875m,
                     ShippingZones = new List<string> { "NY", "NJ", "CT" },
-                    OptionPresets = new List<OptionPreset>
-                    {
-                        new OptionPreset { Id = "opt-towbar-50", Name = "Towbar 50mm", Sku = "OPT-TOWBAR-50", Price = 89.00m, Description = "50mm ball towbar", StockQuantity = 25, Status = "active", Kind = "single" },
-                        new OptionPreset { Id = "opt-towbar-90", Name = "Towbar 90mm", Sku = "OPT-TOWBAR-90", Price = 119.00m, Description = "90mm ball towbar", StockQuantity = 15, Status = "active", Kind = "single" },
-                        new OptionPreset { Id = "opt-spare-wheel", Name = "Spare Wheel", Sku = "OPT-SPARE", Price = 65.00m, Description = "Full-size spare wheel", StockQuantity = 40, Status = "active", Kind = "single" },
-                        // Group: bundles the two towbar singles under one display unit
-                        new OptionPreset { Id = "grp-couplings", Name = "Couplings", Description = "Pick a towbar coupling size", ImageUrl = null, Status = "active", Kind = "group", SubOptionIds = new List<string> { "opt-towbar-50", "opt-towbar-90" } }
-                    },
                     Attributes = new List<ProductAttribute>
                     {
                         new ProductAttribute
@@ -559,18 +551,6 @@ public static class DatabaseSeeder
                 StockQuantity = 50,
                 LowStockThreshold = 10,
                 HasVariants = false,
-                Options = new List<ProductOption>
-                {
-                    new ProductOption
-                    {
-                        Id = "block-addons",
-                        Title = "Add-ons",
-                        Description = "Optional extras for your order",
-                        // References a single preset and a group (group expands to its sub-options)
-                        OptionIds = new List<string> { "opt-spare-wheel", "grp-couplings" },
-                        Disabled = false
-                    }
-                },
                 Version = 1,
                 IsCurrentVersion = true,
                 VersionCreatedAt = DateTime.UtcNow.AddDays(-20),

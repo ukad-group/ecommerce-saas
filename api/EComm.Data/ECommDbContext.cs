@@ -73,11 +73,6 @@ public class ECommDbContext : DbContext
                     v => v == null ? null : JsonSerializer.Serialize(v, (JsonSerializerOptions?)null),
                     v => v == null ? null : JsonSerializer.Deserialize<List<CustomProperty>>(v, (JsonSerializerOptions?)null));
 
-            entity.Property(e => e.Options)
-                .HasConversion(
-                    v => v == null ? null : JsonSerializer.Serialize(v, (JsonSerializerOptions?)null),
-                    v => v == null ? null : JsonSerializer.Deserialize<List<ProductOption>>(v, (JsonSerializerOptions?)null));
-
             // Ignore computed properties
             entity.Ignore(e => e.CategoryId);
 

@@ -15,9 +15,6 @@ public class ProductPageViewModel : PublishedContentWrapped
     public Category? Category { get; set; }
     public string? ErrorMessage { get; set; }
 
-    /// <summary>Store-global option presets keyed by id, for resolving option blocks.</summary>
-    public Dictionary<string, OptionPreset> OptionPresets { get; set; } = new();
-    
     /// <summary>
     /// Breadcrumb trail for product navigation (built from content tree)
     /// </summary>

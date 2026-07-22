@@ -4,7 +4,7 @@
 
 ## Quick Reference
 
-**What Works**: Products, Categories, Orders (admin), Cart, Tenants, Markets, API Keys, Superadmin Auth, Product Add-ons, **Product Attributes** (per-store variant-axis library + presets), Discounts (API), Nets Easy Payments, **Responsive UI**, **UKAD Branding**
+**What Works**: Products, Categories, Orders (admin), Cart, Tenants, Markets, API Keys, Superadmin Auth, **Product Attributes** (per-store variant-axis library + presets), Discounts (API), Nets Easy Payments, **Responsive UI**, **UKAD Branding**
 **What's Missing**: Tenant Admin/User login flows, Checkout UI (showcase-dotnet), Cart persistence, Nets Easy webhook signature verification
 
 ---
@@ -222,28 +222,6 @@ None
 
 ---
 
-## Feature 005: Product Options / Add-ons
-
-**Status**: ✅ Complete (admin UI, API, showcase display)
-
-### Implemented
-- Market-scoped library of reusable "option presets" (purchasable add-ons): `single` (standalone) or `group` (bundles related singles via `SubOptionIds`)
-- Managed in admin at `/admin/products/option-presets` (search, add, inline edit, delete), and in the Umbraco plugin's Commerce dashboard (Option Presets tab, scoped to the selected market)
-- Optional preset photo: a rich `Image` (`url`, `altText`, `focalPoint`, `crops`, `mediaKey`) pickable from Umbraco Media in the plugin, rendered focal-point-cropped on the storefront; legacy `imageUrl` string still accepted
-- Products attach "option blocks" (title + description + disable toggle) referencing presets from `ProductForm`
-- Showcase product detail page renders attached option blocks as purchasable add-ons; add-to-cart accepts `optionId`
-
-### Known Issues
-- Admin's product-level option block picker only lets you attach `single` presets, not `group` presets, even though the data model and showcase rendering support groups on a block
-
-### API Endpoints
-```
-GET/POST/PUT/DELETE   /api/v1/markets/:id/option-presets
-GET   /api/v1/option-presets   # public, active-only (used by showcase/storefronts)
-```
-
----
-
 ## Feature 008: Product Attributes
 
 **Status**: ✅ Complete (API, React admin, Umbraco plugin) — showcase renders variants unchanged
@@ -324,13 +302,12 @@ POST   /api/v1/payments/webhook
 6. AdminOrdersController - Admin order management
 7. OrderStatusController - Custom order status management
 8. TenantsController - Tenant management
-9. MarketsController - Market management (+ shipping methods, leasing periods, option presets)
+9. MarketsController - Market management (+ shipping methods, leasing periods)
 10. ApiKeysController - API key generation/revocation
 11. CountriesController - ISO country list (market-scoped)
 12. DiscountsController - Discount CRUD
-13. OptionPresetsController - Public read-only option presets (for storefronts)
-14. PaymentsController - Nets Easy payment creation + webhook
-15. TenantApiKeysController - Tenant-level (superadmin) API keys
+13. PaymentsController - Nets Easy payment creation + webhook
+14. TenantApiKeysController - Tenant-level (superadmin) API keys
 
 ### Authentication
 - **JWT**: 1-hour expiry, httpOnly cookies, BCrypt password hashing
@@ -368,7 +345,6 @@ None - Data now persists across restarts
 ### Implemented
 - Product browsing and search
 - Product details page
-- Product add-ons / option presets on the detail page (single + group options)
 - Shopping cart with session persistence
 - Fake checkout (auto-pays orders)
 - Order confirmation page

@@ -27,8 +27,6 @@ public class Product
     public List<ProductImage> Images { get; set; } = new();
     public List<CustomProperty>? CustomProperties { get; set; }
     public List<string> Highlights { get; set; } = new();
-    // Free-form editorial values (one list per product) shown on customize/summary/email surfaces.
-    public List<string> FreeOptions { get; set; } = new();
 
     [JsonNumberHandling(JsonNumberHandling.AllowReadingFromString)]
     public decimal? LeasingFactor { get; set; }
@@ -46,9 +44,6 @@ public class Product
     public bool HasVariants { get; set; } = false;
     public List<VariantOption>? VariantOptions { get; set; }
     public List<ProductVariant>? Variants { get; set; }
-
-    // Add-on options
-    public List<ProductOption>? Options { get; set; }
 
     // Versioning fields
     public int Version { get; set; } = 1;

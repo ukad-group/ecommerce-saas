@@ -81,9 +81,7 @@ export interface Product {
   variantOptions?: VariantOption[]; // Defines available variant options (e.g., Size, Color)
   variants?: ProductVariant[]; // Array of product variants
   customProperties?: CustomProperty[]; // Additional specification fields
-  options?: ProductOption[];
   highlights?: string[]; // Short bullet-point feature highlights
-  freeOptions?: string[]; // Free-form editorial values shown on the customize/summary/email surfaces
   leasingFactor?: number; // Monthly leasing multiplier (e.g. 0.0219)
   hidePrice?: boolean; // When true, price is hidden on the storefront
   hiddenPriceDescription?: string; // Text shown instead of price when hidePrice is true
@@ -96,45 +94,6 @@ export interface Product {
   versionCreatedAt: string; // ISO 8601 - When this specific version was created
   versionCreatedBy: string; // User ID who created this version
   changeNotes?: string; // Optional notes about what changed in this version
-}
-
-/**
- * Product option block.
- * A titled group on a product that references store-global option presets
- * by id (the "sub options" picker). Resolved against the market's
- * OptionPreset library at display/cart time.
- */
-export interface ProductOption {
-  id: string;
-  title: string;
-  description?: string;
-  optionIds: string[]; // references OptionPreset.id
-  disabled?: boolean;
-}
-
-export type OptionPresetKind = 'single' | 'group';
-
-/**
- * Store-global option preset (the "prefilled option" picked into blocks).
- * Lives in the market settings library; shared across products.
- *
- * Two kinds:
- *   - 'single' (default): a buyable add-on with its own sku/price/stock.
- *   - 'group': an "option with sub-options" — name/description/image plus
- *     `subOptionIds` referencing single presets. A group has no own price;
- *     price/stock come from whichever sub-option the customer picks.
- */
-export interface OptionPreset {
-  id: string;
-  name: string; // Display name
-  sku?: string;
-  price: number;
-  description?: string;
-  imageUrl?: string; // Main image
-  stockQuantity: number;
-  status: ProductStatus;
-  kind?: OptionPresetKind; // defaults to 'single' when absent
-  subOptionIds?: string[]; // group only: ids of the single presets it bundles
 }
 
 /**

@@ -66,12 +66,12 @@ public class StoreCartService
         }
     }
 
-    public async Task<(bool Success, string? Error)> AddItemAsync(string sessionId, string productId, string? variantId, int quantity, string? optionId = null)
+    public async Task<(bool Success, string? Error)> AddItemAsync(string sessionId, string productId, string? variantId, int quantity)
     {
         try
         {
             var (client, baseUrl) = await CreateClientAsync(sessionId);
-            var payload = new { productId, variantId, optionId, quantity };
+            var payload = new { productId, variantId, quantity };
             var response = await client.PostAsJsonAsync($"{baseUrl}/cart/items", payload, JsonOptions);
 
             if (response.IsSuccessStatusCode) return (true, null);

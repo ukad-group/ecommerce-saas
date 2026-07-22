@@ -12,7 +12,6 @@ import { Link, useParams } from 'react-router-dom';
 import { PlusIcon, MagnifyingGlassIcon, KeyIcon } from '@heroicons/react/24/outline';
 import type { Market, MarketStatus, MarketType, UpdateMarketInput } from '../../../types/market';
 import { useAuthStore } from '../../../store/authStore';
-import { Role } from '../../../types/auth';
 import { Modal } from '../../../components/common/Modal';
 import { MarketForm } from '../../../components/markets/MarketForm';
 import { Toast } from '../../../components/common/Toast';
@@ -29,7 +28,6 @@ export function MarketsPage() {
   // Use specific selectors to ensure reactivity when tenant changes
   // Access the entire session to ensure Zustand detects changes to nested properties
   const session = useAuthStore((state) => state.session);
-  const userRole = session?.profile.role;
   const selectedTenantId = session?.selectedTenantId;
 
   // Get tenantId from URL params (for /admin/tenants/:tenantId/markets route)

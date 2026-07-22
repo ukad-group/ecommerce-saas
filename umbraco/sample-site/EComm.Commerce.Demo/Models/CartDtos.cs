@@ -74,6 +74,5 @@ public class AddToCartRequest
 {
     public string ProductId { get; set; } = string.Empty;
     public string? VariantId { get; set; }
-    public string? OptionId { get; set; }
     public int Quantity { get; set; } = 1;
 }

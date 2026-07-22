@@ -21,9 +21,7 @@ interface Product {
   images?: string[];
   variants?: ProductVariant[];
   customProperties?: Record<string, any>;
-  options?: ProductOption[];        // Add-on blocks (see Feature: Product Options below)
   highlights?: string[];
-  freeOptions?: string[];           // Free-text editorial values (customize/summary/email surfaces)
   leasingFactor?: number;           // Falls back to market's DefaultLeasingFactor
   hidePrice?: boolean;
   hiddenPriceDescription?: string;
@@ -32,27 +30,6 @@ interface Product {
   version: number;         // Sequential version number
   createdAt: Date;
   updatedAt: Date;
-}
-
-interface ProductOption {           // A block of add-ons shown on the product
-  id: string;
-  title: string;
-  description?: string;
-  optionIds: string[];              // References OptionPreset.id (market-scoped library)
-  disabled?: boolean;
-}
-
-interface OptionPreset {            // Market-scoped add-on preset (not tenant-global)
-  id: string;
-  name: string;
-  sku?: string;
-  price: number;
-  description?: string;
-  imageUrl?: string;
-  stockQuantity: number;
-  status: 'active' | 'inactive' | 'draft';
-  kind?: 'single' | 'group';        // 'group' bundles related singles via subOptionIds
-  subOptionIds?: string[];
 }
 
 interface ProductVersion {
@@ -88,15 +65,11 @@ interface ProductVersion {
 - `POST /api/v1/files/upload` - Upload product images (requires X-User-ID auth)
 - `GET /api/v1/files/resize/{tenantId}/{marketId}/{fileName}?width={w}&height={h}` - Get resized image (cached 7 days)
 - `DELETE /api/v1/files/:filename` - Delete uploaded image
-- `GET/POST/PUT/DELETE /api/v1/markets/:marketId/option-presets` - Manage the market's add-on presets library
-- `GET /api/v1/option-presets` - Public, active-only presets (used by showcase/storefronts)
 
 ### Components
 - **ProductsPage**: `/admin/products` - Main product list
 - **ProductList**: Table with search, filters, pagination
 - **ProductForm**: Create/edit modal with validation
-- **ProductOptionsEditor**: Attaches add-on blocks (title/description/preset picker) to a product, embedded in ProductForm
-- **OptionPresetsPage**: `/admin/products/option-presets` - CRUD for the market's add-on presets library (single/group)
 - **ImageUpload**: Drag-and-drop image upload with reordering
 - **QuickStockUpdate**: Inline stock editing
 - **ProductVersionHistory**: Version list with restore
@@ -111,12 +84,6 @@ interface ProductVersion {
 - **Umbraco plugin**: single Commerce dashboard **"Product Attributes"** tab (list → detail editor: Name/Alias + Values as Name/Alias pairs; the separate "Product Attribute Presets" tab was removed — presets stay in the React admin + API); workspace-view custom-property dropdowns. The product workspace view labels variant axes **"Attributes"** (custom fields are **"Custom properties"**) and supports **global** axes: an "Add store attribute" picker on the Attributes editor, `global`/`local` badges, and per-variant value dropdowns that resolve a global axis's full unique value set from the library (`attributeId` is preserved across all save paths).
 - **API**: `GET/POST/PUT/DELETE /api/v1/admin/markets/:id/attributes` and `.../attribute-presets` (+ bulk PUT). The **attributes** endpoints use the `AdminOrApiKey` policy (admin JWT **or** a valid plugin API key — so the Umbraco plugin can read/write them; not anonymous). Attribute **values are deduped by name** (case-insensitive) on add/update/bulk in `MarketsController`.
 - **Migration**: `VariantOption.Values` moved string → `{name, alias}` (no `ecomm.db` reset — data migrated in place; seeder writes new shape). `scripts/migration/migrate_westbay_attributes.py` promotes a market's local variant axes into global store attributes (unique unioned values) and relinks products via `attributeId` (dry-run by default, `--apply` backs up first).
-
-### Feature: Product Options / Add-ons
-- Presets are **market-scoped** (not a tenant-global library, despite some UI copy saying "store-global")
-- A preset's `kind` is `single` (standalone add-on) or `group` (bundles related singles via `subOptionIds`)
-- `ProductOptionsEditor`'s preset picker only offers `single` presets — groups exist in the library and render correctly on the showcase, but can't currently be attached to a product's option block from the admin UI
-- Showcase (`showcase-dotnet`) renders a product's option blocks as purchasable add-ons; `POST /Cart/AddItem` accepts `optionId`/`optionVariantId`
 
 ### State Management
 - TanStack Query for data fetching/caching

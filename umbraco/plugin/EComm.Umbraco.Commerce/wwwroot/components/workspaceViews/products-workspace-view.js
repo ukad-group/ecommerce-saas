@@ -50,17 +50,9 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
     editOptionsDraftNewValues: { type: Object },
     highlightsText: { type: String },
     newProductHighlightsText: { type: String },
-    freeOptionsText: { type: String },
-    newProductFreeOptionsText: { type: String },
     selectedProductId: { type: String },
     productSearchQuery: { type: String },
     variantSearchQuery: { type: String },
-    // Product option blocks + store-global presets picker
-    editingProductOptions: { type: Boolean },
-    optionPresets: { type: Array },
-    _optionPickerBlockId: { type: String },
-    _optionPickerSearch:  { type: String },
-    _optionPickerPage:    { type: Number },
     productId: { type: String },
     _mode: { type: String },
     // Market property templates (global custom fields shown on every product)
@@ -123,15 +115,9 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
     this.editOptionsDraftNewValues = {};
     this.highlightsText = '';
     this.newProductHighlightsText = '';
-    this.freeOptionsText = '';
-    this.newProductFreeOptionsText = '';
     this.selectedProductId = null;
     this.productSearchQuery = '';
     this.variantSearchQuery = '';
-    // Product option blocks + store-global presets picker
-    this.editingProductOptions = false;
-    this.optionPresets = [];
-    this._optionPickerBlockId = null; this._optionPickerSearch = ''; this._optionPickerPage = 1;
     this.productId = null;
     this._mode = 'category';
     this._storeResolveSeq = 0;
@@ -634,7 +620,6 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
       this.expandedProductId = product.id;
       this.editedProduct = this._productFromApi(product);
       this.highlightsText = (product.highlights || []).join('\n');
-      this.freeOptionsText = (product.freeOptions || []).join('\n');
       this.editedVariantId = null;
       this.validationErrors = {};
       this.saveSuccess = null;
@@ -652,14 +637,12 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
     await this.loadMarketAttributes();   // fresh attribute names before resolving stale snapshots
     this.editedProduct = this._productFromApi(product);
     this.highlightsText = (product.highlights || []).join('\n');
-    this.freeOptionsText = (product.freeOptions || []).join('\n');
     this.editedVariantId = null;
     this.validationErrors = {};
     this.saveSuccess = null;
     this.error = null;
     this.creatingVariants = false;
     this.editingOptions = false;
-    this.editingProductOptions = false;
     this.addingVariant = false;
     this.creatingProduct = false;
     this.variantSearchQuery = '';
@@ -818,7 +801,6 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
       const productToSave = {
         ...this.editedProduct,
         highlights: (this.editedProduct.highlights || []).map(s => (s || '').trim()).filter(s => s.length > 0),
-        freeOptions: (this.editedProduct.freeOptions || []).map(s => (s || '').trim()).filter(s => s.length > 0),
         variantOptions: this._denormalizeVariantOptions(this.editedProduct.variantOptions),
         variants: this._variantsToApi(this.editedProduct.variants, this.editedProduct.variantOptions),
         versionCreatedBy: userName
@@ -847,7 +829,6 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
 
         this.editedProduct = this._productFromApi(updated);
         this.highlightsText = (updated.highlights || []).join('\n');
-        this.freeOptionsText = (updated.freeOptions || []).join('\n');
         this.saveSuccess = `Product updated successfully (v${updated.version})`;
 
         setTimeout(() => { this.saveSuccess = null; }, 2000);
@@ -1709,247 +1690,6 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
     `;
   }
 
-  // ─── Product Options (add-on accessories) handlers ───────────────────────
-
-  startManageOptions() {
-    this.editingProductOptions = true;
-    this.error = null;
-    this.loadOptionPresets();
-  }
-
-  cancelManageOptions() {
-    this.editingProductOptions = false;
-    this.error = null;
-  }
-
-  async loadOptionPresets() {
-    try {
-      const headers = await this.getAuthHeaders();
-      const response = await fetch(
-        '/umbraco/management/api/ecomm-commerce/option-presets',
-        { headers }
-      );
-      if (response.ok) {
-        this.optionPresets = (await response.json()) || [];
-      }
-    } catch (e) {
-      console.error('Failed to load option presets', e);
-    }
-  }
-
-  addOptionBlock() {
-    this.editedProduct = {
-      ...this.editedProduct,
-      options: [...(this.editedProduct.options || []), {
-        id: `block-${Date.now()}`,
-        title: '',
-        description: '',
-        optionIds: [],
-        disabled: false,
-      }],
-    };
-  }
-
-  removeOptionBlock(blockId) {
-    this.editedProduct = {
-      ...this.editedProduct,
-      options: (this.editedProduct.options || []).filter(b => b.id !== blockId),
-    };
-  }
-
-  handleBlockInput(blockId, field, value) {
-    this.editedProduct = {
-      ...this.editedProduct,
-      options: (this.editedProduct.options || []).map(b =>
-        b.id === blockId ? { ...b, [field]: value } : b
-      ),
-    };
-  }
-
-  toggleBlockOption(blockId, presetId) {
-    this.editedProduct = {
-      ...this.editedProduct,
-      options: (this.editedProduct.options || []).map(b => {
-        if (b.id !== blockId) return b;
-        const ids = b.optionIds || [];
-        return {
-          ...b,
-          optionIds: ids.includes(presetId)
-            ? ids.filter(x => x !== presetId)
-            : [...ids, presetId],
-        };
-      }),
-    };
-  }
-
-  async saveOptions() {
-    await this.saveProduct();
-    if (!this.error) {
-      this.editingProductOptions = false;
-    }
-  }
-
-  // ─── Product Options render methods ──────────────────────────────────────
-
-  // Flat sub-variant editor shared by the add-option and edit-option forms.
-  // Shared block editor: titled blocks that pick store-global option presets.
-  renderOptionBlocksEditor() {
-    const blocks = this.editedProduct?.options || [];
-    const presets = (this.optionPresets || []).filter(p => p.status === 'active');
-    return html`
-      <div class="options-editor-header">
-        <h4 class="options-editor-title">Add-on Options (${blocks.length})</h4>
-        <uui-button look="secondary" @click=${this.cancelManageOptions} ?disabled=${this.saving}>
-          Done
-        </uui-button>
-      </div>
-
-      <p class="options-editor-intro">
-        Group add-ons into titled blocks, then pick which store-global options each block offers.
-        Manage the options themselves in the eCommerce admin → Option Presets.
-      </p>
-
-      ${this.error ? html`<uui-badge color="danger" look="primary" class="save-error">${this.error}</uui-badge>` : ''}
-
-      ${presets.length === 0 ? html`
-        <p class="no-options-hint">No active option presets exist yet. Create them in the eCommerce admin first.</p>
-      ` : ''}
-
-      ${blocks.length === 0 ? html`
-        <p class="no-options-hint">No option blocks yet. Add one below.</p>
-      ` : html`
-        <div class="product-options-list">
-          ${blocks.map(block => html`
-            <div class="product-option-card ${block.disabled ? 'option-disabled' : ''}">
-              <div class="edit-form-grid">
-                <div class="form-group full-width">
-                  <uui-label>Title</uui-label>
-                  <uui-input type="text" placeholder="e.g. Couplings, Accessories"
-                    .value=${block.title || ''}
-                    @input=${(e) => this.handleBlockInput(block.id, 'title', e.target.value)}
-                    ?disabled=${this.saving}></uui-input>
-                </div>
-                <div class="form-group full-width">
-                  <uui-label>Description</uui-label>
-                  <textarea class="description-textarea" rows="2" placeholder="Optional"
-                    .value=${block.description || ''}
-                    @input=${(e) => this.handleBlockInput(block.id, 'description', e.target.value)}
-                    ?disabled=${this.saving}></textarea>
-                </div>
-                <div class="form-group full-width">
-                  <label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;">
-                    <input type="checkbox" style="width:1rem;height:1rem;"
-                      .checked=${block.disabled || false}
-                      @change=${(e) => this.handleBlockInput(block.id, 'disabled', e.target.checked)}
-                      ?disabled=${this.saving}>
-                    <span>Disable (hide this block on the storefront)</span>
-                  </label>
-                </div>
-                <div class="form-group full-width">
-                  <uui-label>Sub options</uui-label>
-                  <div style="display:flex;flex-direction:column;gap:4px">
-                    ${(block.optionIds||[]).map((id, i) => {
-                      const pr = presets.find(x => x.id === id);
-                      return html`
-                        <div style="display:flex;align-items:center;gap:6px;padding:4px 8px;border:1px solid var(--uui-color-interactive,#4a6ba8);border-radius:4px;background:#eff6ff;font-size:0.875rem">
-                          <span style="color:#999;width:1.2rem;flex-shrink:0">${i+1}.</span>
-                          <uui-icon name=${pr?.kind==='group'?'icon-folder':'icon-tag'} style="color:${pr?.kind==='group'?'var(--uui-color-focus)':'var(--uui-color-text-alt)'};flex-shrink:0"></uui-icon>
-                          <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${pr ? pr.name : id}</span>
-                          ${pr?.kind==='group'
-                            ? html`<uui-tag look="secondary" color="default" style="flex-shrink:0">Group · ${(pr.subOptionIds||[]).length}</uui-tag>`
-                            : html`<span style="color:#999;font-size:0.8rem;flex-shrink:0">${pr?.price??''}</span>`}
-                          <button style="background:none;border:none;cursor:pointer;color:#999;font-size:1rem;line-height:1;padding:0 2px;flex-shrink:0"
-                            ?disabled=${this.saving}
-                            @click=${() => this.toggleBlockOption(block.id, id)}>×</button>
-                        </div>`;
-                    })}
-                    <button style="background:none;border:1px dashed #ccc;border-radius:4px;padding:6px;font-size:0.85rem;color:#999;cursor:pointer;text-align:center;width:100%"
-                      ?disabled=${this.saving || presets.length === 0}
-                      @click=${() => { this._optionPickerBlockId = block.id; this._optionPickerSearch = ''; this._optionPickerPage = 1; }}>
-                      ${presets.length === 0 ? 'No options available' : '── Add new ──'}
-                    </button>
-                  </div>
-                  ${this._optionPickerBlockId === block.id ? html`
-                    <div style="position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center"
-                      @click=${() => { this._optionPickerBlockId = null; }}>
-                      <div style="background:#fff;border-radius:8px;box-shadow:0 8px 32px rgba(0,0,0,0.18);width:360px;max-width:90vw;overflow:hidden"
-                        @click=${e => e.stopPropagation()}>
-                        <div style="padding:10px 12px;border-bottom:1px solid #e5e7eb;display:flex;gap:8px;align-items:center">
-                          <input style="flex:1;border:1px solid #d1d5db;border-radius:4px;padding:4px 8px;font-size:0.875rem;outline:none"
-                            type="search" placeholder="Search options…"
-                            .value=${this._optionPickerSearch}
-                            @input=${e => { this._optionPickerSearch = e.target.value; this._optionPickerPage = 1; }}>
-                          <button style="background:none;border:none;cursor:pointer;font-size:1.25rem;color:#6b7280;line-height:1"
-                            @click=${() => { this._optionPickerBlockId = null; }}>×</button>
-                        </div>
-                        <div style="max-height:300px;overflow-y:auto">
-                          ${(() => {
-                            const PICKER_SIZE = 8;
-                            const q = (this._optionPickerSearch||'').toLowerCase();
-                            const cur = block.optionIds||[];
-                            const avail = presets.filter(pr => !cur.includes(pr.id) && (!q || pr.name?.toLowerCase().includes(q)));
-                            if (!avail.length) return html`<p style="padding:1rem;text-align:center;color:#9ca3af;font-size:0.875rem">${q ? 'No matches.' : 'All options already added.'}</p>`;
-                            const pg = this._optionPickerPage;
-                            const totalPg = Math.ceil(avail.length / PICKER_SIZE);
-                            const paged = avail.slice((pg-1)*PICKER_SIZE, pg*PICKER_SIZE);
-                            return html`
-                              ${paged.map(pr => html`
-                                <button style="width:100%;display:flex;align-items:center;gap:8px;padding:8px 12px;background:none;border:none;border-bottom:1px solid #f3f4f6;cursor:pointer;font-size:0.875rem;text-align:left"
-                                  @click=${() => { this.toggleBlockOption(block.id, pr.id); this._optionPickerBlockId = null; }}>
-                                  <uui-icon name=${pr.kind==='group'?'icon-folder':'icon-tag'} style="color:${pr.kind==='group'?'var(--uui-color-focus)':'var(--uui-color-text-alt)'}"></uui-icon>
-                                  <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${pr.name||'(unnamed)'}</span>
-                                  ${pr.kind==='group'
-                                    ? html`<uui-tag look="secondary" color="default">Group · ${(pr.subOptionIds||[]).length}</uui-tag>`
-                                    : html`<span style="color:#6b7280;font-size:0.8rem">${pr.price??''}</span>`}
-                                </button>`)}
-                              ${totalPg > 1 ? html`
-                                <div style="display:flex;align-items:center;justify-content:center;gap:8px;padding:6px 12px;border-top:1px solid #e5e7eb;font-size:0.8rem;color:#6b7280">
-                                  <button style="background:none;border:none;cursor:pointer;padding:2px 6px;border-radius:3px;color:${pg<=1?'#d1d5db':'#374151'}" ?disabled=${pg<=1}
-                                    @click=${() => { this._optionPickerPage = pg-1; }}>←</button>
-                                  <span>${pg} / ${totalPg}</span>
-                                  <button style="background:none;border:none;cursor:pointer;padding:2px 6px;border-radius:3px;color:${pg>=totalPg?'#d1d5db':'#374151'}" ?disabled=${pg>=totalPg}
-                                    @click=${() => { this._optionPickerPage = pg+1; }}>→</button>
-                                </div>` : ''}`;
-                          })()}
-                        </div>
-                      </div>
-                    </div>` : ''}
-                </div>
-              </div>
-              <div class="button-group">
-                <uui-button look="secondary" color="danger"
-                  @click=${() => this.removeOptionBlock(block.id)} ?disabled=${this.saving}>
-                  Remove Block
-                </uui-button>
-              </div>
-            </div>
-          `)}
-        </div>
-      `}
-
-      <div class="button-group">
-        <uui-button look="secondary" color="positive" @click=${this.addOptionBlock} ?disabled=${this.saving}>
-          + Add Option Block
-        </uui-button>
-        <uui-button look="primary" color="positive" @click=${this.saveOptions} ?disabled=${this.saving}>
-          ${this.saving ? 'Saving...' : 'Save Options'}
-        </uui-button>
-      </div>
-    `;
-  }
-
-  renderOptionsSection(product) {
-    return html`
-      <tr class="edit-form-row">
-        <td colspan="7" @click=${(e) => e.stopPropagation()}>
-          <div class="edit-form-container product-options-panel">
-            ${this.renderOptionBlocksEditor()}
-          </div>
-        </td>
-      </tr>
-    `;
-  }
-
   /**
    * Product image editor. Umbraco-media images are managed by the NATIVE <umb-input-rich-media>
    * element (pick / dropzone-upload / drag-reorder / focal-point + crop editor). External images
@@ -2156,7 +1896,6 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
     this.newProductVariantOptionValues = '';
     this.newProductOptionCardValues = {};
     this.newProductHighlightsText = '';
-    this.newProductFreeOptionsText = '';
   }
 
   addNewProductVariantOption() {
@@ -2290,7 +2029,6 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
         categoryId: this.categoryId || null,
         images: this.newProduct.images || [],
         highlights: (this.newProduct.highlights || []).map(s => (s || '').trim()).filter(s => s.length > 0),
-        freeOptions: (this.newProduct.freeOptions || []).map(s => (s || '').trim()).filter(s => s.length > 0),
         versionCreatedBy: userName,
         hasVariants,
         variantOptions,
@@ -2316,7 +2054,6 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
         this.selectedProductId = created.id;
         this.editedProduct = { ...created };
         this.highlightsText = (created.highlights || []).join('\n');
-        this.freeOptionsText = (created.freeOptions || []).join('\n');
         this.variantSearchQuery = '';
       } else {
         const text = await response.text();
@@ -2468,11 +2205,6 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
         <div class="form-group full-width">
           ${this.renderStringListEditor('newProduct', 'highlights', 'Highlights',
             'Short bullet points shown on the product page.', '+ Highlight', 'No highlights yet.', this.createSaving)}
-        </div>
-
-        <div class="form-group full-width">
-          ${this.renderStringListEditor('newProduct', 'freeOptions', 'Free options content',
-            'Free-text values shown on the customize and summary pages and in quotation emails.', '+ Free option', 'No free options yet.', this.createSaving)}
         </div>
 
         <div class="form-group">
@@ -2748,8 +2480,6 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
       ${isExpanded ? (
         this.editingOptions
           ? this.renderOptionsEditor()
-          : this.editingProductOptions
-            ? this.renderOptionsSection(product)
             : this.creatingVariants
               ? this.renderVariantBuilder()
               : (product.hasVariants ? this.renderVariantsSection(product) : this.renderEditForm(product))
@@ -2803,9 +2533,6 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
                 </uui-button>
                 <uui-button look="secondary" @click=${this.startEditOptions} ?disabled=${this.saving}>
                   Attributes
-                </uui-button>
-                <uui-button look="secondary" @click=${this.startManageOptions} ?disabled=${this.saving}>
-                  Add-on Options (${(this.editedProduct?.options || []).length})
                 </uui-button>
               ` : ''}
 
@@ -3272,12 +2999,6 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
                   'Short bullet points shown on the product page.', '+ Highlight', 'No highlights yet.', this.saving)}
               </div>
 
-              <!-- Free options content (full width) -->
-              <div class="form-group full-width">
-                ${this.renderStringListEditor('editedProduct', 'freeOptions', 'Free options content',
-                  'Free-text values shown on the customize and summary pages and in quotation emails.', '+ Free option', 'No free options yet.', this.saving)}
-              </div>
-
               <!-- Images (full width) -->
               <div class="form-group full-width">
                 <uui-label>Images</uui-label>
@@ -3394,10 +3115,6 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
 
               <uui-button look="secondary" @click=${this.startEditOptions} ?disabled=${this.saving}>
                 Attributes
-              </uui-button>
-
-              <uui-button look="secondary" @click=${this.startManageOptions} ?disabled=${this.saving}>
-                Add-on Options (${(this.editedProduct?.options || []).length})
               </uui-button>
 
               <uui-button look="primary" color="positive" @click=${this.saveProduct} ?disabled=${this.saving}>
@@ -3844,10 +3561,6 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
       return html`<div class="product-detail-panel">${this.renderOptionsEditor()}</div>`;
     }
 
-    if (this.editingProductOptions) {
-      return html`<div class="product-detail-panel">${this.renderProductOptionsDetailPanel()}</div>`;
-    }
-
     if (this.creatingVariants) {
       return html`<div class="product-detail-panel">${this.renderVariantBuilder()}</div>`;
     }
@@ -3952,11 +3665,6 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
         </div>
 
         <div class="form-group full-width">
-          ${this.renderStringListEditor('editedProduct', 'freeOptions', 'Free options content',
-            'Free-text values shown on the customize and summary pages and in quotation emails.', '+ Free option', 'No free options yet.', this.saving)}
-        </div>
-
-        <div class="form-group full-width">
           <uui-label>Images</uui-label>
           ${this.renderImageGallery(
             product.images || [],
@@ -4014,9 +3722,6 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
       <div class="button-group">
         <uui-button look="secondary" @click=${this.cancelEdit} ?disabled=${this.saving}>
           Close
-        </uui-button>
-        <uui-button look="secondary" @click=${this.startManageOptions} ?disabled=${this.saving}>
-          Add-on Options (${(this.editedProduct?.options || []).length})
         </uui-button>
         <uui-button look="primary" color="positive" @click=${this.saveProduct} ?disabled=${this.saving}>
           ${this.saving ? 'Saving...' : 'Save Changes'}
@@ -4095,11 +3800,6 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
         </div>
 
         <div class="form-group full-width">
-          ${this.renderStringListEditor('editedProduct', 'freeOptions', 'Free options content',
-            'Free-text values shown on the customize and summary pages and in quotation emails.', '+ Free option', 'No free options yet.', this.saving)}
-        </div>
-
-        <div class="form-group full-width">
           <uui-label>Images</uui-label>
           ${this.renderImageGallery(
             product.images || [],
@@ -4123,9 +3823,6 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
         </uui-button>
         <uui-button look="secondary" @click=${this.startEditOptions} ?disabled=${this.saving}>
           Attributes
-        </uui-button>
-        <uui-button look="secondary" @click=${this.startManageOptions} ?disabled=${this.saving}>
-          Add-on Options (${(this.editedProduct?.options || []).length})
         </uui-button>
         <uui-button look="primary" color="positive" @click=${this.saveProduct} ?disabled=${this.saving}>
           ${this.saving ? 'Saving...' : 'Save Changes'}
@@ -4249,10 +3946,6 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
         </tr>
       ` : ''}
     `;
-  }
-
-  renderProductOptionsDetailPanel() {
-    return this.renderOptionBlocksEditor();
   }
 
   // Price currency comes from the market (single currency per market), read off the loaded products
@@ -5404,10 +5097,6 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
     }
 
     /* Options editor panel */
-    .options-editor-row {
-      background-color: var(--uui-color-surface);
-    }
-
     .options-editor-container {
       padding: var(--uui-size-space-5);
       border-top: 2px solid var(--uui-color-selected);
@@ -5802,62 +5491,6 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
       border-top: 2px solid var(--uui-color-selected);
     }
 
-    /* Product options (add-on accessories) panel */
-    .product-options-panel {
-      border-top: 2px solid var(--uui-color-selected);
-    }
-
-    .product-options-list {
-      display: flex;
-      flex-direction: column;
-      gap: var(--uui-size-space-3);
-      margin-bottom: var(--uui-size-space-4);
-    }
-
-    .product-option-card {
-      padding: var(--uui-size-space-3);
-      border: 1px solid var(--uui-color-border);
-      border-radius: var(--uui-border-radius);
-      background: var(--uui-color-surface-alt);
-    }
-
-    .product-option-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: var(--uui-size-space-3);
-      flex-wrap: wrap;
-    }
-
-    .product-option-header-left {
-      display: flex;
-      align-items: center;
-      gap: var(--uui-size-space-2);
-      flex-wrap: wrap;
-    }
-
-    .product-option-header-right {
-      display: flex;
-      align-items: center;
-      gap: var(--uui-size-space-2);
-    }
-
-    .product-option-name {
-      font-size: var(--uui-size-4);
-    }
-
-    .add-option-inline-form {
-      margin-top: var(--uui-size-space-3);
-      padding: var(--uui-size-space-4);
-      background: var(--uui-color-surface);
-      border: 1px solid var(--uui-color-border);
-      border-left: 3px solid var(--uui-color-positive);
-      border-radius: var(--uui-border-radius);
-    }
-
-    .add-option-inline-form .section-heading {
-      margin-bottom: var(--uui-size-space-3);
-    }
   `;
 }
 

@@ -53,23 +53,23 @@ dotnet run
       Tenant.cs, Market.cs, ApiKey.cs, OrderStatus.cs, User.cs
     /ValueObjects/              # Nested types organized by domain
       /Common/                  # Address, Country
-      /Product/                 # ProductVariant, VariantOption, CustomProperty, ProductOption
+      /Product/                 # ProductVariant, VariantOption, CustomProperty
       /Order/                   # OrderItem, CustomerInfo
       /Cart/                    # CartItem
       /Tenant/                  # TenantSettings, MarketSettings, CustomPropertyTemplate,
-                                 # ShippingMethod, LeasingPeriod, OptionPreset
+                                 # ShippingMethod, LeasingPeriod
       /ApiKey/                  # ApiKeyListItem
     ECommDbContext.cs           # EF Core DbContext with JSON column support
     DataStore.cs                # Data access layer (uses EF Core)
     DatabaseSeeder.cs           # Database seeding on startup
 
   /EComm.Api/                   # Web API project
-    /Controllers/               # 16 API controllers
+    /Controllers/               # 15 API controllers
       ProductsController.cs, CategoriesController.cs, CartController.cs,
       OrdersController.cs, AdminOrdersController.cs, OrderStatusController.cs,
       TenantsController.cs, MarketsController.cs, ApiKeysController.cs,
       AuthController.cs, FilesController.cs, CountriesController.cs,
-      DiscountsController.cs, OptionPresetsController.cs, PaymentsController.cs,
+      DiscountsController.cs, PaymentsController.cs,
       TenantApiKeysController.cs
     /DTOs/                      # Data Transfer Objects
       /Requests/                # Request DTOs by domain
@@ -84,11 +84,11 @@ dotnet run
     appsettings.json           # Configuration
 ```
 
-## 16 Controllers
+## 15 Controllers
 
 ### 1. ProductsController
 ```csharp
-GET    /api/v1/products                        // List products (market-scoped)
+GET    /api/v1/products                        // List products (market-scoped); +paged=true&page&pageSize returns {items,total,page,pageSize}
 POST   /api/v1/products                        // Create product
 GET    /api/v1/products/{id}                   // Get current version
 PUT    /api/v1/products/{id}                   // Update (creates new version)
@@ -150,7 +150,6 @@ PUT    /api/v1/markets/{id}            // Update market
 DELETE /api/v1/markets/{id}            // Delete market
 GET/PUT   /api/v1/markets/{id}/shipping-methods       // Market's delivery options
 GET/PUT   /api/v1/markets/{id}/leasing-periods        // Market's rental duration presets
-GET/POST/PUT/DELETE /api/v1/markets/{id}/option-presets // Market's add-on presets library (search+pagination)
 GET/POST/PUT/DELETE /api/v1/markets/{id}/attributes       // Market's product-attribute library (variant axes; + bulk PUT)
 GET/POST/PUT/DELETE /api/v1/markets/{id}/attribute-presets // Named bundles of attributes (+ bulk PUT)
 ```
@@ -187,18 +186,13 @@ GET/POST         /api/v1/discounts       // List/create discounts (tenant+market
 GET/PUT/DELETE   /api/v1/discounts/{id}  // Manage a discount
 ```
 
-### 12. OptionPresetsController
-```csharp
-GET    /api/v1/option-presets          // List active option presets (market-scoped, public)
-```
-
-### 13. PaymentsController
+### 12. PaymentsController
 ```csharp
 POST   /api/v1/orders/{id}/payment     // Create a Nets Easy payment, returns redirect URL
 POST   /api/v1/payments/webhook        // Nets Easy payment status webhook
 ```
 
-### 14. TenantApiKeysController
+### 13. TenantApiKeysController
 ```csharp
 GET/POST/DELETE  /api/v1/admin/tenants/{tenantId}/api-keys // Tenant-level API keys (not market-scoped)
 ```
@@ -212,7 +206,7 @@ GET/POST/DELETE  /api/v1/admin/tenants/{tenantId}/api-keys // Tenant-level API k
 ## Market-Level Commerce Settings
 
 `Market.Settings` (`MarketSettings`) now also holds, managed via the `MarketsController` sub-resources above:
-- `ShippingMethods`, `LeasingPeriods`, `OptionPresets`
+- `ShippingMethods`, `LeasingPeriods`
 - `Attributes` (product-attribute library — variant axes with `{name, alias}` values) + `AttributePresets` (named bundles)
 - `CustomPropertyTemplates` (each may carry an `AttributeId` to render its product value as a dropdown of the attribute's values)
 - `DefaultLeasingFactor`, `CartOrderStatus`

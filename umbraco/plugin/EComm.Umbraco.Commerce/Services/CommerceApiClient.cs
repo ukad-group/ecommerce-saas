@@ -46,11 +46,6 @@ public class CommerceApiClient : ICommerceApiClient
         _eventAggregator = eventAggregator;
     }
 
-    private class OptionPresetsResponse
-    {
-        public List<OptionPreset> Presets { get; set; } = new();
-    }
-
     public async Task<List<MarketInfo>> GetMarketsAsync()
     {
         var settings = await _settingsService.GetSettingsAsync();
@@ -81,34 +76,6 @@ public class CommerceApiClient : ICommerceApiClient
     private class TenantInfoForMarkets
     {
         public List<MarketInfo>? Markets { get; set; }
-    }
-
-    public async Task<List<OptionPreset>> GetOptionPresetsAsync(string? marketId = null)
-    {
-        var settings = await _settingsService.GetSettingsAsync();
-        if (settings == null || !settings.IsValid)
-        {
-            _logger.LogWarning("Commerce settings not configured");
-            return new List<OptionPreset>();
-        }
-
-        try
-        {
-            var mid = marketId ?? settings.MarketId;
-            var client = await CreateClientAsync(settings);
-            var url = $"admin/markets/{mid}/option-presets?pageSize=0";
-
-            var response = await client.GetAsync(url);
-            response.EnsureSuccessStatusCode();
-
-            var wrapper = await response.Content.ReadFromJsonAsync<OptionPresetsResponse>(JsonOptions);
-            return wrapper?.Presets ?? new List<OptionPreset>();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to fetch option presets from eCommerce API");
-            return new List<OptionPreset>();
-        }
     }
 
     public async Task<List<Category>> GetCategoriesAsync(string? marketId = null)
@@ -306,6 +273,50 @@ public class CommerceApiClient : ICommerceApiClient
         {
             _logger.LogError(ex, "Failed to fetch products for category {CategoryId}", categoryId);
             return new ProductListResult();
+        }
+    }
+
+    // Envelope returned by the API when paged=true.
+    private class PagedProductsResponse
+    {
+        public List<Product> Items { get; set; } = new();
+        public int Total { get; set; }
+        public int Page { get; set; }
+        public int PageSize { get; set; }
+    }
+
+    public async Task<ProductListResult> GetCategoryProductsPagedAsync(string categoryId, int page, int pageSize, string? search = null, string? marketId = null)
+    {
+        var settings = await _settingsService.GetSettingsAsync();
+        if (settings == null || !settings.IsValid)
+        {
+            return new ProductListResult { Page = page, PageSize = pageSize };
+        }
+
+        try
+        {
+            var client = await CreateClientAsync(settings);
+            var url = $"products?tenantId={settings.TenantId}&marketId={marketId ?? settings.MarketId}"
+                    + $"&categoryId={Uri.EscapeDataString(categoryId)}&paged=true&page={page}&pageSize={pageSize}";
+            if (!string.IsNullOrWhiteSpace(search))
+                url += $"&search={Uri.EscapeDataString(search)}";
+
+            var response = await client.GetAsync(url);
+            response.EnsureSuccessStatusCode();
+
+            var envelope = await response.Content.ReadFromJsonAsync<PagedProductsResponse>(JsonOptions);
+            return new ProductListResult
+            {
+                Products = envelope?.Items ?? new List<Product>(),
+                TotalCount = envelope?.Total ?? 0,
+                Page = envelope?.Page ?? page,
+                PageSize = envelope?.PageSize ?? pageSize
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to fetch paged products for category {CategoryId}", categoryId);
+            return new ProductListResult { Page = page, PageSize = pageSize };
         }
     }
 
@@ -757,7 +768,7 @@ public class CommerceApiClient : ICommerceApiClient
         }
     }
 
-    public async Task<CartItem?> AddCartItemAsync(string sessionId, string productId, string? variantId, string? optionId,
+    public async Task<CartItem?> AddCartItemAsync(string sessionId, string productId, string? variantId,
         int quantity, string? itemType = null, string? itemSubType = null, string? marketId = null)
     {
         var settings = await _settingsService.GetSettingsAsync();
@@ -766,7 +777,7 @@ public class CommerceApiClient : ICommerceApiClient
         try
         {
             var client = await CreateClientAsync(settings);
-            var payload = new { productId, variantId, optionId, itemType, itemSubType, quantity };
+            var payload = new { productId, variantId, itemType, itemSubType, quantity };
             var json = JsonSerializer.Serialize(payload, JsonOptions);
             var content = new StringContent(json, Encoding.UTF8, "application/json");
 
@@ -933,27 +944,6 @@ public class CommerceApiClient : ICommerceApiClient
         {
             _logger.LogError(ex, "Failed to fetch order status definitions");
             return new List<OrderStatusDefinition>();
-        }
-    }
-
-    public async Task<bool> UpdateOptionPresetsAsync(string? marketId, List<OptionPreset> presets)
-    {
-        var settings = await _settingsService.GetSettingsAsync();
-        if (settings == null || !settings.IsValid) return false;
-
-        try
-        {
-            var mid = marketId ?? settings.MarketId;
-            var client = await CreateClientAsync(settings);
-            var json = JsonSerializer.Serialize(new { presets }, JsonOptions);
-            var content = new StringContent(json, Encoding.UTF8, "application/json");
-            var response = await client.PutAsync($"admin/markets/{mid}/option-presets", content);
-            return response.IsSuccessStatusCode;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to update option presets");
-            return false;
         }
     }
 
