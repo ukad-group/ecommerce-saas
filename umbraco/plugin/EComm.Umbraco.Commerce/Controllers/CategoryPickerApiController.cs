@@ -256,7 +256,10 @@ public class CategoryPickerApiController : ManagementApiControllerBase
         var categoryIdPropertyAlias = settings?.CategoryIdPropertyAlias ?? "categoryId";
         var storeIdPropertyAlias = settings?.StoreIdPropertyAlias ?? "storeId";
 
-        var categoryId = GetValueAnyCulture(parent, categoryIdPropertyAlias);
+        // Walk parent-then-ancestors for the nearest categoryId, so option nodes nested under a
+        // folder inherit the category set higher up (e.g. on the "Trailer options" root) instead of
+        // requiring it on every immediate parent.
+        var categoryId = GetValueWithAncestorFallback(parent, categoryIdPropertyAlias);
         if (string.IsNullOrEmpty(categoryId))
             return BadRequest($"Parent node has no {categoryIdPropertyAlias} property");
 
@@ -383,7 +386,7 @@ public class CategoryPickerApiController : ManagementApiControllerBase
             if (parent != null)
             {
                 var settings = await _settingsService.GetSettingsAsync();
-                categoryId = GetValueAnyCulture(parent, settings?.CategoryIdPropertyAlias ?? "categoryId");
+                categoryId = GetValueWithAncestorFallback(parent, settings?.CategoryIdPropertyAlias ?? "categoryId");
                 marketId ??= GetValueWithAncestorFallback(parent, settings?.StoreIdPropertyAlias ?? "storeId");
             }
         }

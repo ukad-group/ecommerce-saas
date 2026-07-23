@@ -16,6 +16,7 @@ class ECommProductPicker extends UmbElementMixin(LitElement) {
     _newPrice: { type: String, state: true },
     _creating: { type: Boolean, state: true },
     _createError: { type: String, state: true },
+    _selectedName: { type: String, state: true },
   };
 
   constructor() {
@@ -35,6 +36,7 @@ class ECommProductPicker extends UmbElementMixin(LitElement) {
     this._newPrice = '';
     this._creating = false;
     this._createError = null;
+    this._selectedName = null;
 
     this.consumeContext(UMB_AUTH_CONTEXT, (authContext) => {
       this._authContext = authContext;
@@ -42,13 +44,11 @@ class ECommProductPicker extends UmbElementMixin(LitElement) {
 
     this.consumeContext(UMB_DOCUMENT_WORKSPACE_CONTEXT, (ctx) => {
       this._documentContext = ctx;
-      // Resolves the parent server-side from the node's own key rather than
-      // ctx.parentUnique, which is unreliable (umbraco/Umbraco-CMS#19213).
-      // ctx.unique itself has turned out to be just as unreliable here (it can
-      // report the parent's key instead of the current document's), so prefer
-      // the key embedded in the edit URL - unambiguous once the doc is saved -
-      // and only fall back to ctx.unique while creating a brand new node
-      // (before an /edit/ URL exists for it).
+      // The node key comes from the edit URL. When the picker is edited inside a Block List /
+      // infinite-editing overlay the path nests the outer product AND the inner node
+      // (.../document/edit/{outer}/.../document/{inner}/edit/{inner}), so _getNodeKeyFromUrl returns
+      // the INNERMOST key - the node actually being edited - not the outer product page. ctx.unique
+      // is only a fallback for a brand-new unsaved node (no /edit/ URL yet; unreliable per #19213).
       this.observe(ctx.unique, (key) => {
         const resolvedKey = this._getNodeKeyFromUrl() || key;
         this._documentKey = resolvedKey;
@@ -58,11 +58,33 @@ class ECommProductPicker extends UmbElementMixin(LitElement) {
     });
   }
 
+  // Fetches the selected product by id (category-independent) so its name shows even when the
+  // resolved list doesn't contain it (e.g. before the correct category resolves).
+  async _loadSelectedName() {
+    if (!this.value) { this._selectedName = null; return; }
+    const inList = this._products.find(p => p.id === this.value);
+    if (inList) { this._selectedName = inList.name; return; }
+    try {
+      const headers = await this._getAuthHeaders();
+      const r = await fetch(`/umbraco/management/api/ecomm-commerce/product/${this.value}`,
+        { headers, credentials: 'include' });
+      if (r.ok) { const p = await r.json(); this._selectedName = p?.name || null; }
+    } catch { /* name preview is best-effort */ }
+  }
+
+  updated(changed) {
+    if (changed.has('value')) this._loadSelectedName();
+  }
+
   _getNodeKeyFromUrl() {
-    const match = window.location.pathname.match(
-      /\/document\/edit\/([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})/
-    );
-    return match ? match[1] : null;
+    // Matches both the top-level form (/document/edit/{key}) and the nested referenced-document
+    // form (/document/{key}/edit/{key}) that infinite editing produces, and returns the LAST
+    // (innermost) match - the node actually being edited when nested inside a Block List overlay.
+    const guid = '[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}';
+    const re = new RegExp(`/document/(?:edit/|${guid}/edit/)(${guid})`, 'g');
+    let m, last = null;
+    while ((m = re.exec(window.location.pathname)) !== null) last = m[1];
+    return last;
   }
 
   async _getAuthHeaders() {
@@ -90,6 +112,7 @@ class ECommProductPicker extends UmbElementMixin(LitElement) {
         // Capture the category/market this list resolved from, to reuse verbatim on create.
         this._resolvedCategoryId = result.categoryId || null;
         this._resolvedMarketId = result.marketId || null;
+        this._loadSelectedName();
       } else if (response.status === 400) {
         const text = await response.text();
         this._error = text.includes('categoryId')
@@ -115,6 +138,7 @@ class ECommProductPicker extends UmbElementMixin(LitElement) {
   // the create popup).
   _selectProduct(productId) {
     this.value = productId;
+    this._loadSelectedName();
 
     this.dispatchEvent(new CustomEvent('property-value-change', {
       detail: { value: this.value },
@@ -222,6 +246,11 @@ class ECommProductPicker extends UmbElementMixin(LitElement) {
         selected: this.value === p.id
       }))
     ];
+    // Keep the current selection visible even if it isn't in the resolved list (e.g. the list
+    // resolved from a different category, or hasn't loaded) so the picker never looks empty.
+    if (this.value && !this._products.some(p => p.id === this.value)) {
+      options.push({ name: `${this._selectedName || this.value} (selected)`, value: this.value, selected: true });
+    }
 
     return html`
       <div class="picker-row">
@@ -243,7 +272,7 @@ class ECommProductPicker extends UmbElementMixin(LitElement) {
       </div>
 
       ${this.value ? html`
-        <small class="selected-info">Selected: ${this.value}</small>
+        <small class="selected-info">Selected: ${this._selectedName || this.value}</small>
       ` : ''}
 
       ${this._showCreate ? this._renderCreatePopup() : ''}
