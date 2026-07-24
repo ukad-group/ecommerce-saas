@@ -17,6 +17,9 @@ public class PaymentProviderResolver : IPaymentProviderResolver
         _defaultAlias = configuration["Payments:DefaultProvider"];
     }
 
+    public IReadOnlyCollection<PaymentProviderDescriptor> Descriptors
+        => _providers.Values.Select(p => p.Descriptor).ToList();
+
     public IPaymentProvider? Resolve(string? alias)
     {
         if (!string.IsNullOrWhiteSpace(alias))

@@ -13,6 +13,9 @@ public interface IPaymentProvider
     /// <summary>Stable identifier a market stores to select this provider (e.g. "nets-easy").</summary>
     string Alias { get; }
 
+    /// <summary>Self-description (display name + settings fields) so UIs can list and configure it.</summary>
+    PaymentProviderDescriptor Descriptor { get; }
+
     /// <summary>
     /// Starts a payment for an order. Returns the redirect URL (and provider payment id) the
     /// customer should be sent to, or <c>null</c> if the provider is not configured for the

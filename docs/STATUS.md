@@ -275,11 +275,11 @@ GET/PUT/DELETE   /api/v1/discounts/:id
 - **Nets Easy** ships as the first provider (`EComm.Payment/Providers/NetsEasy/`); credentials per market in the generic `MarketSettings.PaymentProviders["nets-easy"]` bag (`secretApiKey`, `testMode`)
 - Webhook updates `Order.PaymentStatus` (Initialized → Authorized → Captured)
 - Wired into the Umbraco sample site's real checkout flow (Cart → Checkout → Confirmation)
+- **Provider management UI** in both the React admin (Markets → edit → Payment providers) and the Umbraco plugin (Commerce → store → Options → Payment Providers), schema-driven from `GET /payments/providers` with masked/write-only secrets
 
 ### Missing / Known Issues
 - Webhook does not verify the gateway signature/HMAC yet — do not rely on this for real money without adding it
 - The primary showcase-dotnet storefront still uses the fake auto-pay checkout; the provider flow is only wired into the Umbraco demo site's checkout
-- No admin UI to pick a provider yet (raw `MarketSettings.PaymentProvider` field)
 
 ### API Endpoints
 ```

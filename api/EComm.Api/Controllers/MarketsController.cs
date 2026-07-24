@@ -1,9 +1,12 @@
+using System.Text.Json;
+using System.Text.Json.Nodes;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using EComm.Data;
 using EComm.Data.Entities;
 using EComm.Data.ValueObjects.Tenant;
 using EComm.Api.DTOs.Requests.Markets;
+using EComm.Payment;
 
 namespace EComm.Api.Controllers;
 
@@ -13,6 +16,12 @@ namespace EComm.Api.Controllers;
 public class MarketsController : ControllerBase
 {
     private readonly DataStore _store = DataStore.Instance;
+    private readonly IPaymentProviderResolver _paymentProviders;
+
+    public MarketsController(IPaymentProviderResolver paymentProviders)
+    {
+        _paymentProviders = paymentProviders;
+    }
 
     [HttpGet]
     public ActionResult GetMarkets(
@@ -261,6 +270,102 @@ public class MarketsController : ControllerBase
         _store.UpdateMarket(market);
 
         return Ok(new { periods = market.Settings.LeasingPeriods });
+    }
+
+    // ----- Payment providers (per-market, secrets masked) -----
+
+    [HttpGet("{id}/payment-providers")]
+    [Authorize(Policy = "AdminOrApiKey")]
+    public ActionResult GetPaymentProviders(string id)
+    {
+        var market = _store.GetMarket(id);
+        if (market == null) return NotFound();
+
+        var bag = market.Settings?.PaymentProviders ?? new();
+        var providers = bag.Select(kv =>
+        {
+            var descriptor = _paymentProviders.Resolve(kv.Key)?.Descriptor;
+            return new
+            {
+                alias = kv.Key,
+                displayName = descriptor?.DisplayName ?? kv.Key,
+                known = descriptor != null,
+                settings = descriptor != null ? PaymentSettings.Mask(descriptor, kv.Value) : JsonObject.Create(kv.Value)
+            };
+        }).ToList();
+
+        return Ok(new { active = market.Settings?.PaymentProvider, providers });
+    }
+
+    [HttpPut("{id}/payment-providers/{alias}")]
+    [Authorize(Policy = "AdminOrApiKey")]
+    public ActionResult UpsertPaymentProvider(string id, string alias, [FromBody] JsonElement settings)
+    {
+        var market = _store.GetMarket(id);
+        if (market == null) return NotFound();
+
+        var provider = _paymentProviders.Resolve(alias);
+        if (provider == null) return BadRequest(new { message = $"Unknown payment provider '{alias}'" });
+
+        market.Settings ??= new MarketSettings();
+        market.Settings.PaymentProviders ??= new();
+
+        var incoming = settings.ValueKind == JsonValueKind.Object ? JsonObject.Create(settings) ?? new() : new JsonObject();
+        JsonElement? existing = market.Settings.PaymentProviders.TryGetValue(alias, out var current) ? current : null;
+        var merged = PaymentSettings.Merge(provider.Descriptor, existing, incoming);
+
+        market.Settings.PaymentProviders[alias] = JsonSerializer.SerializeToElement(merged);
+        market.UpdatedAt = DateTime.UtcNow;
+        _store.UpdateMarket(market);
+
+        return Ok(new
+        {
+            alias,
+            displayName = provider.Descriptor.DisplayName,
+            settings = PaymentSettings.Mask(provider.Descriptor, market.Settings.PaymentProviders[alias])
+        });
+    }
+
+    [HttpDelete("{id}/payment-providers/{alias}")]
+    [Authorize(Policy = "AdminOrApiKey")]
+    public ActionResult DeletePaymentProvider(string id, string alias)
+    {
+        var market = _store.GetMarket(id);
+        if (market == null) return NotFound();
+
+        if (market.Settings?.PaymentProviders?.Remove(alias) == true)
+        {
+            // If we removed the active provider, clear the active selection too.
+            if (string.Equals(market.Settings.PaymentProvider, alias, StringComparison.OrdinalIgnoreCase))
+                market.Settings.PaymentProvider = null;
+            market.UpdatedAt = DateTime.UtcNow;
+            _store.UpdateMarket(market);
+        }
+
+        return NoContent();
+    }
+
+    [HttpPut("{id}/active-payment-provider")]
+    [Authorize(Policy = "AdminOrApiKey")]
+    public ActionResult SetActivePaymentProvider(string id, [FromBody] SetActivePaymentProviderRequest request)
+    {
+        var market = _store.GetMarket(id);
+        if (market == null) return NotFound();
+
+        if (!string.IsNullOrEmpty(request.Alias))
+        {
+            if (_paymentProviders.Resolve(request.Alias) == null)
+                return BadRequest(new { message = $"Unknown payment provider '{request.Alias}'" });
+            if (market.Settings?.PaymentProviders?.ContainsKey(request.Alias) != true)
+                return BadRequest(new { message = $"Provider '{request.Alias}' is not configured for this market" });
+        }
+
+        market.Settings ??= new MarketSettings();
+        market.Settings.PaymentProvider = string.IsNullOrEmpty(request.Alias) ? null : request.Alias;
+        market.UpdatedAt = DateTime.UtcNow;
+        _store.UpdateMarket(market);
+
+        return Ok(new { active = market.Settings.PaymentProvider });
     }
 
     // ----- Product Attributes (market-scoped variant-axis library) -----

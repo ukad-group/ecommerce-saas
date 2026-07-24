@@ -5,6 +5,9 @@ namespace EComm.Payment;
 /// <summary>Picks the <see cref="IPaymentProvider"/> to use for a request.</summary>
 public interface IPaymentProviderResolver
 {
+    /// <summary>Descriptors for every registered provider — the catalog a UI offers when adding one.</summary>
+    IReadOnlyCollection<PaymentProviderDescriptor> Descriptors { get; }
+
     /// <summary>
     /// Resolve by explicit alias. When <paramref name="alias"/> is null/empty, falls back to the
     /// configured default (<c>Payments:DefaultProvider</c>) or the sole registered provider.

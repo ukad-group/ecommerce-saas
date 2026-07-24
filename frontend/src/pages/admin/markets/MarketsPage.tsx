@@ -14,6 +14,7 @@ import type { Market, MarketStatus, MarketType, UpdateMarketInput } from '../../
 import { useAuthStore } from '../../../store/authStore';
 import { Modal } from '../../../components/common/Modal';
 import { MarketForm } from '../../../components/markets/MarketForm';
+import { MarketPaymentProviders } from '../../../components/markets/MarketPaymentProviders';
 import { Toast } from '../../../components/common/Toast';
 
 export function MarketsPage() {
@@ -406,6 +407,10 @@ export function MarketsPage() {
             onCancel={() => setEditingMarket(null)}
             isSubmitting={updateMutation.isPending}
           />
+          <div className="mt-6 border-t pt-4">
+            <h3 className="mb-3 text-sm font-semibold text-gray-900">Payment providers</h3>
+            <MarketPaymentProviders marketId={editingMarket.id} />
+          </div>
         </Modal>
       )}
 

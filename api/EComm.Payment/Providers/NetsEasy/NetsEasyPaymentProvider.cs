@@ -11,6 +11,18 @@ public class NetsEasyPaymentProvider : IPaymentProvider
 {
     public string Alias => "nets-easy";
 
+    public PaymentProviderDescriptor Descriptor => new()
+    {
+        Alias = Alias,
+        DisplayName = "Nets Easy",
+        Fields =
+        [
+            new() { Key = "secretApiKey", Label = "Secret API key", Type = PaymentFieldType.Secret, Required = true, HelpText = "Nets Easy secret key (server-side only)." },
+            new() { Key = "checkoutKey", Label = "Checkout key", Type = PaymentFieldType.Text, HelpText = "Public checkout key (optional for hosted checkout)." },
+            new() { Key = "testMode", Label = "Test mode", Type = PaymentFieldType.Bool, DefaultValue = "true", HelpText = "Use the Nets test environment." }
+        ]
+    };
+
     private static readonly JsonSerializerOptions WebhookJsonOptions = new() { PropertyNameCaseInsensitive = true };
 
     private readonly INetsEasyClient _nets;

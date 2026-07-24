@@ -167,6 +167,37 @@ public class CommerceAdminApiController : ManagementApiControllerBase
         var ok = await _apiClient.DeleteDiscountAsync(id);
         return ok ? NoContent() : StatusCode(StatusCodes.Status502BadGateway, "Failed to delete discount");
     }
+
+    // ── Payment providers ───────────────────────────────────────────────────────
+
+    [HttpGet("payment-providers/catalog")]
+    public async Task<IActionResult> GetPaymentProviderCatalog()
+        => Ok(await _apiClient.GetPaymentProviderCatalogAsync());
+
+    [HttpGet("payment-providers")]
+    public async Task<IActionResult> GetMarketPaymentProviders([FromQuery] string marketId)
+        => Ok(await _apiClient.GetMarketPaymentProvidersAsync(marketId));
+
+    [HttpPut("payment-providers/{alias}")]
+    public async Task<IActionResult> UpsertPaymentProvider(string alias, [FromQuery] string marketId, [FromBody] System.Text.Json.JsonElement settings)
+        => Ok(await _apiClient.UpsertMarketPaymentProviderAsync(marketId, alias, settings));
+
+    [HttpDelete("payment-providers/{alias}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public async Task<IActionResult> DeletePaymentProvider(string alias, [FromQuery] string marketId)
+    {
+        var ok = await _apiClient.DeleteMarketPaymentProviderAsync(marketId, alias);
+        return ok ? NoContent() : StatusCode(StatusCodes.Status502BadGateway, "Failed to delete payment provider");
+    }
+
+    [HttpPut("active-payment-provider")]
+    public async Task<IActionResult> SetActivePaymentProvider([FromQuery] string marketId, [FromBody] SetActivePaymentProviderRequest request)
+        => Ok(await _apiClient.SetActivePaymentProviderAsync(marketId, request.Alias));
+}
+
+public class SetActivePaymentProviderRequest
+{
+    public string? Alias { get; set; }
 }
 
 public class UpdateOrderStatusRequest

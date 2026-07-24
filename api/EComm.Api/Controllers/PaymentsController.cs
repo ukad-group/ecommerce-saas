@@ -18,6 +18,13 @@ public class PaymentsController : ControllerBase
     }
 
     /// <summary>
+    /// Lists every registered payment provider with its settings schema — the catalog a backoffice
+    /// offers when adding a provider to a market. No secrets here (schema only).
+    /// </summary>
+    [HttpGet("api/v1/payments/providers")]
+    public ActionResult GetProviders() => Ok(_resolver.Descriptors);
+
+    /// <summary>
     /// Starts a payment for an order using the market's configured provider and returns the URL to
     /// redirect the customer to.
     /// </summary>

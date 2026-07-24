@@ -1,3 +1,4 @@
+using System.Text.Json;
 using EComm.Umbraco.Commerce.Models;
 
 namespace EComm.Umbraco.Commerce.Services;
@@ -7,6 +8,23 @@ namespace EComm.Umbraco.Commerce.Services;
 /// </summary>
 public interface ICommerceApiClient
 {
+    // ----- Payment providers (per-market config; JSON passthrough, schema-driven) -----
+
+    /// <summary>The catalog of registered payment providers + their settings schema.</summary>
+    Task<JsonElement> GetPaymentProviderCatalogAsync();
+
+    /// <summary>Providers configured for a market (secrets masked) + the active alias.</summary>
+    Task<JsonElement> GetMarketPaymentProvidersAsync(string marketId);
+
+    /// <summary>Add/update a provider's settings for a market (blank/masked secrets are kept).</summary>
+    Task<JsonElement> UpsertMarketPaymentProviderAsync(string marketId, string alias, JsonElement settings);
+
+    /// <summary>Remove a provider's config from a market.</summary>
+    Task<bool> DeleteMarketPaymentProviderAsync(string marketId, string alias);
+
+    /// <summary>Set (alias) or clear (null) the market's active provider.</summary>
+    Task<JsonElement> SetActivePaymentProviderAsync(string marketId, string? alias);
+
     /// <summary>
     /// Gets all markets for the configured tenant
     /// </summary>

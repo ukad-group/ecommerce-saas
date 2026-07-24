@@ -1133,6 +1133,60 @@ public class CommerceApiClient : ICommerceApiClient
         }
     }
 
+    // ----- Payment providers (JSON passthrough — the plugin doesn't model provider schemas) -----
+
+    public async Task<JsonElement> GetPaymentProviderCatalogAsync()
+    {
+        var settings = await _settingsService.GetSettingsAsync();
+        if (settings == null || !settings.IsValid) return default;
+        var client = await CreateClientAsync(settings);
+        var response = await client.GetAsync("payments/providers");
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<JsonElement>(JsonOptions);
+    }
+
+    public async Task<JsonElement> GetMarketPaymentProvidersAsync(string marketId)
+    {
+        var settings = await _settingsService.GetSettingsAsync();
+        if (settings == null || !settings.IsValid) return default;
+        var client = await CreateClientAsync(settings);
+        var response = await client.GetAsync($"admin/markets/{marketId}/payment-providers");
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<JsonElement>(JsonOptions);
+    }
+
+    public async Task<JsonElement> UpsertMarketPaymentProviderAsync(string marketId, string alias, JsonElement settings)
+    {
+        var config = await _settingsService.GetSettingsAsync();
+        if (config == null || !config.IsValid) return default;
+        var client = await CreateClientAsync(config);
+        var content = new StringContent(settings.GetRawText(), Encoding.UTF8, "application/json");
+        var response = await client.PutAsync($"admin/markets/{marketId}/payment-providers/{alias}", content);
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<JsonElement>(JsonOptions);
+    }
+
+    public async Task<bool> DeleteMarketPaymentProviderAsync(string marketId, string alias)
+    {
+        var settings = await _settingsService.GetSettingsAsync();
+        if (settings == null || !settings.IsValid) return false;
+        var client = await CreateClientAsync(settings);
+        var response = await client.DeleteAsync($"admin/markets/{marketId}/payment-providers/{alias}");
+        return response.IsSuccessStatusCode;
+    }
+
+    public async Task<JsonElement> SetActivePaymentProviderAsync(string marketId, string? alias)
+    {
+        var settings = await _settingsService.GetSettingsAsync();
+        if (settings == null || !settings.IsValid) return default;
+        var client = await CreateClientAsync(settings);
+        var json = JsonSerializer.Serialize(new { alias }, JsonOptions);
+        var content = new StringContent(json, Encoding.UTF8, "application/json");
+        var response = await client.PutAsync($"admin/markets/{marketId}/active-payment-provider", content);
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<JsonElement>(JsonOptions);
+    }
+
     private class LeasingPeriodsResponse
     {
         public List<LeasingPeriod> Periods { get; set; } = new();

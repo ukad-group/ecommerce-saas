@@ -2,6 +2,7 @@ import { LitElement, html, css } from '@umbraco-cms/backoffice/external/lit';
 import { UmbElementMixin } from '@umbraco-cms/backoffice/element-api';
 import { UMB_AUTH_CONTEXT } from '@umbraco-cms/backoffice/auth';
 import '@umbraco-cms/backoffice/media'; // registers the native <umb-input-rich-media> element
+import './payment-providers-dashboard.js'; // registers <ecomm-payment-providers-dashboard> (Options → Payment Providers)
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -24,6 +25,7 @@ const NAV_ITEMS = [
 
 const OPTIONS_SUBITEMS = [
   { key: 'order-statuses',        label: 'Order Statuses',              icon: 'icon-settings', enabled: true },
+  { key: 'payment-providers',     label: 'Payment Providers',           icon: 'icon-bill',     enabled: true },
   { key: 'attributes',            label: 'Product Attributes',          icon: 'icon-tag',      enabled: true },
   { key: 'property-templates',    label: 'Property Templates',          icon: 'icon-list',     enabled: true },
 ];
@@ -43,6 +45,7 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
     // navigation
     activeView:     { type: String  },
     storeExpanded:  { type: Boolean },
+    expandedStoreId: { type: String },
     optionsOpen:    { type: Boolean },
     marketName:     { type: String  },
     // multi-market
@@ -112,8 +115,9 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
 
   constructor() {
     super();
-    this.activeView    = 'orders';
+    this.activeView    = 'home';
     this.storeExpanded = true;
+    this.expandedStoreId = '';
     this.optionsOpen   = false;
     this.marketName    = 'Store';
     this.markets = []; this.selectedMarketId = ''; this.cartOrderStatus = 'new';
@@ -1546,47 +1550,83 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
   _renderSidebar() {
     return html`
       <nav class="sidebar">
-        <div class="store-header" @click=${() => { this.storeExpanded = !this.storeExpanded; }}>
-          <span class="store-icon-wrap"><uui-icon name="icon-shopping-basket"></uui-icon></span>
-          <span class="store-name">${this.marketName}</span>
-          <span class="store-caret ${this.storeExpanded ? 'open' : ''}">▾</span>
-        </div>
-
-        ${this.storeExpanded ? html`
-          ${this.markets.length > 1 ? html`
-            <div class="market-list">
-              ${this.markets.map(m => html`
-                <div class="market-item ${this.selectedMarketId === m.id ? 'market-item--active' : ''}"
-                     @click=${(e) => { e.stopPropagation(); this._selectMarket(m); }}>
-                  <uui-icon name="icon-store" class="nav-icon nav-icon--sm"></uui-icon>
-                  ${m.name}
-                </div>`)}
-            </div>` : ''}
-
-          <ul class="nav-list">
-            ${NAV_ITEMS.map(item => html`
-              <li class="nav-item ${(this.activeView === item.key || (item.key === 'orders' && this.activeView === 'order-detail')) ? 'active' : ''} ${!item.enabled ? 'disabled' : ''}"
-                  @click=${() => item.enabled && this._selectView(item.key)}>
-                <uui-icon name="${item.icon}" class="nav-icon"></uui-icon>
-                ${item.label}
-              </li>`)}
-
-            <li class="nav-item nav-item--group"
-                @click=${e => { e.stopPropagation(); this.optionsOpen = !this.optionsOpen; }}>
-              <uui-icon name="icon-settings" class="nav-icon"></uui-icon>
-              Options
-              <span class="group-caret ${this.optionsOpen ? 'open' : ''}">▾</span>
-            </li>
-
-            ${this.optionsOpen ? OPTIONS_SUBITEMS.map(sub => html`
-              <li class="nav-subitem ${!sub.enabled ? 'disabled' : ''} ${this.activeView === sub.key ? 'nav-subitem--active' : ''}"
-                  @click=${() => sub.enabled && this._selectView(sub.key)}>
-                <uui-icon name="${sub.icon}" class="nav-icon nav-icon--sm"></uui-icon>
-                ${sub.label}
-              </li>`) : ''}
-          </ul>
-        ` : ''}
+        <div class="sidebar-title ${this.activeView === 'home' ? 'sidebar-title--active' : ''}"
+             @click=${() => this._selectView('home')}>Commerce</div>
+        ${this.markets.map(m => this._renderStoreNode(m))}
       </nav>`;
+  }
+
+  _renderStoreNode(m) {
+    const expanded = this.expandedStoreId === m.id;
+    const inThisStore = this.selectedMarketId === m.id;
+    return html`
+      <div class="store-node ${inThisStore ? 'store-node--active' : ''}"
+           @click=${() => this._toggleStore(m)}>
+        <span class="store-caret ${expanded ? 'open' : ''}">▸</span>
+        <uui-icon name="icon-store" class="nav-icon nav-icon--sm"></uui-icon>
+        <span class="store-node-name">${m.name}</span>
+      </div>
+      ${expanded ? html`
+        <ul class="nav-list">
+          ${NAV_ITEMS.map(item => html`
+            <li class="nav-item ${inThisStore && (this.activeView === item.key || (item.key === 'orders' && this.activeView === 'order-detail')) ? 'active' : ''} ${!item.enabled ? 'disabled' : ''}"
+                @click=${(e) => { e.stopPropagation(); item.enabled && this._selectStoreView(m, item.key); }}>
+              <uui-icon name="${item.icon}" class="nav-icon"></uui-icon>
+              ${item.label}
+            </li>`)}
+
+          <li class="nav-item nav-item--group"
+              @click=${e => { e.stopPropagation(); this.optionsOpen = !this.optionsOpen; }}>
+            <uui-icon name="icon-settings" class="nav-icon"></uui-icon>
+            Options
+            <span class="group-caret ${this.optionsOpen ? 'open' : ''}">▾</span>
+          </li>
+
+          ${this.optionsOpen ? OPTIONS_SUBITEMS.map(sub => html`
+            <li class="nav-subitem ${!sub.enabled ? 'disabled' : ''} ${inThisStore && this.activeView === sub.key ? 'nav-subitem--active' : ''}"
+                @click=${(e) => { e.stopPropagation(); sub.enabled && this._selectStoreView(m, sub.key); }}>
+              <uui-icon name="${sub.icon}" class="nav-icon nav-icon--sm"></uui-icon>
+              ${sub.label}
+            </li>`) : ''}
+        </ul>` : ''}`;
+  }
+
+  _toggleStore(m) {
+    if (this.expandedStoreId === m.id) {
+      this.expandedStoreId = '';
+    } else {
+      this.expandedStoreId = m.id;
+      if (this.selectedMarketId !== m.id) this._selectMarket(m);
+    }
+  }
+
+  _selectStoreView(m, key) {
+    if (this.selectedMarketId !== m.id) this._selectMarket(m);
+    this._selectView(key);
+  }
+
+  _openStore(m) {
+    this.expandedStoreId = m.id;
+    this._selectMarket(m);
+    this._selectView('orders');
+  }
+
+  _renderHomeView() {
+    return html`
+      <div class="commerce-home">
+        <h1>Welcome to the Commerce Section</h1>
+        <p class="home-intro">Access the stores available to you and manage their orders, discounts and performance.</p>
+        <h2>Your Stores</h2>
+        <div class="store-cards">
+          ${this.markets.map(m => html`
+            <div class="store-card" @click=${() => this._openStore(m)}>
+              <div class="store-card-icon"><uui-icon name="icon-store"></uui-icon></div>
+              <div class="store-card-name">${m.name}</div>
+              <div class="store-card-meta">${m.currency || ''}</div>
+            </div>`)}
+          ${this.markets.length === 0 ? html`<p>No stores available.</p>` : ''}
+        </div>
+      </div>`;
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -1595,6 +1635,7 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
 
   _renderCurrentView() {
     switch (this.activeView) {
+      case 'home':           return this._renderHomeView();
       case 'orders':         return this._renderOrdersView();
       case 'order-detail':   return this._renderOrderDetailView();
       case 'carts':          return this._renderCartsView();
@@ -1604,6 +1645,7 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
       case 'attributes':          return this._renderAttributesView();
       case 'attribute-presets':   return this._renderAttributePresetsView();
       case 'property-templates':  return this._renderPropertyTemplatesView();
+      case 'payment-providers':   return html`<ecomm-payment-providers-dashboard .marketId=${this.selectedMarketId} .embedded=${true}></ecomm-payment-providers-dashboard>`;
       default: {
         const found = [...NAV_ITEMS, ...OPTIONS_SUBITEMS].find(i => i.key === this.activeView);
         return this._renderComingSoon(found?.label ?? this.activeView);
@@ -1666,10 +1708,44 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
     }
 
     .store-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #1a1a1a; }
-    .store-caret { font-size: 0.75rem; color: #888; }
-    .store-caret.open { transform: rotate(0deg); }
+    .store-caret { font-size: 0.7rem; color: #888; display: inline-block; transition: transform .15s ease; }
+    .store-caret.open { transform: rotate(90deg); }
 
-    .nav-list { list-style: none; margin: 4px 0; padding: 0; }
+    /* Per-store tree */
+    .sidebar-title {
+      padding: 14px 12px; font-weight: 700; font-size: 0.8rem; text-transform: uppercase;
+      letter-spacing: 0.03em; color: #6b6b6b; cursor: pointer; border-bottom: 1px solid #e5e5e5;
+      user-select: none;
+    }
+    .sidebar-title:hover { background: #f5f5f5; }
+    .sidebar-title--active { color: #c0392b; }
+    .store-node {
+      display: flex; align-items: center; gap: 8px; padding: 12px; cursor: pointer;
+      font-weight: 600; font-size: 0.875rem; color: #1a1a1a; user-select: none;
+    }
+    .store-node:hover { background: #f5f5f5; }
+    .store-node--active { color: #1b264f; }
+    .store-node-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    /* Welcome / store cards */
+    .commerce-home { padding: 28px 32px; overflow-y: auto; }
+    .commerce-home h1 { font-size: 1.6rem; margin: 0 0 8px; color: #1a1a1a; }
+    .commerce-home h2 { font-size: 1.1rem; margin: 24px 0 12px; color: #1a1a1a; }
+    .home-intro { color: #555; max-width: 640px; }
+    .store-cards { display: flex; flex-wrap: wrap; gap: 16px; }
+    .store-card {
+      width: 220px; background: #fff; border: 1px solid #e5e5e5; border-radius: 8px;
+      padding: 24px 16px; text-align: center; cursor: pointer; transition: box-shadow .15s, border-color .15s;
+    }
+    .store-card:hover { box-shadow: 0 4px 14px rgba(0,0,0,0.08); border-color: #1b264f; }
+    .store-card-icon {
+      display: flex; align-items: center; justify-content: center; width: 48px; height: 48px;
+      margin: 0 auto 12px; background: #f0f0f3; border-radius: 50%; color: #1b264f; font-size: 1.2rem;
+    }
+    .store-card-name { font-weight: 600; color: #1a1a1a; }
+    .store-card-meta { color: #888; font-size: 0.8rem; margin-top: 4px; }
+
+    .nav-list { list-style: none; margin: 4px 0 8px; padding: 0; }
 
     .nav-item {
       display: flex; align-items: center; gap: 8px;

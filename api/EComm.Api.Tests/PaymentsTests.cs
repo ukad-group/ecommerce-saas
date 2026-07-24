@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using EComm.Api.Controllers;
 using EComm.Payment;
 using EComm.Payment.Providers.NetsEasy;
@@ -156,6 +157,7 @@ internal class StubProvider : IPaymentProvider
 {
     public StubProvider(string alias) => Alias = alias;
     public string Alias { get; }
+    public PaymentProviderDescriptor Descriptor => new() { Alias = Alias, DisplayName = Alias };
     public Task<PaymentCreationResult?> CreatePaymentAsync(PaymentCreationContext context) => Task.FromResult<PaymentCreationResult?>(null);
     public Task<WebhookResult?> HandleWebhookAsync(HttpRequest request) => Task.FromResult<WebhookResult?>(null);
 }
@@ -210,6 +212,52 @@ public class PaymentProviderResolverTests
         var resolver = new PaymentProviderResolver(new[] { new StubProvider("nets-easy"), new StubProvider("acme") }, Config());
         var market = new Market { Id = "m1", Settings = new MarketSettings { PaymentProvider = "acme" } };
         Assert.Equal("acme", resolver.ResolveForMarket(market)!.Alias);
+    }
+}
+
+public class PaymentSettingsTests
+{
+    private static readonly PaymentProviderDescriptor Descriptor = new()
+    {
+        Alias = "nets-easy",
+        Fields =
+        [
+            new() { Key = "secretApiKey", Type = PaymentFieldType.Secret },
+            new() { Key = "testMode", Type = PaymentFieldType.Bool }
+        ]
+    };
+
+    [Fact]
+    public void Mask_HidesSecretFieldsButKeepsOthers()
+    {
+        var stored = JsonSerializer.SerializeToElement(new { secretApiKey = "live-123", testMode = true });
+        var masked = PaymentSettings.Mask(Descriptor, stored);
+
+        Assert.Equal(PaymentSettings.SecretMask, masked["secretApiKey"]!.ToString());
+        Assert.True(masked["testMode"]!.GetValue<bool>());
+    }
+
+    [Fact]
+    public void Merge_KeepsExistingSecretWhenIncomingIsMaskOrBlank()
+    {
+        var existing = JsonSerializer.SerializeToElement(new { secretApiKey = "live-123", testMode = true });
+        var incoming = (JsonObject)JsonNode.Parse("""{"secretApiKey":"********","testMode":false}""")!;
+
+        var merged = PaymentSettings.Merge(Descriptor, existing, incoming);
+
+        Assert.Equal("live-123", merged["secretApiKey"]!.ToString());  // secret preserved
+        Assert.False(merged["testMode"]!.GetValue<bool>());            // non-secret updated
+    }
+
+    [Fact]
+    public void Merge_OverwritesSecretWhenNewValueProvided()
+    {
+        var existing = JsonSerializer.SerializeToElement(new { secretApiKey = "old" });
+        var incoming = (JsonObject)JsonNode.Parse("""{"secretApiKey":"new"}""")!;
+
+        var merged = PaymentSettings.Merge(Descriptor, existing, incoming);
+
+        Assert.Equal("new", merged["secretApiKey"]!.ToString());
     }
 }
 

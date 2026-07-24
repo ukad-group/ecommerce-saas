@@ -71,11 +71,21 @@ default/sole logic, so a gateway callback URL registered as `/api/v1/payments/we
 | `POST /api/v1/orders/{id}/payment` | Start a payment. Body: `{ returnUrl, cancelUrl, termsUrl }`. Returns `{ paymentId, redirectUrl }`. `400` if no provider is configured for the market; `502` if the provider couldn't create the payment. |
 | `POST /api/v1/payments/webhook/{provider?}` | Gateway status webhook. Always `200` (acks even for unknown payments so the gateway stops retrying). |
 
+## Managing providers in the UI
+
+Both admin surfaces let you add / edit / delete a market's providers and pick the active one, with
+each provider's form rendered from its schema (so new gateways appear automatically):
+
+- **React admin** (`localhost:5173`): *Markets → edit a market → Payment providers* panel.
+- **Umbraco plugin**: the *Commerce* section → *Options → Payment Providers* (scoped to the store selected in the dashboard's store switcher).
+
+Both call the endpoints below; secrets show masked and are only overwritten when you type a new value.
+
 ## Configuring a market
 
 Provider selection and credentials live on `MarketSettings`
 (`api/EComm.Data/ValueObjects/Tenant/MarketSettings.cs`), managed via `MarketsController` or the
-admin backoffice. There are exactly **two** payment fields no matter how many providers exist:
+admin surfaces above. There are exactly **two** payment fields no matter how many providers exist:
 `paymentProvider` (the chosen alias) and `paymentProviders` (a bag of per-provider settings keyed by
 alias):
 
@@ -162,7 +172,12 @@ customer returning to the site.
 - The Nets provider calls the Nets REST API directly over `HttpClient` — no third-party SDK, no
   copyleft dependencies. New providers should prefer permissively licensed (MIT/Apache-2.0/BSD) SDKs.
 
-## Follow-ups (not yet built)
+## API surface
 
-- A `GET /api/v1/payments/providers` endpoint + admin UI to pick a provider and edit its settings
-  bag (today `paymentProvider` / `paymentProviders` are raw `MarketSettings` fields).
+- `GET /api/v1/payments/providers` — catalog of registered providers + settings schema.
+- `GET /api/v1/admin/markets/{id}/payment-providers` — configured providers (secrets masked) + active alias.
+- `PUT /api/v1/admin/markets/{id}/payment-providers/{alias}` — add/update a provider's settings (write-only secrets).
+- `DELETE /api/v1/admin/markets/{id}/payment-providers/{alias}` — remove a provider (clears active if it was active).
+- `PUT /api/v1/admin/markets/{id}/active-payment-provider` — set/clear the active provider.
+
+The Umbraco plugin proxies these through its management API (`/umbraco/management/api/ecomm-commerce/payment-providers…`).
