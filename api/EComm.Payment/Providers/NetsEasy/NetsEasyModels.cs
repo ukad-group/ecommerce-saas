@@ -1,4 +1,4 @@
-namespace EComm.Api.Payments;
+namespace EComm.Payment.Providers.NetsEasy;
 
 // Wire DTOs for the subset of the Nets Easy Payment API we call directly over HTTP
 // (https://api.dibspayment.eu/v1/payments) — see NetsEasyClient. No SDK dependency;

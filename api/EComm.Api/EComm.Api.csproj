@@ -24,6 +24,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\EComm.Data\EComm.Data.csproj" />
+    <ProjectReference Include="..\EComm.Payment\EComm.Payment.csproj" />
   </ItemGroup>
 
 </Project>

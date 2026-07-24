@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>EComm.Payment</RootNamespace>
+    <AssemblyName>EComm.Payment</AssemblyName>
+  </PropertyGroup>
+
+  <!-- ASP.NET Core types used by the payment pipeline (HttpRequest, DI, Http factory, config, logging) -->
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <!-- Global usings mirroring the Web SDK's, so provider files read the same as when they lived in the API -->
+  <ItemGroup>
+    <Using Include="Microsoft.AspNetCore.Http" />
+    <Using Include="Microsoft.Extensions.Configuration" />
+    <Using Include="Microsoft.Extensions.DependencyInjection" />
+    <Using Include="Microsoft.Extensions.Logging" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\EComm.Data\EComm.Data.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,5 +1,7 @@
 using EComm.Data;
 using EComm.Api.Authentication;
+using EComm.Payment;
+using EComm.Payment.Providers.NetsEasy;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -84,8 +86,11 @@ builder.Services.AddAuthorization(options =>
 
 // Add services to the container
 builder.Services.AddControllers();
-builder.Services.AddHttpClient("NetsEasy");
-builder.Services.AddSingleton<EComm.Api.Payments.NetsEasyClient>();
+
+// Payments: generic provider infrastructure + the concrete providers we ship. Each provider
+// self-registers its own dependencies; add a line here to enable another one.
+builder.Services.AddPaymentProviders();
+builder.Services.AddNetsEasyPaymentProvider();
 
 // Add Swagger/OpenAPI
 builder.Services.AddEndpointsApiExplorer();

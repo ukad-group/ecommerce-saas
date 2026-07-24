@@ -1,12 +1,19 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text;
+using System.Text.Json;
 using EComm.Api.Controllers;
-using EComm.Api.DTOs.Requests.Orders;
-using EComm.Api.Payments;
+using EComm.Payment;
+using EComm.Payment.Providers.NetsEasy;
 using EComm.Data;
 using EComm.Data.Entities;
+using EComm.Data.ValueObjects.Order;
+using EComm.Data.ValueObjects.Tenant;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
@@ -26,13 +33,6 @@ public class FakeHttpMessageHandler : HttpMessageHandler
     }
 }
 
-public class FakeHttpClientFactory : IHttpClientFactory
-{
-    private readonly HttpMessageHandler _handler;
-    public FakeHttpClientFactory(HttpMessageHandler handler) => _handler = handler;
-    public HttpClient CreateClient(string name) => new(_handler);
-}
-
 public class NetsEasyClientTests
 {
     [Fact]
@@ -42,7 +42,7 @@ public class NetsEasyClientTests
         {
             Content = JsonContent.Create(new { paymentId = "pay_123", hostedPaymentPageUrl = "https://test.checkout.dibspayment.eu/pay_123" })
         });
-        var client = new NetsEasyClient(new FakeHttpClientFactory(handler), NullLogger<NetsEasyClient>.Instance);
+        var client = new NetsEasyClient(new HttpClient(handler), NullLogger<NetsEasyClient>.Instance);
 
         var result = await client.CreatePaymentAsync("secret-key", true, new NetsCreatePaymentRequest
         {
@@ -60,6 +60,156 @@ public class NetsEasyClientTests
         Assert.Equal("https://test.checkout.dibspayment.eu/pay_123", result.HostedPaymentPageUrl);
         Assert.Equal("secret-key", handler.LastRequest!.Headers.GetValues("Authorization").Single());
         Assert.Equal("/v1/payments", handler.LastRequest.RequestUri!.AbsolutePath);
+        Assert.Equal("test.api.dibspayment.eu", handler.LastRequest.RequestUri.Host);
+    }
+}
+
+/// <summary>Records the request it was handed so tests can assert the order→Nets mapping.</summary>
+internal class RecordingNetsEasyClient : INetsEasyClient
+{
+    public NetsCreatePaymentRequest? LastRequest { get; private set; }
+    private readonly NetsCreatePaymentResult? _result;
+    public RecordingNetsEasyClient(NetsCreatePaymentResult? result) => _result = result;
+
+    public Task<NetsCreatePaymentResult?> CreatePaymentAsync(string secretApiKey, bool testMode, NetsCreatePaymentRequest request)
+    {
+        LastRequest = request;
+        return Task.FromResult(_result);
+    }
+
+    public Task<NetsPaymentStatusResponse?> GetPaymentAsync(string secretApiKey, bool testMode, string paymentId)
+        => Task.FromResult<NetsPaymentStatusResponse?>(null);
+    public Task<NetsChargeResult?> ChargePaymentAsync(string secretApiKey, bool testMode, string paymentId, int amountMinorUnits)
+        => Task.FromResult<NetsChargeResult?>(null);
+}
+
+public class NetsEasyPaymentProviderTests
+{
+    private static PaymentCreationContext ContextWith(string? secretKey)
+    {
+        var order = new Order
+        {
+            Id = "o1",
+            OrderNumber = "ORD-1",
+            MarketId = "m1",
+            Tax = 2.00m,
+            ShippingCost = 5.00m,
+            Total = 17.00m,
+            Items = { new OrderItem { ProductId = "p1", Sku = "sku-1", ProductName = "Widget", Quantity = 1, UnitPrice = 10.00m, Subtotal = 10.00m } }
+        };
+        var market = new Market { Id = "m1", Currency = "USD", Settings = new MarketSettings() };
+        var settingsJson = secretKey == null
+            ? JsonSerializer.SerializeToElement(new { testMode = true })
+            : JsonSerializer.SerializeToElement(new { secretApiKey = secretKey, testMode = true });
+        return new PaymentCreationContext { Order = order, Market = market, ProviderSettingsJson = settingsJson, ReturnUrl = "r", CancelUrl = "c", TermsUrl = "t" };
+    }
+
+    [Fact]
+    public async Task CreatePaymentAsync_MapsOrderWithTaxAndShippingLines()
+    {
+        var nets = new RecordingNetsEasyClient(new NetsCreatePaymentResult { PaymentId = "pay_1", HostedPaymentPageUrl = "https://pay" });
+        var provider = new NetsEasyPaymentProvider(nets);
+
+        var result = await provider.CreatePaymentAsync(ContextWith("secret"));
+
+        Assert.NotNull(result);
+        Assert.Equal("pay_1", result!.PaymentId);
+        Assert.Equal("https://pay", result.RedirectUrl);
+
+        var req = nets.LastRequest!;
+        Assert.Equal("HostedPaymentPage", req.Checkout.IntegrationType);
+        Assert.Equal(1700, req.Order.Amount);                       // 17.00 → minor units
+        Assert.Equal(3, req.Order.Items.Count);                     // widget + tax + shipping
+        Assert.Contains(req.Order.Items, i => i.Reference == "tax" && i.GrossTotalAmount == 200);
+        Assert.Contains(req.Order.Items, i => i.Reference == "shipping" && i.GrossTotalAmount == 500);
+        // Nets contract: order.amount must equal the sum of item gross totals.
+        Assert.Equal(req.Order.Amount, req.Order.Items.Sum(i => i.GrossTotalAmount));
+    }
+
+    [Fact]
+    public async Task CreatePaymentAsync_NoSecretKey_ReturnsNull()
+    {
+        var provider = new NetsEasyPaymentProvider(new RecordingNetsEasyClient(null));
+        Assert.Null(await provider.CreatePaymentAsync(ContextWith(null)));
+    }
+
+    [Theory]
+    [InlineData("payment.checkout.completed", "Authorized")]
+    [InlineData("payment.charge.created.v2", "Captured")]
+    [InlineData("payment.some.other.event", null)]
+    public async Task HandleWebhookAsync_MapsEventToStatus(string eventName, string? expectedStatus)
+    {
+        var provider = new NetsEasyPaymentProvider(new RecordingNetsEasyClient(null));
+        var body = "{\"event\":\"" + eventName + "\",\"data\":{\"paymentId\":\"pay_abc\"}}";
+        var request = new DefaultHttpContext().Request;
+        request.Body = new MemoryStream(Encoding.UTF8.GetBytes(body));
+
+        var result = await provider.HandleWebhookAsync(request);
+
+        Assert.NotNull(result);
+        Assert.Equal("pay_abc", result!.PaymentReference);
+        Assert.Equal(expectedStatus, result.NewStatus);
+    }
+}
+
+internal class StubProvider : IPaymentProvider
+{
+    public StubProvider(string alias) => Alias = alias;
+    public string Alias { get; }
+    public Task<PaymentCreationResult?> CreatePaymentAsync(PaymentCreationContext context) => Task.FromResult<PaymentCreationResult?>(null);
+    public Task<WebhookResult?> HandleWebhookAsync(HttpRequest request) => Task.FromResult<WebhookResult?>(null);
+}
+
+public class PaymentProviderResolverTests
+{
+    private static IConfiguration Config(string? defaultProvider = null)
+        => new ConfigurationBuilder()
+            .AddInMemoryCollection(defaultProvider == null
+                ? new Dictionary<string, string?>()
+                : new Dictionary<string, string?> { ["Payments:DefaultProvider"] = defaultProvider })
+            .Build();
+
+    [Fact]
+    public void Resolve_ByAlias_ReturnsMatch()
+    {
+        var resolver = new PaymentProviderResolver(new[] { new StubProvider("nets-easy"), new StubProvider("other") }, Config());
+        Assert.Equal("other", resolver.Resolve("other")!.Alias);
+    }
+
+    [Fact]
+    public void Resolve_UnknownAlias_ReturnsNull()
+    {
+        var resolver = new PaymentProviderResolver(new[] { new StubProvider("nets-easy") }, Config());
+        Assert.Null(resolver.Resolve("does-not-exist"));
+    }
+
+    [Fact]
+    public void Resolve_NoAlias_UsesConfiguredDefault()
+    {
+        var resolver = new PaymentProviderResolver(new[] { new StubProvider("a"), new StubProvider("b") }, Config("b"));
+        Assert.Equal("b", resolver.Resolve(null)!.Alias);
+    }
+
+    [Fact]
+    public void Resolve_NoAlias_FallsBackToSoleProvider()
+    {
+        var resolver = new PaymentProviderResolver(new[] { new StubProvider("only") }, Config());
+        Assert.Equal("only", resolver.Resolve(null)!.Alias);
+    }
+
+    [Fact]
+    public void Resolve_NoAlias_MultipleProvidersNoDefault_ReturnsNull()
+    {
+        var resolver = new PaymentProviderResolver(new[] { new StubProvider("a"), new StubProvider("b") }, Config());
+        Assert.Null(resolver.Resolve(null));
+    }
+
+    [Fact]
+    public void ResolveForMarket_UsesMarketSetting()
+    {
+        var resolver = new PaymentProviderResolver(new[] { new StubProvider("nets-easy"), new StubProvider("acme") }, Config());
+        var market = new Market { Id = "m1", Settings = new MarketSettings { PaymentProvider = "acme" } };
+        Assert.Equal("acme", resolver.ResolveForMarket(market)!.Alias);
     }
 }
 
@@ -78,8 +228,18 @@ public class PaymentsControllerWebhookTests
         return connection; // keep alive for the duration of the test — closing it drops the in-memory db
     }
 
+    private static PaymentsController ControllerWithBody(string body)
+    {
+        var resolver = new PaymentProviderResolver(
+            new[] { new NetsEasyPaymentProvider(new RecordingNetsEasyClient(null)) },
+            new ConfigurationBuilder().Build());
+        var httpContext = new DefaultHttpContext();
+        httpContext.Request.Body = new MemoryStream(Encoding.UTF8.GetBytes(body));
+        return new PaymentsController(resolver) { ControllerContext = new ControllerContext { HttpContext = httpContext } };
+    }
+
     [Fact]
-    public void HandleWebhook_CheckoutCompleted_FlipsOrderToAuthorized()
+    public async Task HandleWebhook_CheckoutCompleted_FlipsOrderToAuthorized()
     {
         using var connection = InitializeInMemoryDataStore();
 
@@ -96,35 +256,22 @@ public class PaymentsControllerWebhookTests
         };
         DataStore.Instance.AddOrder(order);
 
-        var controller = new PaymentsController(new NetsEasyClient(
-            new FakeHttpClientFactory(new FakeHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.OK))),
-            NullLogger<NetsEasyClient>.Instance));
-
-        controller.HandleWebhook(new NetsWebhookEnvelope
-        {
-            Event = "payment.checkout.completed",
-            Data = new NetsWebhookData { PaymentId = "pay_abc" }
-        });
+        // No {provider} segment → default/sole provider (nets-easy) parses the body.
+        var controller = ControllerWithBody("""{"event":"payment.checkout.completed","data":{"paymentId":"pay_abc"}}""");
+        await controller.HandleWebhook(null);
 
         var updated = DataStore.Instance.GetOrder(order.Id);
         Assert.Equal("Authorized", updated!.PaymentStatus);
     }
 
     [Fact]
-    public void HandleWebhook_UnknownPayment_DoesNotThrow()
+    public async Task HandleWebhook_UnknownPayment_DoesNotThrow()
     {
         using var connection = InitializeInMemoryDataStore();
 
-        var controller = new PaymentsController(new NetsEasyClient(
-            new FakeHttpClientFactory(new FakeHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.OK))),
-            NullLogger<NetsEasyClient>.Instance));
+        var controller = ControllerWithBody("""{"event":"payment.checkout.completed","data":{"paymentId":"pay_does_not_exist"}}""");
+        var result = await controller.HandleWebhook(null);
 
-        var result = controller.HandleWebhook(new NetsWebhookEnvelope
-        {
-            Event = "payment.checkout.completed",
-            Data = new NetsWebhookData { PaymentId = "pay_does_not_exist" }
-        });
-
-        Assert.IsType<Microsoft.AspNetCore.Mvc.OkResult>(result);
+        Assert.IsType<OkResult>(result);
     }
 }

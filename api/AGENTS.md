@@ -63,6 +63,11 @@ dotnet run
     DataStore.cs                # Data access layer (uses EF Core)
     DatabaseSeeder.cs           # Database seeding on startup
 
+  /EComm.Payment/               # Payment providers (separate project)
+    IPaymentProvider.cs         # Provider contract + resolver (gateway-agnostic core)
+    PaymentModels.cs, PaymentProviderResolver.cs, PaymentProviderExtensions.cs
+    /Providers/NetsEasy/        # Nets Easy provider (first implementation, self-registering)
+
   /EComm.Api/                   # Web API project
     /Controllers/               # 15 API controllers
       ProductsController.cs, CategoriesController.cs, CartController.cs,
@@ -78,7 +83,6 @@ dotnet run
       /Responses/               # Response DTOs by domain
         /Products/, /Categories/, /Tenants/, /Markets/, /ApiKeys/, /Files/
     /Authentication/            # API Key auth handler
-    /Payments/                  # Nets Easy payment gateway client
     /uploads/                   # Uploaded product images (tenant/market scoped)
     Program.cs                  # API configuration
     appsettings.json           # Configuration
@@ -188,8 +192,8 @@ GET/PUT/DELETE   /api/v1/discounts/{id}  // Manage a discount
 
 ### 12. PaymentsController
 ```csharp
-POST   /api/v1/orders/{id}/payment     // Create a Nets Easy payment, returns redirect URL
-POST   /api/v1/payments/webhook        // Nets Easy payment status webhook
+POST   /api/v1/orders/{id}/payment          // Create a payment via the market's provider, returns redirect URL
+POST   /api/v1/payments/webhook/{provider?} // Provider payment status webhook (default/sole provider when omitted)
 ```
 
 ### 13. TenantApiKeysController
@@ -197,11 +201,19 @@ POST   /api/v1/payments/webhook        // Nets Easy payment status webhook
 GET/POST/DELETE  /api/v1/admin/tenants/{tenantId}/api-keys // Tenant-level API keys (not market-scoped)
 ```
 
-## Payments (Nets Easy)
+## Payments (pluggable providers)
 
-`Payments/NetsEasyClient.cs` wraps the Nets Easy hosted-checkout REST API directly (no official SDK). Reads `market.Settings.NetsSecretApiKey` / `NetsTestMode` per market. The webhook (`POST /api/v1/payments/webhook`) maps `payment.checkout.completed` → `Authorized` and `payment.charge.created.v2` → `Captured` on the order.
+Payments live in their own **`EComm.Payment`** project (a class library referenced by `EComm.Api`) and go through a **provider abstraction** — `IPaymentProvider` + `PaymentProviderResolver` — so each market picks its gateway via `market.Settings.PaymentProvider`. `PaymentsController` is gateway-agnostic:
+- `POST /api/v1/orders/{id}/payment` → resolves the market's provider, returns `{ paymentId, redirectUrl }` (`400` if no provider configured, `502` if the provider fails).
+- `POST /api/v1/payments/webhook/{provider?}` → the `{provider}` segment (or default/sole provider) parses the body and updates `order.PaymentStatus`.
 
-**Known gap**: the webhook handler does not yet verify Nets' signature/HMAC — don't treat this as production-ready for real money until that's added.
+The generic layer (`EComm.Payment/`) contains no gateway code. Providers self-register from their own folder (`EComm.Payment/Providers/<Name>/`) via an `Add<Name>PaymentProvider()` extension; the API's `Program.cs` calls `AddPaymentProviders()` + `AddNetsEasyPaymentProvider()`.
+
+**Nets Easy** is the first provider (`EComm.Payment/Providers/NetsEasy/`): `NetsEasyClient` wraps the hosted-checkout REST API directly (no SDK); `NetsEasyPaymentProvider` reads a typed `NetsEasySettings` (`context.GetSettings<NetsEasySettings>()`) and maps `payment.checkout.completed` → `Authorized`, `payment.charge.created.v2` → `Captured`.
+
+**Full guide** (implementing/using providers): [docs/PAYMENT-PROVIDERS.md](../docs/PAYMENT-PROVIDERS.md).
+
+**Known gap**: the webhook handler does not yet verify the gateway signature/HMAC — don't treat this as production-ready for real money until that's added.
 
 ## Market-Level Commerce Settings
 
@@ -210,7 +222,7 @@ GET/POST/DELETE  /api/v1/admin/tenants/{tenantId}/api-keys // Tenant-level API k
 - `Attributes` (product-attribute library — variant axes with `{name, alias}` values) + `AttributePresets` (named bundles)
 - `CustomPropertyTemplates` (each may carry an `AttributeId` to render its product value as a dropdown of the attribute's values)
 - `DefaultLeasingFactor`, `CartOrderStatus`
-- Nets Easy credentials (`NetsSecretApiKey`, `NetsCheckoutKey`, `NetsTestMode`)
+- `PaymentProvider` (alias of the gateway for this market) + `PaymentProviders` (generic per-provider settings bag, keyed by alias → opaque JSON each provider deserializes into its own typed model via `context.GetSettings<T>()`) — see [docs/PAYMENT-PROVIDERS.md](../docs/PAYMENT-PROVIDERS.md)
 
 ## Data Store
 

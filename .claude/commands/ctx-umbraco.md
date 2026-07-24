@@ -182,7 +182,7 @@ import { UMB_CURRENT_USER_CONTEXT } from '@umbraco-cms/backoffice/current-user';
 - Settings integration (reads from CommerceSettingsService)
 - Methods: `GetCategoriesAsync`, `GetCategoryAsync`, `CreateCategoryAsync`, `GetProductsAsync`, `GetProductBySlugAsync`, `GetMarketsAsync`, `GetCountriesAsync`, `CreateProductAsync`, `DeleteProductAsync`
 - **Cart**: `GetCartAsync`, `AddCartItemAsync`, `UpdateCartItemAsync`, `RemoveCartItemAsync`, `CreateOrderAsync` (session-based)
-- **Orders**: `GetOrdersAsync`, `GetOrderAsync`, `UpdateOrderStatusAsync`, `GetOrderStatusDefinitionsAsync`, `CreatePaymentAsync` (Nets Easy)
+- **Orders**: `GetOrdersAsync`, `GetOrderAsync`, `UpdateOrderStatusAsync`, `GetOrderStatusDefinitionsAsync`, `CreatePaymentAsync` (provider-neutral — starts a payment via the market's configured provider; see [docs/PAYMENT-PROVIDERS.md](../../docs/PAYMENT-PROVIDERS.md))
 - **Market config**: `GetAttributesAsync`/`UpdateAttributesAsync`, `GetAttributePresetsAsync`/`UpdateAttributePresetsAsync`, shipping methods, leasing periods, property templates, discounts (full CRUD)
 
 **Connection Testing**: Uses dedicated TenantInfo endpoint for connectivity validation

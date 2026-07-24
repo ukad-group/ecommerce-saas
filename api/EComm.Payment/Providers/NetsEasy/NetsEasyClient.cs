@@ -1,16 +1,19 @@
-using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 
-namespace EComm.Api.Payments;
+namespace EComm.Payment.Providers.NetsEasy;
 
 /// <summary>
 /// Direct HttpClient wrapper around Nets Easy's Payment API (no third-party SDK — Nets doesn't
 /// publish an official .NET one, and their own docs recommend calling the REST API directly).
 /// https://api.dibspayment.eu (live) / https://test.api.dibspayment.eu (test), auth via a raw
 /// "Authorization: &lt;secretKey&gt;" header (no Bearer prefix).
+///
+/// The injected <see cref="HttpClient"/> is never mutated — base URL and the per-market auth header
+/// vary per call, so each request is built as its own absolute-URI <see cref="HttpRequestMessage"/>.
+/// That keeps the client safe to share as a typed client.
 /// </summary>
-public class NetsEasyClient
+public class NetsEasyClient : INetsEasyClient
 {
     private static readonly Uri LiveBaseUri = new("https://api.dibspayment.eu");
     private static readonly Uri TestBaseUri = new("https://test.api.dibspayment.eu");
@@ -20,28 +23,30 @@ public class NetsEasyClient
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase
     };
 
-    private readonly IHttpClientFactory _httpClientFactory;
+    private readonly HttpClient _http;
     private readonly ILogger<NetsEasyClient> _logger;
 
-    public NetsEasyClient(IHttpClientFactory httpClientFactory, ILogger<NetsEasyClient> logger)
+    public NetsEasyClient(HttpClient http, ILogger<NetsEasyClient> logger)
     {
-        _httpClientFactory = httpClientFactory;
+        _http = http;
         _logger = logger;
     }
 
-    private HttpClient CreateClient(string secretApiKey, bool testMode)
+    private static Uri Endpoint(bool testMode, string path) => new(testMode ? TestBaseUri : LiveBaseUri, path);
+
+    private static HttpRequestMessage Build(HttpMethod method, bool testMode, string path, string secretApiKey, object? body = null)
     {
-        var client = _httpClientFactory.CreateClient("NetsEasy");
-        client.BaseAddress = testMode ? TestBaseUri : LiveBaseUri;
-        client.DefaultRequestHeaders.Authorization = null;
-        client.DefaultRequestHeaders.TryAddWithoutValidation("Authorization", secretApiKey);
-        return client;
+        var msg = new HttpRequestMessage(method, Endpoint(testMode, path));
+        msg.Headers.TryAddWithoutValidation("Authorization", secretApiKey);
+        if (body != null)
+            msg.Content = JsonContent.Create(body, options: JsonOptions);
+        return msg;
     }
 
     public async Task<NetsCreatePaymentResult?> CreatePaymentAsync(string secretApiKey, bool testMode, NetsCreatePaymentRequest request)
     {
-        var client = CreateClient(secretApiKey, testMode);
-        var response = await client.PostAsJsonAsync("/v1/payments", request, JsonOptions);
+        using var msg = Build(HttpMethod.Post, testMode, "/v1/payments", secretApiKey, request);
+        var response = await _http.SendAsync(msg);
         if (!response.IsSuccessStatusCode)
         {
             _logger.LogError("Nets create-payment failed: {Status} {Body}", response.StatusCode, await response.Content.ReadAsStringAsync());
@@ -52,8 +57,8 @@ public class NetsEasyClient
 
     public async Task<NetsPaymentStatusResponse?> GetPaymentAsync(string secretApiKey, bool testMode, string paymentId)
     {
-        var client = CreateClient(secretApiKey, testMode);
-        var response = await client.GetAsync($"/v1/payments/{paymentId}");
+        using var msg = Build(HttpMethod.Get, testMode, $"/v1/payments/{paymentId}", secretApiKey);
+        var response = await _http.SendAsync(msg);
         if (!response.IsSuccessStatusCode)
         {
             _logger.LogError("Nets get-payment failed for {PaymentId}: {Status}", paymentId, response.StatusCode);
@@ -64,8 +69,8 @@ public class NetsEasyClient
 
     public async Task<NetsChargeResult?> ChargePaymentAsync(string secretApiKey, bool testMode, string paymentId, int amountMinorUnits)
     {
-        var client = CreateClient(secretApiKey, testMode);
-        var response = await client.PostAsJsonAsync($"/v1/payments/{paymentId}/charges", new NetsChargeRequest { Amount = amountMinorUnits }, JsonOptions);
+        using var msg = Build(HttpMethod.Post, testMode, $"/v1/payments/{paymentId}/charges", secretApiKey, new NetsChargeRequest { Amount = amountMinorUnits });
+        var response = await _http.SendAsync(msg);
         if (!response.IsSuccessStatusCode)
         {
             _logger.LogError("Nets charge failed for {PaymentId}: {Status} {Body}", paymentId, response.StatusCode, await response.Content.ReadAsStringAsync());

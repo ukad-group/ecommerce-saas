@@ -88,8 +88,9 @@ public interface ICommerceApiClient
     Task<Order?> UpdateOrderStatusAsync(string orderId, string status, string? notes = null);
 
     /// <summary>
-    /// Starts a Nets Easy payment for an order and returns the URL to redirect the customer to.
-    /// Poll <see cref="GetOrderAsync"/> and read <see cref="Order.PaymentStatus"/> for the outcome.
+    /// Starts a payment for an order via the market's configured payment provider and returns the URL
+    /// to redirect the customer to. Poll <see cref="GetOrderAsync"/> and read
+    /// <see cref="Order.PaymentStatus"/> for the outcome.
     /// </summary>
     Task<CreatePaymentResult?> CreatePaymentAsync(string orderId, string returnUrl, string cancelUrl, string termsUrl);
 

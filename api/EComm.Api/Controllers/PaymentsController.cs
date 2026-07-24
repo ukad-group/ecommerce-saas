@@ -1,7 +1,8 @@
+using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
 using EComm.Data;
 using EComm.Api.DTOs.Requests.Orders;
-using EComm.Api.Payments;
+using EComm.Payment;
 
 namespace EComm.Api.Controllers;
 
@@ -9,15 +10,16 @@ namespace EComm.Api.Controllers;
 public class PaymentsController : ControllerBase
 {
     private readonly DataStore _store = DataStore.Instance;
-    private readonly NetsEasyClient _nets;
+    private readonly IPaymentProviderResolver _resolver;
 
-    public PaymentsController(NetsEasyClient nets)
+    public PaymentsController(IPaymentProviderResolver resolver)
     {
-        _nets = nets;
+        _resolver = resolver;
     }
 
     /// <summary>
-    /// Starts a Nets Easy payment for an order and returns the URL to redirect the customer to.
+    /// Starts a payment for an order using the market's configured provider and returns the URL to
+    /// redirect the customer to.
     /// </summary>
     [HttpPost("api/v1/orders/{id}/payment")]
     public async Task<ActionResult> CreatePayment(string id, [FromBody] CreatePaymentRequest request)
@@ -26,95 +28,62 @@ public class PaymentsController : ControllerBase
         if (order == null) return NotFound();
 
         var market = _store.GetMarket(order.MarketId);
-        var secretApiKey = market?.Settings?.NetsSecretApiKey;
-        if (string.IsNullOrEmpty(secretApiKey))
-            return BadRequest(new { message = "Market has no Nets Easy secret API key configured" });
-        var testMode = market!.Settings!.NetsTestMode;
+        if (market == null) return BadRequest(new { message = "Order market not found" });
 
-        var items = order.Items.Select(i => new NetsOrderItem
+        var provider = _resolver.ResolveForMarket(market);
+        if (provider == null)
+            return BadRequest(new { message = "No payment provider is configured for this market" });
+
+        JsonElement? providerSettings = market.Settings?.PaymentProviders is { } bag && bag.TryGetValue(provider.Alias, out var element)
+            ? element
+            : null;
+
+        var result = await provider.CreatePaymentAsync(new PaymentCreationContext
         {
-            Reference = string.IsNullOrEmpty(i.Sku) ? i.ProductId : i.Sku,
-            Name = i.ProductName,
-            Quantity = i.Quantity,
-            UnitPrice = ToMinorUnits(i.UnitPrice),
-            NetTotalAmount = ToMinorUnits(i.Subtotal),
-            GrossTotalAmount = ToMinorUnits(i.Subtotal)
-        }).ToList();
+            Order = order,
+            Market = market,
+            ProviderSettingsJson = providerSettings,
+            ReturnUrl = request.ReturnUrl,
+            CancelUrl = request.CancelUrl,
+            TermsUrl = request.TermsUrl
+        });
 
-        // Our tax/shipping are flat order-level amounts, not per-line — Nets requires
-        // order.amount == sum(item.grossTotalAmount), so represent them as their own lines.
-        if (order.Tax > 0)
-            items.Add(FlatAmountLine("tax", "Tax", order.Tax));
-        if (order.ShippingCost > 0)
-            items.Add(FlatAmountLine("shipping", "Shipping", order.ShippingCost));
-
-        var netsRequest = new NetsCreatePaymentRequest
-        {
-            Order = new NetsOrder
-            {
-                Items = items,
-                Amount = ToMinorUnits(order.Total),
-                Currency = market.Currency,
-                Reference = order.OrderNumber
-            },
-            Checkout = new NetsCheckout
-            {
-                IntegrationType = "HostedPaymentPage",
-                ReturnUrl = request.ReturnUrl,
-                CancelUrl = request.CancelUrl,
-                TermsUrl = request.TermsUrl
-            }
-        };
-
-        var result = await _nets.CreatePaymentAsync(secretApiKey, testMode, netsRequest);
         if (result == null)
-            return StatusCode(502, new { message = "Failed to create payment with Nets Easy" });
+            return StatusCode(502, new { message = "Payment provider could not create the payment" });
 
         order.PaymentReference = result.PaymentId;
         order.PaymentStatus = "Initialized";
         order.UpdatedAt = DateTime.UtcNow;
         _store.UpdateOrder(order);
 
-        return Ok(new { paymentId = result.PaymentId, redirectUrl = result.HostedPaymentPageUrl });
+        return Ok(new { paymentId = result.PaymentId, redirectUrl = result.RedirectUrl });
     }
 
     /// <summary>
-    /// Nets Easy calls this when a payment's status changes (checkout completed, charge created, etc).
-    /// ponytail: no signature verification yet (Nets supports a per-webhook auth header, not wired up) —
-    /// add HMAC/shared-secret verification here before this handles real money in production.
+    /// Payment status webhook. The optional <c>{provider}</c> segment selects which provider parses
+    /// the body; when omitted the default/sole provider is used (so an existing callback URL without
+    /// the segment keeps working).
     /// </summary>
-    [HttpPost("api/v1/payments/webhook")]
-    public ActionResult HandleWebhook([FromBody] NetsWebhookEnvelope envelope)
+    [HttpPost("api/v1/payments/webhook/{provider?}")]
+    public async Task<ActionResult> HandleWebhook(string? provider)
     {
-        var order = _store.GetAllOrders().FirstOrDefault(o => o.PaymentReference == envelope.Data.PaymentId);
-        if (order == null) return Ok(); // Unknown payment — ack anyway so Nets stops retrying
+        var paymentProvider = _resolver.Resolve(provider);
+        if (paymentProvider == null) return Ok(); // Unknown provider — ack anyway so the gateway stops retrying
 
-        var newStatus = envelope.Event switch
-        {
-            "payment.checkout.completed" => "Authorized",
-            "payment.charge.created.v2" => "Captured",
-            _ => (string?)null
-        };
+        var result = await paymentProvider.HandleWebhookAsync(Request);
+        if (result == null || string.IsNullOrEmpty(result.PaymentReference))
+            return Ok();
 
-        if (newStatus != null)
+        var order = _store.GetAllOrders().FirstOrDefault(o => o.PaymentReference == result.PaymentReference);
+        if (order == null) return Ok(); // Unknown payment — ack anyway so the gateway stops retrying
+
+        if (!string.IsNullOrEmpty(result.NewStatus))
         {
-            order.PaymentStatus = newStatus;
+            order.PaymentStatus = result.NewStatus;
             order.UpdatedAt = DateTime.UtcNow;
             _store.UpdateOrder(order);
         }
 
         return Ok();
     }
-
-    private static NetsOrderItem FlatAmountLine(string reference, string name, decimal amount) => new()
-    {
-        Reference = reference,
-        Name = name,
-        Quantity = 1,
-        UnitPrice = ToMinorUnits(amount),
-        NetTotalAmount = ToMinorUnits(amount),
-        GrossTotalAmount = ToMinorUnits(amount)
-    };
-
-    private static int ToMinorUnits(decimal amount) => (int)Math.Round(amount * 100, MidpointRounding.AwayFromZero);
 }

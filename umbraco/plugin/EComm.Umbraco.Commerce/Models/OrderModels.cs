@@ -30,10 +30,10 @@ public class Order
     /// itemSubType live on OrderItem instead — see OrderItem.ItemType.</summary>
     public List<CustomProperty>? CustomProperties { get; set; }
 
-    /// <summary>Nets Easy payment lifecycle: "Initialized" → "Authorized" → "Captured".</summary>
+    /// <summary>Payment lifecycle set by the market's payment provider: "Initialized" → "Authorized" → "Captured".</summary>
     public string? PaymentStatus { get; set; }
 
-    /// <summary>The Nets Easy paymentId for this order's payment, once one has been created.</summary>
+    /// <summary>The provider's payment id for this order's payment, once one has been created.</summary>
     public string? PaymentReference { get; set; }
 
     public DateTime CreatedAt { get; set; }

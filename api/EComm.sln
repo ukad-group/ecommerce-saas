@@ -9,6 +9,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EComm.Data", "EComm.Data\EC
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EComm.Api.Tests", "EComm.Api.Tests\EComm.Api.Tests.csproj", "{A7C71679-3185-4CEF-B124-5DE9F39AB0F6}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EComm.Payment", "EComm.Payment\EComm.Payment.csproj", "{B7C30A49-BD30-4671-8D46-9D806A42E645}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -55,6 +57,18 @@ Global
 		{A7C71679-3185-4CEF-B124-5DE9F39AB0F6}.Release|x64.Build.0 = Release|Any CPU
 		{A7C71679-3185-4CEF-B124-5DE9F39AB0F6}.Release|x86.ActiveCfg = Release|Any CPU
 		{A7C71679-3185-4CEF-B124-5DE9F39AB0F6}.Release|x86.Build.0 = Release|Any CPU
+		{B7C30A49-BD30-4671-8D46-9D806A42E645}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B7C30A49-BD30-4671-8D46-9D806A42E645}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B7C30A49-BD30-4671-8D46-9D806A42E645}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{B7C30A49-BD30-4671-8D46-9D806A42E645}.Debug|x64.Build.0 = Debug|Any CPU
+		{B7C30A49-BD30-4671-8D46-9D806A42E645}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{B7C30A49-BD30-4671-8D46-9D806A42E645}.Debug|x86.Build.0 = Debug|Any CPU
+		{B7C30A49-BD30-4671-8D46-9D806A42E645}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B7C30A49-BD30-4671-8D46-9D806A42E645}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B7C30A49-BD30-4671-8D46-9D806A42E645}.Release|x64.ActiveCfg = Release|Any CPU
+		{B7C30A49-BD30-4671-8D46-9D806A42E645}.Release|x64.Build.0 = Release|Any CPU
+		{B7C30A49-BD30-4671-8D46-9D806A42E645}.Release|x86.ActiveCfg = Release|Any CPU
+		{B7C30A49-BD30-4671-8D46-9D806A42E645}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

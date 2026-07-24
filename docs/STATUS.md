@@ -4,8 +4,8 @@
 
 ## Quick Reference
 
-**What Works**: Products, Categories, Orders (admin), Cart, Tenants, Markets, API Keys, Superadmin Auth, **Product Attributes** (per-store variant-axis library + presets), Discounts (API), Nets Easy Payments, **Responsive UI**, **UKAD Branding**
-**What's Missing**: Tenant Admin/User login flows, Checkout UI (showcase-dotnet), Cart persistence, Nets Easy webhook signature verification
+**What Works**: Products, Categories, Orders (admin), Cart, Tenants, Markets, API Keys, Superadmin Auth, **Product Attributes** (per-store variant-axis library + presets), Discounts (API), **Pluggable Payments** (Nets Easy provider), **Responsive UI**, **UKAD Branding**
+**What's Missing**: Tenant Admin/User login flows, Checkout UI (showcase-dotnet), Cart persistence, payment webhook signature verification
 
 ---
 
@@ -265,24 +265,26 @@ GET/PUT/DELETE   /api/v1/discounts/:id
 
 ---
 
-## Feature 007: Payments (Nets Easy)
+## Feature 007: Payments (pluggable providers)
 
 **Status**: ⚠️ Real integration, not production-hardened
 
 ### Implemented
-- `PaymentsController` creates a Nets Easy hosted-checkout payment and returns a redirect URL
+- **Payment-provider abstraction** in its own `EComm.Payment` project (`IPaymentProvider` + `PaymentProviderResolver`): markets pick a provider via `Market.Settings.PaymentProvider`; the generic layer names no gateway. See [PAYMENT-PROVIDERS.md](PAYMENT-PROVIDERS.md).
+- `PaymentsController` resolves the market's provider and returns a redirect URL
+- **Nets Easy** ships as the first provider (`EComm.Payment/Providers/NetsEasy/`); credentials per market in the generic `MarketSettings.PaymentProviders["nets-easy"]` bag (`secretApiKey`, `testMode`)
 - Webhook updates `Order.PaymentStatus` (Initialized → Authorized → Captured)
 - Wired into the Umbraco sample site's real checkout flow (Cart → Checkout → Confirmation)
-- Nets credentials configured per market (`Market.Settings.NetsSecretApiKey`, `NetsTestMode`)
 
 ### Missing / Known Issues
-- Webhook does not verify Nets' signature/HMAC yet — do not rely on this for real money without adding it
-- The primary showcase-dotnet storefront still uses the fake auto-pay checkout; Nets Easy is only wired into the Umbraco demo site's checkout
+- Webhook does not verify the gateway signature/HMAC yet — do not rely on this for real money without adding it
+- The primary showcase-dotnet storefront still uses the fake auto-pay checkout; the provider flow is only wired into the Umbraco demo site's checkout
+- No admin UI to pick a provider yet (raw `MarketSettings.PaymentProvider` field)
 
 ### API Endpoints
 ```
 POST   /api/v1/orders/:id/payment
-POST   /api/v1/payments/webhook
+POST   /api/v1/payments/webhook/{provider?}
 ```
 
 ---
