@@ -8,6 +8,7 @@ using EComm.Payment;
 using EComm.Payment.Providers.NetsEasy;
 using EComm.Data;
 using EComm.Data.Entities;
+using EComm.Data.ValueObjects.Common;
 using EComm.Data.ValueObjects.Order;
 using EComm.Data.ValueObjects.Tenant;
 using Microsoft.AspNetCore.Http;
@@ -86,7 +87,7 @@ internal class RecordingNetsEasyClient : INetsEasyClient
 
 public class NetsEasyPaymentProviderTests
 {
-    private static PaymentCreationContext ContextWith(string? secretKey)
+    private static PaymentCreationContext ContextWith(string? secretKey, CustomerInfo? customer = null, Address? shipping = null)
     {
         var order = new Order
         {
@@ -96,12 +97,14 @@ public class NetsEasyPaymentProviderTests
             Tax = 2.00m,
             ShippingCost = 5.00m,
             Total = 17.00m,
-            Items = { new OrderItem { ProductId = "p1", Sku = "sku-1", ProductName = "Widget", Quantity = 1, UnitPrice = 10.00m, Subtotal = 10.00m } }
+            Items = { new OrderItem { ProductId = "p1", Sku = "sku-1", ProductName = "Widget", Quantity = 1, UnitPrice = 10.00m, Subtotal = 10.00m } },
+            Customer = customer ?? new CustomerInfo(),
+            ShippingAddress = shipping ?? new Address()
         };
         var market = new Market { Id = "m1", Currency = "USD", Settings = new MarketSettings() };
         var settingsJson = secretKey == null
             ? JsonSerializer.SerializeToElement(new { testMode = true })
-            : JsonSerializer.SerializeToElement(new { secretApiKey = secretKey, testMode = true });
+            : JsonSerializer.SerializeToElement(new { testSecretKey = secretKey, testMode = true });
         return new PaymentCreationContext { Order = order, Market = market, ProviderSettingsJson = settingsJson, ReturnUrl = "r", CancelUrl = "c", TermsUrl = "t" };
     }
 
@@ -134,6 +137,35 @@ public class NetsEasyPaymentProviderTests
         Assert.Null(await provider.CreatePaymentAsync(ContextWith(null)));
     }
 
+    [Fact]
+    public async Task CreatePaymentAsync_PrefillsConsumerFromOrder()
+    {
+        var nets = new RecordingNetsEasyClient(new NetsCreatePaymentResult { PaymentId = "p", HostedPaymentPageUrl = "u" });
+        var provider = new NetsEasyPaymentProvider(nets);
+        var ctx = ContextWith("secret",
+            new CustomerInfo { FullName = "John Doe", Email = "john@example.com" },
+            new Address { Street = "Main 1", City = "Stockholm", PostalCode = "111 22", Country = "SE" });
+
+        await provider.CreatePaymentAsync(ctx);
+
+        var consumer = nets.LastRequest!.Checkout.Consumer!;
+        Assert.Equal("john@example.com", consumer.Email);
+        Assert.Equal("John", consumer.PrivatePerson!.FirstName);
+        Assert.Equal("Doe", consumer.PrivatePerson!.LastName);
+        Assert.Equal("Main 1", consumer.ShippingAddress!.AddressLine1);
+        Assert.Equal("SWE", consumer.ShippingAddress!.Country);   // alpha-2 SE → alpha-3 SWE
+    }
+
+    [Fact]
+    public void SuccessOrderStatus_DefaultsToPaid_OrUsesConfigured()
+    {
+        var provider = new NetsEasyPaymentProvider(new RecordingNetsEasyClient(null));
+        using var empty = JsonDocument.Parse("{}");
+        Assert.Equal("paid", provider.SuccessOrderStatus(empty.RootElement));
+        var cfg = JsonSerializer.SerializeToElement(new { orderStatusAfterPayment = "processing" });
+        Assert.Equal("processing", provider.SuccessOrderStatus(cfg));
+    }
+
     [Theory]
     [InlineData("payment.checkout.completed", "Authorized")]
     [InlineData("payment.charge.created.v2", "Captured")]
@@ -160,6 +192,7 @@ internal class StubProvider : IPaymentProvider
     public PaymentProviderDescriptor Descriptor => new() { Alias = Alias, DisplayName = Alias };
     public Task<PaymentCreationResult?> CreatePaymentAsync(PaymentCreationContext context) => Task.FromResult<PaymentCreationResult?>(null);
     public Task<WebhookResult?> HandleWebhookAsync(HttpRequest request) => Task.FromResult<WebhookResult?>(null);
+    public string? SuccessOrderStatus(JsonElement providerSettings) => null;
 }
 
 public class PaymentProviderResolverTests

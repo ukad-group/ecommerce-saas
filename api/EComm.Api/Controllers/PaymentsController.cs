@@ -84,9 +84,43 @@ public class PaymentsController : ControllerBase
         var order = _store.GetAllOrders().FirstOrDefault(o => o.PaymentReference == result.PaymentReference);
         if (order == null) return Ok(); // Unknown payment — ack anyway so the gateway stops retrying
 
+        var changed = false;
+
         if (!string.IsNullOrEmpty(result.NewStatus))
         {
             order.PaymentStatus = result.NewStatus;
+            changed = true;
+        }
+
+        // On a successful payment, advance the order status to the provider's configured value.
+        if (result.Succeeded)
+        {
+            var market = _store.GetMarket(order.MarketId);
+            JsonElement? providerSettings =
+                market?.Settings?.PaymentProviders is { } bag && bag.TryGetValue(paymentProvider.Alias, out var el)
+                    ? el
+                    : null;
+
+            string? orderStatus;
+            if (providerSettings.HasValue)
+            {
+                orderStatus = paymentProvider.SuccessOrderStatus(providerSettings.Value);
+            }
+            else
+            {
+                using var empty = JsonDocument.Parse("{}");
+                orderStatus = paymentProvider.SuccessOrderStatus(empty.RootElement);
+            }
+
+            if (!string.IsNullOrEmpty(orderStatus))
+            {
+                order.Status = orderStatus;
+                changed = true;
+            }
+        }
+
+        if (changed)
+        {
             order.UpdatedAt = DateTime.UtcNow;
             _store.UpdateOrder(order);
         }

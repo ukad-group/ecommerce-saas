@@ -45,7 +45,7 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
     // navigation
     activeView:     { type: String  },
     storeExpanded:  { type: Boolean },
-    expandedStoreId: { type: String },
+    expandedStores: { type: Object },
     optionsOpen:    { type: Boolean },
     marketName:     { type: String  },
     // multi-market
@@ -117,7 +117,7 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
     super();
     this.activeView    = 'home';
     this.storeExpanded = true;
-    this.expandedStoreId = '';
+    this.expandedStores = new Set();
     this.optionsOpen   = false;
     this.marketName    = 'Store';
     this.markets = []; this.selectedMarketId = ''; this.cartOrderStatus = 'new';
@@ -1557,7 +1557,7 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
   }
 
   _renderStoreNode(m) {
-    const expanded = this.expandedStoreId === m.id;
+    const expanded = this.expandedStores.has(m.id);
     const inThisStore = this.selectedMarketId === m.id;
     return html`
       <div class="store-node ${inThisStore ? 'store-node--active' : ''}"
@@ -1592,12 +1592,9 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
   }
 
   _toggleStore(m) {
-    if (this.expandedStoreId === m.id) {
-      this.expandedStoreId = '';
-    } else {
-      this.expandedStoreId = m.id;
-      if (this.selectedMarketId !== m.id) this._selectMarket(m);
-    }
+    const next = new Set(this.expandedStores);
+    if (next.has(m.id)) next.delete(m.id); else next.add(m.id);
+    this.expandedStores = next;
   }
 
   _selectStoreView(m, key) {
@@ -1606,7 +1603,7 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
   }
 
   _openStore(m) {
-    this.expandedStoreId = m.id;
+    this.expandedStores = new Set(this.expandedStores).add(m.id);
     this._selectMarket(m);
     this._selectView('orders');
   }
@@ -1645,7 +1642,7 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
       case 'attributes':          return this._renderAttributesView();
       case 'attribute-presets':   return this._renderAttributePresetsView();
       case 'property-templates':  return this._renderPropertyTemplatesView();
-      case 'payment-providers':   return html`<ecomm-payment-providers-dashboard .marketId=${this.selectedMarketId} .embedded=${true}></ecomm-payment-providers-dashboard>`;
+      case 'payment-providers':   return html`<div class="view-container"><ecomm-payment-providers-dashboard .marketId=${this.selectedMarketId} .embedded=${true}></ecomm-payment-providers-dashboard></div>`;
       default: {
         const found = [...NAV_ITEMS, ...OPTIONS_SUBITEMS].find(i => i.key === this.activeView);
         return this._renderComingSoon(found?.label ?? this.activeView);

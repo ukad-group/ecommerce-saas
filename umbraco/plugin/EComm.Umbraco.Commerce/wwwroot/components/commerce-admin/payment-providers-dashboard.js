@@ -139,14 +139,19 @@ class ECommPaymentProvidersDashboard extends UmbElementMixin(LitElement) {
   startAdd() {
     const d = this.descriptor(this.addAlias);
     if (!d) return;
-    this.editing = { alias: d.alias, values: this.seedValues(d) };
+    this.editing = { alias: d.alias, values: this.seedValues(d), isNew: true };
   }
 
   startEdit(alias) {
     const d = this.descriptor(alias);
     const current = this.providers.find((p) => p.alias === alias);
     if (!d) return;
-    this.editing = { alias, values: this.seedValues(d, current?.settings) };
+    this.editing = { alias, values: this.seedValues(d, current?.settings), isNew: false };
+  }
+
+  backToList() {
+    this.editing = null;
+    this.addAlias = '';
   }
 
   seedValues(descriptor, stored) {
@@ -230,94 +235,106 @@ class ECommPaymentProvidersDashboard extends UmbElementMixin(LitElement) {
 
   render() {
     if (this.loading) return html`<uui-loader></uui-loader>`;
+    if (!this.embedded && !this.marketId) {
+      return html`<uui-box>${this._marketSelector()}<p>Select a store to manage its payment providers.</p></uui-box>`;
+    }
+    return this.editing ? this.renderEditView() : this.renderListView();
+  }
 
+  _marketSelector() {
+    if (this.embedded) return '';
+    return html`
+      <div class="row">
+        <uui-label for="market">Market</uui-label>
+        <select id="market" @change=${this.onMarketChange}>
+          ${this.markets.map((m) => html`<option value=${m.id} ?selected=${m.id === this.marketId}>${m.name}</option>`)}
+        </select>
+      </div>`;
+  }
+
+  renderListView() {
     return html`
       <uui-box headline="Payment providers">
         ${this.error ? html`<div class="error">${this.error}</div>` : ''}
+        ${this._marketSelector()}
 
-        ${this.embedded
-          ? ''
+        <div class="toolbar">
+          <div class="create">
+            <select @change=${(e) => (this.addAlias = e.target.value)}>
+              <option value="">Choose a provider…</option>
+              ${this.unconfigured.map((d) => html`<option value=${d.alias} ?selected=${d.alias === this.addAlias}>${d.displayName}</option>`)}
+            </select>
+            <uui-button label="Create payment method" look="primary" ?disabled=${!this.addAlias} @click=${this.startAdd}></uui-button>
+          </div>
+          <div class="active-select">
+            <uui-label for="active">Active</uui-label>
+            <select id="active" @change=${(e) => this.setActive(e.target.value)}>
+              <option value="" ?selected=${!this.active}>None (default / sole provider)</option>
+              ${this.providers.map((p) => html`<option value=${p.alias} ?selected=${p.alias === this.active}>${p.displayName}</option>`)}
+            </select>
+          </div>
+        </div>
+
+        ${this.providers.length === 0
+          ? html`<p class="empty">No payment methods configured for this store yet.</p>`
           : html`
-              <div class="row">
-                <uui-label for="market">Market</uui-label>
-                <select id="market" @change=${this.onMarketChange}>
-                  ${this.markets.map(
-                    (m) => html`<option value=${m.id} ?selected=${m.id === this.marketId}>${m.name}</option>`
-                  )}
-                </select>
-              </div>
-            `}
-
-        ${this.marketId ? this.renderManager() : html`<p>Select a store to manage its payment providers.</p>`}
+              <uui-table class="methods">
+                <uui-table-head>
+                  <uui-table-head-cell>Name</uui-table-head-cell>
+                  <uui-table-head-cell>Provider</uui-table-head-cell>
+                  <uui-table-head-cell></uui-table-head-cell>
+                  <uui-table-head-cell></uui-table-head-cell>
+                </uui-table-head>
+                ${this.providers.map(
+                  (p) => html`
+                    <uui-table-row>
+                      <uui-table-cell class="name-cell" @click=${() => this.startEdit(p.alias)}>
+                        <uui-icon name="icon-bill"></uui-icon>
+                        <strong>${p.displayName}</strong>
+                        ${p.alias === this.active ? html`<uui-tag color="positive" look="secondary">active</uui-tag>` : ''}
+                        ${!p.known ? html`<uui-tag color="warning" look="secondary">unknown</uui-tag>` : ''}
+                      </uui-table-cell>
+                      <uui-table-cell><span class="alias">${p.alias}</span></uui-table-cell>
+                      <uui-table-cell><uui-button label="Edit" look="secondary" compact @click=${() => this.startEdit(p.alias)}></uui-button></uui-table-cell>
+                      <uui-table-cell><uui-button label="Delete" look="secondary" color="danger" compact @click=${() => this.remove(p.alias)}></uui-button></uui-table-cell>
+                    </uui-table-row>`
+                )}
+              </uui-table>`}
       </uui-box>
     `;
   }
 
-  renderManager() {
-    return html`
-      <div class="row">
-        <uui-label for="active">Active provider</uui-label>
-        <select id="active" @change=${(e) => this.setActive(e.target.value)}>
-          <option value="" ?selected=${!this.active}>None (default / sole provider)</option>
-          ${this.providers.map(
-            (p) => html`<option value=${p.alias} ?selected=${p.alias === this.active}>${p.displayName}</option>`
-          )}
-        </select>
-      </div>
-
-      ${this.providers.length === 0
-        ? html`<p>No providers configured for this market yet.</p>`
-        : html`
-            <uui-table>
-              <uui-table-head>
-                <uui-table-head-cell>Provider</uui-table-head-cell>
-                <uui-table-head-cell></uui-table-head-cell>
-                <uui-table-head-cell></uui-table-head-cell>
-              </uui-table-head>
-              ${this.providers.map(
-                (p) => html`
-                  <uui-table-row>
-                    <uui-table-cell>
-                      <strong>${p.displayName}</strong>
-                      <span class="alias">${p.alias}</span>
-                      ${p.alias === this.active ? html`<uui-tag color="positive" look="secondary">active</uui-tag>` : ''}
-                      ${!p.known ? html`<uui-tag color="warning" look="secondary">unknown</uui-tag>` : ''}
-                    </uui-table-cell>
-                    <uui-table-cell>
-                      <uui-button label="Edit" look="secondary" @click=${() => this.startEdit(p.alias)}></uui-button>
-                    </uui-table-cell>
-                    <uui-table-cell>
-                      <uui-button label="Delete" look="secondary" color="danger" @click=${() => this.remove(p.alias)}></uui-button>
-                    </uui-table-cell>
-                  </uui-table-row>
-                `
-              )}
-            </uui-table>
-          `}
-
-      ${!this.editing && this.unconfigured.length
-        ? html`
-            <div class="row add">
-              <select @change=${(e) => (this.addAlias = e.target.value)}>
-                <option value="">Add provider…</option>
-                ${this.unconfigured.map((d) => html`<option value=${d.alias}>${d.displayName}</option>`)}
-              </select>
-              <uui-button label="Add" look="primary" ?disabled=${!this.addAlias} @click=${this.startAdd}></uui-button>
-            </div>
-          `
-        : ''}
-
-      ${this.editing ? this.renderForm() : ''}
-    `;
-  }
-
-  renderForm() {
+  renderEditView() {
     const d = this.descriptor(this.editing.alias);
+    const isActive = this.active === this.editing.alias;
     return html`
-      <uui-box headline="${d?.displayName} settings" class="form">
-        ${d?.fields.map((f) => html`<div class="field">${this.renderField(f)}</div>`)}
+      <uui-box>
+        <div slot="headline" class="edit-head">
+          <uui-button compact look="secondary" label="Back" @click=${this.backToList}><uui-icon name="icon-arrow-left"></uui-icon></uui-button>
+          <span>${d?.displayName ?? this.editing.alias}</span>
+        </div>
+        ${this.error ? html`<div class="error">${this.error}</div>` : ''}
+
+        <div class="edit-grid">
+          <div class="edit-main">
+            ${d?.fields.map((f) => html`<div class="field">${this.renderField(f)}</div>`)}
+          </div>
+          <aside class="edit-info">
+            <div class="info-title">Info</div>
+            <div class="info-row"><span>Payment Provider Alias</span><code>${this.editing.alias}</code></div>
+            ${this.editing.isNew
+              ? html`<p class="info-note">Save first, then set this provider active for the store.</p>`
+              : html`<uui-toggle label="Active for this store" ?checked=${isActive}
+                    @change=${(e) => this.setActive(e.target.checked ? this.editing.alias : '')}>Active for this store</uui-toggle>`}
+          </aside>
+        </div>
+
         <div class="actions">
-          <uui-button label="Cancel" look="secondary" @click=${() => (this.editing = null)}></uui-button>
+          ${!this.editing.isNew
+            ? html`<uui-button label="Delete" look="secondary" color="danger" @click=${() => { const a = this.editing.alias; this.backToList(); this.remove(a); }}></uui-button>`
+            : ''}
+          <span class="spacer"></span>
+          <uui-button label="Cancel" look="secondary" @click=${this.backToList}></uui-button>
           <uui-button label=${this.saving ? 'Saving…' : 'Save'} look="primary" color="positive" ?disabled=${this.saving} @click=${this.save}></uui-button>
         </div>
       </uui-box>
@@ -327,13 +344,31 @@ class ECommPaymentProvidersDashboard extends UmbElementMixin(LitElement) {
   static styles = css`
     :host { display: block; padding: var(--uui-size-layout-1); }
     .row { display: flex; align-items: center; gap: var(--uui-size-space-4); margin-bottom: var(--uui-size-space-4); }
-    .row select { padding: 6px 8px; min-width: 260px; }
-    .row.add { margin-top: var(--uui-size-space-4); }
-    .alias { color: var(--uui-color-text-alt); font-size: 0.8rem; margin: 0 var(--uui-size-space-3); }
-    .form { margin-top: var(--uui-size-space-5); display: block; }
+    select { padding: 6px 8px; min-width: 240px; border: 1px solid var(--uui-color-border); border-radius: 4px; }
+
+    .toolbar { display: flex; align-items: center; justify-content: space-between; gap: var(--uui-size-space-4); margin-bottom: var(--uui-size-space-5); flex-wrap: wrap; }
+    .create { display: flex; align-items: center; gap: var(--uui-size-space-3); }
+    .active-select { display: flex; align-items: center; gap: var(--uui-size-space-3); }
+
+    .methods { width: 100%; }
+    .name-cell { display: flex; align-items: center; gap: var(--uui-size-space-3); cursor: pointer; }
+    .alias { color: var(--uui-color-text-alt); font-size: 0.85rem; }
+    .empty { color: var(--uui-color-text-alt); }
+
+    .edit-head { display: flex; align-items: center; gap: var(--uui-size-space-3); }
+    .edit-grid { display: flex; gap: var(--uui-size-layout-1); align-items: flex-start; }
+    .edit-main { flex: 1; min-width: 0; }
+    .edit-info { width: 280px; flex-shrink: 0; background: var(--uui-color-surface-alt); border: 1px solid var(--uui-color-border); border-radius: 6px; padding: 16px; }
+    .info-title { font-weight: 700; margin-bottom: 12px; }
+    .info-row { display: flex; flex-direction: column; gap: 2px; margin-bottom: 12px; }
+    .info-row span { color: var(--uui-color-text-alt); font-size: 0.8rem; }
+    .info-row code { font-size: 0.85rem; word-break: break-all; }
+    .info-note { color: var(--uui-color-text-alt); font-size: 0.85rem; }
+
     .field { margin-bottom: var(--uui-size-space-4); display: flex; flex-direction: column; gap: 4px; }
-    .field uui-input { width: 100%; max-width: 420px; }
-    .actions { display: flex; gap: var(--uui-size-space-3); justify-content: flex-end; }
+    .field uui-input { width: 100%; max-width: 480px; }
+    .actions { display: flex; gap: var(--uui-size-space-3); align-items: center; margin-top: var(--uui-size-space-5); padding-top: var(--uui-size-space-4); border-top: 1px solid var(--uui-color-border); }
+    .actions .spacer { flex: 1; }
     .error { background: var(--uui-color-danger); color: #fff; padding: 8px 12px; border-radius: 4px; margin-bottom: var(--uui-size-space-4); }
     small { color: var(--uui-color-text-alt); }
   `;

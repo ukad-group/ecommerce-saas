@@ -38,9 +38,11 @@ public class PaymentCreationResult
     public string? RedirectUrl { get; init; }
 }
 
-/// <summary>What a provider extracted from a webhook: which payment, and the new order status (if any).</summary>
+/// <summary>What a provider extracted from a webhook: which payment, its new payment status, and
+/// whether the payment succeeded (so the order status can advance).</summary>
 public class WebhookResult
 {
     public string PaymentReference { get; init; } = string.Empty;
     public string? NewStatus { get; init; }
+    public bool Succeeded { get; init; }
 }

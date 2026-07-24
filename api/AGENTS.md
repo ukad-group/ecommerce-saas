@@ -209,7 +209,7 @@ Payments live in their own **`EComm.Payment`** project (a class library referenc
 
 The generic layer (`EComm.Payment/`) contains no gateway code. Providers self-register from their own folder (`EComm.Payment/Providers/<Name>/`) via an `Add<Name>PaymentProvider()` extension; the API's `Program.cs` calls `AddPaymentProviders()` + `AddNetsEasyPaymentProvider()`.
 
-**Nets Easy** is the first provider (`EComm.Payment/Providers/NetsEasy/`): `NetsEasyClient` wraps the hosted-checkout REST API directly (no SDK); `NetsEasyPaymentProvider` reads a typed `NetsEasySettings` (`context.GetSettings<NetsEasySettings>()`) and maps `payment.checkout.completed` → `Authorized`, `payment.charge.created.v2` → `Captured`.
+**Nets Easy** is the first provider (`EComm.Payment/Providers/NetsEasy/`): `NetsEasyClient` wraps the hosted-checkout REST API directly (no SDK); `NetsEasyPaymentProvider` reads a typed `NetsEasySettings` (live/test secret+checkout keys, `orderStatusAfterPayment`, `testMode`), prefills `checkout.consumer` from the order (email/name/address, country→alpha-3), and maps webhook events to payment status (`completed`→`Authorized`, `charge.created.v2`→`Captured`). On success the webhook also advances `Order.Status` to `orderStatusAfterPayment` (default `paid`) — this requires the Nets webhook to reach the API.
 
 **Full guide** (implementing/using providers): [docs/PAYMENT-PROVIDERS.md](../docs/PAYMENT-PROVIDERS.md).
 

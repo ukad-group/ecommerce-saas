@@ -93,7 +93,7 @@ alias):
 "settings": {
   "paymentProvider": "nets-easy",           // which provider handles this market
   "paymentProviders": {
-    "nets-easy": { "secretApiKey": "…", "testMode": true }
+    "nets-easy": { "testSecretKey": "…", "liveSecretKey": "…", "orderStatusAfterPayment": "paid", "testMode": true }
     // "acme": { "apiKey": "…", "webhookSecret": "…" }   ← another provider, no schema change
   }
 }
@@ -101,8 +101,22 @@ alias):
 
 Each alias maps to an **opaque JSON object**. The generic layer never interprets it — the provider
 deserializes its own entry into a **strongly-typed settings model** via `context.GetSettings<T>()`
-(case-insensitive). For example the Nets provider defines `NetsEasySettings { SecretApiKey, CheckoutKey,
-TestMode }`. Secrets stay server-side and are never exposed to the storefront or the browser.
+(case-insensitive). For example the Nets provider defines `NetsEasySettings { LiveSecretKey,
+LiveCheckoutKey, TestSecretKey, TestCheckoutKey, OrderStatusAfterPayment, TestMode }` — `TestMode`
+selects the live-vs-test key pair. Secrets stay server-side and are never exposed to the browser.
+
+## Nets Easy specifics
+
+- **Consumer prefill** — the create-payment request includes a `checkout.consumer` built from the
+  order's customer + shipping address (email, first/last name split from `FullName`, address with the
+  country mapped to ISO alpha-3). It only *prefills* the hosted page (still editable); anything that
+  can't be safely mapped (e.g. an unknown country) is omitted so Nets doesn't reject the request.
+- **Order status on success** — the webhook maps `payment.checkout.completed`→`Authorized` and
+  `payment.charge.created.v2`→`Captured` on `Order.PaymentStatus`, and on success advances
+  `Order.Status` to the provider's **`orderStatusAfterPayment`** setting (default `paid`).
+  > The order status only changes when Nets calls the webhook (`POST /api/v1/payments/webhook`), so
+  > that URL must be reachable by Nets — configure it in the Nets portal, and tunnel it (e.g. ngrok)
+  > for local testing, otherwise a locally-placed test order stays in its pre-payment status.
 
 ## Implementing a new provider
 

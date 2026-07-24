@@ -29,6 +29,41 @@ public class NetsCheckout
     public string ReturnUrl { get; set; } = string.Empty;
     public string CancelUrl { get; set; } = string.Empty;
     public string TermsUrl { get; set; } = string.Empty;
+
+    /// <summary>Pre-fills (but does not lock) the hosted-page consumer fields. Null ⇒ omitted.</summary>
+    public NetsConsumer? Consumer { get; set; }
+}
+
+// Optional consumer prefill — Nets shows these on the hosted page, still editable by the shopper.
+// Null members are omitted from the request (client uses WhenWritingNull), so partial data is fine.
+public class NetsConsumer
+{
+    public string? Email { get; set; }
+    public NetsAddress? ShippingAddress { get; set; }
+    public NetsPhone? PhoneNumber { get; set; }
+    public NetsPrivatePerson? PrivatePerson { get; set; }
+}
+
+public class NetsAddress
+{
+    public string? AddressLine1 { get; set; }
+    public string? AddressLine2 { get; set; }
+    public string? PostalCode { get; set; }
+    public string? City { get; set; }
+    /// <summary>ISO 3166-1 alpha-3 (e.g. "SWE"). Null ⇒ omitted (Nets rejects a bad country).</summary>
+    public string? Country { get; set; }
+}
+
+public class NetsPhone
+{
+    public string? Prefix { get; set; }  // e.g. "+46"
+    public string? Number { get; set; }
+}
+
+public class NetsPrivatePerson
+{
+    public string? FirstName { get; set; }
+    public string? LastName { get; set; }
 }
 
 public class NetsCreatePaymentRequest
