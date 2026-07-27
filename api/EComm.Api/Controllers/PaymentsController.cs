@@ -92,31 +92,14 @@ public class PaymentsController : ControllerBase
             changed = true;
         }
 
-        // On a successful payment, advance the order status to the provider's configured value.
+        // On a successful payment, advance the order status to the market's configured value
+        // (regardless of which provider handled the payment), defaulting to "paid".
         if (result.Succeeded)
         {
             var market = _store.GetMarket(order.MarketId);
-            JsonElement? providerSettings =
-                market?.Settings?.PaymentProviders is { } bag && bag.TryGetValue(paymentProvider.Alias, out var el)
-                    ? el
-                    : null;
-
-            string? orderStatus;
-            if (providerSettings.HasValue)
-            {
-                orderStatus = paymentProvider.SuccessOrderStatus(providerSettings.Value);
-            }
-            else
-            {
-                using var empty = JsonDocument.Parse("{}");
-                orderStatus = paymentProvider.SuccessOrderStatus(empty.RootElement);
-            }
-
-            if (!string.IsNullOrEmpty(orderStatus))
-            {
-                order.Status = orderStatus;
-                changed = true;
-            }
+            var orderStatus = market?.Settings?.OrderStatusAfterPayment;
+            order.Status = string.IsNullOrWhiteSpace(orderStatus) ? "paid" : orderStatus;
+            changed = true;
         }
 
         if (changed)

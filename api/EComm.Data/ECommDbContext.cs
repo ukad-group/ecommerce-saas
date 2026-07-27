@@ -104,6 +104,8 @@ public class ECommDbContext : DbContext
             entity.Property(e => e.Subtotal).HasColumnType("decimal(18,2)");
             entity.Property(e => e.Tax).HasColumnType("decimal(18,2)");
             entity.Property(e => e.ShippingCost).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.PaymentFee).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.PaymentFeeTax).HasColumnType("decimal(18,2)");
             entity.Property(e => e.Total).HasColumnType("decimal(18,2)");
 
             // Store complex types as JSON

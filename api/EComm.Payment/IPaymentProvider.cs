@@ -1,4 +1,3 @@
-using System.Text.Json;
 using EComm.Data.Entities;
 
 namespace EComm.Payment;
@@ -30,10 +29,4 @@ public interface IPaymentProvider
     /// Returns <c>null</c> when the body can't be parsed.
     /// </summary>
     Task<WebhookResult?> HandleWebhookAsync(HttpRequest request);
-
-    /// <summary>
-    /// The order status code to apply when a payment succeeds, from this provider's settings
-    /// (its <c>MarketSettings.PaymentProviders</c> entry). Return <c>null</c> to leave the order status unchanged.
-    /// </summary>
-    string? SuccessOrderStatus(JsonElement providerSettings);
 }

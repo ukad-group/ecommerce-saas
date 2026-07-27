@@ -17,6 +17,10 @@ class ECommPaymentProvidersDashboard extends UmbElementMixin(LitElement) {
     catalog: { type: Array, state: true },
     providers: { type: Array, state: true },
     active: { type: String, state: true },
+    orderStatuses: { type: Array, state: true },
+    orderStatusAfterPayment: { type: String, state: true },
+    taxClasses: { type: Array, state: true },
+    surcharges: { type: Object, state: true },
     editing: { type: Object, state: true },
     addAlias: { type: String, state: true },
     loading: { type: Boolean, state: true },
@@ -34,6 +38,10 @@ class ECommPaymentProvidersDashboard extends UmbElementMixin(LitElement) {
     this.catalog = [];
     this.providers = [];
     this.active = null;
+    this.orderStatuses = [];
+    this.orderStatusAfterPayment = null;
+    this.taxClasses = [];
+    this.surcharges = {};
     this.editing = null;
     this.addAlias = '';
     this.loading = true;
@@ -62,11 +70,15 @@ class ECommPaymentProvidersDashboard extends UmbElementMixin(LitElement) {
       const headers = await this.getAuthHeaders();
       // Embedded (inside the Commerce dashboard) the market comes from the store switcher, so we
       // don't fetch/show our own market list. Standalone we load markets and default to the first.
-      const requests = [fetch(`${API}/payment-providers/catalog`, { headers }).then((r) => r.json())];
+      const requests = [
+        fetch(`${API}/payment-providers/catalog`, { headers }).then((r) => r.json()),
+        fetch(`${API}/order-statuses`, { headers }).then((r) => r.json()),
+      ];
       if (!this.embedded) requests.push(fetch(`${API}/markets`, { headers }).then((r) => r.json()));
-      const [catalog, markets] = await Promise.all(requests);
+      const [catalog, orderStatuses, markets] = await Promise.all(requests);
 
       this.catalog = Array.isArray(catalog) ? catalog : [];
+      this.orderStatuses = Array.isArray(orderStatuses) ? orderStatuses.filter((s) => s.isActive) : [];
       this._catalogLoaded = true;
       if (!this.embedded) {
         this.markets = Array.isArray(markets) ? markets : [];
@@ -93,9 +105,15 @@ class ECommPaymentProvidersDashboard extends UmbElementMixin(LitElement) {
     this.editing = null;
     this.addAlias = '';
     const headers = await this.getAuthHeaders();
-    const data = await fetch(`${API}/payment-providers?marketId=${encodeURIComponent(this.marketId)}`, { headers }).then((r) => r.json());
+    const [data, taxClasses] = await Promise.all([
+      fetch(`${API}/payment-providers?marketId=${encodeURIComponent(this.marketId)}`, { headers }).then((r) => r.json()),
+      fetch(`${API}/tax-classes?marketId=${encodeURIComponent(this.marketId)}`, { headers }).then((r) => r.json()),
+    ]);
     this.providers = data?.providers ?? [];
     this.active = data?.active ?? null;
+    this.orderStatusAfterPayment = data?.orderStatusAfterPayment ?? null;
+    this.surcharges = data?.surcharges ?? {};
+    this.taxClasses = Array.isArray(taxClasses) ? taxClasses : [];
   }
 
   descriptor(alias) {
@@ -122,6 +140,21 @@ class ECommPaymentProvidersDashboard extends UmbElementMixin(LitElement) {
     }
   }
 
+  async setOrderStatus(code) {
+    this.error = null;
+    try {
+      const headers = await this.getAuthHeaders();
+      await fetch(`${API}/order-status-after-payment?marketId=${encodeURIComponent(this.marketId)}`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify({ code: code || null }),
+      });
+      await this.loadProviders();
+    } catch {
+      this.error = 'Failed to update the order status.';
+    }
+  }
+
   async remove(alias) {
     this.error = null;
     try {
@@ -136,17 +169,26 @@ class ECommPaymentProvidersDashboard extends UmbElementMixin(LitElement) {
     }
   }
 
+  seedSurcharge(alias) {
+    const s = this.surcharges?.[alias];
+    return { sku: s?.sku ?? '', taxClassId: s?.taxClassId ?? '', amount: s?.amount ? String(s.amount) : '' };
+  }
+
   startAdd() {
     const d = this.descriptor(this.addAlias);
     if (!d) return;
-    this.editing = { alias: d.alias, values: this.seedValues(d), isNew: true };
+    this.editing = { alias: d.alias, values: this.seedValues(d), surcharge: this.seedSurcharge(d.alias), isNew: true };
   }
 
   startEdit(alias) {
     const d = this.descriptor(alias);
     const current = this.providers.find((p) => p.alias === alias);
     if (!d) return;
-    this.editing = { alias, values: this.seedValues(d, current?.settings), isNew: false };
+    this.editing = { alias, values: this.seedValues(d, current?.settings), surcharge: this.seedSurcharge(alias), isNew: false };
+  }
+
+  setSurchargeField(key, value) {
+    this.editing = { ...this.editing, surcharge: { ...this.editing.surcharge, [key]: value } };
   }
 
   backToList() {
@@ -190,11 +232,29 @@ class ECommPaymentProvidersDashboard extends UmbElementMixin(LitElement) {
     this.error = null;
     try {
       const headers = await this.getAuthHeaders();
-      await fetch(`${API}/payment-providers/${encodeURIComponent(this.editing.alias)}?marketId=${encodeURIComponent(this.marketId)}`, {
+      const alias = encodeURIComponent(this.editing.alias);
+      const mid = encodeURIComponent(this.marketId);
+      await fetch(`${API}/payment-providers/${alias}?marketId=${mid}`, {
         method: 'PUT',
         headers,
         body: JSON.stringify(settings),
       });
+
+      const amount = Number(this.editing.surcharge.amount) || 0;
+      if (amount > 0) {
+        await fetch(`${API}/payment-providers/${alias}/surcharge?marketId=${mid}`, {
+          method: 'PUT',
+          headers,
+          body: JSON.stringify({
+            sku: this.editing.surcharge.sku || null,
+            taxClassId: this.editing.surcharge.taxClassId || null,
+            amount,
+          }),
+        });
+      } else {
+        await fetch(`${API}/payment-providers/${alias}/surcharge?marketId=${mid}`, { method: 'DELETE', headers });
+      }
+
       this.editing = null;
       await this.loadProviders();
     } catch {
@@ -258,6 +318,15 @@ class ECommPaymentProvidersDashboard extends UmbElementMixin(LitElement) {
         ${this.error ? html`<div class="error">${this.error}</div>` : ''}
         ${this._marketSelector()}
 
+        <div class="row order-status-row">
+          <uui-label for="order-status">Order status after payment</uui-label>
+          <select id="order-status" @change=${(e) => this.setOrderStatus(e.target.value)}>
+            <option value="" ?selected=${!this.orderStatusAfterPayment}>Default ("paid")</option>
+            ${this.orderStatuses.map((s) => html`<option value=${s.code} ?selected=${s.code === this.orderStatusAfterPayment}>${s.name}</option>`)}
+          </select>
+          <small>Applies regardless of which provider is active, from this tenant's order statuses.</small>
+        </div>
+
         <div class="toolbar">
           <div class="create">
             <select @change=${(e) => (this.addAlias = e.target.value)}>
@@ -318,6 +387,27 @@ class ECommPaymentProvidersDashboard extends UmbElementMixin(LitElement) {
         <div class="edit-grid">
           <div class="edit-main">
             ${d?.fields.map((f) => html`<div class="field">${this.renderField(f)}</div>`)}
+
+            <div class="surcharge">
+              <h5>Surcharge fee (optional)</h5>
+              <div class="field">
+                <uui-label>SKU</uui-label>
+                <uui-input .value=${this.editing.surcharge.sku}
+                  @input=${(e) => this.setSurchargeField('sku', e.target.value)}></uui-input>
+              </div>
+              <div class="field">
+                <uui-label>Tax Class</uui-label>
+                <select @change=${(e) => this.setSurchargeField('taxClassId', e.target.value)}>
+                  <option value="" ?selected=${!this.editing.surcharge.taxClassId}>None</option>
+                  ${this.taxClasses.map((tc) => html`<option value=${tc.id} ?selected=${tc.id === this.editing.surcharge.taxClassId}>${tc.name}</option>`)}
+                </select>
+              </div>
+              <div class="field">
+                <uui-label>Default Pricing</uui-label>
+                <uui-input type="number" .value=${this.editing.surcharge.amount}
+                  @input=${(e) => this.setSurchargeField('amount', e.target.value)}></uui-input>
+              </div>
+            </div>
           </div>
           <aside class="edit-info">
             <div class="info-title">Info</div>
@@ -344,6 +434,8 @@ class ECommPaymentProvidersDashboard extends UmbElementMixin(LitElement) {
   static styles = css`
     :host { display: block; padding: var(--uui-size-layout-1); }
     .row { display: flex; align-items: center; gap: var(--uui-size-space-4); margin-bottom: var(--uui-size-space-4); }
+    .order-status-row { flex-wrap: wrap; }
+    .order-status-row small { width: 100%; color: var(--uui-color-text-alt); }
     select { padding: 6px 8px; min-width: 240px; border: 1px solid var(--uui-color-border); border-radius: 4px; }
 
     .toolbar { display: flex; align-items: center; justify-content: space-between; gap: var(--uui-size-space-4); margin-bottom: var(--uui-size-space-5); flex-wrap: wrap; }
@@ -367,6 +459,8 @@ class ECommPaymentProvidersDashboard extends UmbElementMixin(LitElement) {
 
     .field { margin-bottom: var(--uui-size-space-4); display: flex; flex-direction: column; gap: 4px; }
     .field uui-input { width: 100%; max-width: 480px; }
+    .surcharge { margin-top: var(--uui-size-space-5); padding-top: var(--uui-size-space-4); border-top: 1px solid var(--uui-color-border); }
+    .surcharge h5 { margin: 0 0 var(--uui-size-space-4) 0; }
     .actions { display: flex; gap: var(--uui-size-space-3); align-items: center; margin-top: var(--uui-size-space-5); padding-top: var(--uui-size-space-4); border-top: 1px solid var(--uui-color-border); }
     .actions .spacer { flex: 1; }
     .error { background: var(--uui-color-danger); color: #fff; padding: 8px 12px; border-radius: 4px; margin-bottom: var(--uui-size-space-4); }

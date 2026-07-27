@@ -11,11 +11,23 @@ public class NetsEasySettings
     public string? TestSecretKey { get; set; }
     public string? TestCheckoutKey { get; set; }
 
-    /// <summary>Order status code to set when a payment succeeds (e.g. "paid"). Blank ⇒ "paid".</summary>
-    public string? OrderStatusAfterPayment { get; set; }
-
     public bool TestMode { get; set; } = true;
 
     /// <summary>The secret key for the active environment.</summary>
     public string? ActiveSecretKey => TestMode ? TestSecretKey : LiveSecretKey;
+
+    /// <summary>The URL to the privacy and cookie settings of your webshop (sent as checkout.merchantTermsUrl).</summary>
+    public string? MerchantTermsUrl { get; set; }
+
+    /// <summary>
+    /// Only for Nets partners initiating checkout with partner keys instead of the webshop's own
+    /// integration keys (sent as the request's merchantNumber). Leave blank otherwise.
+    /// </summary>
+    public string? MerchantNumber { get; set; }
+
+    // ----- Features (mirrors the payment method's capability flags in the Nets merchant portal) -----
+    public bool AllowFetchingPaymentStatus { get; set; }
+    public bool AllowCancellingPayments { get; set; } = true;
+    public bool AllowCapturingPayments { get; set; } = true;
+    public bool AllowRefundingPayments { get; set; }
 }

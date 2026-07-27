@@ -193,11 +193,59 @@ public class CommerceAdminApiController : ManagementApiControllerBase
     [HttpPut("active-payment-provider")]
     public async Task<IActionResult> SetActivePaymentProvider([FromQuery] string marketId, [FromBody] SetActivePaymentProviderRequest request)
         => Ok(await _apiClient.SetActivePaymentProviderAsync(marketId, request.Alias));
+
+    [HttpPut("order-status-after-payment")]
+    public async Task<IActionResult> SetOrderStatusAfterPayment([FromQuery] string marketId, [FromBody] SetOrderStatusAfterPaymentRequest request)
+        => Ok(await _apiClient.SetOrderStatusAfterPaymentAsync(marketId, request.Code));
+
+    [HttpPut("payment-providers/{alias}/surcharge")]
+    public async Task<IActionResult> SetPaymentSurcharge(string alias, [FromQuery] string marketId, [FromBody] System.Text.Json.JsonElement surcharge)
+        => Ok(await _apiClient.SetPaymentSurchargeAsync(marketId, alias, surcharge));
+
+    [HttpDelete("payment-providers/{alias}/surcharge")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public async Task<IActionResult> DeletePaymentSurcharge(string alias, [FromQuery] string marketId)
+    {
+        var ok = await _apiClient.DeletePaymentSurchargeAsync(marketId, alias);
+        return ok ? NoContent() : StatusCode(StatusCodes.Status502BadGateway, "Failed to delete surcharge");
+    }
+
+    // ── Countries ────────────────────────────────────────────────────────────────
+
+    /// <summary>The full ISO country reference list — unfiltered on purpose, since a tax-rate
+    /// override is a country/tax-law concept independent of which countries a market ships to.</summary>
+    [HttpGet("countries")]
+    [ProducesResponseType(typeof(List<Country>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetCountries()
+        => Ok(await _apiClient.GetCountriesAsync());
+
+    // ── Tax Classes ──────────────────────────────────────────────────────────────
+
+    [HttpGet("tax-classes")]
+    [ProducesResponseType(typeof(List<TaxClass>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetTaxClasses([FromQuery] string? marketId = null)
+    {
+        var taxClasses = await _apiClient.GetTaxClassesAsync(marketId);
+        return Ok(taxClasses);
+    }
+
+    [HttpPut("tax-classes")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<IActionResult> UpdateTaxClasses([FromQuery] string? marketId, [FromBody] UpdateTaxClassesRequest request)
+    {
+        var ok = await _apiClient.UpdateTaxClassesAsync(marketId, request.TaxClasses);
+        return ok ? Ok() : StatusCode(StatusCodes.Status502BadGateway, "Failed to update tax classes");
+    }
 }
 
 public class SetActivePaymentProviderRequest
 {
     public string? Alias { get; set; }
+}
+
+public class SetOrderStatusAfterPaymentRequest
+{
+    public string? Code { get; set; }
 }
 
 public class UpdateOrderStatusRequest
@@ -209,6 +257,11 @@ public class UpdateOrderStatusRequest
 public class UpdatePropertyTemplatesRequest
 {
     public List<PropertyTemplate> Templates { get; set; } = new();
+}
+
+public class UpdateTaxClassesRequest
+{
+    public List<TaxClass> TaxClasses { get; set; } = new();
 }
 
 public class UpdateAttributesRequest

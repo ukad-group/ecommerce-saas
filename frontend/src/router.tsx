@@ -24,6 +24,7 @@ import { TenantsPage } from './pages/admin/tenants/TenantsPage';
 import { TenantApiKeysPage } from './pages/admin/tenants/TenantApiKeysPage';
 import { MarketsPage } from './pages/admin/markets/MarketsPage';
 import { ApiKeysPage } from './pages/admin/markets/ApiKeysPage';
+import { TaxClassesPage } from './pages/admin/markets/TaxClassesPage';
 import { AdminOrderStatusesPage } from './pages/AdminOrderStatusesPage';
 import { Role } from './types/auth';
 
@@ -191,6 +192,14 @@ export const router = createBrowserRouter([
         element: (
           <ProtectedRoute allowedRoles={[Role.SUPERADMIN, Role.TENANT_ADMIN]}>
             <ApiKeysPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'admin/markets/:marketId/tax-classes',
+        element: (
+          <ProtectedRoute allowedRoles={[Role.SUPERADMIN, Role.TENANT_ADMIN]}>
+            <TaxClassesPage />
           </ProtectedRoute>
         ),
       },

@@ -193,6 +193,7 @@ POST   /api/v1/order-statuses/reset-defaults
   - Revoke functionality
 - **Tenant-level API keys** (superadmin, not market-scoped) - managed at `/admin/tenants/:tenantId/api-keys`
 - Market shipping methods, leasing periods, and shippable countries configuration
+- Market tax classes (named tax rates + per-country overrides), feeding the payment surcharge fee
 - Search and filtering
 - Pagination
 - Status management (active/inactive)
@@ -209,6 +210,7 @@ GET/POST   /api/v1/markets?tenantId=:id
 GET/PUT/DELETE   /api/v1/markets/:id
 GET/PUT   /api/v1/markets/:id/shipping-methods
 GET/PUT   /api/v1/markets/:id/leasing-periods
+GET/PUT   /api/v1/markets/:id/tax-classes
 
 # API Keys (market-scoped)
 GET   /api/v1/api-keys?marketId=:id
@@ -276,6 +278,7 @@ GET/PUT/DELETE   /api/v1/discounts/:id
 - Webhook updates `Order.PaymentStatus` (Initialized → Authorized → Captured)
 - Wired into the Umbraco sample site's real checkout flow (Cart → Checkout → Confirmation)
 - **Provider management UI** in both the React admin (Markets → edit → Payment providers) and the Umbraco plugin (Commerce → store → Options → Payment Providers), schema-driven from `GET /payments/providers` with masked/write-only secrets
+- **Payment surcharge fee** — an optional flat fee per provider alias (`MarketSettings.PaymentSurcharges`), taxed via a [Tax Class](TAX-CLASSES.md), snapshotted onto `Order.PaymentFee`/`Order.PaymentFeeTax` at order-creation time and folded into `Order.Total` + the Nets Easy request's line items
 
 ### Missing / Known Issues
 - Webhook does not verify the gateway signature/HMAC yet — do not rely on this for real money without adding it
@@ -304,7 +307,7 @@ POST   /api/v1/payments/webhook/{provider?}
 6. AdminOrdersController - Admin order management
 7. OrderStatusController - Custom order status management
 8. TenantsController - Tenant management
-9. MarketsController - Market management (+ shipping methods, leasing periods)
+9. MarketsController - Market management (+ shipping methods, leasing periods, tax classes, payment surcharge fees)
 10. ApiKeysController - API key generation/revocation
 11. CountriesController - ISO country list (market-scoped)
 12. DiscountsController - Discount CRUD

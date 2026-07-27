@@ -21,8 +21,13 @@ public class NetsEasyPaymentProvider : IPaymentProvider
             new() { Key = "liveCheckoutKey", Label = "Live checkout key", Type = PaymentFieldType.Text, HelpText = "Your live Nets checkout key." },
             new() { Key = "testSecretKey", Label = "Test secret key", Type = PaymentFieldType.Secret, HelpText = "Your test Nets secret key (server-side only)." },
             new() { Key = "testCheckoutKey", Label = "Test checkout key", Type = PaymentFieldType.Text, HelpText = "Your test Nets checkout key." },
-            new() { Key = "orderStatusAfterPayment", Label = "Order status after payment", Type = PaymentFieldType.Text, DefaultValue = "paid", HelpText = "Order status code set when a payment succeeds." },
-            new() { Key = "testMode", Label = "Test mode", Type = PaymentFieldType.Bool, DefaultValue = "true", HelpText = "Use the Nets test environment (and the test keys above)." }
+            new() { Key = "merchantTermsUrl", Label = "Merchant Terms URL", Type = PaymentFieldType.Text, HelpText = "The URL to the privacy and cookie settings of your webshop." },
+            new() { Key = "merchantNumber", Label = "Merchant Number", Type = PaymentFieldType.Text, HelpText = "Only for Nets partners initiating checkout with partner keys — leave blank if you're using your webshop's own integration keys." },
+            new() { Key = "testMode", Label = "Test mode", Type = PaymentFieldType.Bool, DefaultValue = "true", HelpText = "Use the Nets test environment (and the test keys above)." },
+            new() { Key = "allowFetchingPaymentStatus", Label = "Allow Fetching Payment Status", Type = PaymentFieldType.Bool, DefaultValue = "false", HelpText = "Set whether fetching payment status from the payment provider API should be allowed." },
+            new() { Key = "allowCancellingPayments", Label = "Allow Cancelling Payments", Type = PaymentFieldType.Bool, DefaultValue = "true", HelpText = "Set whether cancelling payments should be allowed." },
+            new() { Key = "allowCapturingPayments", Label = "Allow Capturing Payments", Type = PaymentFieldType.Bool, DefaultValue = "true", HelpText = "Set whether capturing payments should be allowed." },
+            new() { Key = "allowRefundingPayments", Label = "Allow Refunding Payments", Type = PaymentFieldType.Bool, DefaultValue = "false", HelpText = "Set whether refunding payments should be allowed." }
         ]
     };
 
@@ -62,6 +67,10 @@ public class NetsEasyPaymentProvider : IPaymentProvider
             items.Add(FlatAmountLine("tax", "Tax", order.Tax));
         if (order.ShippingCost > 0)
             items.Add(FlatAmountLine("shipping", "Shipping", order.ShippingCost));
+        if (order.PaymentFee > 0)
+            items.Add(FlatAmountLine("payment-fee", "Payment fee", order.PaymentFee));
+        if (order.PaymentFeeTax > 0)
+            items.Add(FlatAmountLine("payment-fee-tax", "Payment fee tax", order.PaymentFeeTax));
 
         var netsRequest = new NetsCreatePaymentRequest
         {
@@ -78,8 +87,10 @@ public class NetsEasyPaymentProvider : IPaymentProvider
                 ReturnUrl = context.ReturnUrl,
                 CancelUrl = context.CancelUrl,
                 TermsUrl = context.TermsUrl,
+                MerchantTermsUrl = NullIfBlank(settings.MerchantTermsUrl),
                 Consumer = BuildConsumer(order)  // prefill (still editable) so the shopper doesn't re-type
-            }
+            },
+            MerchantNumber = NullIfBlank(settings.MerchantNumber)
         };
 
         var result = await _nets.CreatePaymentAsync(secretApiKey, testMode, netsRequest);
@@ -112,16 +123,6 @@ public class NetsEasyPaymentProvider : IPaymentProvider
         var succeeded = newStatus is "Authorized" or "Captured";
 
         return new WebhookResult { PaymentReference = envelope.Data.PaymentId, NewStatus = newStatus, Succeeded = succeeded };
-    }
-
-    /// <summary>Order status to apply on success — the market's configured value, defaulting to "paid".</summary>
-    public string? SuccessOrderStatus(JsonElement providerSettings)
-    {
-        var settings = providerSettings.ValueKind == JsonValueKind.Object
-            ? providerSettings.Deserialize<NetsEasySettings>(new JsonSerializerOptions { PropertyNameCaseInsensitive = true })
-            : null;
-        var status = settings?.OrderStatusAfterPayment;
-        return string.IsNullOrWhiteSpace(status) ? "paid" : status;
     }
 
     // ----- Consumer prefill mapping (best-effort; omit anything Nets could reject) -----

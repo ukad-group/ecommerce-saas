@@ -1187,6 +1187,85 @@ public class CommerceApiClient : ICommerceApiClient
         return await response.Content.ReadFromJsonAsync<JsonElement>(JsonOptions);
     }
 
+    public async Task<JsonElement> SetOrderStatusAfterPaymentAsync(string marketId, string? code)
+    {
+        var settings = await _settingsService.GetSettingsAsync();
+        if (settings == null || !settings.IsValid) return default;
+        var client = await CreateClientAsync(settings);
+        var json = JsonSerializer.Serialize(new { code }, JsonOptions);
+        var content = new StringContent(json, Encoding.UTF8, "application/json");
+        var response = await client.PutAsync($"admin/markets/{marketId}/order-status-after-payment", content);
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<JsonElement>(JsonOptions);
+    }
+
+    public async Task<JsonElement> SetPaymentSurchargeAsync(string marketId, string alias, JsonElement surcharge)
+    {
+        var settings = await _settingsService.GetSettingsAsync();
+        if (settings == null || !settings.IsValid) return default;
+        var client = await CreateClientAsync(settings);
+        var content = new StringContent(surcharge.GetRawText(), Encoding.UTF8, "application/json");
+        var response = await client.PutAsync($"admin/markets/{marketId}/payment-providers/{alias}/surcharge", content);
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<JsonElement>(JsonOptions);
+    }
+
+    public async Task<bool> DeletePaymentSurchargeAsync(string marketId, string alias)
+    {
+        var settings = await _settingsService.GetSettingsAsync();
+        if (settings == null || !settings.IsValid) return false;
+        var client = await CreateClientAsync(settings);
+        var response = await client.DeleteAsync($"admin/markets/{marketId}/payment-providers/{alias}/surcharge");
+        return response.IsSuccessStatusCode;
+    }
+
+    private class TaxClassesResponse
+    {
+        public List<TaxClass> TaxClasses { get; set; } = new();
+    }
+
+    public async Task<List<TaxClass>> GetTaxClassesAsync(string? marketId = null)
+    {
+        var settings = await _settingsService.GetSettingsAsync();
+        if (settings == null || !settings.IsValid) return new List<TaxClass>();
+
+        try
+        {
+            var mid = marketId ?? settings.MarketId;
+            var client = await CreateClientAsync(settings);
+            var response = await client.GetAsync($"admin/markets/{mid}/tax-classes");
+            response.EnsureSuccessStatusCode();
+            var wrapper = await response.Content.ReadFromJsonAsync<TaxClassesResponse>(JsonOptions);
+            return wrapper?.TaxClasses ?? new List<TaxClass>();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to fetch tax classes for market {MarketId}", marketId);
+            return new List<TaxClass>();
+        }
+    }
+
+    public async Task<bool> UpdateTaxClassesAsync(string? marketId, List<TaxClass> taxClasses)
+    {
+        var settings = await _settingsService.GetSettingsAsync();
+        if (settings == null || !settings.IsValid) return false;
+
+        try
+        {
+            var mid = marketId ?? settings.MarketId;
+            var client = await CreateClientAsync(settings);
+            var json = JsonSerializer.Serialize(new { taxClasses }, JsonOptions);
+            var content = new StringContent(json, Encoding.UTF8, "application/json");
+            var response = await client.PutAsync($"admin/markets/{mid}/tax-classes", content);
+            return response.IsSuccessStatusCode;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to update tax classes for market {MarketId}", marketId);
+            return false;
+        }
+    }
+
     private class LeasingPeriodsResponse
     {
         public List<LeasingPeriod> Periods { get; set; } = new();

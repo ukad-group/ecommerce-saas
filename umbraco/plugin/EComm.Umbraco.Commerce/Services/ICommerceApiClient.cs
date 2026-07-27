@@ -25,6 +25,21 @@ public interface ICommerceApiClient
     /// <summary>Set (alias) or clear (null) the market's active provider.</summary>
     Task<JsonElement> SetActivePaymentProviderAsync(string marketId, string? alias);
 
+    /// <summary>Set (code) or clear (null) the order status to apply when a payment succeeds.</summary>
+    Task<JsonElement> SetOrderStatusAfterPaymentAsync(string marketId, string? code);
+
+    /// <summary>Set a provider's surcharge fee for a market.</summary>
+    Task<JsonElement> SetPaymentSurchargeAsync(string marketId, string alias, JsonElement surcharge);
+
+    /// <summary>Remove a provider's surcharge fee from a market.</summary>
+    Task<bool> DeletePaymentSurchargeAsync(string marketId, string alias);
+
+    // ----- Tax Classes (market-scoped; feeds the payment-surcharge-fee's tax calculation) -----
+
+    Task<List<TaxClass>> GetTaxClassesAsync(string? marketId = null);
+
+    Task<bool> UpdateTaxClassesAsync(string? marketId, List<TaxClass> taxClasses);
+
     /// <summary>
     /// Gets all markets for the configured tenant
     /// </summary>

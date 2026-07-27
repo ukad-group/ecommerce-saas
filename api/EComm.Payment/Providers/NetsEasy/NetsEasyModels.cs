@@ -30,6 +30,9 @@ public class NetsCheckout
     public string CancelUrl { get; set; } = string.Empty;
     public string TermsUrl { get; set; } = string.Empty;
 
+    /// <summary>The URL to the privacy and cookie settings of your webshop. Null ⇒ omitted.</summary>
+    public string? MerchantTermsUrl { get; set; }
+
     /// <summary>Pre-fills (but does not lock) the hosted-page consumer fields. Null ⇒ omitted.</summary>
     public NetsConsumer? Consumer { get; set; }
 }
@@ -70,6 +73,12 @@ public class NetsCreatePaymentRequest
 {
     public NetsOrder Order { get; set; } = new();
     public NetsCheckout Checkout { get; set; } = new();
+
+    /// <summary>
+    /// Only for Nets partners initiating checkout with partner keys instead of the webshop's own
+    /// integration keys. Null ⇒ omitted (the common case).
+    /// </summary>
+    public string? MerchantNumber { get; set; }
 }
 
 public class NetsCreatePaymentResult

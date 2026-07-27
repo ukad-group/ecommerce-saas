@@ -80,6 +80,8 @@ each provider's form rendered from its schema (so new gateways appear automatica
 - **Umbraco plugin**: the *Commerce* section → *Options → Payment Providers* (scoped to the store selected in the dashboard's store switcher).
 
 Both call the endpoints below; secrets show masked and are only overwritten when you type a new value.
+Both also render a **Surcharge fee** sub-section below each provider's own settings form (see
+"Payment surcharge fee" below) — a fixed, generic sub-form, not part of the provider's schema.
 
 ## Configuring a market
 
@@ -92,18 +94,63 @@ alias):
 ```jsonc
 "settings": {
   "paymentProvider": "nets-easy",           // which provider handles this market
+  "orderStatusAfterPayment": "paid",        // generic — applies no matter which provider is active
   "paymentProviders": {
-    "nets-easy": { "testSecretKey": "…", "liveSecretKey": "…", "orderStatusAfterPayment": "paid", "testMode": true }
+    "nets-easy": { "testSecretKey": "…", "liveSecretKey": "…", "testMode": true, "allowCapturingPayments": true }
     // "acme": { "apiKey": "…", "webhookSecret": "…" }   ← another provider, no schema change
   }
 }
 ```
 
-Each alias maps to an **opaque JSON object**. The generic layer never interprets it — the provider
-deserializes its own entry into a **strongly-typed settings model** via `context.GetSettings<T>()`
-(case-insensitive). For example the Nets provider defines `NetsEasySettings { LiveSecretKey,
-LiveCheckoutKey, TestSecretKey, TestCheckoutKey, OrderStatusAfterPayment, TestMode }` — `TestMode`
-selects the live-vs-test key pair. Secrets stay server-side and are never exposed to the browser.
+`orderStatusAfterPayment` lives directly on `MarketSettings` (not inside a provider's settings)
+because it's a business decision, not a gateway credential — it applies the same way no matter
+which provider is active, so `PaymentsController` reads it straight off the market on a successful
+webhook, defaulting to `"paid"` when unset. Both admin surfaces render it as a dropdown sourced from
+the tenant's own order statuses (`GET /api/v1/order-statuses/active`), next to the payment providers
+list rather than nested in a provider's edit form.
+
+Each provider alias in `paymentProviders` still maps to an **opaque JSON object**. The generic layer
+never interprets it — the provider deserializes its own entry into a **strongly-typed settings
+model** via `context.GetSettings<T>()` (case-insensitive). For example the Nets provider defines
+`NetsEasySettings { LiveSecretKey, LiveCheckoutKey, TestSecretKey, TestCheckoutKey,
+MerchantTermsUrl, MerchantNumber, TestMode, AllowFetchingPaymentStatus, AllowCancellingPayments,
+AllowCapturingPayments, AllowRefundingPayments }` — `TestMode` selects the live-vs-test key pair,
+`MerchantTermsUrl`/`MerchantNumber` map directly to the real Nets Easy API's
+`checkout.merchantTermsUrl` and request-level `merchantNumber` fields (the latter only needed for
+Nets partners using partner keys), and the four `Allow*` flags mirror the payment method's
+capability flags in the Nets merchant portal. Secrets stay server-side and are never exposed to
+the browser.
+
+## Payment surcharge fee
+
+A market can charge an optional flat fee when a specific provider is its active one (e.g. a
+"card fee"). Like `orderStatusAfterPayment`, this is generic and lives **alongside** — not inside —
+each provider's opaque settings, in a parallel dictionary keyed by the same alias:
+
+```jsonc
+"settings": {
+  "paymentProvider": "nets-easy",
+  "paymentSurcharges": {
+    "nets-easy": { "sku": "CARD-FEE", "taxClassId": "tc-1", "amount": 5.00 }
+  },
+  "taxClasses": [
+    { "id": "tc-1", "name": "Standard", "defaultRate": 0.20, "countryRates": [{ "countryCode": "SE", "rate": 0.25 }] }
+  ]
+}
+```
+
+- `sku` is an admin-facing label only — it is **not** sent to the payment gateway.
+- `taxClassId` references one of the market's `taxClasses` (see [docs/TAX-CLASSES.md](TAX-CLASSES.md));
+  the fee's tax is resolved from that class using the order's shipping country (exact match →
+  the class's `defaultRate` → `0` if no tax class is set).
+- The fee is resolved from the market's **already-active** provider — there's no separate
+  "chosen provider" step at checkout, since a market has exactly one active provider at a time.
+  `OrdersController.CreateOrder` looks it up the same way it already looks up `ShippingCost` from
+  `ShippingMethodId`, and snapshots the result onto `Order.PaymentFee`/`Order.PaymentFeeTax` at
+  creation time — `Order.Total = Subtotal + Tax + ShippingCost + PaymentFee + PaymentFeeTax`.
+  Nothing downstream re-reads `MarketSettings` for the amount.
+- Managed via `PUT /api/v1/admin/markets/{id}/payment-providers/{alias}/surcharge` (and `DELETE`
+  to remove it) — a zero/blank amount in the UI is treated as "not configured" and deletes it.
 
 ## Nets Easy specifics
 
@@ -113,7 +160,10 @@ selects the live-vs-test key pair. Secrets stay server-side and are never expose
   can't be safely mapped (e.g. an unknown country) is omitted so Nets doesn't reject the request.
 - **Order status on success** — the webhook maps `payment.checkout.completed`→`Authorized` and
   `payment.charge.created.v2`→`Captured` on `Order.PaymentStatus`, and on success advances
-  `Order.Status` to the provider's **`orderStatusAfterPayment`** setting (default `paid`).
+  `Order.Status` to the market's **`orderStatusAfterPayment`** setting (default `paid`).
+- **Surcharge fee line items** — since Nets requires `order.amount == sum(item.grossTotalAmount)`,
+  a non-zero `Order.PaymentFee`/`PaymentFeeTax` is sent as two extra flat lines (references
+  `"payment-fee"` / `"payment-fee-tax"`), the same technique already used for `"tax"`/`"shipping"`.
   > The order status only changes when Nets calls the webhook (`POST /api/v1/payments/webhook`), so
   > that URL must be reachable by Nets — configure it in the Nets portal, and tunnel it (e.g. ngrok)
   > for local testing, otherwise a locally-placed test order stays in its pre-payment status.
@@ -193,5 +243,8 @@ customer returning to the site.
 - `PUT /api/v1/admin/markets/{id}/payment-providers/{alias}` — add/update a provider's settings (write-only secrets).
 - `DELETE /api/v1/admin/markets/{id}/payment-providers/{alias}` — remove a provider (clears active if it was active).
 - `PUT /api/v1/admin/markets/{id}/active-payment-provider` — set/clear the active provider.
+- `PUT /api/v1/admin/markets/{id}/order-status-after-payment` — set/clear the order status applied on a successful payment (`{ code }`), regardless of the active provider.
+- `PUT /api/v1/admin/markets/{id}/payment-providers/{alias}/surcharge` — set a provider's surcharge fee (`{ sku, taxClassId, amount }`).
+- `DELETE /api/v1/admin/markets/{id}/payment-providers/{alias}/surcharge` — remove a provider's surcharge fee.
 
 The Umbraco plugin proxies these through its management API (`/umbraco/management/api/ecomm-commerce/payment-providers…`).

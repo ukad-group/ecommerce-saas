@@ -8,30 +8,41 @@
  */
 
 import { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { PlusIcon, TrashIcon, PencilIcon } from '@heroicons/react/24/outline';
 import { Button } from '../common/Button';
 import { Input } from '../common/Input';
 import { Select } from '../common/Select';
+import { useActiveOrderStatuses } from '../../services/hooks/useOrderStatuses';
+import { useMarketTaxClasses } from '../../services/hooks/useMarketTaxClasses';
 import {
   getPaymentProviderCatalog,
   getMarketPaymentProviders,
   upsertMarketPaymentProvider,
   deleteMarketPaymentProvider,
   setActivePaymentProvider,
+  setOrderStatusAfterPayment,
+  setPaymentSurcharge,
+  deletePaymentSurcharge,
   type PaymentProviderDescriptor,
   type PaymentSettingField,
+  type PaymentSurcharge,
 } from '../../services/api/marketPaymentProvidersApi';
 
 interface Props {
   marketId: string;
+  currency?: string;
 }
 
 type FieldValues = Record<string, string | boolean>;
+type SurchargeFormValues = { sku: string; taxClassId: string; amount: string };
 
-export function MarketPaymentProviders({ marketId }: Props) {
+const BLANK_SURCHARGE: SurchargeFormValues = { sku: '', taxClassId: '', amount: '' };
+
+export function MarketPaymentProviders({ marketId, currency }: Props) {
   const queryClient = useQueryClient();
-  const [editing, setEditing] = useState<{ alias: string; values: FieldValues } | null>(null);
+  const [editing, setEditing] = useState<{ alias: string; values: FieldValues; surcharge: SurchargeFormValues } | null>(null);
   const [addAlias, setAddAlias] = useState('');
   const [error, setError] = useState<string | null>(null);
 
@@ -45,9 +56,16 @@ export function MarketPaymentProviders({ marketId }: Props) {
     queryFn: () => getMarketPaymentProviders(marketId),
   });
 
+  const orderStatusesQuery = useActiveOrderStatuses();
+  const taxClassesQuery = useMarketTaxClasses(marketId);
+
   const catalog = catalogQuery.data ?? [];
   const configured = providersQuery.data?.providers ?? [];
   const active = providersQuery.data?.active ?? null;
+  const orderStatusAfterPayment = providersQuery.data?.orderStatusAfterPayment ?? null;
+  const orderStatuses = orderStatusesQuery.data ?? [];
+  const taxClasses = taxClassesQuery.data ?? [];
+  const surcharges = providersQuery.data?.surcharges ?? {};
 
   const descriptorByAlias = useMemo(
     () => new Map(catalog.map((d) => [d.alias, d])),
@@ -62,11 +80,14 @@ export function MarketPaymentProviders({ marketId }: Props) {
   const upsertMutation = useMutation({
     mutationFn: (vars: { alias: string; settings: Record<string, unknown> }) =>
       upsertMarketPaymentProvider(marketId, vars.alias, vars.settings),
-    onSuccess: () => {
-      setEditing(null);
-      setError(null);
-      invalidate();
-    },
+    onError: (e: Error) => setError(e.message),
+  });
+
+  const surchargeMutation = useMutation<PaymentSurcharge | void, Error, { alias: string; surcharge: PaymentSurcharge | null }>({
+    mutationFn: (vars) =>
+      vars.surcharge
+        ? setPaymentSurcharge(marketId, vars.alias, vars.surcharge)
+        : deletePaymentSurcharge(marketId, vars.alias),
     onError: (e: Error) => setError(e.message),
   });
 
@@ -82,25 +103,61 @@ export function MarketPaymentProviders({ marketId }: Props) {
     onError: (e: Error) => setError(e.message),
   });
 
+  const orderStatusMutation = useMutation({
+    mutationFn: (code: string | null) => setOrderStatusAfterPayment(marketId, code),
+    onSuccess: invalidate,
+    onError: (e: Error) => setError(e.message),
+  });
+
+  function surchargeToFormValues(surcharge?: PaymentSurcharge): SurchargeFormValues {
+    if (!surcharge) return BLANK_SURCHARGE;
+    return {
+      sku: surcharge.sku ?? '',
+      taxClassId: surcharge.taxClassId ?? '',
+      amount: surcharge.amount ? String(surcharge.amount) : '',
+    };
+  }
+
   function startAdd() {
     const descriptor = descriptorByAlias.get(addAlias);
     if (!descriptor) return;
-    setEditing({ alias: descriptor.alias, values: initialValues(descriptor) });
+    setEditing({ alias: descriptor.alias, values: initialValues(descriptor), surcharge: BLANK_SURCHARGE });
   }
 
   function startEdit(alias: string) {
     const descriptor = descriptorByAlias.get(alias);
     const current = configured.find((p) => p.alias === alias);
     if (!descriptor) return;
-    setEditing({ alias, values: initialValues(descriptor, current?.settings) });
+    setEditing({
+      alias,
+      values: initialValues(descriptor, current?.settings),
+      surcharge: surchargeToFormValues(surcharges[alias]),
+    });
   }
 
-  function save() {
+  async function save() {
     if (!editing) return;
     const descriptor = descriptorByAlias.get(editing.alias);
     if (!descriptor) return;
     const settings = buildSettings(descriptor.fields, editing.values);
-    upsertMutation.mutate({ alias: editing.alias, settings });
+
+    try {
+      await upsertMutation.mutateAsync({ alias: editing.alias, settings });
+
+      const amount = Number(editing.surcharge.amount) || 0;
+      await surchargeMutation.mutateAsync({
+        alias: editing.alias,
+        surcharge: amount > 0
+          ? { sku: editing.surcharge.sku || null, taxClassId: editing.surcharge.taxClassId || null, amount }
+          : null,
+      });
+
+      setEditing(null);
+      setError(null);
+      invalidate();
+    } catch {
+      // error already captured via each mutation's onError
+    }
   }
 
   if (providersQuery.isLoading || catalogQuery.isLoading) {
@@ -114,6 +171,22 @@ export function MarketPaymentProviders({ marketId }: Props) {
           {error}
         </div>
       )}
+
+      {/* Order status after payment — applies regardless of which provider is active */}
+      <div>
+        <Select
+          label="Order status after payment"
+          value={orderStatusAfterPayment ?? ''}
+          onChange={(e) => orderStatusMutation.mutate(e.target.value || null)}
+          options={[
+            { value: '', label: 'Default ("paid")' },
+            ...orderStatuses.map((s) => ({ value: s.code, label: s.name })),
+          ]}
+        />
+        <p className="mt-0.5 text-xs text-gray-400">
+          Order status set when a payment succeeds, from this tenant's order statuses.
+        </p>
+      </div>
 
       {/* Active provider */}
       <Select
@@ -209,12 +282,54 @@ export function MarketPaymentProviders({ marketId }: Props) {
               }
             />
           ))}
+
+          {/* Surcharge fee (optional) — generic, not part of the provider's own schema */}
+          <div className="space-y-2 border-t border-indigo-200 pt-3">
+            <h5 className="text-sm font-semibold text-gray-900">Surcharge fee (optional)</h5>
+            <Input
+              label="SKU"
+              value={editing.surcharge.sku}
+              onChange={(e) =>
+                setEditing((prev) => prev ? { ...prev, surcharge: { ...prev.surcharge, sku: e.target.value } } : prev)
+              }
+            />
+            <Select
+              label="Tax Class"
+              value={editing.surcharge.taxClassId}
+              onChange={(e) =>
+                setEditing((prev) => prev ? { ...prev, surcharge: { ...prev.surcharge, taxClassId: e.target.value } } : prev)
+              }
+              options={[
+                { value: '', label: 'None' },
+                ...taxClasses.map((tc) => ({ value: tc.id, label: tc.name })),
+              ]}
+            />
+            <Input
+              label={`Default Pricing${currency ? ` (${currency})` : ''}`}
+              type="number"
+              step="0.01"
+              min="0"
+              value={editing.surcharge.amount}
+              onChange={(e) =>
+                setEditing((prev) => prev ? { ...prev, surcharge: { ...prev.surcharge, amount: e.target.value } } : prev)
+              }
+            />
+            <Link to={`/admin/markets/${marketId}/tax-classes`} className="inline-block text-xs text-[#4a6ba8] hover:underline">
+              Manage Tax Classes
+            </Link>
+          </div>
+
           <div className="flex justify-end gap-2 pt-1">
             <Button type="button" variant="secondary" onClick={() => setEditing(null)}>
               Cancel
             </Button>
-            <Button type="button" variant="primary" disabled={upsertMutation.isPending} onClick={save}>
-              {upsertMutation.isPending ? 'Saving…' : 'Save'}
+            <Button
+              type="button"
+              variant="primary"
+              disabled={upsertMutation.isPending || surchargeMutation.isPending}
+              onClick={save}
+            >
+              {upsertMutation.isPending || surchargeMutation.isPending ? 'Saving…' : 'Save'}
             </Button>
           </div>
         </div>

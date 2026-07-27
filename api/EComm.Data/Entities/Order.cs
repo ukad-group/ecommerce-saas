@@ -18,6 +18,15 @@ public class Order
 
     [JsonPropertyName("shipping")]
     public decimal ShippingCost { get; set; }
+
+    /// <summary>Flat surcharge fee snapshotted from the market's active payment provider at
+    /// order-creation time (MarketSettings.PaymentSurcharges). 0 when none configured.</summary>
+    public decimal PaymentFee { get; set; }
+
+    /// <summary>Tax on PaymentFee, computed from the surcharge's TaxClass at order-creation time.</summary>
+    public decimal PaymentFeeTax { get; set; }
+
+    /// <summary>Subtotal + Tax + ShippingCost + PaymentFee + PaymentFeeTax.</summary>
     public decimal Total { get; set; }
     public CustomerInfo Customer { get; set; } = new();
     public Address ShippingAddress { get; set; } = new();

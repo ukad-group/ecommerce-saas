@@ -1,3 +1,5 @@
+using System.Text.Json;
+using System.Text.Json.Nodes;
 using EComm.Data.Common;
 using EComm.Data.Entities;
 using EComm.Data.ValueObjects.Common;
@@ -26,6 +28,7 @@ public static class DatabaseSeeder
         {
             // Additive seeding: fill in data added after the initial release
             SeedMissingOrderStatuses(context);
+            MigrateOrderStatusAfterPaymentToMarketSettings(context);
             return;
         }
 
@@ -1218,5 +1221,44 @@ public static class DatabaseSeeder
 
         context.OrderStatuses.AddRange(orderStatuses);
         context.SaveChanges();
+    }
+
+    /// <summary>
+    /// One-time migration: "order status after payment" moved from a Nets-Easy-specific setting to
+    /// a generic per-market one. Lifts any previously configured value onto <c>MarketSettings</c> and
+    /// strips it from the provider-specific blob.
+    /// </summary>
+    private static void MigrateOrderStatusAfterPaymentToMarketSettings(ECommDbContext context)
+    {
+        var markets = context.Markets.Where(m => m.Settings != null).ToList();
+        var changed = false;
+
+        foreach (var market in markets)
+        {
+            if (market.Settings!.OrderStatusAfterPayment != null) continue;
+            if (market.Settings.PaymentProviders == null) continue;
+
+            foreach (var (alias, json) in market.Settings.PaymentProviders)
+            {
+                if (json.ValueKind != JsonValueKind.Object) continue;
+                if (!json.TryGetProperty("orderStatusAfterPayment", out var statusProp)) continue;
+                if (statusProp.ValueKind != JsonValueKind.String) continue;
+
+                var status = statusProp.GetString();
+                if (string.IsNullOrWhiteSpace(status)) continue;
+
+                market.Settings.OrderStatusAfterPayment = status;
+
+                var node = JsonNode.Parse(json.GetRawText()) as JsonObject;
+                node?.Remove("orderStatusAfterPayment");
+                market.Settings.PaymentProviders[alias] = JsonSerializer.SerializeToElement(node);
+
+                changed = true;
+                break; // one market-level value is enough
+            }
+        }
+
+        if (changed)
+            context.SaveChanges();
     }
 }

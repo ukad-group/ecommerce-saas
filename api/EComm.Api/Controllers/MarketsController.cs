@@ -294,7 +294,13 @@ public class MarketsController : ControllerBase
             };
         }).ToList();
 
-        return Ok(new { active = market.Settings?.PaymentProvider, providers });
+        return Ok(new
+        {
+            active = market.Settings?.PaymentProvider,
+            orderStatusAfterPayment = market.Settings?.OrderStatusAfterPayment,
+            providers,
+            surcharges = market.Settings?.PaymentSurcharges ?? new Dictionary<string, PaymentSurcharge>()
+        });
     }
 
     [HttpPut("{id}/payment-providers/{alias}")]
@@ -338,6 +344,7 @@ public class MarketsController : ControllerBase
             // If we removed the active provider, clear the active selection too.
             if (string.Equals(market.Settings.PaymentProvider, alias, StringComparison.OrdinalIgnoreCase))
                 market.Settings.PaymentProvider = null;
+            market.Settings.PaymentSurcharges?.Remove(alias);
             market.UpdatedAt = DateTime.UtcNow;
             _store.UpdateMarket(market);
         }
@@ -366,6 +373,81 @@ public class MarketsController : ControllerBase
         _store.UpdateMarket(market);
 
         return Ok(new { active = market.Settings.PaymentProvider });
+    }
+
+    [HttpPut("{id}/order-status-after-payment")]
+    [Authorize(Policy = "AdminOrApiKey")]
+    public ActionResult SetOrderStatusAfterPayment(string id, [FromBody] SetOrderStatusAfterPaymentRequest request)
+    {
+        var market = _store.GetMarket(id);
+        if (market == null) return NotFound();
+
+        market.Settings ??= new MarketSettings();
+        market.Settings.OrderStatusAfterPayment = string.IsNullOrEmpty(request.Code) ? null : request.Code;
+        market.UpdatedAt = DateTime.UtcNow;
+        _store.UpdateMarket(market);
+
+        return Ok(new { orderStatusAfterPayment = market.Settings.OrderStatusAfterPayment });
+    }
+
+    [HttpPut("{id}/payment-providers/{alias}/surcharge")]
+    [Authorize(Policy = "AdminOrApiKey")]
+    public ActionResult SetPaymentSurcharge(string id, string alias, [FromBody] PaymentSurcharge surcharge)
+    {
+        var market = _store.GetMarket(id);
+        if (market == null) return NotFound();
+
+        if (_paymentProviders.Resolve(alias) == null)
+            return BadRequest(new { message = $"Unknown payment provider '{alias}'" });
+
+        market.Settings ??= new MarketSettings();
+        market.Settings.PaymentSurcharges ??= new();
+        market.Settings.PaymentSurcharges[alias] = surcharge;
+        market.UpdatedAt = DateTime.UtcNow;
+        _store.UpdateMarket(market);
+
+        return Ok(surcharge);
+    }
+
+    [HttpDelete("{id}/payment-providers/{alias}/surcharge")]
+    [Authorize(Policy = "AdminOrApiKey")]
+    public ActionResult DeletePaymentSurcharge(string id, string alias)
+    {
+        var market = _store.GetMarket(id);
+        if (market == null) return NotFound();
+
+        market.Settings?.PaymentSurcharges?.Remove(alias);
+        market.UpdatedAt = DateTime.UtcNow;
+        _store.UpdateMarket(market);
+
+        return NoContent();
+    }
+
+    // ----- Tax Classes (market-scoped; feeds the payment-surcharge-fee's tax calculation) -----
+
+    [HttpGet("{id}/tax-classes")]
+    [AllowAnonymous] // Allow all authenticated users to read
+    public ActionResult GetTaxClasses(string id)
+    {
+        var market = _store.GetMarket(id);
+        if (market == null) return NotFound();
+
+        var taxClasses = market.Settings?.TaxClasses ?? new List<TaxClass>();
+        return Ok(new { taxClasses });
+    }
+
+    [HttpPut("{id}/tax-classes")]
+    public ActionResult UpdateTaxClasses(string id, [FromBody] UpdateTaxClassesRequest request)
+    {
+        var market = _store.GetMarket(id);
+        if (market == null) return NotFound();
+
+        market.Settings ??= new MarketSettings();
+        market.Settings.TaxClasses = request.TaxClasses;
+        market.UpdatedAt = DateTime.UtcNow;
+        _store.UpdateMarket(market);
+
+        return Ok(new { taxClasses = market.Settings.TaxClasses });
     }
 
     // ----- Product Attributes (market-scoped variant-axis library) -----

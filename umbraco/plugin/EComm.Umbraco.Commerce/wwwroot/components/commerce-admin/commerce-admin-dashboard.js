@@ -28,6 +28,7 @@ const OPTIONS_SUBITEMS = [
   { key: 'payment-providers',     label: 'Payment Providers',           icon: 'icon-bill',     enabled: true },
   { key: 'attributes',            label: 'Product Attributes',          icon: 'icon-tag',      enabled: true },
   { key: 'property-templates',    label: 'Property Templates',          icon: 'icon-list',     enabled: true },
+  { key: 'tax-classes',           label: 'Tax Classes',                 icon: 'icon-calculator', enabled: true },
 ];
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -111,6 +112,12 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
     editingAttributePreset:   { type: Object  },
     attributePresetsSearch:   { type: String  },
     attributePresetsPage:     { type: Number  },
+    // tax classes
+    taxClasses:               { type: Array   },
+    taxClassesLoading:        { type: Boolean },
+    taxClassesError:          { type: String  },
+    editingTaxClass:          { type: Object  },
+    countries:                { type: Array   },
   };
 
   constructor() {
@@ -144,6 +151,8 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
     this.attributesSearch = ''; this.attributesPage = 1;
     this.attributePresets = []; this.attributePresetsLoading = false; this.attributePresetsError = null; this.editingAttributePreset = null;
     this.attributePresetsSearch = ''; this.attributePresetsPage = 1;
+    this.taxClasses = []; this.taxClassesLoading = false; this.taxClassesError = null; this.editingTaxClass = null;
+    this.countries = [];
 
     this.consumeContext(UMB_AUTH_CONTEXT, ctx => { this._authContext = ctx; });
     this._closeMenus = () => { this.showOSMenu = false; this.showPSMenu = false; };
@@ -199,6 +208,7 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
     else if (this.activeView === 'property-templates') { this.loadPropertyTemplates(); this.loadAttributes(); }
     else if (this.activeView === 'attributes') { this.editingAttribute = null; this.loadAttributes(); }
     else if (this.activeView === 'attribute-presets') { this.editingAttributePreset = null; this.loadAttributes(); this.loadAttributePresets(); }
+    else if (this.activeView === 'tax-classes') { this.editingTaxClass = null; this.loadTaxClasses(); }
   }
 
   async loadStatusDefs() {
@@ -454,6 +464,51 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
     } catch (e) { this.attributesError = e.message; }
   }
 
+  // ── Tax Classes ──────────────────────────────────────────────────────────────
+
+  async loadTaxClasses() {
+    this.taxClassesLoading = true; this.taxClassesError = null;
+    try {
+      const qs = this.selectedMarketId ? `?marketId=${encodeURIComponent(this.selectedMarketId)}` : '';
+      const data = await this._get(`/umbraco/management/api/ecomm-commerce/tax-classes${qs}`);
+      this.taxClasses = Array.isArray(data) ? data : (data?.taxClasses ?? []);
+      if (!this.countries.length) this.countries = await this._get('/umbraco/management/api/ecomm-commerce/countries');
+    } catch (e) { this.taxClassesError = e.message; }
+    finally { this.taxClassesLoading = false; }
+  }
+
+  async _saveTaxClasses(taxClasses) {
+    const headers = await this.getAuthHeaders();
+    const qs = this.selectedMarketId ? `?marketId=${encodeURIComponent(this.selectedMarketId)}` : '';
+    const r = await fetch(`/umbraco/management/api/ecomm-commerce/tax-classes${qs}`, {
+      method: 'PUT', headers, credentials: 'include', body: JSON.stringify({ taxClasses })
+    });
+    if (!r.ok) throw new Error(r.statusText);
+  }
+
+  async saveTaxClass() {
+    const t = this.editingTaxClass;
+    if (!t || !t.name?.trim()) { this.taxClassesError = 'Name is required'; return; }
+    try {
+      const clean = {
+        id: t.id, name: t.name.trim(), defaultRate: Number(t.defaultRate) || 0,
+        countryRates: (t.countryRates || []).map(r => ({ countryCode: r.countryCode, rate: Number(r.rate) || 0 })),
+      };
+      const exists = this.taxClasses.find(x => x.id === t.id);
+      const list = exists ? this.taxClasses.map(x => x.id === t.id ? clean : x) : [...this.taxClasses, clean];
+      await this._saveTaxClasses(list);
+      this.editingTaxClass = null;
+      this.loadTaxClasses();
+    } catch (e) { this.taxClassesError = e.message; }
+  }
+
+  async deleteTaxClass(id) {
+    try {
+      await this._saveTaxClasses(this.taxClasses.filter(x => x.id !== id));
+      this.loadTaxClasses();
+    } catch (e) { this.taxClassesError = e.message; }
+  }
+
   // ── Product Attribute Presets ─────────────────────────────────────────────────
 
   async loadAttributePresets() {
@@ -537,6 +592,7 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
     if (key === 'property-templates') { if (!this.propertyTemplates.length && !this.propertyTemplatesLoading) this.loadPropertyTemplates(); if (!this.attributes.length && !this.attributesLoading) this.loadAttributes(); }
     if (key === 'attributes'         && !this.attributes.length         && !this.attributesLoading)        this.loadAttributes();
     if (key === 'attribute-presets') { if (!this.attributes.length && !this.attributesLoading) this.loadAttributes(); if (!this.attributePresets.length && !this.attributePresetsLoading) this.loadAttributePresets(); }
+    if (key === 'tax-classes'    && !this.taxClasses.length     && !this.taxClassesLoading)     this.loadTaxClasses();
   }
 
   // ── Formatting ─────────────────────────────────────────────────────────────
@@ -1529,6 +1585,89 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
       </div>`;
   }
 
+  // ── Tax Classes ──────────────────────────────────────────────────────────────
+
+  _renderTaxClassesView() {
+    const t = this.editingTaxClass;
+    const usedCodes = new Set((t?.countryRates || []).map(r => r.countryCode));
+    const availableCountries = this.countries.filter(c => !usedCodes.has(c.code));
+
+    return html`
+      <div class="view-container">
+        ${this._viewHeader('Tax Classes', html`
+          <uui-button look="primary" @click=${() => { this.editingTaxClass = { id: crypto.randomUUID(), name: '', defaultRate: 0, countryRates: [] }; }}>
+            + Create Tax Class
+          </uui-button>`)}
+
+        ${this._errorBanner(this.taxClassesError, () => { this.taxClassesError = null; })}
+
+        ${t ? html`
+          <div class="modal-overlay" @click=${(e) => { if (e.target === e.currentTarget) this.editingTaxClass = null; }}>
+          <div class="form-panel form-panel--modal">
+            <h3>${this.taxClasses.find(x => x.id === t.id) ? 'Edit Tax Class' : 'New Tax Class'}</h3>
+            <div class="form-row"><label>Name</label>
+              <input class="form-input" .value=${t.name || ''} placeholder="e.g. Standard"
+                @input=${e => { this.editingTaxClass = { ...t, name: e.target.value }; }}>
+            </div>
+            <div class="form-row"><label>Default Tax Rate (%)</label>
+              <input class="form-input" type="number" step="0.01" min="0" .value=${(t.defaultRate || 0) * 100}
+                @input=${e => { this.editingTaxClass = { ...t, defaultRate: (Number(e.target.value) || 0) / 100 }; }}>
+            </div>
+            <div class="form-row"><label>Country/Region Specific Tax Rates</label>
+              <div style="display:flex;flex-direction:column;gap:6px">
+                ${(t.countryRates || []).map((r, i) => html`
+                  <div style="display:flex;gap:6px;align-items:center">
+                    <span style="flex:1">${this.countries.find(c => c.code === r.countryCode)?.name ?? r.countryCode}</span>
+                    <input class="form-input" style="width:100px" type="number" step="0.01" min="0" .value=${(r.rate || 0) * 100}
+                      @input=${e => { const countryRates = t.countryRates.map((x, j) => j === i ? { ...x, rate: (Number(e.target.value) || 0) / 100 } : x); this.editingTaxClass = { ...t, countryRates }; }}>
+                    <span>%</span>
+                    <button style="background:none;border:none;cursor:pointer;color:#999;font-size:1rem"
+                      @click=${() => { this.editingTaxClass = { ...t, countryRates: t.countryRates.filter((_, j) => j !== i) }; }}>×</button>
+                  </div>`)}
+                ${availableCountries.length > 0 ? html`
+                  <select @change=${e => { if (e.target.value) { this.editingTaxClass = { ...t, countryRates: [...(t.countryRates || []), { countryCode: e.target.value, rate: 0 }] }; e.target.value = ''; } }}>
+                    <option value="">+ Add country override…</option>
+                    ${availableCountries.map(c => html`<option value=${c.code}>${c.name}</option>`)}
+                  </select>` : ''}
+              </div>
+            </div>
+            <div class="form-actions">
+              <uui-button look="primary" @click=${() => this.saveTaxClass()}>Save</uui-button>
+              <uui-button look="secondary" @click=${() => { this.editingTaxClass = null; }}>Cancel</uui-button>
+            </div>
+          </div>
+          </div>` : ''}
+
+        ${this.taxClassesLoading ? this._stateCenter(html`<uui-loader></uui-loader><p>Loading…</p>`) :
+          this.taxClasses.length === 0 ? this._stateCenter(html`
+            <uui-icon name="icon-calculator" style="font-size:3rem;opacity:0.25"></uui-icon>
+            <p>No tax classes yet</p>`) :
+          html`
+            <div class="table-scroll">
+              <table class="data-table">
+                <thead><tr><th>Name</th><th>Default Tax Rate</th><th>Overrides</th><th></th></tr></thead>
+                <tbody>
+                  ${this.taxClasses.map(tc => html`
+                    <tr class="data-row" style="cursor:pointer"
+                      @click=${() => { this.editingTaxClass = { ...tc, countryRates: (tc.countryRates || []).map(r => ({ ...r })) }; }}>
+                      <td><uui-icon name="icon-calculator" style="opacity:0.5;margin-right:6px"></uui-icon><strong>${tc.name}</strong></td>
+                      <td>${((tc.defaultRate || 0) * 100).toFixed(2)}%</td>
+                      <td>${(tc.countryRates || []).length} override${(tc.countryRates || []).length !== 1 ? 's' : ''}</td>
+                      <td class="row-actions">
+                        <uui-button look="secondary" color="danger" compact @click=${(e) => { e.stopPropagation(); this.deleteTaxClass(tc.id); }}>Del</uui-button>
+                      </td>
+                    </tr>`)}
+                </tbody>
+              </table>
+            </div>`}
+
+        <div class="view-footer">
+          <span class="breadcrumb">${this.marketName} / Options / Tax Classes</span>
+          ${this.taxClasses.length > 0 ? html`<span class="breadcrumb" style="margin-left:auto">${this.taxClasses.length} tax class${this.taxClasses.length !== 1 ? 'es' : ''}</span>` : ''}
+        </div>
+      </div>`;
+  }
+
   // ── Coming Soon ────────────────────────────────────────────────────────────
 
   _renderComingSoon(label) {
@@ -1641,6 +1780,7 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
       case 'discounts':      return this._renderDiscountsView();
       case 'attributes':          return this._renderAttributesView();
       case 'attribute-presets':   return this._renderAttributePresetsView();
+      case 'tax-classes':         return this._renderTaxClassesView();
       case 'property-templates':  return this._renderPropertyTemplatesView();
       case 'payment-providers':   return html`<div class="view-container"><ecomm-payment-providers-dashboard .marketId=${this.selectedMarketId} .embedded=${true}></ecomm-payment-providers-dashboard></div>`;
       default: {

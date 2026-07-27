@@ -31,9 +31,17 @@ export interface MarketPaymentProvider {
   settings: Record<string, unknown>;
 }
 
+export interface PaymentSurcharge {
+  sku: string | null;
+  taxClassId: string | null;
+  amount: number;
+}
+
 export interface MarketPaymentProvidersResponse {
   active: string | null;
+  orderStatusAfterPayment: string | null;
   providers: MarketPaymentProvider[];
+  surcharges: Record<string, PaymentSurcharge>;
 }
 
 /** The catalog of every registered provider + its settings schema. */
@@ -76,4 +84,32 @@ export async function setActivePaymentProvider(
     `/admin/markets/${marketId}/active-payment-provider`,
     { alias }
   );
+}
+
+/** Set (code) or clear (null) the order status to apply when a payment succeeds. */
+export async function setOrderStatusAfterPayment(
+  marketId: string,
+  code: string | null
+): Promise<{ orderStatusAfterPayment: string | null }> {
+  return apiClient.put<{ orderStatusAfterPayment: string | null }>(
+    `/admin/markets/${marketId}/order-status-after-payment`,
+    { code }
+  );
+}
+
+/** Set a provider's surcharge fee. */
+export async function setPaymentSurcharge(
+  marketId: string,
+  alias: string,
+  surcharge: PaymentSurcharge
+): Promise<PaymentSurcharge> {
+  return apiClient.put<PaymentSurcharge>(
+    `/admin/markets/${marketId}/payment-providers/${alias}/surcharge`,
+    surcharge
+  );
+}
+
+/** Remove a provider's surcharge fee. */
+export async function deletePaymentSurcharge(marketId: string, alias: string): Promise<void> {
+  await apiClient.delete(`/admin/markets/${marketId}/payment-providers/${alias}/surcharge`);
 }

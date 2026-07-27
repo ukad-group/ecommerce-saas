@@ -409,7 +409,7 @@ export function MarketsPage() {
           />
           <div className="mt-6 border-t pt-4">
             <h3 className="mb-3 text-sm font-semibold text-gray-900">Payment providers</h3>
-            <MarketPaymentProviders marketId={editingMarket.id} />
+            <MarketPaymentProviders marketId={editingMarket.id} currency={editingMarket.currency} />
           </div>
         </Modal>
       )}

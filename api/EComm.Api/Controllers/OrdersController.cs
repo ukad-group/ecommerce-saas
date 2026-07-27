@@ -71,6 +71,15 @@ public class OrdersController : ControllerBase
             : shippingMethods.FirstOrDefault();
         var shippingCost = shippingMethod?.Price ?? 0m;
 
+        PaymentSurcharge? surcharge = null;
+        if (!string.IsNullOrEmpty(market?.Settings?.PaymentProvider))
+            market.Settings.PaymentSurcharges?.TryGetValue(market.Settings.PaymentProvider, out surcharge);
+        var paymentFee = surcharge?.Amount ?? 0m;
+        var paymentFeeTaxRate = paymentFee > 0
+            ? TaxClass.ResolveRate(market?.Settings?.TaxClasses, surcharge?.TaxClassId, request.ShippingAddress.Country)
+            : 0m;
+        var paymentFeeTax = Math.Round(paymentFee * paymentFeeTaxRate, 2, MidpointRounding.AwayFromZero);
+
         var order = new Order
         {
             Id = Guid.NewGuid().ToString(),
@@ -114,7 +123,9 @@ public class OrdersController : ControllerBase
             Subtotal = cart.Subtotal,
             Tax = cart.Tax,
             ShippingCost = shippingCost,
-            Total = cart.Total + shippingCost,
+            PaymentFee = paymentFee,
+            PaymentFeeTax = paymentFeeTax,
+            Total = cart.Total + shippingCost + paymentFee + paymentFeeTax,
             CustomProperties = request.CustomProperties,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow

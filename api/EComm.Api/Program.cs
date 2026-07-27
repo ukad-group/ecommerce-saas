@@ -139,6 +139,9 @@ using (var scope = app.Services.CreateScope())
     // Ensure database is created
     context.Database.EnsureCreated();
 
+    // Additive column upgrades for an already-existing ecomm.db (EnsureCreated is a no-op there)
+    SchemaUpgrader.EnsureOrderPaymentFeeColumns(context);
+
     // Seed data
     DatabaseSeeder.SeedDatabase(context);
 }
