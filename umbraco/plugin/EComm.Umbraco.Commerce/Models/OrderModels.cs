@@ -15,7 +15,18 @@ public class Order
     [JsonPropertyName("shipping")]
     public decimal ShippingCost { get; set; }
 
+    /// <summary>Flat surcharge for the market's payment provider, snapshotted when the order was
+    /// created. 0 when the market configured no surcharge for its active provider.</summary>
+    public decimal PaymentFee { get; set; }
+
+    /// <summary>Tax on <see cref="PaymentFee"/>, from the surcharge's tax class. Kept out of
+    /// <see cref="Tax"/>, which stays the goods tax.</summary>
+    public decimal PaymentFeeTax { get; set; }
+
+    /// <summary>Subtotal + Tax + ShippingCost + PaymentFee + PaymentFeeTax. A breakdown that omits the
+    /// payment fee will not add up to this.</summary>
     public decimal Total { get; set; }
+
     public OrderCustomer Customer { get; set; } = new();
     public OrderAddress ShippingAddress { get; set; } = new();
     public OrderAddress? BillingAddress { get; set; }
@@ -30,7 +41,9 @@ public class Order
     /// itemSubType live on OrderItem instead — see OrderItem.ItemType.</summary>
     public List<CustomProperty>? CustomProperties { get; set; }
 
-    /// <summary>Payment lifecycle set by the market's payment provider: "Initialized" → "Authorized" → "Captured".</summary>
+    /// <summary>Payment lifecycle set by the market's payment provider: "Initialized" → "Authorized" →
+    /// "Captured", or "Failed" / "Cancelled" / "Refunded". This — not <see cref="Status"/>, which is
+    /// whatever code the market maps payment success to — is what says whether a payment settled.</summary>
     public string? PaymentStatus { get; set; }
 
     /// <summary>The provider's payment id for this order's payment, once one has been created.</summary>
