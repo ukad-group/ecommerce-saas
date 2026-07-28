@@ -408,6 +408,33 @@ public class DataStore
         }
     }
 
+    /// <summary>Looks up the order a gateway webhook refers to. Indexed on PaymentReference.</summary>
+    public Order? GetOrderByPaymentReference(string paymentReference)
+    {
+        using var context = CreateContext();
+        return context.Orders.AsNoTracking().FirstOrDefault(o => o.PaymentReference == paymentReference);
+    }
+
+    /// <summary>
+    /// Records a webhook as processed. Returns <c>false</c> when this event was already recorded —
+    /// the pipeline's signal to skip a redelivery. Insert-first-wins: the primary key does the
+    /// racing, so two concurrent deliveries of the same event can't both proceed.
+    /// </summary>
+    public bool TryRecordWebhookEvent(PaymentWebhookEvent webhookEvent)
+    {
+        using var context = CreateContext();
+        context.PaymentWebhookEvents.Add(webhookEvent);
+        try
+        {
+            context.SaveChanges();
+            return true;
+        }
+        catch (DbUpdateException)
+        {
+            return false; // duplicate primary key — already handled
+        }
+    }
+
     public List<Order> GetAllOrders()
     {
         using var context = CreateContext();

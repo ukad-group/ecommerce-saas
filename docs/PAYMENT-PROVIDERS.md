@@ -5,6 +5,11 @@ integration (Nets Easy ships as the first one); each market picks which provider
 checkout. Adding a new gateway is a matter of implementing one interface and registering it —
 the generic pipeline knows nothing about any specific gateway.
 
+> **Already integrated against an earlier version?** Read
+> [Upgrade notes — webhook hardening](#upgrade-notes--webhook-hardening) first. No storefront code
+> changes are needed, but portal-level webhook configuration now has to be removed and
+> `Payments:PublicBaseUrl` has to be set, or webhooks will fail in ways that are hard to diagnose.
+
 ## Architecture
 
 ```
@@ -20,7 +25,12 @@ IPaymentProvider  (e.g. NetsEasyPaymentProvider)          → { paymentId, redir
 Payment gateway hosted checkout  → customer pays → returnUrl
    │  gateway webhook
    ▼
-EComm.Api  POST /api/v1/payments/webhook/{provider?}      → order.PaymentStatus
+EComm.Api  POST /api/v1/payments/webhook/{provider?}
+   │  IPaymentProvider.VerifyWebhookAsync(context)        → 401 if it isn't really the gateway
+   │  IPaymentProvider.HandleWebhookAsync(context)        → WebhookResult[]
+   │  DataStore.TryRecordWebhookEvent(...)                → drop redeliveries
+   ▼
+order.PaymentStatus (only ever forward) + OrderStatusService.ApplyStatus on success
 ```
 
 Payments live in their **own project**, `api/EComm.Payment/` (a class library referenced by
@@ -40,17 +50,79 @@ Payments live in their **own project**, `api/EComm.Payment/` (a class library re
 public interface IPaymentProvider
 {
     string Alias { get; }                                              // e.g. "nets-easy"
+    PaymentProviderDescriptor Descriptor { get; }
     Task<PaymentCreationResult?> CreatePaymentAsync(PaymentCreationContext context);
-    Task<WebhookResult?> HandleWebhookAsync(HttpRequest request);
+
+    Task<bool> VerifyWebhookAsync(WebhookContext context) => Task.FromResult(true);  // opt-in
+    Task<IReadOnlyList<WebhookResult>> HandleWebhookAsync(WebhookContext context);
 }
 ```
 
 - `CreatePaymentAsync` receives a `PaymentCreationContext` — the order, market, return/cancel/terms
-  URLs, and the provider's settings. Read the settings as your **own typed model** via
-  `context.GetSettings<TSettings>()` (see below). It returns the redirect URL + provider payment id,
-  or **`null`** when the provider isn't configured for the market or the gateway rejected the request.
-- `HandleWebhookAsync` parses the provider's own webhook body and returns `{ PaymentReference, NewStatus }`
-  (a `null` `NewStatus` means "no order change for this event").
+  URLs, the absolute `WebhookUrl` your gateway should call back on, and the provider's settings. Read
+  the settings as your **own typed model** via `context.GetSettings<TSettings>()` (see below). It
+  returns the redirect URL + provider payment id (and optionally a `WebhookSecret`, below), or
+  **`null`** when the provider isn't configured for the market or the gateway rejected the request.
+- `HandleWebhookAsync` parses the request into zero or more `WebhookResult`s. A **list**, because
+  some gateways batch events for several payments into one POST.
+- `VerifyWebhookAsync` is default-implemented, so verification is opt-in; the pipeline only calls it
+  for payments where you returned a `WebhookSecret`.
+
+### WebhookResult
+
+```csharp
+public class WebhookResult
+{
+    public string PaymentReference { get; init; }   // matched against Order.PaymentReference
+    public string IdempotencyKey   { get; init; }   // "" ⇒ pipeline hashes the raw body
+    public string EventName        { get; init; }   // logging/audit only
+    public PaymentState? NewState  { get; init; }   // null ⇒ this event changes no state
+    public PaymentError? Error     { get; init; }   // { Code, Message } on any failure event
+}
+
+public enum PaymentState { Initialized = 1, Authorized = 2, Captured = 3, Cancelled = 4, Failed = 5, Refunded = 6 }
+```
+
+`PaymentState` is a **shared vocabulary, deliberately ordered**: gateways deliver out of order, and
+the pipeline only applies a state that is `>=` the one already stored (`PaymentStates.Advances`), so
+a replayed "authorized" can never undo a "captured". Map your gateway's event names onto it —
+inventing your own status strings would defeat the ranking. It is persisted on `Order.PaymentStatus`
+by name.
+
+There is no separate "succeeded" flag: `Authorized`/`Captured` *is* success, and that's what
+advances the order status.
+
+### WebhookContext and credentials
+
+```csharp
+public class WebhookContext
+{
+    public HttpRequest Request { get; init; }
+    public Func<string, WebhookSettings?> ResolveSettings { get; init; }
+}
+
+public class WebhookSettings          // what ResolveSettings hands back for one payment
+{
+    public JsonElement? ProviderSettingsJson { get; init; }   // read via GetSettings<T>()
+    public string? PaymentWebhookSecret { get; init; }        // what CreatePayment returned, if any
+}
+```
+
+Settings are resolved **lazily by payment reference**, because the market is only discoverable *from*
+the request body. Parse a reference out of the body, then ask for that payment's configuration. This
+is what lets a provider whose webhook carries no state (Mollie posts nothing but `id=tr_…`) call its
+own API to find out what happened, and what gives an HMAC provider its merchant signing key.
+
+The request body is buffered before your code runs, so it is safe to read more than once — rewind
+with `request.Body.Position = 0` first.
+
+### Per-payment webhook secrets
+
+`PaymentCreationResult.WebhookSecret` is stored on the order and handed back as
+`WebhookSettings.PaymentWebhookSecret`. It is **opaque to the generic layer** — Nets registers a
+random token per payment and gets it back in the `Authorization` header; another gateway might not
+use one at all, in which case return `null` and verification is skipped for that payment. Payments
+created before a provider issued a secret keep working for the same reason.
 
 ## Provider selection
 
@@ -68,8 +140,25 @@ default/sole logic, so a gateway callback URL registered as `/api/v1/payments/we
 
 | Method & route | Purpose |
 | --- | --- |
-| `POST /api/v1/orders/{id}/payment` | Start a payment. Body: `{ returnUrl, cancelUrl, termsUrl }`. Returns `{ paymentId, redirectUrl }`. `400` if no provider is configured for the market; `502` if the provider couldn't create the payment. |
-| `POST /api/v1/payments/webhook/{provider?}` | Gateway status webhook. Always `200` (acks even for unknown payments so the gateway stops retrying). |
+| `POST /api/v1/orders/{id}/payment` | Start a payment. **Authenticated** (JWT or `X-API-Key`) — it spends against the market's live gateway credentials. Body: `{ returnUrl, cancelUrl, termsUrl }`. Returns `{ paymentId, redirectUrl }`. `400` if no provider is configured for the market; `502` if the provider couldn't create the payment. |
+| `POST /api/v1/payments/webhook/{provider?}` | Gateway status webhook, anonymous by necessity — authenticity comes from `VerifyWebhookAsync`, not from a caller identity. `200` for anything parseable (including unknown providers and unknown payments, so the gateway stops retrying); `401` only when verification fails. |
+
+### Webhook delivery guarantees
+
+Gateways deliver **at-least-once and out of order**, so the endpoint is an idempotent consumer:
+
+1. **Verify** — `VerifyWebhookAsync`. A failure returns `401` and is deliberately *not* acked.
+2. **Deduplicate** — every event is recorded in `PaymentWebhookEvents` keyed
+   `"{provider}:{IdempotencyKey}"` *before* it is applied. Insert-first-wins on the primary key, so
+   two concurrent redeliveries can't both proceed. A blank `IdempotencyKey` falls back to a hash of
+   the raw body (normal for gateways that send no event id).
+3. **Apply forward only** — `PaymentState` is applied only if it ranks `>=` the stored one.
+4. **On success** — `OrderStatusService.ApplyStatus` advances the order to the market's
+   `OrderStatusAfterPayment`, which is also what reserves stock and issues a tracking number. The
+   webhook, `PUT /orders/{id}/status` and `PUT /admin/orders/{id}/status` all share that one path.
+
+Return **200** for anything you could parse. A non-200 just makes the gateway retry, and Nets in
+particular treats any other 2xx as a failure and opens a circuit breaker after repeated failures.
 
 ## Managing providers in the UI
 
@@ -82,6 +171,24 @@ each provider's form rendered from its schema (so new gateways appear automatica
 Both call the endpoints below; secrets show masked and are only overwritten when you type a new value.
 Both also render a **Surcharge fee** sub-section below each provider's own settings form (see
 "Payment surcharge fee" below) — a fixed, generic sub-form, not part of the provider's schema.
+
+## Host configuration
+
+Two keys in `appsettings.json`, both gateway-agnostic:
+
+```jsonc
+"Payments": {
+  "PublicBaseUrl": "",        // where gateways call back, e.g. "https://api.example.com"
+  "DefaultProvider": ""       // optional: provider used when a market names none
+}
+```
+
+`PublicBaseUrl` is the public origin of **this API**, used to build each provider's
+`PaymentCreationContext.WebhookUrl` (`{PublicBaseUrl}/api/v1/payments/webhook/{alias}`). Blank falls
+back to the incoming request's scheme+host, which is only right when the API is already publicly
+reachable. For local development set it to your tunnel in `appsettings.Development.json` or
+user-secrets — **never commit a personal tunnel URL**. A provider that self-registers webhooks should
+register none when `WebhookUrl` is empty, rather than send the gateway an unreachable address.
 
 ## Configuring a market
 
@@ -154,24 +261,79 @@ each provider's opaque settings, in a parallel dictionary keyed by the same alia
 
 ## Nets Easy specifics
 
-- **Consumer prefill** — the create-payment request includes a `checkout.consumer` built from the
-  order's customer + shipping address (email, first/last name split from `FullName`, address with the
-  country mapped to ISO alpha-3). It only *prefills* the hosted page (still editable); anything that
-  can't be safely mapped (e.g. an unknown country) is omitted so Nets doesn't reject the request.
-- **Order status on success** — the webhook maps `payment.checkout.completed`→`Authorized` and
-  `payment.charge.created.v2`→`Captured` on `Order.PaymentStatus`, and on success advances
-  `Order.Status` to the market's **`orderStatusAfterPayment`** setting (default `paid`).
+- **Consumer prefill** — the create-payment request includes `checkout.consumer` built from the
+  order's customer + shipping address. Nets validates this block strictly and discards **all** of it
+  when part is invalid, which surfaces as a completely empty checkout rather than a partly filled
+  one, so the mapping is all-or-nothing per sub-object:
+  - `shippingAddress` needs addressLine1 + postalCode + city + alpha-3 country — all four or the
+    address is omitted (email and name still go).
+  - `phoneNumber` needs `prefix` matching `^[+]\d{1,3}$` and a digits-only number. `+46…`, `0046…`
+    and local `070-…` (code taken from the shipping country) all map; an unrecognised calling code
+    or country is omitted rather than guessed, since the code's length can't be inferred.
+  - `privatePerson` needs both names, and is mutually exclusive with `company`.
+  - `< > ' " & \` are unsupported and most strings cap at 128 characters, so consumer strings are
+    stripped and truncated — otherwise one apostrophe in a surname fails the whole request.
+  - `checkout.consumerType` is sent (defaulting to B2C) because it governs which consumer fields the
+    page renders; without it there is nothing for the prefill to land in. `checkout.countryCode`
+    (alpha-3) is sent when derivable and is mandatory for Klarna.
+- **`merchantHandlesConsumerData`** (market setting, off by default) — off: Nets renders the customer
+  fields, prefilled and still editable. On: your own checkout owns that data and Nets asks only for
+  payment details (`consumerType` is then omitted, as Nets ignores it).
+- **Webhook subscriptions** — every event the provider maps is registered per payment in
+  `notifications.webHooks` (Nets allows 32). The `.v2` variants are registered rather than their v1
+  twins, to avoid two deliveries of the same logical event. Nets rejects unknown event names, so only
+  documented ones are listed.
+- **Webhook verification** — each subscription carries a per-payment `authorization` token, a 32-char
+  `Guid("N")`; Nets requires **8–64 alphanumeric** characters, so an order number is not a legal
+  value. Nets echoes it in the `Authorization` header and `VerifyWebhookAsync` constant-time compares.
+- **Event map** — `payment.created`→`Initialized`; `payment.checkout.completed` /
+  `payment.reservation.created(.v2)`→`Authorized`; `payment.charge.created(.v2)`→`Captured`;
+  `payment.reservation.failed` / `payment.charge.failed(.v2)`→`Failed`; `payment.cancel.created` /
+  `payment.checkout.cancelled`→`Cancelled`; `payment.refund.completed`→`Refunded`.
+  `payment.refund.failed` and `payment.cancel.failed` change no payment state — the payment itself is
+  fine, so only their `error { code, message, source }` is recorded on `Order.PaymentError`.
+- **On success** the webhook advances `Order.Status` to the market's **`orderStatusAfterPayment`**
+  (default `paid`) through `OrderStatusService`, so stock is reserved and a tracking number issued.
 - **Surcharge fee line items** — since Nets requires `order.amount == sum(item.grossTotalAmount)`,
   a non-zero `Order.PaymentFee`/`PaymentFeeTax` is sent as two extra flat lines (references
   `"payment-fee"` / `"payment-fee-tax"`), the same technique already used for `"tax"`/`"shipping"`.
-  > The order status only changes when Nets calls the webhook (`POST /api/v1/payments/webhook`), so
-  > that URL must be reachable by Nets — configure it in the Nets portal, and tunnel it (e.g. ngrok)
-  > for local testing, otherwise a locally-placed test order stays in its pre-payment status.
+- **Diagnostics** — `NetsEasyClient` logs the outbound create-payment JSON at `Debug`, and includes
+  it in the error log on failure. That is how you tell "Nets ignored our prefill" apart from "the
+  order had no customer data to send".
+
+> **The webhook URL must be reachable from the internet.** It is built from
+> `Payments:PublicBaseUrl` (see below); when that is blank the incoming request's own scheme+host is
+> used, which is only correct if the API is already public. Locally, tunnel it (ngrok) and set the
+> config — otherwise no webhooks are registered at all and a test order stays in its pre-payment
+> status.
 
 ## Implementing a new provider
 
 Nets Easy is the reference implementation — copy its shape from
 `api/EComm.Payment/Providers/NetsEasy/`.
+
+### Know which shape your gateway is first
+
+Webhook designs differ more than you'd expect. The contract above was shaped against these; find
+yours before writing code, because the differences decide what you implement:
+
+| | Nets | Stripe | Adyen | Klarna | Vipps MobilePay | Mollie | PayPal |
+|---|---|---|---|---|---|---|---|
+| Body | 1 JSON event | 1 JSON event | **array** of `notificationItems` | 1 JSON event | 1 JSON event | **form-urlencoded**, one param | 1 JSON event |
+| Unique event id | `id` | `id` | **none** | `metadata.event_id` | `idempotencyKey` (**optional**) | **none** | `id` |
+| Outcome | in event name | in `type` | `success` bool + `eventCode` | `payload.status` | `success` + `name` | **not in body** | in `event_type` |
+| Verify | shared secret in `Authorization` | HMAC-SHA256 over `t.body` | HMAC over a **colon-joined field string**, not the body | HMAC-SHA512 over body | HMAC over body | **none — you re-fetch instead** | CRC32+cert, or an API call |
+| Ack | `200` only | 2xx | body must be `[accepted]` | 200 | 200 | 200 | 2xx |
+
+Practical consequences:
+
+- **No event id?** Compose an `IdempotencyKey` from whatever is stable (Adyen:
+  `pspReference:eventCode:success`), or leave it blank and let the pipeline hash the body.
+- **No state in the body?** Parse the reference, call `context.ResolveSettings(reference)` for your
+  API credentials, and fetch the payment. That's the whole reason the resolver exists.
+- **Batched events?** Just return more than one `WebhookResult`; the pipeline dedups and applies each.
+- **A different ack body** (Adyen's `[accepted]`) is *not* supported yet — the pipeline always
+  returns a bare `200`. Whoever adds Adyen needs to make the ack provider-driven.
 
 1. **Create the provider folder** `api/EComm.Payment/Providers/<Name>/` and implement
    `IPaymentProvider` (unique `Alias`). Map `PaymentCreationContext.Order` to the gateway's create
@@ -227,12 +389,82 @@ Wire the storefront's success and cancel pages to the `returnUrl` / `cancelUrl` 
 final paid/authorized state is confirmed server-side by the gateway webhook, independent of the
 customer returning to the site.
 
+## Upgrade notes — webhook hardening
+
+For sites already integrated before the webhook pipeline gained verification, idempotency and the
+shared order-status transition. **No storefront code changes are required**; everything below is
+configuration, data, or behaviour to be aware of. The `IPaymentProvider` contract did change, but
+that only affects anyone who wrote their own provider.
+
+### 1. Remove portal-level webhook configuration (most likely to bite)
+
+Webhook subscriptions are now registered **per payment**, each carrying a per-payment `authorization`
+token. A webhook still configured in the gateway's merchant portal won't carry that token, so
+`VerifyWebhookAsync` rejects it with `401` — and the gateway retries it, then trips its circuit
+breaker (Nets: >20% failures to an endpoint in 30s).
+
+Symptom: a stream of `401`s and "Rejected a … webhook that failed verification" warnings, and orders
+that never advance. Duplicate deliveries of the *same* event are harmless (same event id ⇒ deduped);
+unverifiable ones are not. Delete the portal-level subscriptions for the events listed under
+[Nets Easy specifics](#nets-easy-specifics).
+
+### 2. Set `Payments:PublicBaseUrl`
+
+See [Host configuration](#host-configuration). If it's blank and the API isn't already publicly
+reachable, **no webhooks are registered at all** — deliberately, rather than handing the gateway an
+unreachable URL — and orders stay in their pre-payment status with nothing in the logs to suggest a
+failure. Set it to the tunnel URL locally.
+
+### 3. The API key is now mandatory for `POST /orders/{id}/payment`
+
+That endpoint used to be anonymous and is now authenticated. The Umbraco plugin already sends
+`X-API-Key` on every request (`CommerceApiClient.CreateClientAsync`), so no code change — **but**
+`CommerceSettings.IsValid` only checks `ApiBaseUrl` and `TenantId`, not `ApiKey`. A site that was
+running without an API key configured got away with it here and will now get `401`. Configure the
+key in the plugin's Commerce settings.
+
+### 4. Send customer and shipping data if you want the checkout prefilled
+
+`CreateOrderAsync` passes `Customer` and `ShippingAddress` straight through to the API, so the
+plugin supports this already — but the storefront has to populate them. Gateways validate the
+consumer block strictly: Nets needs **street + postal code + city + country, all four**, or it drops
+the entire block and the hosted page opens completely blank rather than partly filled. See
+[Nets Easy specifics](#nets-easy-specifics) for the per-field rules.
+
+To find out which side is at fault, set `EComm.Payment` logging to `Debug` and read the outbound
+create-payment JSON: a populated `checkout.consumer` means the gateway rejected our mapping, an empty
+one means the order never carried the data.
+
+### 5. Behaviour changes to check your error handling against
+
+- `PUT /orders/{id}/status` and `PUT /admin/orders/{id}/status` can now return **`400`** when there
+  isn't enough stock to mark an order paid. Both previously succeeded unconditionally. The documented
+  "no provider configured → mark the order paid directly" fallback goes through this path, so code
+  that ignores the response will silently stop marking orders paid.
+- Marking an order paid from the **backoffice** now reserves stock, and cancelling a paid order
+  releases it. Previously neither happened from that endpoint.
+- A market whose `orderStatusAfterPayment` is a custom status (e.g. `processing`) now reserves stock
+  too. It never did before — the check was a hardcoded comparison against `"paid"`.
+- `Order.PaymentStatus` can now be `Failed`, `Cancelled` or `Refunded`, not just
+  `Initialized`/`Authorized`/`Captured`. Anything switching on it needs those cases.
+- `Order.PaymentError` is a new field carrying the gateway's last failure as `"code: message"`.
+
+### 6. Database
+
+Additive only — two nullable columns on `Orders` (`PaymentWebhookSecret`, `PaymentError`) and the new
+`PaymentWebhookEvents` table, applied at startup by `SchemaUpgrader.EnsurePaymentWebhookSchema`.
+No reset, no reseed, no data migration.
+
 ## Security & licensing
 
 - Gateway credentials are stored per-market on the server (`MarketSettings`) and never sent to the client.
-- **Webhook signature verification is not yet implemented** (see the `ponytail:` note in
-  `NetsEasyPaymentProvider.HandleWebhookAsync`). Add HMAC/shared-secret verification per provider
-  before handling real money in production.
+- **Webhook verification is implemented per provider** via `VerifyWebhookAsync`; a failure returns
+  `401` and is not acked. It is *opt-in* — a provider that returns no `WebhookSecret` and doesn't
+  override the member accepts unverified webhooks, so implement it before you take real money.
+  Payments created before a provider issued a secret also skip verification, by design, so an
+  upgrade doesn't strand in-flight payments.
+- `POST /api/v1/orders/{id}/payment` requires authentication (JWT or `X-API-Key`); the webhook is
+  necessarily anonymous and relies on verification instead.
 - The Nets provider calls the Nets REST API directly over `HttpClient` — no third-party SDK, no
   copyleft dependencies. New providers should prefer permissively licensed (MIT/Apache-2.0/BSD) SDKs.
 

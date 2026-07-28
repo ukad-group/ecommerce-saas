@@ -5,6 +5,7 @@ using EComm.Data.Entities;
 using EComm.Data.ValueObjects.Order;
 using EComm.Data.ValueObjects.Tenant;
 using EComm.Api.DTOs.Requests.Orders;
+using EComm.Api.Services;
 
 namespace EComm.Api.Controllers;
 
@@ -168,113 +169,12 @@ public class OrdersController : ControllerBase
             return NotFound();
         }
 
-        var oldStatus = order.Status;
-        var newStatus = request.Status.ToLower();
-
-        // CRITICAL: Validate stock availability before transitioning to "paid"
-        // This prevents overselling when stock changes between cart creation and payment
-        if (newStatus == "paid" && oldStatus != "paid")
+        // Stock validation, tracking number and stock reserve/release all live in OrderStatusService
+        // so the payment webhook gets exactly the same behaviour.
+        var error = OrderStatusService.ApplyStatus(order, request.Status, _store.GetMarket(order.MarketId));
+        if (error != null)
         {
-            foreach (var item in order.Items)
-            {
-                var product = _store.GetProducts().FirstOrDefault(p => p.Id == item.ProductId && p.IsCurrentVersion);
-                if (product == null)
-                {
-                    return BadRequest($"Product '{item.ProductName}' not found");
-                }
-
-                int availableStock;
-                string itemIdentifier;
-
-                // Check variant stock if variant is specified
-                if (!string.IsNullOrEmpty(item.VariantId))
-                {
-                    var variant = product.Variants?.FirstOrDefault(v => v.Id == item.VariantId);
-                    if (variant == null)
-                    {
-                        return BadRequest($"Variant for product '{item.ProductName}' not found");
-                    }
-                    availableStock = variant.StockQuantity;
-                    itemIdentifier = $"{item.ProductName} (SKU: {variant.Sku})";
-                }
-                else
-                {
-                    // Check product stock
-                    if (!product.StockQuantity.HasValue)
-                    {
-                        return BadRequest($"Product '{item.ProductName}' has no stock information");
-                    }
-                    availableStock = product.StockQuantity.Value;
-                    itemIdentifier = $"{item.ProductName} (SKU: {product.Sku})";
-                }
-
-                // Validate sufficient stock
-                if (item.Quantity > availableStock)
-                {
-                    return BadRequest($"Insufficient stock for {itemIdentifier}. Requested: {item.Quantity}, Available: {availableStock}. Please return to cart to adjust quantities.");
-                }
-            }
-        }
-
-        order.Status = request.Status;
-
-        // Generate tracking number when marked as paid
-        if (newStatus == "paid" && string.IsNullOrEmpty(order.TrackingNumber))
-        {
-            order.TrackingNumber = $"TRACK-{order.Id.Substring(0, Math.Min(8, order.Id.Length)).ToUpper()}";
-        }
-
-        // Automatic stock adjustment based on status changes
-        // Decrease stock when order is paid (inventory reserved)
-        if (newStatus == "paid" && oldStatus != "paid")
-        {
-            foreach (var item in order.Items)
-            {
-                var product = _store.GetProducts().FirstOrDefault(p => p.Id == item.ProductId && p.IsCurrentVersion);
-                if (product != null)
-                {
-                    if (!string.IsNullOrEmpty(item.VariantId))
-                    {
-                        // Reduce variant stock
-                        _store.UpdateVariantStock(item.ProductId, item.VariantId, item.Quantity, decrease: true);
-                    }
-                    else if (product.StockQuantity.HasValue)
-                    {
-                        // Reduce product stock
-                        var newStock = Math.Max(0, product.StockQuantity.Value - item.Quantity);
-                        _store.UpdateProductStock(item.ProductId, newStock);
-                    }
-                }
-            }
-
-            // Clear the cart now that payment succeeded
-            // Extract session ID from order ID if it follows the pattern
-            // For showcase orders, we need to clear by session somehow
-            // For now, this is handled by the showcase calling Clear after successful payment
-        }
-
-        // Increase stock back when order is cancelled (inventory released)
-        // Note: Refunded items are NOT returned to stock as they may be damaged/lost
-        if (newStatus == "cancelled" && oldStatus == "paid")
-        {
-            foreach (var item in order.Items)
-            {
-                var product = _store.GetProducts().FirstOrDefault(p => p.Id == item.ProductId && p.IsCurrentVersion);
-                if (product != null)
-                {
-                    if (!string.IsNullOrEmpty(item.VariantId))
-                    {
-                        // Restore variant stock
-                        _store.UpdateVariantStock(item.ProductId, item.VariantId, item.Quantity, decrease: false);
-                    }
-                    else if (product.StockQuantity.HasValue)
-                    {
-                        // Restore product stock
-                        var newStock = product.StockQuantity.Value + item.Quantity;
-                        _store.UpdateProductStock(item.ProductId, newStock);
-                    }
-                }
-            }
+            return BadRequest(error);
         }
 
         _store.UpdateOrder(order);

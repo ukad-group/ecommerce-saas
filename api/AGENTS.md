@@ -206,16 +206,14 @@ GET/POST/DELETE  /api/v1/admin/tenants/{tenantId}/api-keys // Tenant-level API k
 ## Payments (pluggable providers)
 
 Payments live in their own **`EComm.Payment`** project (a class library referenced by `EComm.Api`) and go through a **provider abstraction** — `IPaymentProvider` + `PaymentProviderResolver` — so each market picks its gateway via `market.Settings.PaymentProvider`. `PaymentsController` is gateway-agnostic:
-- `POST /api/v1/orders/{id}/payment` → resolves the market's provider, returns `{ paymentId, redirectUrl }` (`400` if no provider configured, `502` if the provider fails).
-- `POST /api/v1/payments/webhook/{provider?}` → the `{provider}` segment (or default/sole provider) parses the body and updates `order.PaymentStatus`.
+- `POST /api/v1/orders/{id}/payment` → resolves the market's provider, returns `{ paymentId, redirectUrl }` (`400` if no provider configured, `502` if the provider fails). Requires auth (JWT or `X-API-Key`).
+- `POST /api/v1/payments/webhook/{provider?}` → the `{provider}` segment (or default/sole provider) verifies, parses and applies the body. Anonymous, but an **idempotent consumer**: events are deduplicated in `PaymentWebhookEvents`, `Order.PaymentStatus` only ever moves forward (`PaymentState` is ordered), and a failed `VerifyWebhookAsync` returns `401` instead of acking. On success it routes through `OrderStatusService` so stock is reserved.
 
 The generic layer (`EComm.Payment/`) contains no gateway code. Providers self-register from their own folder (`EComm.Payment/Providers/<Name>/`) via an `Add<Name>PaymentProvider()` extension; the API's `Program.cs` calls `AddPaymentProviders()` + `AddNetsEasyPaymentProvider()`.
 
-**Nets Easy** is the first provider (`EComm.Payment/Providers/NetsEasy/`): `NetsEasyClient` wraps the hosted-checkout REST API directly (no SDK); `NetsEasyPaymentProvider` reads a typed `NetsEasySettings` (live/test secret+checkout keys, `testMode`, and the `allowFetchingPaymentStatus`/`allowCancellingPayments`/`allowCapturingPayments`/`allowRefundingPayments` capability flags), prefills `checkout.consumer` from the order (email/name/address, country→alpha-3), and maps webhook events to payment status (`completed`→`Authorized`, `charge.created.v2`→`Captured`). On success the webhook also advances `Order.Status` to the market's `OrderStatusAfterPayment` (default `paid`) — this requires the Nets webhook to reach the API.
+**Nets Easy** is the first provider (`EComm.Payment/Providers/NetsEasy/`): `NetsEasyClient` wraps the hosted-checkout REST API directly (no SDK); `NetsEasyPaymentProvider` reads a typed `NetsEasySettings` (live/test secret+checkout keys, `testMode`, `merchantHandlesConsumerData`, and the `allowFetchingPaymentStatus`/`allowCancellingPayments`/`allowCapturingPayments`/`allowRefundingPayments` capability flags), prefills `checkout.consumer` from the order, registers its webhook subscriptions per payment with a per-payment authorization token, and maps Nets' event names onto the shared `PaymentState`. On success the webhook advances `Order.Status` to the market's `OrderStatusAfterPayment` (default `paid`) — this requires the Nets webhook to reach the API, so set `Payments:PublicBaseUrl` (tunnel it locally).
 
-**Full guide** (implementing/using providers): [docs/PAYMENT-PROVIDERS.md](../docs/PAYMENT-PROVIDERS.md).
-
-**Known gap**: the webhook handler does not yet verify the gateway signature/HMAC — don't treat this as production-ready for real money until that's added.
+**Full guide** (implementing/using providers, and a cross-gateway comparison of webhook shapes): [docs/PAYMENT-PROVIDERS.md](../docs/PAYMENT-PROVIDERS.md).
 
 ## Market-Level Commerce Settings
 

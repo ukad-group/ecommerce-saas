@@ -24,9 +24,23 @@ public interface IPaymentProvider
     Task<PaymentCreationResult?> CreatePaymentAsync(PaymentCreationContext context);
 
     /// <summary>
-    /// Parses this provider's webhook request body and returns the affected payment reference and
-    /// the new order payment status (or <c>null</c> status when the event needs no change).
-    /// Returns <c>null</c> when the body can't be parsed.
+    /// True when the request genuinely came from this gateway. Implementations are free to use the
+    /// raw body, headers, merchant credentials or the per-payment secret — schemes differ wildly
+    /// (shared token in a header, HMAC over the body, HMAC over selected fields, a verification API
+    /// call), so the pipeline only asks for a verdict.
+    /// <para>
+    /// Default: no verification. The pipeline only enforces this for payments where the provider
+    /// returned a <see cref="PaymentCreationResult.WebhookSecret"/>, so a provider that issues no
+    /// secret is unaffected; one that does should override this.
+    /// </para>
     /// </summary>
-    Task<WebhookResult?> HandleWebhookAsync(HttpRequest request);
+    Task<bool> VerifyWebhookAsync(WebhookContext context) => Task.FromResult(true);
+
+    /// <summary>
+    /// Parses this provider's webhook request into zero or more payment events. A list because some
+    /// gateways batch events for several payments into one POST; empty when the body carries nothing
+    /// actionable. Implementations may call their gateway's API (using credentials from
+    /// <see cref="WebhookContext.ResolveSettings"/>) when the body alone doesn't carry the state.
+    /// </summary>
+    Task<IReadOnlyList<WebhookResult>> HandleWebhookAsync(WebhookContext context);
 }

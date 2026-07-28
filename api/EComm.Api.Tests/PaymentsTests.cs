@@ -87,7 +87,7 @@ internal class RecordingNetsEasyClient : INetsEasyClient
 
 public class NetsEasyPaymentProviderTests
 {
-    private static PaymentCreationContext ContextWith(string? secretKey, CustomerInfo? customer = null, Address? shipping = null, JsonElement? settingsJson = null)
+    private static PaymentCreationContext ContextWith(string? secretKey, CustomerInfo? customer = null, Address? shipping = null, JsonElement? settingsJson = null, string webhookUrl = "")
     {
         var order = new Order
         {
@@ -105,7 +105,7 @@ public class NetsEasyPaymentProviderTests
         settingsJson ??= secretKey == null
             ? JsonSerializer.SerializeToElement(new { testMode = true })
             : JsonSerializer.SerializeToElement(new { testSecretKey = secretKey, testMode = true });
-        return new PaymentCreationContext { Order = order, Market = market, ProviderSettingsJson = settingsJson, ReturnUrl = "r", CancelUrl = "c", TermsUrl = "t" };
+        return new PaymentCreationContext { Order = order, Market = market, ProviderSettingsJson = settingsJson, ReturnUrl = "r", CancelUrl = "c", TermsUrl = "t", WebhookUrl = webhookUrl };
     }
 
     [Fact]
@@ -218,32 +218,242 @@ public class NetsEasyPaymentProviderTests
         Assert.Equal("SWE", consumer.ShippingAddress!.Country);   // alpha-2 SE → alpha-3 SWE
     }
 
+    [Fact]
+    public async Task CreatePaymentAsync_IncompleteAddress_OmitsAddressButKeepsTheRest()
+    {
+        // Nets needs addressLine1 + postalCode + city + alpha-3 country; given a partial address it
+        // discards the whole consumer block, which is what shows up as an empty checkout.
+        var nets = new RecordingNetsEasyClient(new NetsCreatePaymentResult { PaymentId = "p", HostedPaymentPageUrl = "u" });
+        var provider = new NetsEasyPaymentProvider(nets);
+        var ctx = ContextWith("secret",
+            new CustomerInfo { FullName = "John Doe", Email = "john@example.com" },
+            new Address { Street = "Main 1", City = "Stockholm" });   // no postal code, no country
+
+        await provider.CreatePaymentAsync(ctx);
+
+        var consumer = nets.LastRequest!.Checkout.Consumer!;
+        Assert.Null(consumer.ShippingAddress);
+        Assert.Equal("john@example.com", consumer.Email);
+        Assert.Equal("John", consumer.PrivatePerson!.FirstName);
+    }
+
     [Theory]
-    [InlineData("payment.checkout.completed", "Authorized")]
-    [InlineData("payment.charge.created.v2", "Captured")]
+    [InlineData("+46 70 123 45 67", "SE", "+46", "701234567")]
+    [InlineData("0046701234567", "SE", "+46", "701234567")]
+    [InlineData("070-123 45 67", "SE", "+46", "701234567")]   // local format → country's code
+    [InlineData("+358 40 1234567", "FI", "+358", "401234567")] // 3-digit code must not be read as 2
+    [InlineData("+999 123 4567", "SE", null, null)]            // unknown code → omitted, not guessed
+    [InlineData("070-123 45 67", "ZZ", null, null)]            // unknown country → omitted
+    [InlineData("", "SE", null, null)]
+    public async Task CreatePaymentAsync_MapsPhoneOrOmitsIt(string phone, string country, string? prefix, string? number)
+    {
+        var nets = new RecordingNetsEasyClient(new NetsCreatePaymentResult { PaymentId = "p", HostedPaymentPageUrl = "u" });
+        var provider = new NetsEasyPaymentProvider(nets);
+        var ctx = ContextWith("secret",
+            new CustomerInfo { FullName = "John Doe", Email = "john@example.com", Phone = phone },
+            new Address { Street = "Main 1", City = "Stockholm", PostalCode = "11122", Country = country });
+
+        await provider.CreatePaymentAsync(ctx);
+
+        var mapped = nets.LastRequest!.Checkout.Consumer!.PhoneNumber;
+        Assert.Equal(prefix, mapped?.Prefix);
+        Assert.Equal(number, mapped?.Number);
+    }
+
+    [Fact]
+    public async Task CreatePaymentAsync_StripsCharactersNetsRejects()
+    {
+        // An apostrophe in a surname otherwise fails the entire create-payment call.
+        var nets = new RecordingNetsEasyClient(new NetsCreatePaymentResult { PaymentId = "p", HostedPaymentPageUrl = "u" });
+        var provider = new NetsEasyPaymentProvider(nets);
+        var ctx = ContextWith("secret", new CustomerInfo { FullName = "Sean O'Brien", Email = "s@example.com" });
+
+        await provider.CreatePaymentAsync(ctx);
+
+        Assert.Equal("OBrien", nets.LastRequest!.Checkout.Consumer!.PrivatePerson!.LastName);
+    }
+
+    [Fact]
+    public async Task CreatePaymentAsync_SendsConsumerTypeAndCountrySoNetsHasFieldsToPrefill()
+    {
+        var nets = new RecordingNetsEasyClient(new NetsCreatePaymentResult { PaymentId = "p", HostedPaymentPageUrl = "u" });
+        var provider = new NetsEasyPaymentProvider(nets);
+        var ctx = ContextWith("secret",
+            new CustomerInfo { FullName = "John Doe", Email = "john@example.com" },
+            new Address { Street = "Main 1", City = "Stockholm", PostalCode = "11122", Country = "SE" });
+
+        await provider.CreatePaymentAsync(ctx);
+
+        var checkout = nets.LastRequest!.Checkout;
+        Assert.False(checkout.MerchantHandlesConsumerData);
+        Assert.Equal("B2C", checkout.ConsumerType!.Default);
+        Assert.Equal("SWE", checkout.CountryCode);
+    }
+
+    [Fact]
+    public async Task CreatePaymentAsync_MerchantHandlesConsumerData_OmitsConsumerType()
+    {
+        var nets = new RecordingNetsEasyClient(new NetsCreatePaymentResult { PaymentId = "p", HostedPaymentPageUrl = "u" });
+        var provider = new NetsEasyPaymentProvider(nets);
+        var settingsJson = JsonSerializer.SerializeToElement(new { testSecretKey = "secret", testMode = true, merchantHandlesConsumerData = true });
+
+        await provider.CreatePaymentAsync(ContextWith("secret", settingsJson: settingsJson));
+
+        Assert.True(nets.LastRequest!.Checkout.MerchantHandlesConsumerData);
+        Assert.Null(nets.LastRequest.Checkout.ConsumerType); // Nets ignores it in this mode
+    }
+
+    [Fact]
+    public async Task CreatePaymentAsync_RegistersEveryHandledEventOnOurWebhookUrl()
+    {
+        var nets = new RecordingNetsEasyClient(new NetsCreatePaymentResult { PaymentId = "p", HostedPaymentPageUrl = "u" });
+        var provider = new NetsEasyPaymentProvider(nets);
+        var ctx = ContextWith("secret", webhookUrl: "https://tunnel.example/api/v1/payments/webhook/nets-easy");
+
+        var result = await provider.CreatePaymentAsync(ctx);
+
+        var webhooks = nets.LastRequest!.Notifications!.Webhooks;
+        Assert.Contains("payment.checkout.completed", webhooks.Select(w => w.EventName));
+        Assert.Contains("payment.charge.failed", webhooks.Select(w => w.EventName));
+        Assert.All(webhooks, w => Assert.Equal("https://tunnel.example/api/v1/payments/webhook/nets-easy", w.Url));
+
+        // Nets rejects an authorization value that isn't 8-64 alphanumeric characters.
+        var authorization = Assert.Single(webhooks.Select(w => w.Authorization).Distinct());
+        Assert.Equal(32, authorization.Length);
+        Assert.Matches("^[a-zA-Z0-9]+$", authorization);
+
+        // Handed back so the pipeline can verify the webhooks these subscriptions will produce.
+        Assert.Equal(authorization, result!.WebhookSecret);
+    }
+
+    [Fact]
+    public async Task CreatePaymentAsync_NoPublicWebhookUrl_RegistersNoWebhooks()
+    {
+        var nets = new RecordingNetsEasyClient(new NetsCreatePaymentResult { PaymentId = "p", HostedPaymentPageUrl = "u" });
+        var provider = new NetsEasyPaymentProvider(nets);
+
+        var result = await provider.CreatePaymentAsync(ContextWith("secret"));
+
+        Assert.Null(nets.LastRequest!.Notifications);
+        Assert.Null(result!.WebhookSecret); // nothing registered ⇒ nothing to verify against
+    }
+
+    [Theory]
+    [InlineData("payment.created", PaymentState.Initialized)]
+    [InlineData("payment.checkout.completed", PaymentState.Authorized)]
+    [InlineData("payment.reservation.created.v2", PaymentState.Authorized)]
+    [InlineData("payment.charge.created.v2", PaymentState.Captured)]
+    [InlineData("payment.reservation.failed", PaymentState.Failed)]
+    [InlineData("payment.charge.failed", PaymentState.Failed)]
+    [InlineData("payment.cancel.created", PaymentState.Cancelled)]
+    [InlineData("payment.refund.completed", PaymentState.Refunded)]
+    [InlineData("payment.refund.failed", null)]   // the refund failed, not the payment
+    [InlineData("payment.cancel.failed", null)]
     [InlineData("payment.some.other.event", null)]
-    public async Task HandleWebhookAsync_MapsEventToStatus(string eventName, string? expectedStatus)
+    public async Task HandleWebhookAsync_MapsEventToState(string eventName, PaymentState? expected)
     {
         var provider = new NetsEasyPaymentProvider(new RecordingNetsEasyClient(null));
-        var body = "{\"event\":\"" + eventName + "\",\"data\":{\"paymentId\":\"pay_abc\"}}";
-        var request = new DefaultHttpContext().Request;
-        request.Body = new MemoryStream(Encoding.UTF8.GetBytes(body));
+        var body = $$$"""{"id":"evt_1","event":"{{{eventName}}}","data":{"paymentId":"pay_abc"}}""";
 
-        var result = await provider.HandleWebhookAsync(request);
+        var result = Assert.Single(await provider.HandleWebhookAsync(WebhookContextFor(body)));
 
-        Assert.NotNull(result);
-        Assert.Equal("pay_abc", result!.PaymentReference);
-        Assert.Equal(expectedStatus, result.NewStatus);
+        Assert.Equal("pay_abc", result.PaymentReference);
+        Assert.Equal("evt_1", result.IdempotencyKey);
+        Assert.Equal(eventName, result.EventName);
+        Assert.Equal(expected, result.NewState);
     }
+
+    [Fact]
+    public async Task HandleWebhookAsync_CarriesTheGatewayErrorOnFailureEvents()
+    {
+        var provider = new NetsEasyPaymentProvider(new RecordingNetsEasyClient(null));
+        var body = """
+            {"id":"evt_2","event":"payment.charge.failed","data":{"paymentId":"pay_abc",
+             "error":{"code":"911","message":"Insufficient funds","source":"Internal"}}}
+            """;
+
+        var result = Assert.Single(await provider.HandleWebhookAsync(WebhookContextFor(body)));
+
+        Assert.Equal(PaymentState.Failed, result.NewState);
+        Assert.Equal("911", result.Error!.Code);
+        Assert.Equal("Insufficient funds (source: Internal)", result.Error.Message);
+    }
+
+    [Fact]
+    public async Task HandleWebhookAsync_UnparseableBody_YieldsNothing()
+    {
+        var provider = new NetsEasyPaymentProvider(new RecordingNetsEasyClient(null));
+        Assert.Empty(await provider.HandleWebhookAsync(WebhookContextFor("not json")));
+    }
+
+    [Theory]
+    [InlineData("the-stored-secret", true)]    // Nets echoes what we registered
+    [InlineData("something-else", false)]
+    [InlineData("", false)]
+    public async Task VerifyWebhookAsync_ComparesTheAuthorizationHeaderToTheStoredSecret(string presented, bool expected)
+    {
+        var provider = new NetsEasyPaymentProvider(new RecordingNetsEasyClient(null));
+        var context = WebhookContextFor(
+            """{"id":"evt_1","event":"payment.checkout.completed","data":{"paymentId":"pay_abc"}}""",
+            authorization: presented,
+            storedSecret: "the-stored-secret");
+
+        Assert.Equal(expected, await provider.VerifyWebhookAsync(context));
+    }
+
+    [Fact]
+    public async Task VerifyWebhookAsync_PaymentWithNoStoredSecret_Passes()
+    {
+        // Orders created before webhook verification existed must not start failing.
+        var provider = new NetsEasyPaymentProvider(new RecordingNetsEasyClient(null));
+        var context = WebhookContextFor(
+            """{"id":"evt_1","event":"payment.checkout.completed","data":{"paymentId":"pay_abc"}}""",
+            storedSecret: null);
+
+        Assert.True(await provider.VerifyWebhookAsync(context));
+    }
+
+    private static WebhookContext WebhookContextFor(string body, string? authorization = null, string? storedSecret = null)
+    {
+        var httpContext = new DefaultHttpContext();
+        httpContext.Request.Body = new MemoryStream(Encoding.UTF8.GetBytes(body));
+        if (authorization != null) httpContext.Request.Headers.Authorization = authorization;
+
+        return new WebhookContext
+        {
+            Request = httpContext.Request,
+            ResolveSettings = _ => new WebhookSettings { PaymentWebhookSecret = storedSecret }
+        };
+    }
+}
+
+public class PaymentStatesTests
+{
+    [Theory]
+    [InlineData("Initialized", PaymentState.Authorized, true)]
+    [InlineData("Authorized", PaymentState.Captured, true)]
+    [InlineData("Captured", PaymentState.Authorized, false)]   // replayed authorization must not downgrade
+    [InlineData("Captured", PaymentState.Captured, true)]      // same state is a harmless no-op
+    [InlineData(null, PaymentState.Authorized, true)]
+    [InlineData("something-legacy", PaymentState.Authorized, true)]
+    public void Advances_OnlyLetsStateMoveForward(string? current, PaymentState incoming, bool expected)
+        => Assert.Equal(expected, PaymentStates.Advances(current, incoming));
 }
 
 internal class StubProvider : IPaymentProvider
 {
-    public StubProvider(string alias) => Alias = alias;
+    private readonly IReadOnlyList<WebhookResult> _results;
+
+    public StubProvider(string alias, params WebhookResult[] results)
+    {
+        Alias = alias;
+        _results = results;
+    }
+
     public string Alias { get; }
     public PaymentProviderDescriptor Descriptor => new() { Alias = Alias, DisplayName = Alias };
     public Task<PaymentCreationResult?> CreatePaymentAsync(PaymentCreationContext context) => Task.FromResult<PaymentCreationResult?>(null);
-    public Task<WebhookResult?> HandleWebhookAsync(HttpRequest request) => Task.FromResult<WebhookResult?>(null);
+    public Task<IReadOnlyList<WebhookResult>> HandleWebhookAsync(WebhookContext context) => Task.FromResult(_results);
 }
 
 public class PaymentProviderResolverTests
@@ -364,15 +574,42 @@ public class PaymentsControllerWebhookTests
         return connection; // keep alive for the duration of the test — closing it drops the in-memory db
     }
 
-    private static PaymentsController ControllerWithBody(string body)
+    private static PaymentsController ControllerWithBody(string body, string? authorization = null, IPaymentProvider? provider = null)
     {
+        var config = new ConfigurationBuilder().Build();
         var resolver = new PaymentProviderResolver(
-            new[] { new NetsEasyPaymentProvider(new RecordingNetsEasyClient(null)) },
-            new ConfigurationBuilder().Build());
+            new[] { provider ?? new NetsEasyPaymentProvider(new RecordingNetsEasyClient(null)) },
+            config);
         var httpContext = new DefaultHttpContext();
         httpContext.Request.Body = new MemoryStream(Encoding.UTF8.GetBytes(body));
-        return new PaymentsController(resolver) { ControllerContext = new ControllerContext { HttpContext = httpContext } };
+        if (authorization != null) httpContext.Request.Headers.Authorization = authorization;
+        return new PaymentsController(resolver, config, NullLogger<PaymentsController>.Instance)
+        {
+            ControllerContext = new ControllerContext { HttpContext = httpContext }
+        };
     }
+
+    private static Order SeedOrder(string paymentReference, string paymentStatus = "Initialized", string? webhookSecret = null, string status = "new")
+    {
+        var order = new Order
+        {
+            Id = Guid.NewGuid().ToString(),
+            TenantId = "tenant-a",
+            MarketId = "market-1",
+            OrderNumber = $"ORD-{paymentReference}",
+            PaymentReference = paymentReference,
+            PaymentStatus = paymentStatus,
+            PaymentWebhookSecret = webhookSecret,
+            Status = status,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        };
+        DataStore.Instance.AddOrder(order);
+        return order;
+    }
+
+    private static string EventBody(string eventName, string paymentId, string eventId = "evt_1")
+        => $$$"""{"id":"{{{eventId}}}","event":"{{{eventName}}}","data":{"paymentId":"{{{paymentId}}}"}}""";
 
     [Fact]
     public async Task HandleWebhook_CheckoutCompleted_FlipsOrderToAuthorized()
@@ -440,9 +677,163 @@ public class PaymentsControllerWebhookTests
     {
         using var connection = InitializeInMemoryDataStore();
 
-        var controller = ControllerWithBody("""{"event":"payment.checkout.completed","data":{"paymentId":"pay_does_not_exist"}}""");
+        var controller = ControllerWithBody(EventBody("payment.checkout.completed", "pay_does_not_exist"));
         var result = await controller.HandleWebhook(null);
 
         Assert.IsType<OkResult>(result);
+    }
+
+    [Fact]
+    public async Task HandleWebhook_RedeliveredEvent_IsAppliedOnce()
+    {
+        using var connection = InitializeInMemoryDataStore();
+        var order = SeedOrder("pay_dup");
+        var body = EventBody("payment.checkout.completed", "pay_dup", "evt_dup");
+
+        Assert.IsType<OkResult>(await ControllerWithBody(body).HandleWebhook(null));
+        var afterFirst = DataStore.Instance.GetOrder(order.Id)!.UpdatedAt;
+
+        // Nets delivers at-least-once; the same event id must be a no-op the second time.
+        Assert.IsType<OkResult>(await ControllerWithBody(body).HandleWebhook(null));
+
+        var updated = DataStore.Instance.GetOrder(order.Id)!;
+        Assert.Equal("Authorized", updated.PaymentStatus);
+        Assert.Equal(afterFirst, updated.UpdatedAt); // untouched by the redelivery
+    }
+
+    [Fact]
+    public async Task HandleWebhook_OutOfOrderDelivery_DoesNotDowngradeTheState()
+    {
+        using var connection = InitializeInMemoryDataStore();
+        var order = SeedOrder("pay_ooo");
+
+        await ControllerWithBody(EventBody("payment.charge.created.v2", "pay_ooo", "evt_charge")).HandleWebhook(null);
+        // A distinct event, so dedup won't catch it — only the state ranking stops the downgrade.
+        await ControllerWithBody(EventBody("payment.checkout.completed", "pay_ooo", "evt_completed")).HandleWebhook(null);
+
+        Assert.Equal("Captured", DataStore.Instance.GetOrder(order.Id)!.PaymentStatus);
+    }
+
+    [Fact]
+    public async Task HandleWebhook_FailureEvent_RecordsTheErrorAndLeavesOrderStatusAlone()
+    {
+        using var connection = InitializeInMemoryDataStore();
+        var order = SeedOrder("pay_fail", status: "new");
+
+        var body = """
+            {"id":"evt_fail","event":"payment.charge.failed","data":{"paymentId":"pay_fail",
+             "error":{"code":"911","message":"Insufficient funds","source":"Internal"}}}
+            """;
+        Assert.IsType<OkResult>(await ControllerWithBody(body).HandleWebhook(null));
+
+        var updated = DataStore.Instance.GetOrder(order.Id)!;
+        Assert.Equal("Failed", updated.PaymentStatus);
+        Assert.Equal("911: Insufficient funds (source: Internal)", updated.PaymentError);
+        Assert.Equal("new", updated.Status); // a failed payment doesn't move the order on
+    }
+
+    [Fact]
+    public async Task HandleWebhook_WrongAuthorizationHeader_IsRejectedAndNotApplied()
+    {
+        using var connection = InitializeInMemoryDataStore();
+        var order = SeedOrder("pay_secured", webhookSecret: "the-registered-secret");
+
+        var result = await ControllerWithBody(
+            EventBody("payment.checkout.completed", "pay_secured"),
+            authorization: "not-the-secret").HandleWebhook(null);
+
+        Assert.IsType<UnauthorizedResult>(result);
+        Assert.Equal("Initialized", DataStore.Instance.GetOrder(order.Id)!.PaymentStatus);
+    }
+
+    [Fact]
+    public async Task HandleWebhook_CorrectAuthorizationHeader_IsApplied()
+    {
+        using var connection = InitializeInMemoryDataStore();
+        var order = SeedOrder("pay_secured_ok", webhookSecret: "the-registered-secret");
+
+        var result = await ControllerWithBody(
+            EventBody("payment.checkout.completed", "pay_secured_ok"),
+            authorization: "the-registered-secret").HandleWebhook(null);
+
+        Assert.IsType<OkResult>(result);
+        Assert.Equal("Authorized", DataStore.Instance.GetOrder(order.Id)!.PaymentStatus);
+    }
+
+    [Fact]
+    public async Task HandleWebhook_BatchedEventsForDifferentPayments_AreAllApplied()
+    {
+        using var connection = InitializeInMemoryDataStore();
+        var first = SeedOrder("pay_batch_1");
+        var second = SeedOrder("pay_batch_2");
+
+        // Some gateways (Adyen) put several events for different payments in one POST.
+        var provider = new StubProvider("batching",
+            new WebhookResult { PaymentReference = "pay_batch_1", IdempotencyKey = "a", NewState = PaymentState.Authorized },
+            new WebhookResult { PaymentReference = "pay_batch_2", IdempotencyKey = "b", NewState = PaymentState.Captured });
+
+        Assert.IsType<OkResult>(await ControllerWithBody("{}", provider: provider).HandleWebhook("batching"));
+
+        Assert.Equal("Authorized", DataStore.Instance.GetOrder(first.Id)!.PaymentStatus);
+        Assert.Equal("Captured", DataStore.Instance.GetOrder(second.Id)!.PaymentStatus);
+    }
+
+    [Theory]
+    [InlineData(null, "paid")]           // market hasn't configured one → default
+    [InlineData("processing", "processing")]  // custom status must still move stock
+    public async Task HandleWebhook_SuccessfulPayment_DecrementsStockAndIssuesTracking(
+        string? orderStatusAfterPayment, string expectedStatus)
+    {
+        using var connection = InitializeInMemoryDataStore();
+
+        DataStore.Instance.AddMarket(new Market
+        {
+            Id = "market-1",
+            TenantId = "tenant-a",
+            Name = "Market 1",
+            Currency = "USD",
+            Settings = new MarketSettings { OrderStatusAfterPayment = orderStatusAfterPayment }
+        });
+        DataStore.Instance.AddProduct(new Product
+        {
+            Id = "p1",
+            TenantId = "tenant-a",
+            MarketId = "market-1",
+            Name = "Widget",
+            Sku = "sku-1",
+            StockQuantity = 10,
+            Version = 1,
+            IsCurrentVersion = true
+        });
+
+        var order = SeedOrder("pay_stock");
+        order.Items = [new OrderItem { ProductId = "p1", Sku = "sku-1", ProductName = "Widget", Quantity = 3, UnitPrice = 10m, Subtotal = 30m }];
+        DataStore.Instance.UpdateOrder(order);
+
+        await ControllerWithBody(EventBody("payment.checkout.completed", "pay_stock")).HandleWebhook(null);
+
+        var updated = DataStore.Instance.GetOrder(order.Id)!;
+        Assert.Equal("Authorized", updated.PaymentStatus);
+        Assert.Equal(expectedStatus, updated.Status);
+        Assert.NotNull(updated.TrackingNumber);
+        Assert.Equal(7, DataStore.Instance.GetProducts().First(p => p.Id == "p1" && p.IsCurrentVersion).StockQuantity);
+    }
+
+    [Fact]
+    public async Task HandleWebhook_NoIdempotencyKey_DedupesOnTheRawBody()
+    {
+        using var connection = InitializeInMemoryDataStore();
+        var order = SeedOrder("pay_nokey");
+
+        // Gateways like Adyen and Mollie send no event id, so the body hash is the dedup key.
+        PaymentsController Controller() => ControllerWithBody("""{"same":"body"}""", provider: new StubProvider("keyless",
+            new WebhookResult { PaymentReference = "pay_nokey", NewState = PaymentState.Authorized }));
+
+        Assert.IsType<OkResult>(await Controller().HandleWebhook("keyless"));
+        var afterFirst = DataStore.Instance.GetOrder(order.Id)!.UpdatedAt;
+
+        Assert.IsType<OkResult>(await Controller().HandleWebhook("keyless"));
+
+        Assert.Equal(afterFirst, DataStore.Instance.GetOrder(order.Id)!.UpdatedAt);
     }
 }

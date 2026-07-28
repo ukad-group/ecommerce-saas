@@ -141,6 +141,7 @@ using (var scope = app.Services.CreateScope())
 
     // Additive column upgrades for an already-existing ecomm.db (EnsureCreated is a no-op there)
     SchemaUpgrader.EnsureOrderPaymentFeeColumns(context);
+    SchemaUpgrader.EnsurePaymentWebhookSchema(context);
 
     // Seed data
     DatabaseSeeder.SeedDatabase(context);

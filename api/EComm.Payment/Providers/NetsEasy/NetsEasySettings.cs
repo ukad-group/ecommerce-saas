@@ -25,6 +25,13 @@ public class NetsEasySettings
     /// </summary>
     public string? MerchantNumber { get; set; }
 
+    /// <summary>
+    /// False (default): Nets renders the customer fields on its page, prefilled from the order and
+    /// still editable. True: our own checkout owns that data and Nets asks only for payment details.
+    /// Maps to checkout.merchantHandlesConsumerData.
+    /// </summary>
+    public bool MerchantHandlesConsumerData { get; set; }
+
     // ----- Features (mirrors the payment method's capability flags in the Nets merchant portal) -----
     public bool AllowFetchingPaymentStatus { get; set; }
     public bool AllowCancellingPayments { get; set; } = true;

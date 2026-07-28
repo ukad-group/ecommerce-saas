@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace EComm.Payment.Providers.NetsEasy;
 
 // Wire DTOs for the subset of the Nets Easy Payment API we call directly over HTTP
@@ -35,6 +37,27 @@ public class NetsCheckout
 
     /// <summary>Pre-fills (but does not lock) the hosted-page consumer fields. Null ⇒ omitted.</summary>
     public NetsConsumer? Consumer { get; set; }
+
+    /// <summary>
+    /// True ⇒ we collected the customer data ourselves, so the checkout only asks for payment
+    /// details. False ⇒ the checkout renders the consumer fields, prefilled from <see cref="Consumer"/>.
+    /// </summary>
+    public bool MerchantHandlesConsumerData { get; set; }
+
+    /// <summary>
+    /// Which customer categories the checkout offers, and which one loads first. Nets ignores this
+    /// when <see cref="MerchantHandlesConsumerData"/> is true, so we omit it then.
+    /// </summary>
+    public NetsConsumerType? ConsumerType { get; set; }
+
+    /// <summary>Checkout country, ISO 3166-1 alpha-3. Mandatory for Klarna. Null ⇒ omitted.</summary>
+    public string? CountryCode { get; set; }
+}
+
+public class NetsConsumerType
+{
+    public string Default { get; set; } = "B2C";
+    public List<string> SupportedTypes { get; set; } = ["B2C"];
 }
 
 // Optional consumer prefill — Nets shows these on the hosted page, still editable by the shopper.
@@ -73,12 +96,35 @@ public class NetsCreatePaymentRequest
 {
     public NetsOrder Order { get; set; } = new();
     public NetsCheckout Checkout { get; set; } = new();
+    
+    public NetsNotifications? Notifications { get; set; }
 
     /// <summary>
     /// Only for Nets partners initiating checkout with partner keys instead of the webshop's own
     /// integration keys. Null ⇒ omitted (the common case).
     /// </summary>
     public string? MerchantNumber { get; set; }
+}
+
+public class NetsNotifications
+{
+    /// <summary>Max 32 per payment. Serialized as "webHooks" to match the Nets API reference exactly.</summary>
+    [JsonPropertyName("webHooks")]
+    public List<NetsWebhookSubscription> Webhooks { get; set; } = new();
+}
+
+public class NetsWebhookSubscription
+{
+    public string EventName { get; set; } = string.Empty;
+
+    /// <summary>Must be HTTPS, max 256 characters.</summary>
+    public string Url { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Nets sends this back verbatim in the webhook's HTTP Authorization header. Nets requires
+    /// 8–64 alphanumeric characters — anything else (an order number with dashes, say) is rejected.
+    /// </summary>
+    public string Authorization { get; set; } = string.Empty;
 }
 
 public class NetsCreatePaymentResult
@@ -125,4 +171,14 @@ public class NetsWebhookEnvelope
 public class NetsWebhookData
 {
     public string PaymentId { get; set; } = string.Empty;
+
+    /// <summary>Present on every "*.failed" event. Null otherwise.</summary>
+    public NetsWebhookError? Error { get; set; }
+}
+
+public class NetsWebhookError
+{
+    public string Code { get; set; } = string.Empty;
+    public string Message { get; set; } = string.Empty;
+    public string Source { get; set; } = string.Empty;
 }

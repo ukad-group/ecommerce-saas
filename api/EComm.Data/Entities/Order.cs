@@ -55,6 +55,17 @@ public class Order
     /// <summary>The provider's payment id for this order's payment, once one has been created.</summary>
     public string? PaymentReference { get; set; }
 
+    /// <summary>
+    /// Per-payment secret the provider registered with its gateway when the payment was created, used
+    /// to verify that an incoming webhook really came from that gateway. Opaque to everything but the
+    /// provider that issued it; null for orders created before webhook verification existed (those
+    /// skip verification so in-flight payments keep working).
+    /// </summary>
+    public string? PaymentWebhookSecret { get; set; }
+
+    /// <summary>Last payment failure reported by the gateway ("code: message"). Null when none.</summary>
+    public string? PaymentError { get; set; }
+
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 }

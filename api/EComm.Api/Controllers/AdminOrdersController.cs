@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using EComm.Data;
 using EComm.Data.Entities;
 using EComm.Api.DTOs.Requests.Orders;
+using EComm.Api.Services;
 
 namespace EComm.Api.Controllers;
 
@@ -137,11 +138,16 @@ public class AdminOrdersController : ControllerBase
             return NotFound();
         }
 
-        // Update the order status
-        order.Status = request.Status;
-        order.UpdatedAt = DateTime.UtcNow;
+        // Same shared transition the storefront endpoint and the payment webhook use, so marking an
+        // order paid from the backoffice reserves stock (and cancelling releases it) instead of
+        // silently skipping both.
+        var error = OrderStatusService.ApplyStatus(order, request.Status, _store.GetMarket(order.MarketId));
+        if (error != null)
+        {
+            return BadRequest(error);
+        }
 
-        // Update the order in the store
+        order.UpdatedAt = DateTime.UtcNow;
         _store.UpdateOrder(order);
 
         return Ok(order);

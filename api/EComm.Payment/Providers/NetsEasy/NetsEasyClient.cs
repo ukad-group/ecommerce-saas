@@ -49,10 +49,20 @@ public class NetsEasyClient : INetsEasyClient
     public async Task<NetsCreatePaymentResult?> CreatePaymentAsync(string secretApiKey, bool testMode, NetsCreatePaymentRequest request)
     {
         using var msg = Build(HttpMethod.Post, testMode, "/v1/payments", secretApiKey, request);
+
+        // The outbound body is the only way to tell "Nets ignored our consumer prefill" apart from
+        // "we never sent one" when the hosted page comes up with empty fields. Contains no secrets —
+        // the key travels in the Authorization header, not the body.
+        if (_logger.IsEnabled(LogLevel.Debug))
+            _logger.LogDebug("Nets create-payment request: {Body}", JsonSerializer.Serialize(request, JsonOptions));
+
         var response = await _http.SendAsync(msg);
         if (!response.IsSuccessStatusCode)
         {
-            _logger.LogError("Nets create-payment failed: {Status} {Body}", response.StatusCode, await response.Content.ReadAsStringAsync());
+            _logger.LogError("Nets create-payment failed: {Status} {Body}. Request was: {Request}",
+                response.StatusCode,
+                await response.Content.ReadAsStringAsync(),
+                JsonSerializer.Serialize(request, JsonOptions));
             return null;
         }
         return await response.Content.ReadFromJsonAsync<NetsCreatePaymentResult>(JsonOptions);

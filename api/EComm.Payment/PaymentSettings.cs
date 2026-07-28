@@ -13,6 +13,18 @@ public static class PaymentSettings
     /// <summary>Placeholder returned in place of a stored secret, and ignored on the way back in.</summary>
     public const string SecretMask = "********";
 
+    private static readonly JsonSerializerOptions ReadOptions = new() { PropertyNameCaseInsensitive = true };
+
+    /// <summary>
+    /// Deserializes a provider's raw settings entry into its own typed model, returning a fresh
+    /// <typeparamref name="T"/> when there is nothing stored. Shared by every place a provider reads
+    /// its settings (payment creation and webhook handling) so the options live in one spot.
+    /// </summary>
+    public static T Read<T>(JsonElement? settings) where T : new()
+        => settings is { ValueKind: JsonValueKind.Object } element
+            ? element.Deserialize<T>(ReadOptions) ?? new T()
+            : new T();
+
     /// <summary>Returns a copy of <paramref name="stored"/> with every secret-typed field masked.</summary>
     public static JsonObject Mask(PaymentProviderDescriptor descriptor, JsonElement stored)
     {

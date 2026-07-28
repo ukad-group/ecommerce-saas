@@ -5,7 +5,7 @@
 ## Quick Reference
 
 **What Works**: Products, Categories, Orders (admin), Cart, Tenants, Markets, API Keys, Superadmin Auth, **Product Attributes** (per-store variant-axis library + presets), Discounts (API), **Pluggable Payments** (Nets Easy provider), **Responsive UI**, **UKAD Branding**
-**What's Missing**: Tenant Admin/User login flows, Checkout UI (showcase-dotnet), Cart persistence, payment webhook signature verification
+**What's Missing**: Tenant Admin/User login flows, Checkout UI (showcase-dotnet), Cart persistence
 
 ---
 
@@ -275,14 +275,18 @@ GET/PUT/DELETE   /api/v1/discounts/:id
 - **Payment-provider abstraction** in its own `EComm.Payment` project (`IPaymentProvider` + `PaymentProviderResolver`): markets pick a provider via `Market.Settings.PaymentProvider`; the generic layer names no gateway. See [PAYMENT-PROVIDERS.md](PAYMENT-PROVIDERS.md).
 - `PaymentsController` resolves the market's provider and returns a redirect URL
 - **Nets Easy** ships as the first provider (`EComm.Payment/Providers/NetsEasy/`); credentials per market in the generic `MarketSettings.PaymentProviders["nets-easy"]` bag (`secretApiKey`, `testMode`)
-- Webhook updates `Order.PaymentStatus` (Initialized → Authorized → Captured)
+- **Hardened webhook pipeline** — verifies the sender (`IPaymentProvider.VerifyWebhookAsync`, `401` on failure), deduplicates redeliveries in a `PaymentWebhookEvents` ledger, and only ever moves `Order.PaymentStatus` forward through the ordered `PaymentState` vocabulary (Initialized → Authorized → Captured → Cancelled/Failed → Refunded), since gateways deliver at-least-once and out of order. Failure events record `Order.PaymentError`. One request may carry several events, for gateways that batch.
+- Webhook URLs are built from `Payments:PublicBaseUrl`; the Nets provider registers its own subscriptions per payment with a per-payment authorization token
+- A successful payment advances the order through `OrderStatusService`, the shared transition also used by `PUT /orders/{id}/status` and `PUT /admin/orders/{id}/status` — so paying reserves stock and issues a tracking number from every path, including markets whose paid state is a custom status
 - Wired into the Umbraco sample site's real checkout flow (Cart → Checkout → Confirmation)
 - **Provider management UI** in both the React admin (Markets → edit → Payment providers) and the Umbraco plugin (Commerce → store → Options → Payment Providers), schema-driven from `GET /payments/providers` with masked/write-only secrets
 - **Payment surcharge fee** — an optional flat fee per provider alias (`MarketSettings.PaymentSurcharges`), taxed via a [Tax Class](TAX-CLASSES.md), snapshotted onto `Order.PaymentFee`/`Order.PaymentFeeTax` at order-creation time and folded into `Order.Total` + the Nets Easy request's line items
 
 ### Missing / Known Issues
-- Webhook does not verify the gateway signature/HMAC yet — do not rely on this for real money without adding it
+- Webhook verification is **opt-in per provider** — a provider that returns no `WebhookSecret` and doesn't override `VerifyWebhookAsync` still accepts unverified webhooks. Nets implements it; implement it before taking real money through any new gateway.
+- The webhook always acks with a bare `200`; a gateway needing a specific ack body (Adyen's `[accepted]`) would need that made provider-driven
 - The primary showcase-dotnet storefront still uses the fake auto-pay checkout; the provider flow is only wired into the Umbraco demo site's checkout
+- Not yet exercised end-to-end against the live Nets test environment — see [WEBHOOK-HARDENING-PLAN.md](WEBHOOK-HARDENING-PLAN.md)
 
 ### API Endpoints
 ```
@@ -370,7 +374,7 @@ None - Data now persists across restarts
 1. **Complete RBAC** - Finish tenant admin/user login flows
 2. **Checkout UI** - Build customer checkout forms in showcase-dotnet (API + Nets Easy ready; already live in the Umbraco demo site)
 3. **Cart Persistence** - Add localStorage for admin, database for production
-4. **Nets Easy webhook security** - Verify signature/HMAC before accepting real payments
+4. **Live payment verification** - Exercise the Nets test environment end-to-end (see [WEBHOOK-HARDENING-PLAN.md](WEBHOOK-HARDENING-PLAN.md))
 5. **Discounts admin UI** - Build React admin screens (API + Umbraco backoffice already support it)
 6. **Production Backend** - Replace SQLite with SQLServer for production use
 

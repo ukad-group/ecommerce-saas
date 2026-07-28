@@ -15,31 +15,70 @@ namespace EComm.Data;
 public static class SchemaUpgrader
 {
     public static void EnsureOrderPaymentFeeColumns(ECommDbContext context)
+        => WithConnection(context, connection =>
+        {
+            AddColumns(connection, "Orders", "decimal(18,2) NOT NULL DEFAULT 0", "PaymentFee", "PaymentFeeTax");
+        });
+
+    /// <summary>
+    /// Schema the webhook pipeline needs: the idempotency ledger, plus the two order columns that
+    /// carry a payment's webhook secret and its last gateway error.
+    /// </summary>
+    public static void EnsurePaymentWebhookSchema(ECommDbContext context)
+        => WithConnection(context, connection =>
+        {
+            AddColumns(connection, "Orders", "TEXT NULL", "PaymentWebhookSecret", "PaymentError");
+
+            Execute(connection, """
+                CREATE TABLE IF NOT EXISTS PaymentWebhookEvents (
+                    Id TEXT NOT NULL CONSTRAINT PK_PaymentWebhookEvents PRIMARY KEY,
+                    Provider TEXT NOT NULL,
+                    EventName TEXT NOT NULL,
+                    PaymentReference TEXT NOT NULL,
+                    OrderId TEXT NULL,
+                    ReceivedAt TEXT NOT NULL
+                )
+                """);
+            Execute(connection, "CREATE INDEX IF NOT EXISTS IX_PaymentWebhookEvents_PaymentReference ON PaymentWebhookEvents (PaymentReference)");
+            Execute(connection, "CREATE INDEX IF NOT EXISTS IX_Orders_PaymentReference ON Orders (PaymentReference)");
+        });
+
+    private static void WithConnection(ECommDbContext context, Action<System.Data.Common.DbConnection> work)
     {
         var connection = context.Database.GetDbConnection();
         var wasClosed = connection.State != ConnectionState.Open;
         if (wasClosed) connection.Open();
         try
         {
-            var existing = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            using (var cmd = connection.CreateCommand())
-            {
-                cmd.CommandText = "PRAGMA table_info(Orders)";
-                using var reader = cmd.ExecuteReader();
-                while (reader.Read()) existing.Add(reader.GetString(1)); // column 1 = name
-            }
-
-            foreach (var column in new[] { "PaymentFee", "PaymentFeeTax" })
-            {
-                if (existing.Contains(column)) continue;
-                using var cmd = connection.CreateCommand();
-                cmd.CommandText = $"ALTER TABLE Orders ADD COLUMN {column} decimal(18,2) NOT NULL DEFAULT 0";
-                cmd.ExecuteNonQuery();
-            }
+            work(connection);
         }
         finally
         {
             if (wasClosed) connection.Close();
         }
+    }
+
+    private static void AddColumns(System.Data.Common.DbConnection connection, string table, string columnDefinition, params string[] columns)
+    {
+        var existing = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        using (var cmd = connection.CreateCommand())
+        {
+            cmd.CommandText = $"PRAGMA table_info({table})";
+            using var reader = cmd.ExecuteReader();
+            while (reader.Read()) existing.Add(reader.GetString(1)); // column 1 = name
+        }
+
+        foreach (var column in columns)
+        {
+            if (existing.Contains(column)) continue;
+            Execute(connection, $"ALTER TABLE {table} ADD COLUMN {column} {columnDefinition}");
+        }
+    }
+
+    private static void Execute(System.Data.Common.DbConnection connection, string sql)
+    {
+        using var cmd = connection.CreateCommand();
+        cmd.CommandText = sql;
+        cmd.ExecuteNonQuery();
     }
 }

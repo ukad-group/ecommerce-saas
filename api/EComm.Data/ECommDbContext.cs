@@ -23,6 +23,7 @@ public class ECommDbContext : DbContext
     public DbSet<OrderStatus> OrderStatuses => Set<OrderStatus>();
     public DbSet<User> Users => Set<User>();
     public DbSet<Discount> Discounts => Set<Discount>();
+    public DbSet<PaymentWebhookEvent> PaymentWebhookEvents => Set<PaymentWebhookEvent>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -137,6 +138,18 @@ public class ECommDbContext : DbContext
             entity.HasIndex(e => new { e.TenantId, e.MarketId });
             entity.HasIndex(e => e.Status);
             entity.HasIndex(e => e.OrderNumber);
+            // Webhooks arrive keyed only by the gateway's payment id — this is the lookup path.
+            entity.HasIndex(e => e.PaymentReference);
+        });
+
+        // Webhooks we have already processed — the idempotency ledger. Id is
+        // "{provider}:{idempotency key}", so the primary key does the deduplication.
+        modelBuilder.Entity<PaymentWebhookEvent>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).IsRequired();
+            entity.Property(e => e.Provider).IsRequired();
+            entity.HasIndex(e => e.PaymentReference);
         });
 
         // Configure Tenant entity

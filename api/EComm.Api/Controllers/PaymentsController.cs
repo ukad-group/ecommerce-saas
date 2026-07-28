@@ -1,8 +1,12 @@
+using System.Security.Cryptography;
 using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
 using EComm.Data;
+using EComm.Data.Entities;
 using EComm.Api.DTOs.Requests.Orders;
+using EComm.Api.Services;
 using EComm.Payment;
+using Microsoft.AspNetCore.Authorization;
 
 namespace EComm.Api.Controllers;
 
@@ -11,10 +15,17 @@ public class PaymentsController : ControllerBase
 {
     private readonly DataStore _store = DataStore.Instance;
     private readonly IPaymentProviderResolver _resolver;
+    private readonly IConfiguration _configuration;
+    private readonly ILogger<PaymentsController> _logger;
 
-    public PaymentsController(IPaymentProviderResolver resolver)
+    public PaymentsController(
+        IPaymentProviderResolver resolver,
+        IConfiguration configuration,
+        ILogger<PaymentsController> logger)
     {
         _resolver = resolver;
+        _configuration = configuration;
+        _logger = logger;
     }
 
     /// <summary>
@@ -26,8 +37,10 @@ public class PaymentsController : ControllerBase
 
     /// <summary>
     /// Starts a payment for an order using the market's configured provider and returns the URL to
-    /// redirect the customer to.
+    /// redirect the customer to. Authenticated (JWT or X-API-Key): this spends against the market's
+    /// live gateway credentials, so it must not be reachable with just a guessed order id.
     /// </summary>
+    [Authorize]
     [HttpPost("api/v1/orders/{id}/payment")]
     public async Task<ActionResult> CreatePayment(string id, [FromBody] CreatePaymentRequest request)
     {
@@ -41,25 +54,24 @@ public class PaymentsController : ControllerBase
         if (provider == null)
             return BadRequest(new { message = "No payment provider is configured for this market" });
 
-        JsonElement? providerSettings = market.Settings?.PaymentProviders is { } bag && bag.TryGetValue(provider.Alias, out var element)
-            ? element
-            : null;
-
         var result = await provider.CreatePaymentAsync(new PaymentCreationContext
         {
             Order = order,
             Market = market,
-            ProviderSettingsJson = providerSettings,
+            ProviderSettingsJson = ProviderSettingsFor(market, provider.Alias),
             ReturnUrl = request.ReturnUrl,
             CancelUrl = request.CancelUrl,
-            TermsUrl = request.TermsUrl
+            TermsUrl = request.TermsUrl,
+            WebhookUrl = WebhookUrlFor(provider.Alias)
         });
 
         if (result == null)
             return StatusCode(502, new { message = "Payment provider could not create the payment" });
 
         order.PaymentReference = result.PaymentId;
-        order.PaymentStatus = "Initialized";
+        order.PaymentStatus = nameof(PaymentState.Initialized);
+        order.PaymentWebhookSecret = result.WebhookSecret;
+        order.PaymentError = null;
         order.UpdatedAt = DateTime.UtcNow;
         _store.UpdateOrder(order);
 
@@ -70,36 +82,128 @@ public class PaymentsController : ControllerBase
     /// Payment status webhook. The optional <c>{provider}</c> segment selects which provider parses
     /// the body; when omitted the default/sole provider is used (so an existing callback URL without
     /// the segment keeps working).
+    /// <para>
+    /// Gateways deliver at-least-once and out of order, so this is an idempotent consumer: every
+    /// event is recorded by key before it is applied, and a payment state may only ever advance.
+    /// Anything parseable is acked with 200 — a non-200 just makes the gateway retry. The one
+    /// exception is a failed signature check, which must not be acked.
+    /// </para>
     /// </summary>
+    [AllowAnonymous]
     [HttpPost("api/v1/payments/webhook/{provider?}")]
     public async Task<ActionResult> HandleWebhook(string? provider)
     {
         var paymentProvider = _resolver.Resolve(provider);
         if (paymentProvider == null) return Ok(); // Unknown provider — ack anyway so the gateway stops retrying
 
-        var result = await paymentProvider.HandleWebhookAsync(Request);
-        if (result == null || string.IsNullOrEmpty(result.PaymentReference))
-            return Ok();
+        // Providers read the body more than once: once to find the payment for verification, again to
+        // parse it. Some also hash the raw bytes for an HMAC.
+        Request.EnableBuffering();
 
-        var order = _store.GetAllOrders().FirstOrDefault(o => o.PaymentReference == result.PaymentReference);
-        if (order == null) return Ok(); // Unknown payment — ack anyway so the gateway stops retrying
+        // One request can carry events for several payments (some gateways batch), so memoise.
+        var orders = new Dictionary<string, Order?>(StringComparer.Ordinal);
+        Order? OrderFor(string reference)
+        {
+            if (!orders.TryGetValue(reference, out var order))
+                orders[reference] = order = _store.GetOrderByPaymentReference(reference);
+            return order;
+        }
 
+        var context = new WebhookContext
+        {
+            Request = Request,
+            ResolveSettings = reference =>
+            {
+                var order = OrderFor(reference);
+                if (order == null) return null;
+                var market = _store.GetMarket(order.MarketId);
+                return new WebhookSettings
+                {
+                    ProviderSettingsJson = market == null ? null : ProviderSettingsFor(market, paymentProvider.Alias),
+                    PaymentWebhookSecret = order.PaymentWebhookSecret
+                };
+            }
+        };
+
+        if (!await paymentProvider.VerifyWebhookAsync(context))
+        {
+            _logger.LogWarning("Rejected a {Provider} webhook that failed verification", paymentProvider.Alias);
+            return Unauthorized();
+        }
+
+        foreach (var result in await paymentProvider.HandleWebhookAsync(context))
+        {
+            if (string.IsNullOrEmpty(result.PaymentReference)) continue;
+
+            var order = OrderFor(result.PaymentReference);
+            if (order == null)
+            {
+                _logger.LogWarning("{Provider} webhook {Event} for unknown payment {Reference}",
+                    paymentProvider.Alias, result.EventName, result.PaymentReference);
+                continue; // ack anyway so the gateway stops retrying
+            }
+
+            var recorded = _store.TryRecordWebhookEvent(new PaymentWebhookEvent
+            {
+                Id = $"{paymentProvider.Alias}:{DeduplicationKey(result)}",
+                Provider = paymentProvider.Alias,
+                EventName = result.EventName,
+                PaymentReference = result.PaymentReference,
+                OrderId = order.Id,
+                ReceivedAt = DateTime.UtcNow
+            });
+
+            if (!recorded)
+            {
+                _logger.LogInformation("Skipped a redelivered {Provider} webhook {Event} for {Reference}",
+                    paymentProvider.Alias, result.EventName, result.PaymentReference);
+                continue;
+            }
+
+            Apply(result, order);
+        }
+
+        return Ok();
+    }
+
+    /// <summary>Applies one already-deduplicated event to its order.</summary>
+    private void Apply(WebhookResult result, Order order)
+    {
         var changed = false;
 
-        if (!string.IsNullOrEmpty(result.NewStatus))
+        if (result.Error != null)
         {
-            order.PaymentStatus = result.NewStatus;
+            order.PaymentError = string.IsNullOrEmpty(result.Error.Code)
+                ? result.Error.Message
+                : $"{result.Error.Code}: {result.Error.Message}";
+            _logger.LogWarning("Payment {Reference} reported {Event}: {Error}",
+                result.PaymentReference, result.EventName, order.PaymentError);
             changed = true;
         }
 
-        // On a successful payment, advance the order status to the market's configured value
-        // (regardless of which provider handled the payment), defaulting to "paid".
-        if (result.Succeeded)
+        // Out-of-order delivery is normal, so a late lower state must not undo a higher one.
+        if (result.NewState is { } state && PaymentStates.Advances(order.PaymentStatus, state))
         {
-            var market = _store.GetMarket(order.MarketId);
-            var orderStatus = market?.Settings?.OrderStatusAfterPayment;
-            order.Status = string.IsNullOrWhiteSpace(orderStatus) ? "paid" : orderStatus;
+            order.PaymentStatus = state.ToString();
             changed = true;
+
+            // On a successful payment, advance the order status to the market's configured value
+            // (regardless of which provider handled the payment), defaulting to "paid". Routed
+            // through the shared service so stock is reserved and a tracking number issued, exactly
+            // as when an operator marks the order paid by hand.
+            if (state is PaymentState.Authorized or PaymentState.Captured)
+            {
+                var market = _store.GetMarket(order.MarketId);
+                var orderStatus = market?.Settings?.OrderStatusAfterPayment;
+                var error = OrderStatusService.ApplyStatus(
+                    order, string.IsNullOrWhiteSpace(orderStatus) ? "paid" : orderStatus, market);
+
+                // The money is already taken, so a stock shortfall can't undo the payment — record
+                // the payment state, leave the order status alone and shout about it.
+                if (error != null)
+                    _logger.LogError("Payment {Reference} succeeded but the order could not be advanced: {Error}",
+                        result.PaymentReference, error);
+            }
         }
 
         if (changed)
@@ -107,7 +211,36 @@ public class PaymentsController : ControllerBase
             order.UpdatedAt = DateTime.UtcNow;
             _store.UpdateOrder(order);
         }
+    }
 
-        return Ok();
+    /// <summary>
+    /// The provider's own key when it has one, else a hash of the raw body. Several gateways send no
+    /// event id at all, so this fallback is a normal path rather than a safety net.
+    /// </summary>
+    private string DeduplicationKey(WebhookResult result)
+    {
+        if (!string.IsNullOrEmpty(result.IdempotencyKey)) return result.IdempotencyKey;
+
+        Request.Body.Position = 0;
+        return Convert.ToHexString(SHA256.HashData(Request.Body));
+    }
+
+    private static JsonElement? ProviderSettingsFor(Market market, string alias)
+        => market.Settings?.PaymentProviders is { } bag && bag.TryGetValue(alias, out var element)
+            ? element
+            : null;
+
+    /// <summary>
+    /// Where this provider's gateway should send status updates. Configured explicitly, because the
+    /// gateway calls us from the internet: the request's own host is only right when the API is
+    /// already publicly reachable, and locally it has to be the tunnel's URL.
+    /// </summary>
+    private string WebhookUrlFor(string alias)
+    {
+        var baseUrl = _configuration["Payments:PublicBaseUrl"];
+        if (string.IsNullOrWhiteSpace(baseUrl))
+            baseUrl = $"{Request.Scheme}://{Request.Host}";
+
+        return $"{baseUrl.TrimEnd('/')}/api/v1/payments/webhook/{alias}";
     }
 }
