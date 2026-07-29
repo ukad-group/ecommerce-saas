@@ -222,18 +222,17 @@ public class CommerceAdminApiController : ManagementApiControllerBase
     // ── Tax Classes ──────────────────────────────────────────────────────────────
 
     [HttpGet("tax-classes")]
-    [ProducesResponseType(typeof(List<TaxClass>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(TaxClassesResponse), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetTaxClasses([FromQuery] string? marketId = null)
     {
-        var taxClasses = await _apiClient.GetTaxClassesAsync(marketId);
-        return Ok(taxClasses);
+        return Ok(await _apiClient.GetTaxClassesAsync(marketId));
     }
 
     [HttpPut("tax-classes")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<IActionResult> UpdateTaxClasses([FromQuery] string? marketId, [FromBody] UpdateTaxClassesRequest request)
     {
-        var ok = await _apiClient.UpdateTaxClassesAsync(marketId, request.TaxClasses);
+        var ok = await _apiClient.UpdateTaxClassesAsync(marketId, request.TaxClasses, request.TaxRate);
         return ok ? Ok() : StatusCode(StatusCodes.Status502BadGateway, "Failed to update tax classes");
     }
 }
@@ -262,6 +261,9 @@ public class UpdatePropertyTemplatesRequest
 public class UpdateTaxClassesRequest
 {
     public List<TaxClass> TaxClasses { get; set; } = new();
+
+    /// <summary>Null leaves the market's stored fallback rate untouched.</summary>
+    public decimal? TaxRate { get; set; }
 }
 
 public class UpdateAttributesRequest

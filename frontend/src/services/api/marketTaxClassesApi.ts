@@ -1,8 +1,9 @@
 /**
  * Market Tax Classes API
  *
- * Named tax rates, market-scoped, feeding the payment-surcharge-fee's tax calculation. Whole-list
- * bulk replace, same shape as shipping methods / leasing periods.
+ * Named tax rates, market-scoped. The class named by the active payment provider's surcharge sets
+ * both the goods rate and that fee's own tax; `taxRate` is the flat fallback when none is named.
+ * Whole-list bulk replace, same shape as shipping methods / leasing periods.
  */
 
 import { apiClient } from './client';
@@ -19,16 +20,21 @@ export interface TaxClass {
   countryRates?: CountryTaxRate[];
 }
 
-interface TaxClassesResponse {
+export interface TaxClassesResponse {
   taxClasses: TaxClass[];
+  /** Flat fallback rate as a fraction (0.25 = 25%). */
+  taxRate: number;
 }
 
-export async function getMarketTaxClasses(marketId: string): Promise<TaxClass[]> {
-  const r = await apiClient.get<TaxClassesResponse>(`/admin/markets/${marketId}/tax-classes`);
-  return r.taxClasses;
+export async function getMarketTaxClasses(marketId: string): Promise<TaxClassesResponse> {
+  return apiClient.get<TaxClassesResponse>(`/admin/markets/${marketId}/tax-classes`);
 }
 
-export async function updateMarketTaxClasses(marketId: string, taxClasses: TaxClass[]): Promise<TaxClass[]> {
-  const r = await apiClient.put<TaxClassesResponse>(`/admin/markets/${marketId}/tax-classes`, { taxClasses });
-  return r.taxClasses;
+/** Omit taxRate to leave the stored fallback rate untouched. */
+export async function updateMarketTaxClasses(
+  marketId: string,
+  taxClasses: TaxClass[],
+  taxRate?: number,
+): Promise<TaxClassesResponse> {
+  return apiClient.put<TaxClassesResponse>(`/admin/markets/${marketId}/tax-classes`, { taxClasses, taxRate });
 }

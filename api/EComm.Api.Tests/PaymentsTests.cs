@@ -553,6 +553,22 @@ public class PaymentSettingsTests
 
         Assert.Equal("new", merged["secretApiKey"]!.ToString());
     }
+
+    [Fact]
+    public void Merge_DropsStoredKeysTheDescriptorNoLongerDeclares()
+    {
+        // A field removed from a provider leaves its value behind in every market that ever saved it;
+        // the descriptor is the schema, so the stale key must not survive the next save.
+        var existing = JsonSerializer.SerializeToElement(
+            new { secretApiKey = "live-123", testMode = true, allowRefundingPayments = true });
+        var incoming = (JsonObject)JsonNode.Parse("""{"secretApiKey":"","testMode":true}""")!;
+
+        var merged = PaymentSettings.Merge(Descriptor, existing, incoming);
+
+        Assert.False(merged.ContainsKey("allowRefundingPayments"));     // undeclared ⇒ pruned
+        Assert.Equal("live-123", merged["secretApiKey"]!.ToString());   // declared secret still preserved
+        Assert.True(merged["testMode"]!.GetValue<bool>());
+    }
 }
 
 /// <summary>DataStore.Instance is a process-wide singleton; tests that call InitializeDatabase must

@@ -19,8 +19,8 @@ public class MarketSettings
     public List<LeasingPeriod>? LeasingPeriods { get; set; }
     public string CartOrderStatus { get; set; } = "new";
 
-    /// <summary>Named tax rates feeding the payment-surcharge-fee's tax calculation — see
-    /// docs/TAX-CLASSES.md. Does not affect the general product/cart/order tax flow.</summary>
+    /// <summary>Named tax rates, referenced by id from the active provider's surcharge (which sets
+    /// both the goods rate and its own fee's rate) — see docs/TAX-CLASSES.md.</summary>
     public List<TaxClass>? TaxClasses { get; set; }
 
     /// <summary>
@@ -49,4 +49,34 @@ public class MarketSettings
     /// its generic schema — see docs/PAYMENT-PROVIDERS.md.
     /// </summary>
     public Dictionary<string, PaymentSurcharge>? PaymentSurcharges { get; set; }
+
+    /// <summary>
+    /// The rate goods are taxed at: the tax class picked on the <em>active</em> payment provider's
+    /// surcharge, falling back to the flat <see cref="TaxRate"/>. One method so carts and orders can
+    /// never drift apart — the only difference is that an order passes its shipping country, which
+    /// lets a per-country rate override the class default.
+    /// <para>
+    /// Falls back to <see cref="TaxRate"/> whenever no usable class is named — unset, or pointing at
+    /// a class since deleted. TaxClass.ResolveRate would answer 0m there, which silently ships
+    /// untaxed orders; the store rate is the safer answer for a dangling reference.
+    /// </para>
+    /// <para>
+    /// Note this couples goods tax to payment configuration: switching the active provider, or
+    /// clearing its surcharge, changes what the whole catalogue is taxed at. Give MarketSettings its
+    /// own DefaultTaxClassId if that coupling ever bites.
+    /// </para>
+    /// </summary>
+    public decimal ResolveGoodsTaxRate(string? countryCode = null)
+    {
+        var alias = PaymentProvider;
+        string? taxClassId = null;
+        if (!string.IsNullOrEmpty(alias) && PaymentSurcharges?.TryGetValue(alias, out var surcharge) == true)
+            taxClassId = surcharge.TaxClassId;
+
+        var taxClass = string.IsNullOrEmpty(taxClassId)
+            ? null
+            : TaxClasses?.FirstOrDefault(c => c.Id == taxClassId);
+
+        return taxClass == null ? TaxRate : TaxClass.ResolveRate(TaxClasses, taxClass.Id, countryCode);
+    }
 }

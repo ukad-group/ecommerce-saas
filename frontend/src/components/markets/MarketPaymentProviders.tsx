@@ -24,7 +24,6 @@ import {
   setActivePaymentProvider,
   setOrderStatusAfterPayment,
   setPaymentSurcharge,
-  deletePaymentSurcharge,
   type PaymentProviderDescriptor,
   type PaymentSettingField,
   type PaymentSurcharge,
@@ -64,7 +63,7 @@ export function MarketPaymentProviders({ marketId, currency }: Props) {
   const active = providersQuery.data?.active ?? null;
   const orderStatusAfterPayment = providersQuery.data?.orderStatusAfterPayment ?? null;
   const orderStatuses = orderStatusesQuery.data ?? [];
-  const taxClasses = taxClassesQuery.data ?? [];
+  const taxClasses = taxClassesQuery.data?.taxClasses ?? [];
   const surcharges = providersQuery.data?.surcharges ?? {};
 
   const descriptorByAlias = useMemo(
@@ -83,11 +82,8 @@ export function MarketPaymentProviders({ marketId, currency }: Props) {
     onError: (e: Error) => setError(e.message),
   });
 
-  const surchargeMutation = useMutation<PaymentSurcharge | void, Error, { alias: string; surcharge: PaymentSurcharge | null }>({
-    mutationFn: (vars) =>
-      vars.surcharge
-        ? setPaymentSurcharge(marketId, vars.alias, vars.surcharge)
-        : deletePaymentSurcharge(marketId, vars.alias),
+  const surchargeMutation = useMutation<PaymentSurcharge, Error, { alias: string; surcharge: PaymentSurcharge }>({
+    mutationFn: (vars) => setPaymentSurcharge(marketId, vars.alias, vars.surcharge),
     onError: (e: Error) => setError(e.message),
   });
 
@@ -144,12 +140,15 @@ export function MarketPaymentProviders({ marketId, currency }: Props) {
     try {
       await upsertMutation.mutateAsync({ alias: editing.alias, settings });
 
-      const amount = Number(editing.surcharge.amount) || 0;
+      // Always send what's in the form — the API drops an all-blank surcharge itself, so a tax class
+      // chosen before an amount is entered survives the save instead of being silently discarded.
       await surchargeMutation.mutateAsync({
         alias: editing.alias,
-        surcharge: amount > 0
-          ? { sku: editing.surcharge.sku || null, taxClassId: editing.surcharge.taxClassId || null, amount }
-          : null,
+        surcharge: {
+          sku: editing.surcharge.sku || null,
+          taxClassId: editing.surcharge.taxClassId || null,
+          amount: Number(editing.surcharge.amount) || 0,
+        },
       });
 
       setEditing(null);

@@ -402,7 +402,15 @@ public class MarketsController : ControllerBase
 
         market.Settings ??= new MarketSettings();
         market.Settings.PaymentSurcharges ??= new();
-        market.Settings.PaymentSurcharges[alias] = surcharge;
+
+        // An entirely blank surcharge means "none" — store nothing rather than an empty husk. Note a
+        // zero amount is NOT blank: a tax class or SKU set before the amount is worth keeping, and a
+        // 0 amount costs the shopper nothing (OrdersController skips the fee and its tax unless > 0).
+        if (IsBlank(surcharge))
+            market.Settings.PaymentSurcharges.Remove(alias);
+        else
+            market.Settings.PaymentSurcharges[alias] = surcharge;
+
         market.UpdatedAt = DateTime.UtcNow;
         _store.UpdateMarket(market);
 
@@ -423,7 +431,13 @@ public class MarketsController : ControllerBase
         return NoContent();
     }
 
-    // ----- Tax Classes (market-scoped; feeds the payment-surcharge-fee's tax calculation) -----
+    /// <summary>Nothing filled in at all — no label, no tax class, no amount.</summary>
+    private static bool IsBlank(PaymentSurcharge s) =>
+        string.IsNullOrWhiteSpace(s.Sku) && string.IsNullOrWhiteSpace(s.TaxClassId) && s.Amount == 0;
+
+    // ----- Tax Classes (market-scoped; drives the goods rate and the surcharge fee's tax) -----
+    // taxRate rides along with the classes: it's the fallback for the same lookup, so both admins
+    // edit tax in one screen instead of hunting for a rate hidden in the market form.
 
     [HttpGet("{id}/tax-classes")]
     [AllowAnonymous] // Allow all authenticated users to read
@@ -433,10 +447,11 @@ public class MarketsController : ControllerBase
         if (market == null) return NotFound();
 
         var taxClasses = market.Settings?.TaxClasses ?? new List<TaxClass>();
-        return Ok(new { taxClasses });
+        return Ok(new { taxClasses, taxRate = market.Settings?.TaxRate ?? 0m });
     }
 
     [HttpPut("{id}/tax-classes")]
+    [Authorize(Policy = "AdminOrApiKey")]
     public ActionResult UpdateTaxClasses(string id, [FromBody] UpdateTaxClassesRequest request)
     {
         var market = _store.GetMarket(id);
@@ -444,10 +459,12 @@ public class MarketsController : ControllerBase
 
         market.Settings ??= new MarketSettings();
         market.Settings.TaxClasses = request.TaxClasses;
+        if (request.TaxRate.HasValue)
+            market.Settings.TaxRate = request.TaxRate.Value;
         market.UpdatedAt = DateTime.UtcNow;
         _store.UpdateMarket(market);
 
-        return Ok(new { taxClasses = market.Settings.TaxClasses });
+        return Ok(new { taxClasses = market.Settings.TaxClasses, taxRate = market.Settings.TaxRate });
     }
 
     // ----- Product Attributes (market-scoped variant-axis library) -----

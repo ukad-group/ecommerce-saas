@@ -1219,15 +1219,10 @@ public class CommerceApiClient : ICommerceApiClient
         return response.IsSuccessStatusCode;
     }
 
-    private class TaxClassesResponse
-    {
-        public List<TaxClass> TaxClasses { get; set; } = new();
-    }
-
-    public async Task<List<TaxClass>> GetTaxClassesAsync(string? marketId = null)
+    public async Task<TaxClassesResponse> GetTaxClassesAsync(string? marketId = null)
     {
         var settings = await _settingsService.GetSettingsAsync();
-        if (settings == null || !settings.IsValid) return new List<TaxClass>();
+        if (settings == null || !settings.IsValid) return new TaxClassesResponse();
 
         try
         {
@@ -1235,17 +1230,18 @@ public class CommerceApiClient : ICommerceApiClient
             var client = await CreateClientAsync(settings);
             var response = await client.GetAsync($"admin/markets/{mid}/tax-classes");
             response.EnsureSuccessStatusCode();
-            var wrapper = await response.Content.ReadFromJsonAsync<TaxClassesResponse>(JsonOptions);
-            return wrapper?.TaxClasses ?? new List<TaxClass>();
+            return await response.Content.ReadFromJsonAsync<TaxClassesResponse>(JsonOptions)
+                   ?? new TaxClassesResponse();
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to fetch tax classes for market {MarketId}", marketId);
-            return new List<TaxClass>();
+            return new TaxClassesResponse();
         }
     }
 
-    public async Task<bool> UpdateTaxClassesAsync(string? marketId, List<TaxClass> taxClasses)
+    /// <summary>taxRate null leaves the market's stored fallback rate untouched.</summary>
+    public async Task<bool> UpdateTaxClassesAsync(string? marketId, List<TaxClass> taxClasses, decimal? taxRate = null)
     {
         var settings = await _settingsService.GetSettingsAsync();
         if (settings == null || !settings.IsValid) return false;
@@ -1254,7 +1250,7 @@ public class CommerceApiClient : ICommerceApiClient
         {
             var mid = marketId ?? settings.MarketId;
             var client = await CreateClientAsync(settings);
-            var json = JsonSerializer.Serialize(new { taxClasses }, JsonOptions);
+            var json = JsonSerializer.Serialize(new { taxClasses, taxRate }, JsonOptions);
             var content = new StringContent(json, Encoding.UTF8, "application/json");
             var response = await client.PutAsync($"admin/markets/{mid}/tax-classes", content);
             return response.IsSuccessStatusCode;

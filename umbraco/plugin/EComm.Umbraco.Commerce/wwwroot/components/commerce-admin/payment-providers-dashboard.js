@@ -105,7 +105,7 @@ class ECommPaymentProvidersDashboard extends UmbElementMixin(LitElement) {
     this.editing = null;
     this.addAlias = '';
     const headers = await this.getAuthHeaders();
-    const [data, taxClasses] = await Promise.all([
+    const [data, tax] = await Promise.all([
       fetch(`${API}/payment-providers?marketId=${encodeURIComponent(this.marketId)}`, { headers }).then((r) => r.json()),
       fetch(`${API}/tax-classes?marketId=${encodeURIComponent(this.marketId)}`, { headers }).then((r) => r.json()),
     ]);
@@ -113,7 +113,9 @@ class ECommPaymentProvidersDashboard extends UmbElementMixin(LitElement) {
     this.active = data?.active ?? null;
     this.orderStatusAfterPayment = data?.orderStatusAfterPayment ?? null;
     this.surcharges = data?.surcharges ?? {};
-    this.taxClasses = Array.isArray(taxClasses) ? taxClasses : [];
+    // { taxClasses, taxRate } — read the field, don't sniff for a bare array. Accepting both shapes
+    // is what let an API shape change empty this dropdown silently instead of failing loudly.
+    this.taxClasses = tax?.taxClasses ?? [];
   }
 
   descriptor(alias) {
@@ -240,20 +242,17 @@ class ECommPaymentProvidersDashboard extends UmbElementMixin(LitElement) {
         body: JSON.stringify(settings),
       });
 
-      const amount = Number(this.editing.surcharge.amount) || 0;
-      if (amount > 0) {
-        await fetch(`${API}/payment-providers/${alias}/surcharge?marketId=${mid}`, {
-          method: 'PUT',
-          headers,
-          body: JSON.stringify({
-            sku: this.editing.surcharge.sku || null,
-            taxClassId: this.editing.surcharge.taxClassId || null,
-            amount,
-          }),
-        });
-      } else {
-        await fetch(`${API}/payment-providers/${alias}/surcharge?marketId=${mid}`, { method: 'DELETE', headers });
-      }
+      // Always send what's in the form — the API drops an all-blank surcharge itself, so a tax class
+      // chosen before an amount is entered survives the save instead of being silently discarded.
+      await fetch(`${API}/payment-providers/${alias}/surcharge?marketId=${mid}`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify({
+          sku: this.editing.surcharge.sku || null,
+          taxClassId: this.editing.surcharge.taxClassId || null,
+          amount: Number(this.editing.surcharge.amount) || 0,
+        }),
+      });
 
       this.editing = null;
       await this.loadProviders();

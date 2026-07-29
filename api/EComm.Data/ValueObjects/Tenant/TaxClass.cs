@@ -1,9 +1,9 @@
 namespace EComm.Data.ValueObjects.Tenant;
 
 /// <summary>
-/// A named tax rate, market-scoped, feeding the payment-surcharge-fee's tax calculation (see
-/// docs/TAX-CLASSES.md). Does not touch the general product/cart/order tax flow, which still uses
-/// the flat MarketSettings.TaxRate.
+/// A named tax rate, market-scoped (see docs/TAX-CLASSES.md). The class named by the active payment
+/// provider's surcharge drives both the goods rate on carts and orders and the surcharge fee's own
+/// tax — see MarketSettings.ResolveGoodsTaxRate, which owns that lookup and its fallback.
 /// </summary>
 public class TaxClass
 {

@@ -12,10 +12,12 @@ export function useMarketTaxClasses(marketId: string | undefined) {
   });
 }
 
+/** taxRate is optional — omit it to edit classes without touching the flat fallback rate. */
 export function useUpdateMarketTaxClasses(marketId: string | undefined) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (taxClasses: TaxClass[]) => updateMarketTaxClasses(marketId as string, taxClasses),
+    mutationFn: (vars: { taxClasses: TaxClass[]; taxRate?: number }) =>
+      updateMarketTaxClasses(marketId as string, vars.taxClasses, vars.taxRate),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: KEY(marketId) }),
   });
 }

@@ -193,7 +193,7 @@ POST   /api/v1/order-statuses/reset-defaults
   - Revoke functionality
 - **Tenant-level API keys** (superadmin, not market-scoped) - managed at `/admin/tenants/:tenantId/api-keys`
 - Market shipping methods, leasing periods, and shippable countries configuration
-- Market tax classes (named tax rates + per-country overrides), feeding the payment surcharge fee
+- Market tax classes (named tax rates + per-country overrides) + an editable flat fallback rate. The class named by the **active payment provider** sets both the goods tax on carts/orders and that provider's surcharge fee tax — see [TAX-CLASSES.md](TAX-CLASSES.md)
 - Search and filtering
 - Pagination
 - Status management (active/inactive)

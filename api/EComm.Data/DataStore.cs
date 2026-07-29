@@ -2,6 +2,7 @@ using EComm.Data.Entities;
 using EComm.Data.ValueObjects.Cart;
 using EComm.Data.ValueObjects.Order;
 using EComm.Data.ValueObjects.Product;
+using EComm.Data.ValueObjects.Tenant;
 using Microsoft.EntityFrameworkCore;
 using System.Collections.Concurrent;
 
@@ -351,8 +352,10 @@ public class DataStore
     {
         cart.UpdatedAt = DateTime.UtcNow;
         cart.Subtotal = cart.Items.Sum(i => i.Subtotal);
-        var taxRate = GetMarket(cart.MarketId)?.Settings?.TaxRate ?? 0m;
-        cart.Tax = cart.Subtotal * taxRate;
+        // No country code here — a cart has no address yet, so this is the class default. The order
+        // re-resolves with the shipping country, which may land on a different per-country rate.
+        var taxRate = GetMarket(cart.MarketId)?.Settings?.ResolveGoodsTaxRate() ?? 0m;
+        cart.Tax = Math.Round(cart.Subtotal * taxRate, 2, MidpointRounding.AwayFromZero);
         cart.Total = cart.Subtotal + cart.Tax;
         _carts[cart.SessionId] = cart;
     }

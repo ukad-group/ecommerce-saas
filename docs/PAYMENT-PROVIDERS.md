@@ -203,7 +203,7 @@ alias):
   "paymentProvider": "nets-easy",           // which provider handles this market
   "orderStatusAfterPayment": "paid",        // generic — applies no matter which provider is active
   "paymentProviders": {
-    "nets-easy": { "testSecretKey": "…", "liveSecretKey": "…", "testMode": true, "allowCapturingPayments": true }
+    "nets-easy": { "testSecretKey": "…", "liveSecretKey": "…", "testMode": true, "merchantNumber": "…" }
     // "acme": { "apiKey": "…", "webhookSecret": "…" }   ← another provider, no schema change
   }
 }
@@ -219,14 +219,25 @@ list rather than nested in a provider's edit form.
 Each provider alias in `paymentProviders` still maps to an **opaque JSON object**. The generic layer
 never interprets it — the provider deserializes its own entry into a **strongly-typed settings
 model** via `context.GetSettings<T>()` (case-insensitive). For example the Nets provider defines
-`NetsEasySettings { LiveSecretKey, LiveCheckoutKey, TestSecretKey, TestCheckoutKey,
-MerchantTermsUrl, MerchantNumber, TestMode, AllowFetchingPaymentStatus, AllowCancellingPayments,
-AllowCapturingPayments, AllowRefundingPayments }` — `TestMode` selects the live-vs-test key pair,
+`NetsEasySettings { LiveSecretKey, TestSecretKey, LiveCheckoutKey, TestCheckoutKey,
+MerchantTermsUrl, MerchantNumber, TestMode, MerchantHandlesConsumerData }` — `TestMode` selects the
+live-vs-test key pair *and* the API host (`test.api.dibspayment.eu` vs `api.dibspayment.eu`),
 `MerchantTermsUrl`/`MerchantNumber` map directly to the real Nets Easy API's
 `checkout.merchantTermsUrl` and request-level `merchantNumber` fields (the latter only needed for
-Nets partners using partner keys), and the four `Allow*` flags mirror the payment method's
-capability flags in the Nets merchant portal. Secrets stay server-side and are never exposed to
-the browser.
+Nets partners using partner keys), and `MerchantHandlesConsumerData` decides whether Nets renders the
+consumer fields (prefilled from the order) or only asks for payment details. Secrets stay server-side
+and are never exposed to the browser.
+
+The two checkout keys are the one exception to "every declared field is read": they're consumed only
+by Nets' browser-side Checkout JS, which the hosted payment page
+(`IntegrationType = "HostedPaymentPage"`) doesn't use. They're declared ahead of an embedded-checkout
+integration type, and their help text says so in the admin form.
+
+Deliberately **not** declared: capability flags like `allowCapturingPayments` /
+`allowRefundingPayments`. Capture, refund and cancel operations don't exist in this codebase yet, and
+a flag that gates nothing is config for a value that never changes — declare them alongside the
+operations, not before. `PaymentSettings.Merge` drops stored keys the descriptor no longer declares,
+so removing a field cleans it out of every market on the next save.
 
 ## Payment surcharge fee
 

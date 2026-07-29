@@ -34,11 +34,13 @@ public interface ICommerceApiClient
     /// <summary>Remove a provider's surcharge fee from a market.</summary>
     Task<bool> DeletePaymentSurchargeAsync(string marketId, string alias);
 
-    // ----- Tax Classes (market-scoped; feeds the payment-surcharge-fee's tax calculation) -----
+    // ----- Tax Classes (market-scoped; drives the goods rate and the surcharge fee's tax) -----
 
-    Task<List<TaxClass>> GetTaxClassesAsync(string? marketId = null);
+    /// <summary>The market's named classes plus its flat fallback rate.</summary>
+    Task<TaxClassesResponse> GetTaxClassesAsync(string? marketId = null);
 
-    Task<bool> UpdateTaxClassesAsync(string? marketId, List<TaxClass> taxClasses);
+    /// <summary>taxRate null leaves the market's stored fallback rate untouched.</summary>
+    Task<bool> UpdateTaxClassesAsync(string? marketId, List<TaxClass> taxClasses, decimal? taxRate = null);
 
     /// <summary>
     /// Gets all markets for the configured tenant

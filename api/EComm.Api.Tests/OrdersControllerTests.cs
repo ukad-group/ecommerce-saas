@@ -5,9 +5,11 @@ using EComm.Data.Entities;
 using EComm.Data.ValueObjects.Common;
 using EComm.Data.ValueObjects.Order;
 using EComm.Data.ValueObjects.Tenant;
+using EComm.Payment;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Xunit;
 
 namespace EComm.Api.Tests;
@@ -41,8 +43,9 @@ public class OrdersControllerTests
     }
 
     /// <summary>Seeds a market with an active provider + a configured surcharge + a tax class with
-    /// a country override, and a cart with one $100 line item (no market tax, so totals are easy
-    /// to reason about), then creates an order for it. Returns the created order.</summary>
+    /// a country override, and a cart with one $100 line item, then creates an order for it. The flat
+    /// TaxRate is 0 so that any goods tax seen here provably came from the provider's tax class.
+    /// Returns the created order.</summary>
     private static Order CreateOrderWithSurcharge(string country)
     {
         var marketId = $"market-{Guid.NewGuid()}";
@@ -100,6 +103,53 @@ public class OrdersControllerTests
         return Assert.IsType<Order>(okResult.Value);
     }
 
+    /// <summary>Saves a surcharge through MarketsController and returns what ended up stored on the
+    /// market, so these assert the persisted state rather than the response echo.</summary>
+    private static PaymentSurcharge? SaveSurcharge(PaymentSurcharge surcharge)
+    {
+        var marketId = $"market-{Guid.NewGuid()}";
+        DataStore.Instance.AddMarket(new Market
+        {
+            Id = marketId,
+            TenantId = "tenant-a",
+            Name = "Test Market",
+            Currency = "USD",
+            Settings = new MarketSettings()
+        });
+
+        var resolver = new PaymentProviderResolver(
+            new[] { new StubProvider("nets-easy") },
+            new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>()).Build());
+
+        var result = new MarketsController(resolver).SetPaymentSurcharge(marketId, "nets-easy", surcharge);
+        Assert.IsType<OkObjectResult>(result);
+
+        var stored = DataStore.Instance.GetMarket(marketId)!.Settings!.PaymentSurcharges;
+        return stored != null && stored.TryGetValue("nets-easy", out var s) ? s : null;
+    }
+
+    [Fact]
+    public void SetPaymentSurcharge_KeepsTaxClassChosenBeforeAnAmountIsEntered()
+    {
+        using var connection = InitializeInMemoryDataStore();
+
+        // The admin UIs used to only persist a surcharge when amount > 0 and DELETE it otherwise, so
+        // picking a tax class and saving silently threw it away and the field reverted to "None".
+        var stored = SaveSurcharge(new PaymentSurcharge { TaxClassId = "tc1", Amount = 0m });
+
+        Assert.NotNull(stored);
+        Assert.Equal("tc1", stored!.TaxClassId);
+        Assert.Equal(0m, stored.Amount);
+    }
+
+    [Fact]
+    public void SetPaymentSurcharge_StoresNothingWhenEveryFieldIsBlank()
+    {
+        using var connection = InitializeInMemoryDataStore();
+
+        Assert.Null(SaveSurcharge(new PaymentSurcharge()));
+    }
+
     [Fact]
     public void CreateOrder_AppliesSurchargeFee_UsingCountryOverrideRate()
     {
@@ -110,6 +160,24 @@ public class OrdersControllerTests
         Assert.Equal(5m, order.PaymentFee);
         Assert.Equal(1.25m, order.PaymentFeeTax);
         Assert.Equal(order.Subtotal + order.Tax + order.ShippingCost + order.PaymentFee + order.PaymentFeeTax, order.Total);
+    }
+
+    // Goods tax is re-resolved at order time, so the shipping country picks the per-country rate the
+    // cart couldn't know about. The market's flat TaxRate is 0 here, so 25% can only be tc1's override.
+    [Fact]
+    public void CreateOrder_TaxesGoods_UsingActiveProvidersTaxClassAndShippingCountry()
+    {
+        using var connection = InitializeInMemoryDataStore();
+
+        Assert.Equal(25.00m, CreateOrderWithSurcharge("SE").Tax);
+    }
+
+    [Fact]
+    public void CreateOrder_GoodsTax_UsesClassDefault_ForCountryWithoutAnOverride()
+    {
+        using var connection = InitializeInMemoryDataStore();
+
+        Assert.Equal(20.00m, CreateOrderWithSurcharge("US").Tax);
     }
 
     [Fact]

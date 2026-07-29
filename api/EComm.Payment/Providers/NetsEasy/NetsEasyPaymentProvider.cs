@@ -32,7 +32,8 @@ public class NetsEasyPaymentProvider : IPaymentProvider
                     Key = "liveCheckoutKey",
                     Label = "Live checkout key",
                     Type = PaymentFieldType.Text,
-                    HelpText = "Your live Nets checkout key.",
+                    HelpText =
+                        "Your live Nets checkout key. Only used by embedded checkout — the hosted payment page doesn't need it.",
                 },
                 new()
                 {
@@ -46,7 +47,8 @@ public class NetsEasyPaymentProvider : IPaymentProvider
                     Key = "testCheckoutKey",
                     Label = "Test checkout key",
                     Type = PaymentFieldType.Text,
-                    HelpText = "Your test Nets checkout key.",
+                    HelpText =
+                        "Your test Nets checkout key. Only used by embedded checkout — the hosted payment page doesn't need it.",
                 },
                 new()
                 {
@@ -80,39 +82,6 @@ public class NetsEasyPaymentProvider : IPaymentProvider
                     DefaultValue = "true",
                     HelpText = "Use the Nets test environment (and the test keys above).",
                 },
-                new()
-                {
-                    Key = "allowFetchingPaymentStatus",
-                    Label = "Allow Fetching Payment Status",
-                    Type = PaymentFieldType.Bool,
-                    DefaultValue = "false",
-                    HelpText =
-                        "Set whether fetching payment status from the payment provider API should be allowed.",
-                },
-                new()
-                {
-                    Key = "allowCancellingPayments",
-                    Label = "Allow Cancelling Payments",
-                    Type = PaymentFieldType.Bool,
-                    DefaultValue = "true",
-                    HelpText = "Set whether cancelling payments should be allowed.",
-                },
-                new()
-                {
-                    Key = "allowCapturingPayments",
-                    Label = "Allow Capturing Payments",
-                    Type = PaymentFieldType.Bool,
-                    DefaultValue = "true",
-                    HelpText = "Set whether capturing payments should be allowed.",
-                },
-                new()
-                {
-                    Key = "allowRefundingPayments",
-                    Label = "Allow Refunding Payments",
-                    Type = PaymentFieldType.Bool,
-                    DefaultValue = "false",
-                    HelpText = "Set whether refunding payments should be allowed.",
-                },
             ],
         };
 
@@ -134,6 +103,7 @@ public class NetsEasyPaymentProvider : IPaymentProvider
         "payment.reservation.created.v2",
         "payment.reservation.failed",
         "payment.charge.created.v2",
+        "payment.charge.failed.v2",
         "payment.charge.failed",
         "payment.refund.completed",
         "payment.refund.failed",
@@ -509,6 +479,7 @@ public class NetsEasyPaymentProvider : IPaymentProvider
         ["PT"] = "PRT",
         ["CA"] = "CAN",
         ["AU"] = "AUS",
+        ["UA"] = "UKR",
     };
 
     private static string? ToAlpha3(string? country)

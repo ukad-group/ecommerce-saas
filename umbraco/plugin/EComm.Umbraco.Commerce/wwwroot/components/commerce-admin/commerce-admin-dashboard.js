@@ -117,6 +117,9 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
     taxClassesLoading:        { type: Boolean },
     taxClassesError:          { type: String  },
     editingTaxClass:          { type: Object  },
+    storeTaxRate:             { type: Number  },
+    // null ⇒ not being edited, so the field shows the stored rate and saves leave it alone.
+    storeTaxRateDraft:        { type: String  },
     countries:                { type: Array   },
   };
 
@@ -152,6 +155,7 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
     this.attributePresets = []; this.attributePresetsLoading = false; this.attributePresetsError = null; this.editingAttributePreset = null;
     this.attributePresetsSearch = ''; this.attributePresetsPage = 1;
     this.taxClasses = []; this.taxClassesLoading = false; this.taxClassesError = null; this.editingTaxClass = null;
+    this.storeTaxRate = 0; this.storeTaxRateDraft = null;
     this.countries = [];
 
     this.consumeContext(UMB_AUTH_CONTEXT, ctx => { this._authContext = ctx; });
@@ -471,19 +475,32 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
     try {
       const qs = this.selectedMarketId ? `?marketId=${encodeURIComponent(this.selectedMarketId)}` : '';
       const data = await this._get(`/umbraco/management/api/ecomm-commerce/tax-classes${qs}`);
-      this.taxClasses = Array.isArray(data) ? data : (data?.taxClasses ?? []);
+      this.taxClasses = data?.taxClasses ?? [];
+      this.storeTaxRate = Number(data?.taxRate) || 0;
+      this.storeTaxRateDraft = null;
       if (!this.countries.length) this.countries = await this._get('/umbraco/management/api/ecomm-commerce/countries');
     } catch (e) { this.taxClassesError = e.message; }
     finally { this.taxClassesLoading = false; }
   }
 
-  async _saveTaxClasses(taxClasses) {
+  /** taxRate undefined ⇒ the API leaves the market's stored fallback rate alone. */
+  async _saveTaxClasses(taxClasses, taxRate) {
     const headers = await this.getAuthHeaders();
     const qs = this.selectedMarketId ? `?marketId=${encodeURIComponent(this.selectedMarketId)}` : '';
     const r = await fetch(`/umbraco/management/api/ecomm-commerce/tax-classes${qs}`, {
-      method: 'PUT', headers, credentials: 'include', body: JSON.stringify({ taxClasses })
+      method: 'PUT', headers, credentials: 'include', body: JSON.stringify({ taxClasses, taxRate })
     });
     if (!r.ok) throw new Error(r.statusText);
+  }
+
+  async saveStoreTaxRate() {
+    const percent = Number(this.storeTaxRateDraft);
+    if (!Number.isFinite(percent) || percent < 0) { this.taxClassesError = 'Store tax rate must be zero or more.'; return; }
+    this.taxClassesError = null;
+    try {
+      await this._saveTaxClasses(this.taxClasses, percent / 100);
+      this.loadTaxClasses();
+    } catch (e) { this.taxClassesError = e.message; }
   }
 
   async saveTaxClass() {
@@ -1601,6 +1618,22 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
 
         ${this._errorBanner(this.taxClassesError, () => { this.taxClassesError = null; })}
 
+        <!-- The flat fallback rate. It belongs on this screen rather than the market form because it's
+             the same lookup's last resort, and this is where people come to change tax. -->
+        <div class="store-tax">
+          <div class="store-tax-row">
+            <label>Store Tax Rate (fallback)</label>
+            <input class="form-input" type="number" step="0.01" min="0" style="width:110px"
+              .value=${this.storeTaxRateDraft ?? String((this.storeTaxRate || 0) * 100)}
+              @input=${e => { this.storeTaxRateDraft = e.target.value; }}>
+            <span>%</span>
+            ${this.storeTaxRateDraft !== null ? html`
+              <uui-button look="primary" compact @click=${() => this.saveStoreTaxRate()}>Save</uui-button>
+              <uui-button look="secondary" compact @click=${() => { this.storeTaxRateDraft = null; }}>Discard</uui-button>` : ''}
+          </div>
+          <small>Applied to goods when the active payment provider names no tax class (or names one that has since been deleted).</small>
+        </div>
+
         ${t ? html`
           <div class="modal-overlay" @click=${(e) => { if (e.target === e.currentTarget) this.editingTaxClass = null; }}>
           <div class="form-panel form-panel--modal">
@@ -1922,7 +1955,10 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
     /* ── Content area ─────────────────────────────────────────── */
     .commerce-content { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
 
-    .view-container { display: flex; flex-direction: column; height: 100%; background: #f4f4f4; }
+    /* overflow-y here, not on each view: the inline views bring their own "flex: 1; overflow: auto"
+       body, but embedded child elements (payment providers) can't — they'd be clipped by
+       .commerce-content's overflow: hidden with no scrollbar anywhere. */
+    .view-container { display: flex; flex-direction: column; height: 100%; background: #f4f4f4; overflow-y: auto; }
 
     .view-header {
       display: flex; align-items: center; justify-content: space-between;
@@ -2157,6 +2193,15 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
     /* ── Footer ───────────────────────────────────────────────── */
     .view-footer { padding: 9px 24px; border-top: 1px solid #e5e5e5; background: #ffffff; }
     .breadcrumb { font-size: 0.78rem; color: #aaaaaa; }
+
+    /* ── Store tax rate (Tax Classes view) ────────────────────── */
+    .store-tax {
+      margin: 12px 24px 0; padding: 12px 16px;
+      background: #ffffff; border: 1px solid #e5e5e5; border-radius: 6px;
+    }
+    .store-tax-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .store-tax-row label { font-weight: 600; margin-right: 4px; }
+    .store-tax small { display: block; margin-top: 6px; color: #888888; }
 
     /* ── Market list ──────────────────────────────────────────── */
     .market-list { padding: 6px 0 2px; border-bottom: 1px solid #e5e5e5; }

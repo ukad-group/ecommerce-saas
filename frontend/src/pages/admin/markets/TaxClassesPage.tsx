@@ -25,7 +25,7 @@ export function TaxClassesPage() {
     enabled: !!marketId,
   });
 
-  const { data: taxClasses, isLoading } = useMarketTaxClasses(marketId);
+  const { data: taxData, isLoading } = useMarketTaxClasses(marketId);
   // Unfiltered on purpose: tax-rate overrides are a country/tax-law concept, independent of which
   // countries this market currently ships to (that's a separate, shipping-zone concept).
   const { data: countries } = useQuery({
@@ -37,8 +37,11 @@ export function TaxClassesPage() {
   const [dirtyMap, setDirtyMap] = useState<Map<string, TaxClass>>(new Map());
   const [newClasses, setNewClasses] = useState<TaxClass[]>([]);
   const [error, setError] = useState<string | null>(null);
+  // null = not being edited, so the field shows the stored rate and saves leave it alone.
+  const [storeRateDraft, setStoreRateDraft] = useState<string | null>(null);
 
-  const list = taxClasses ?? [];
+  const list = taxData?.taxClasses ?? [];
+  const storeRate = taxData?.taxRate ?? 0;
   const visible = [...newClasses, ...list];
 
   const setDirty = (id: string, tc: TaxClass) => setDirtyMap((m) => new Map(m).set(id, tc));
@@ -81,11 +84,28 @@ export function TaxClassesPage() {
     const isNew = !!newClasses.find((c) => c.id === tc.id);
     const nextList = isNew ? [...list, clean] : list.map((c) => (c.id === tc.id ? clean : c));
     try {
-      await updateMutation.mutateAsync(nextList);
+      await updateMutation.mutateAsync({ taxClasses: nextList });
       if (isNew) setNewClasses((ns) => ns.filter((c) => c.id !== tc.id));
       clearDirty(tc.id);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to save tax class');
+    }
+  };
+
+  const handleSaveStoreRate = async () => {
+    if (storeRateDraft === null) return;
+    const percent = Number(storeRateDraft);
+    if (!Number.isFinite(percent) || percent < 0) {
+      setError('Store tax rate must be zero or more.');
+      return;
+    }
+
+    setError(null);
+    try {
+      await updateMutation.mutateAsync({ taxClasses: list, taxRate: percent / 100 });
+      setStoreRateDraft(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to save the store tax rate');
     }
   };
 
@@ -103,14 +123,14 @@ export function TaxClassesPage() {
     if (!confirm('Remove this tax class? This cannot be undone.')) return;
     setError(null);
     try {
-      await updateMutation.mutateAsync(list.filter((c) => c.id !== id));
+      await updateMutation.mutateAsync({ taxClasses: list.filter((c) => c.id !== id) });
       clearDirty(id);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to delete tax class');
     }
   };
 
-  if (isLoading && !taxClasses) {
+  if (isLoading && !taxData) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <LoadingSpinner size="lg" />
@@ -131,8 +151,9 @@ export function TaxClassesPage() {
             <div>
               <h1 className="text-3xl font-bold text-gray-900">Tax Classes</h1>
               <p className="mt-2 text-sm text-gray-600">
-                Named tax rates for this market, used by the payment surcharge fee. Each has a
-                default rate plus optional per-country overrides.
+                Named tax rates for this market. The class chosen on the active payment provider sets
+                both the goods rate and that provider's surcharge fee tax. Each has a default rate
+                plus optional per-country overrides.
               </p>
             </div>
             <Button onClick={handleAdd}>+ Create Tax Class</Button>
@@ -144,6 +165,40 @@ export function TaxClassesPage() {
             {error}
           </div>
         )}
+
+        {/* The flat fallback rate. Lives here rather than in the market form because it's the same
+            lookup's last resort, and this is the screen people open when they want to change tax. */}
+        <div className="mb-6 bg-white rounded-lg shadow p-4">
+          <div className="flex items-end justify-between gap-4">
+            <div className="flex-1">
+              <Field label="Store Tax Rate (fallback)">
+                <div className="relative w-40">
+                  <input
+                    type="number" step="0.01" min="0"
+                    value={storeRateDraft ?? String(storeRate * 100)}
+                    onChange={(e) => setStoreRateDraft(e.target.value)}
+                    className="w-full pr-8 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#4a6ba8]"
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">%</span>
+                </div>
+              </Field>
+              <p className="mt-2 text-xs text-gray-500">
+                Applied to goods when the active payment provider names no tax class (or names one
+                that has since been deleted).
+              </p>
+            </div>
+            {storeRateDraft !== null && (
+              <div className="flex flex-col gap-1 shrink-0">
+                <button type="button" onClick={handleSaveStoreRate} disabled={updateMutation.isPending}
+                  className="text-sm text-[#4a6ba8] hover:text-[#3d5789] disabled:opacity-50">
+                  {updateMutation.isPending ? 'Saving…' : 'Save'}
+                </button>
+                <button type="button" onClick={() => setStoreRateDraft(null)}
+                  className="text-sm text-gray-500 hover:text-gray-700">Discard</button>
+              </div>
+            )}
+          </div>
+        </div>
 
         <div className="space-y-4">
           {visible.length === 0 ? (

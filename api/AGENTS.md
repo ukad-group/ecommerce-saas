@@ -156,7 +156,7 @@ GET/PUT   /api/v1/markets/{id}/shipping-methods       // Market's delivery optio
 GET/PUT   /api/v1/markets/{id}/leasing-periods        // Market's rental duration presets
 GET/POST/PUT/DELETE /api/v1/markets/{id}/attributes       // Market's product-attribute library (variant axes; + bulk PUT)
 GET/POST/PUT/DELETE /api/v1/markets/{id}/attribute-presets // Named bundles of attributes (+ bulk PUT)
-GET/PUT   /api/v1/markets/{id}/tax-classes                    // Market's named tax rates (+ per-country overrides)
+GET/PUT   /api/v1/markets/{id}/tax-classes                    // Market's named tax rates (+ per-country overrides) + the flat fallback taxRate
 PUT/DELETE /api/v1/markets/{id}/payment-providers/{alias}/surcharge // Provider's surcharge fee for this market
 ```
 
@@ -211,7 +211,7 @@ Payments live in their own **`EComm.Payment`** project (a class library referenc
 
 The generic layer (`EComm.Payment/`) contains no gateway code. Providers self-register from their own folder (`EComm.Payment/Providers/<Name>/`) via an `Add<Name>PaymentProvider()` extension; the API's `Program.cs` calls `AddPaymentProviders()` + `AddNetsEasyPaymentProvider()`.
 
-**Nets Easy** is the first provider (`EComm.Payment/Providers/NetsEasy/`): `NetsEasyClient` wraps the hosted-checkout REST API directly (no SDK); `NetsEasyPaymentProvider` reads a typed `NetsEasySettings` (live/test secret+checkout keys, `testMode`, `merchantHandlesConsumerData`, and the `allowFetchingPaymentStatus`/`allowCancellingPayments`/`allowCapturingPayments`/`allowRefundingPayments` capability flags), prefills `checkout.consumer` from the order, registers its webhook subscriptions per payment with a per-payment authorization token, and maps Nets' event names onto the shared `PaymentState`. On success the webhook advances `Order.Status` to the market's `OrderStatusAfterPayment` (default `paid`) — this requires the Nets webhook to reach the API, so set `Payments:PublicBaseUrl` (tunnel it locally).
+**Nets Easy** is the first provider (`EComm.Payment/Providers/NetsEasy/`): `NetsEasyClient` wraps the hosted-checkout REST API directly (no SDK); `NetsEasyPaymentProvider` reads a typed `NetsEasySettings` (live/test secret+checkout keys, `merchantTermsUrl`, `merchantNumber`, `testMode`, `merchantHandlesConsumerData` — every one of which is actually sent, except the checkout keys, which embedded checkout will need), prefills `checkout.consumer` from the order, registers its webhook subscriptions per payment with a per-payment authorization token, and maps Nets' event names onto the shared `PaymentState`. On success the webhook advances `Order.Status` to the market's `OrderStatusAfterPayment` (default `paid`) — this requires the Nets webhook to reach the API, so set `Payments:PublicBaseUrl` (tunnel it locally).
 
 **Full guide** (implementing/using providers, and a cross-gateway comparison of webhook shapes): [docs/PAYMENT-PROVIDERS.md](../docs/PAYMENT-PROVIDERS.md).
 
@@ -223,7 +223,7 @@ The generic layer (`EComm.Payment/`) contains no gateway code. Providers self-re
 - `CustomPropertyTemplates` (each may carry an `AttributeId` to render its product value as a dropdown of the attribute's values)
 - `DefaultLeasingFactor`, `CartOrderStatus`
 - `PaymentProvider` (alias of the gateway for this market) + `OrderStatusAfterPayment` (order status set on a successful payment, regardless of provider) + `PaymentProviders` (generic per-provider settings bag, keyed by alias → opaque JSON each provider deserializes into its own typed model via `context.GetSettings<T>()`) — see [docs/PAYMENT-PROVIDERS.md](../docs/PAYMENT-PROVIDERS.md)
-- `PaymentSurcharges` (optional flat fee per provider alias, applied when that provider is active) + `TaxClasses` (named tax rates with default + per-country override, feeding the surcharge fee's tax calculation) — see [docs/PAYMENT-PROVIDERS.md](../docs/PAYMENT-PROVIDERS.md) and [docs/TAX-CLASSES.md](../docs/TAX-CLASSES.md)
+- `PaymentSurcharges` (optional flat fee per provider alias, applied when that provider is active) + `TaxClasses` (named tax rates with default + per-country override). The class named by the **active** provider's surcharge sets both the goods tax on carts/orders and that fee's own tax, via `MarketSettings.ResolveGoodsTaxRate()`; with no usable class it falls back to the flat `TaxRate` (editable on the Tax Classes screen in both admins) — see [docs/PAYMENT-PROVIDERS.md](../docs/PAYMENT-PROVIDERS.md) and [docs/TAX-CLASSES.md](../docs/TAX-CLASSES.md)
 
 ## Data Store
 

@@ -39,7 +39,9 @@ public static class PaymentSettings
 
     /// <summary>
     /// Merges <paramref name="incoming"/> over <paramref name="existing"/>. Secret fields left blank
-    /// or still holding the mask keep their previously stored value (write-only secrets).
+    /// or still holding the mask keep their previously stored value (write-only secrets). The
+    /// descriptor is the schema, so stored keys it no longer declares are dropped — a field removed
+    /// from a provider self-cleans out of every market on the next save instead of lingering forever.
     /// </summary>
     public static JsonObject Merge(PaymentProviderDescriptor descriptor, JsonElement? existing, JsonObject incoming)
     {
@@ -56,6 +58,11 @@ public static class PaymentSettings
             }
             result[key] = node?.DeepClone();
         }
+
+        var declared = descriptor.Fields.Select(f => f.Key).ToHashSet();
+        foreach (var stale in result.Select(p => p.Key).Where(k => !declared.Contains(k)).ToList())
+            result.Remove(stale);
+
         return result;
     }
 }

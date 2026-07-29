@@ -72,6 +72,11 @@ public class OrdersController : ControllerBase
             : shippingMethods.FirstOrDefault();
         var shippingCost = shippingMethod?.Price ?? 0m;
 
+        // Re-resolve goods tax here rather than inheriting cart.Tax: the cart had no address, so a
+        // tax class with per-country rates could only offer its default until now.
+        var goodsTaxRate = market?.Settings?.ResolveGoodsTaxRate(request.ShippingAddress.Country) ?? 0m;
+        var tax = Math.Round(cart.Subtotal * goodsTaxRate, 2, MidpointRounding.AwayFromZero);
+
         PaymentSurcharge? surcharge = null;
         if (!string.IsNullOrEmpty(market?.Settings?.PaymentProvider))
             market.Settings.PaymentSurcharges?.TryGetValue(market.Settings.PaymentProvider, out surcharge);
@@ -122,11 +127,11 @@ public class OrdersController : ControllerBase
                 };
             }).ToList(),
             Subtotal = cart.Subtotal,
-            Tax = cart.Tax,
+            Tax = tax,
             ShippingCost = shippingCost,
             PaymentFee = paymentFee,
             PaymentFeeTax = paymentFeeTax,
-            Total = cart.Total + shippingCost + paymentFee + paymentFeeTax,
+            Total = cart.Subtotal + tax + shippingCost + paymentFee + paymentFeeTax,
             CustomProperties = request.CustomProperties,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow

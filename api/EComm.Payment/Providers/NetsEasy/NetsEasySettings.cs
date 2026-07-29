@@ -7,8 +7,11 @@ namespace EComm.Payment.Providers.NetsEasy;
 public class NetsEasySettings
 {
     public string? LiveSecretKey { get; set; }
-    public string? LiveCheckoutKey { get; set; }
     public string? TestSecretKey { get; set; }
+
+    // ponytail: the checkout keys are only consumed by Nets' browser-side Checkout JS, so nothing
+    // reads them until an embedded-checkout integration type exists. Kept because that's planned.
+    public string? LiveCheckoutKey { get; set; }
     public string? TestCheckoutKey { get; set; }
 
     public bool TestMode { get; set; } = true;
@@ -31,10 +34,4 @@ public class NetsEasySettings
     /// Maps to checkout.merchantHandlesConsumerData.
     /// </summary>
     public bool MerchantHandlesConsumerData { get; set; }
-
-    // ----- Features (mirrors the payment method's capability flags in the Nets merchant portal) -----
-    public bool AllowFetchingPaymentStatus { get; set; }
-    public bool AllowCancellingPayments { get; set; } = true;
-    public bool AllowCapturingPayments { get; set; } = true;
-    public bool AllowRefundingPayments { get; set; }
 }
