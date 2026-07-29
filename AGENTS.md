@@ -153,6 +153,8 @@ dotnet run
   ARCHITECTURE.md    # Tech stack, data models, design decisions
   DEVELOPMENT.md     # Workflow, coding standards, troubleshooting
   TEST-SCENARIOS.md  # Automated test scenarios for Playwright MCP
+/.github/workflows/  # CI/CD (api + frontend → Docker Hub → Kubernetes)
+/deployment/k8s/     # Kubernetes manifests (Traefik IngressRoute for api + frontend)
 /.claude/commands/   # Slash commands for context loading
   ctx-products.md    # Product catalog context
   ctx-orders.md      # Orders & cart context
@@ -194,6 +196,37 @@ Load specific context when working on features. Claude Code supports `/ctx-*` co
 
 **Test Scenarios**: See [docs/TEST-SCENARIOS.md](docs/TEST-SCENARIOS.md) for all happy path tests.
 
+### Continuous Integration / Deployment (GitHub Actions)
+
+Path-filtered workflows under `.github/workflows/`:
+
+| Workflow | Paths | PR | Push to `master` |
+|----------|-------|----|------------------|
+| `ci-api.yml` | `api/**`, `deployment/k8s/api/**` | restore/build/test | Docker → Docker Hub → kubectl apply |
+| `ci-frontend.yml` | `frontend/**`, `deployment/k8s/frontend/**` | npm ci/type-check/test/build | Docker → Docker Hub → kubectl apply |
+
+**Kubernetes** manifests: `deployment/k8s/`
+
+- Namespace: `westbay-ecommerce`
+- Labels: `app.kubernetes.io/part-of: westbay-ecommerce`
+- **API**: Deployment + Service + PVCs + Traefik `IngressRoute` + Certificate
+- **Frontend**: Deployment + Service + Traefik `IngressRoute` + Certificate
+- Frontend nginx also proxies `/api/` and `/uploads/` to `ecomm-api:8080` in-cluster
+- Hosts: `westbay-ecommerce.k3s.l01.ukad.dev` (frontend), `westbay-ecommerce-api.k3s.l01.ukad.dev` (API)
+
+**Required GitHub setup**
+
+| Name | Type | Purpose |
+|------|------|---------|
+| `KUBECONFIG` | Environment secret (`production`) | Cluster kubeconfig |
+| `JWT_SECRET_KEY` | Environment secret (`production`) | API JWT signing key |
+| `REGISTRY_PASSWORD` | Environment secret (`production`) | Docker Hub password/token (`ukad`) |
+| `ukad-docker-registry` | Cluster docker-registry secret | Pull images from Docker Hub |
+| `VITE_API_BASE_URL` | Optional repo/env var | Default `/api/v1` (same-origin via nginx) |
+| `VITE_TENANT_ID` | Optional repo/env var | Default `tenant-a` |
+
+Images: `ukad/westbay-ecommerce-api`, `ukad/westbay-ecommerce-frontend` (date tag + `latest`).
+
 ## Common Tasks
 
 **Add product field**: Update Product type → ProductForm → API model → frontend
@@ -207,7 +240,7 @@ Load specific context when working on features. Claude Code supports `/ctx-*` co
 1. **Database**: Swap SQLite for SQLServer (EF Core makes this easy)
 2. **Authentication**: Add OAuth2/OIDC
 3. **Caching**: Add Redis
-4. **Deployment**: Docker/Kubernetes
+4. **Deployment**: Docker/Kubernetes (`deployment/k8s/`, GitHub Actions → Docker Hub)
 
 ## Troubleshooting
 

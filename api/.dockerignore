@@ -1,0 +1,9 @@
+**/.git
+**/bin
+**/obj
+**/.vs
+**/ecomm.db
+**/ecomm.db-*
+**/uploads
+**/*.user
+**/EComm.Api.Tests

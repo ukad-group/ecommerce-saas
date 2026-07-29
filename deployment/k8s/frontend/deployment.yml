@@ -1,0 +1,62 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ecomm-frontend
+  namespace: westbay-ecommerce
+  labels:
+    app: ecomm-frontend
+    app.kubernetes.io/name: ecomm-frontend
+    app.kubernetes.io/part-of: westbay-ecommerce
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: ecomm-frontend
+  template:
+    metadata:
+      labels:
+        app: ecomm-frontend
+    spec:
+      terminationGracePeriodSeconds: 30
+      imagePullSecrets:
+        - name: ukad-docker-registry
+      containers:
+        - name: ecomm-frontend
+          image: ukad/westbay-ecommerce-frontend:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 80
+              protocol: TCP
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 250m
+              memory: 128Mi
+          startupProbe:
+            httpGet:
+              path: /
+              port: http
+            failureThreshold: 12
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            periodSeconds: 30
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 3
+            periodSeconds: 10
+            failureThreshold: 2
+      restartPolicy: Always
