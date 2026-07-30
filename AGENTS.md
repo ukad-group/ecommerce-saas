@@ -208,11 +208,11 @@ Path-filtered workflows under `.github/workflows/`:
 **Kubernetes** manifests: `deployment/k8s/`
 
 - Namespace: `westbay-ecommerce`
-- Labels: `app.kubernetes.io/part-of: westbay-ecommerce`
+- Labels: `app.kubernetes.io/part-of: ecommerce`
 - **API**: Deployment + Service + PVCs + Traefik `IngressRoute` + Certificate
 - **Frontend**: Deployment + Service + Traefik `IngressRoute` + Certificate
 - Frontend nginx also proxies `/api/` and `/uploads/` to `ecomm-api:8080` in-cluster
-- Hosts: `westbay-ecommerce.k3s.l01.ukad.dev` (frontend), `westbay-ecommerce-api.k3s.l01.ukad.dev` (API)
+- Hosts: `ecommerce.k3s.l01.ukad.dev` (frontend), `ecommerce-api.k3s.l01.ukad.dev` (API)
 
 **Required GitHub setup**
 
@@ -225,7 +225,7 @@ Path-filtered workflows under `.github/workflows/`:
 | `VITE_API_BASE_URL` | Optional repo/env var | Default `/api/v1` (same-origin via nginx) |
 | `VITE_TENANT_ID` | Optional repo/env var | Default `tenant-a` |
 
-Images: `ukad/westbay-ecommerce-api`, `ukad/westbay-ecommerce-frontend` (date tag + `latest`).
+Images: `ukad/ecommerce-api`, `ukad/ecommerce-frontend` (date tag + `latest`).
 
 ## Common Tasks
 
