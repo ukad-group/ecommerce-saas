@@ -6,7 +6,7 @@ metadata:
   labels:
     app: ecomm-frontend
     app.kubernetes.io/name: ecomm-frontend
-    app.kubernetes.io/part-of: westbay-ecommerce
+    app.kubernetes.io/part-of: ecommerce
 spec:
   type: ClusterIP
   selector:

@@ -25,9 +25,9 @@ permissions:
 
 env:
   REGISTRY_USERNAME: ukad
-  IMAGE_NAME: westbay-ecommerce-frontend
+  IMAGE_NAME: ecommerce-frontend
   K8S_NAMESPACE: westbay-ecommerce
-  VITE_API_BASE_URL: https://westbay-ecommerce-api.k3s.l01.ukad.dev/api/v1
+  VITE_API_BASE_URL: https://ecommerce-api.k3s.l01.ukad.dev/api/v1
   VITE_TENANT_ID: tenant-a
 
 jobs:
@@ -123,7 +123,7 @@ jobs:
     if: github.event_name != 'pull_request'
     environment:
       name: development
-      url: https://westbay-ecommerce.k3s.l01.ukad.dev
+      url: https://ecommerce.k3s.l01.ukad.dev
     steps:
       - name: Checkout
         id: checkout

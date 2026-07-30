@@ -6,7 +6,7 @@ metadata:
   labels:
     app: ecomm-api
     app.kubernetes.io/name: ecomm-api
-    app.kubernetes.io/part-of: westbay-ecommerce
+    app.kubernetes.io/part-of: ecommerce
 spec:
   replicas: 1
   strategy:
@@ -27,7 +27,7 @@ spec:
         - name: ukad-docker-registry
       containers:
         - name: ecomm-api
-          image: ukad/westbay-ecommerce-api:latest
+          image: ukad/ecommerce-api:latest
           imagePullPolicy: IfNotPresent
           ports:
             - name: http

@@ -4,4 +4,4 @@ metadata:
   name: westbay-ecommerce
   labels:
     name: westbay-ecommerce
-    app.kubernetes.io/part-of: westbay-ecommerce
+    app.kubernetes.io/part-of: ecommerce

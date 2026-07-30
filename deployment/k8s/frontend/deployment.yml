@@ -6,7 +6,7 @@ metadata:
   labels:
     app: ecomm-frontend
     app.kubernetes.io/name: ecomm-frontend
-    app.kubernetes.io/part-of: westbay-ecommerce
+    app.kubernetes.io/part-of: ecommerce
 spec:
   replicas: 1
   strategy:
@@ -27,7 +27,7 @@ spec:
         - name: ukad-docker-registry
       containers:
         - name: ecomm-frontend
-          image: ukad/westbay-ecommerce-frontend:latest
+          image: ukad/ecommerce-frontend:latest
           imagePullPolicy: IfNotPresent
           ports:
             - name: http

@@ -6,14 +6,14 @@ metadata:
   labels:
     app: ecomm-frontend
     app.kubernetes.io/name: ecomm-frontend
-    app.kubernetes.io/part-of: westbay-ecommerce
+    app.kubernetes.io/part-of: ecommerce
 spec:
   entryPoints:
     - web
     - websecure
   routes:
     - kind: Rule
-      match: Host(`westbay-ecommerce.k3s.l01.ukad.dev`)
+      match: Host(`ecommerce.k3s.l01.ukad.dev`)
       middlewares:
         - name: compress
           namespace: default

@@ -6,11 +6,11 @@ metadata:
   labels:
     app: ecomm-frontend
     app.kubernetes.io/name: ecomm-frontend
-    app.kubernetes.io/part-of: westbay-ecommerce
+    app.kubernetes.io/part-of: ecommerce
 spec:
   secretName: ecomm-frontend-tls
   issuerRef:
     name: letsencrypt-dns-cloudflare
     kind: ClusterIssuer
   dnsNames:
-    - westbay-ecommerce.k3s.l01.ukad.dev
+    - ecommerce.k3s.l01.ukad.dev
