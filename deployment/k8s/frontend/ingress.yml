@@ -19,6 +19,10 @@ spec:
           namespace: default
         - name: redirect-https
           namespace: default
+        - name: oauth-errors
+          namespace: default
+        - name: oauth-forwardauth
+          namespace: default
       services:
         - name: ecomm-frontend
           port: 80
