@@ -99,6 +99,10 @@ None
   an API restart
 - **Backoffice cart list** (Umbraco Commerce section → Carts) — server-side paging + search, cart detail
   view
+- **Order update in place** (`PUT /api/v1/orders/:id`) — rebuilds an existing *unpaid* order from the
+  session's current cart, keeping its id, order number and creation date. Lets a storefront that has to
+  create the order before the payment step re-submit checkout without minting a duplicate order.
+  Refuses (409) once the order is settled, and moves no stock
 - **Custom order status management** (tenant-scoped)
   - Default status preset per tenant
   - Create/edit/delete custom statuses
@@ -123,6 +127,12 @@ DELETE   /api/v1/cart
 
 # Carts (Admin — JWT or API key)
 GET   /api/v1/carts?search&page&pageSize
+
+# Orders (Storefront)
+POST   /api/v1/orders                 # create from the session's cart
+GET   /api/v1/orders/:id
+PUT   /api/v1/orders/:id              # update in place (auth); 409 once settled
+PUT   /api/v1/orders/:id/status
 
 # Orders (Admin)
 GET   /api/v1/admin/orders

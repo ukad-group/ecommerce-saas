@@ -102,10 +102,31 @@ interface OrderStatusChange {
   Requires auth (JWT **or** API key, so the Umbraco plugin reaches it); `search` matches session id
   and product names, since a cart has no customer or order number.
 
+**Orders (Storefront)**:
+- `POST /api/v1/orders` - Create an order from the session's cart
+- `GET /api/v1/orders/:id` - Get order details
+- `PUT /api/v1/orders/:id` - **Update in place**: rebuild an existing unpaid order from the session's
+  current cart + the supplied customer/address/custom properties, keeping `Id`, `OrderNumber` and
+  `CreatedAt`. Same `CreateOrderRequest` body as POST. Requires auth (JWT **or** API key).
+  `409` once the order is settled (status is `paid`/the market's `OrderStatusAfterPayment`, or
+  `PaymentStatus` reached `Authorized`/`Captured`) — rewriting a paid order's totals would corrupt a
+  real sale, so the caller falls back to creating a new order. `404` unknown id, `400` empty cart.
+  Exists so a storefront whose checkout creates the order before the payment step (it needs the id and
+  total) updates that order when the customer backs out and re-submits, instead of minting a second one.
+  Moves **no stock** — it deliberately bypasses `OrderStatusService.ApplyStatus`, and leaves `Status`,
+  `PaymentStatus`, `PaymentReference` and `TrackingNumber` untouched.
+- `PUT /api/v1/orders/:id/status` - Update status (routed through `OrderStatusService`)
+
+Both POST and PUT share `OrdersController.ApplyCartAndPricing`, so a re-submitted checkout re-prices
+identically to a first submit: lines re-projected from the cart, goods tax re-resolved from the
+shipping country, shipping cost, payment surcharge + its own tax, then the total.
+
 **Orders (Admin)**:
 - `GET /api/v1/admin/orders` - List all orders
 - `GET /api/v1/admin/orders/:id` - Get order details
 - `PUT /api/v1/admin/orders/:id/status` - Update status
+- `POST /api/v1/admin/orders` / `PUT /api/v1/admin/orders/:id` - Import/upsert a historical order
+  verbatim (migration) — no cart, no re-pricing, no stock side-effects
 
 **Order Statuses (Admin)**:
 - `GET /api/v1/order-statuses` - List all statuses for tenant

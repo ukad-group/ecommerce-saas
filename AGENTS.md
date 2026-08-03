@@ -85,6 +85,8 @@ dotnet run
 - Admin order dashboard with filters
 - Backoffice cart list + detail view (Umbraco Commerce section), paged server-side
 - Custom order status management (tenant-scoped, custom colors)
+- Order **update in place** (`PUT /api/v1/orders/{id}`) — re-submitting checkout rebuilds the existing
+  unpaid order from the current cart instead of creating a duplicate; refuses once settled
 - **Missing**: Checkout UI, abandoned-cart recovery
 - **Use `/ctx-orders` for details**
 

@@ -48,6 +48,14 @@ public class OrdersControllerTests
     /// Returns the created order.</summary>
     private static Order CreateOrderWithSurcharge(string country)
     {
+        var (marketId, sessionId) = SeedMarketWithSurchargeAndCart();
+        return PostOrder(sessionId, marketId, country);
+    }
+
+    /// <summary>The seeding half of <see cref="CreateOrderWithSurcharge"/>, split out so the update
+    /// tests can post an order and then keep mutating the same cart.</summary>
+    private static (string MarketId, string SessionId) SeedMarketWithSurchargeAndCart()
+    {
         var marketId = $"market-{Guid.NewGuid()}";
         var sessionId = $"session-{Guid.NewGuid()}";
 
@@ -78,27 +86,36 @@ public class OrdersControllerTests
             }
         });
 
+        AddCartLine(sessionId, marketId, 100m);
+        return (marketId, sessionId);
+    }
+
+    /// <summary>Adds one line of <paramref name="price"/> to the session's cart.</summary>
+    private static void AddCartLine(string sessionId, string marketId, decimal price)
+    {
         var cart = DataStore.Instance.GetOrCreateCart(sessionId, "tenant-a", marketId);
         cart.Items.Add(new EComm.Data.ValueObjects.Cart.CartItem
         {
             Id = Guid.NewGuid().ToString(),
             ProductId = "prod-1",
             ProductName = "Widget",
-            UnitPrice = 100m,
+            UnitPrice = price,
             Quantity = 1,
-            Subtotal = 100m
+            Subtotal = price
         });
         DataStore.Instance.UpdateCart(cart);
+    }
 
-        var controller = new OrdersController();
-        var request = new CreateOrderRequest
-        {
-            SessionId = sessionId,
-            Customer = new CustomerInfo { FullName = "Test User", Email = "test@example.com" },
-            ShippingAddress = new Address { Street = "Main 1", City = "City", PostalCode = "00000", Country = country }
-        };
+    private static CreateOrderRequest OrderRequest(string sessionId, string country) => new()
+    {
+        SessionId = sessionId,
+        Customer = new CustomerInfo { FullName = "Test User", Email = "test@example.com" },
+        ShippingAddress = new Address { Street = "Main 1", City = "City", PostalCode = "00000", Country = country }
+    };
 
-        var result = controller.CreateOrder(request, "tenant-a", marketId);
+    private static Order PostOrder(string sessionId, string marketId, string country)
+    {
+        var result = new OrdersController().CreateOrder(OrderRequest(sessionId, country), "tenant-a", marketId);
         var okResult = Assert.IsType<OkObjectResult>(result.Result);
         return Assert.IsType<Order>(okResult.Value);
     }
@@ -235,5 +252,154 @@ public class OrdersControllerTests
         Assert.Equal(0m, order.PaymentFee);
         Assert.Equal(0m, order.PaymentFeeTax);
         Assert.Equal(order.Subtotal + order.Tax + order.ShippingCost, order.Total);
+    }
+
+    // ── Update in place (PUT /orders/{id}) ────────────────────────────────────
+    // A storefront that re-submits checkout must be able to rebuild the order it already created
+    // instead of minting a second one, so these pin the identity/pricing/settled contract.
+
+    private static ActionResult<Order> PutOrder(string orderId, string sessionId, string country)
+        => new OrdersController().UpdateOrder(orderId, OrderRequest(sessionId, country));
+
+    private static Order PutOrderOk(string orderId, string sessionId, string country)
+    {
+        var okResult = Assert.IsType<OkObjectResult>(PutOrder(orderId, sessionId, country).Result);
+        return Assert.IsType<Order>(okResult.Value);
+    }
+
+    [Fact]
+    public void UpdateOrder_KeepsIdOrderNumberAndCreatedAt()
+    {
+        using var connection = InitializeInMemoryDataStore();
+
+        var (marketId, sessionId) = SeedMarketWithSurchargeAndCart();
+        var created = PostOrder(sessionId, marketId, "SE");
+
+        var updated = PutOrderOk(created.Id, sessionId, "SE");
+
+        Assert.Equal(created.Id, updated.Id);
+        Assert.Equal(created.OrderNumber, updated.OrderNumber);
+        Assert.Equal(created.CreatedAt, updated.CreatedAt);
+        Assert.True(updated.UpdatedAt >= created.UpdatedAt);
+        Assert.Equal("pending", updated.Status);
+
+        // And there's still exactly one order — the whole point of updating in place.
+        Assert.Single(DataStore.Instance.GetAllOrders(), o => o.MarketId == marketId);
+    }
+
+    [Fact]
+    public void UpdateOrder_RepricesFromTheCurrentCart()
+    {
+        using var connection = InitializeInMemoryDataStore();
+
+        var (marketId, sessionId) = SeedMarketWithSurchargeAndCart();
+        var created = PostOrder(sessionId, marketId, "SE");
+        Assert.Equal(100m, created.Subtotal);
+
+        // Customer went back and added another item before re-submitting.
+        AddCartLine(sessionId, marketId, 50m);
+        var updated = PutOrderOk(created.Id, sessionId, "SE");
+
+        Assert.Equal(2, updated.Items.Count);
+        Assert.Equal(150m, updated.Subtotal);
+        Assert.Equal(37.50m, updated.Tax);          // 150 @ 25% (SE override)
+        Assert.Equal(5m, updated.PaymentFee);
+        Assert.Equal(1.25m, updated.PaymentFeeTax);
+        Assert.Equal(193.75m, updated.Total);
+        Assert.Equal(updated.Total, DataStore.Instance.GetOrder(created.Id)!.Total); // persisted
+    }
+
+    [Fact]
+    public void UpdateOrder_ReResolvesGoodsTax_WhenShippingCountryChanged()
+    {
+        using var connection = InitializeInMemoryDataStore();
+
+        var (marketId, sessionId) = SeedMarketWithSurchargeAndCart();
+        var created = PostOrder(sessionId, marketId, "US");
+        Assert.Equal(20.00m, created.Tax);          // class default
+
+        var updated = PutOrderOk(created.Id, sessionId, "SE");
+
+        Assert.Equal(25.00m, updated.Tax);          // SE country override
+        Assert.Equal(1.25m, updated.PaymentFeeTax);
+    }
+
+    [Fact]
+    public void UpdateOrder_Conflicts_WhenStatusIsSettled()
+    {
+        using var connection = InitializeInMemoryDataStore();
+
+        var (marketId, sessionId) = SeedMarketWithSurchargeAndCart();
+        var created = PostOrder(sessionId, marketId, "SE");
+
+        var stored = DataStore.Instance.GetOrder(created.Id)!;
+        stored.Status = "paid";
+        DataStore.Instance.UpdateOrder(stored);
+
+        Assert.IsType<ConflictObjectResult>(PutOrder(created.Id, sessionId, "SE").Result);
+    }
+
+    // Money can be reserved before the status catches up, so PaymentStatus alone has to block an update.
+    [Fact]
+    public void UpdateOrder_Conflicts_WhenPaymentAuthorized_EvenWhileStatusStillPending()
+    {
+        using var connection = InitializeInMemoryDataStore();
+
+        var (marketId, sessionId) = SeedMarketWithSurchargeAndCart();
+        var created = PostOrder(sessionId, marketId, "SE");
+
+        var stored = DataStore.Instance.GetOrder(created.Id)!;
+        stored.PaymentStatus = nameof(PaymentState.Authorized);
+        DataStore.Instance.UpdateOrder(stored);
+        Assert.Equal("pending", stored.Status);
+
+        Assert.IsType<ConflictObjectResult>(PutOrder(created.Id, sessionId, "SE").Result);
+    }
+
+    [Fact]
+    public void UpdateOrder_NotFound_ForUnknownId()
+    {
+        using var connection = InitializeInMemoryDataStore();
+
+        Assert.IsType<NotFoundResult>(PutOrder("does-not-exist", "session-x", "SE").Result);
+    }
+
+    [Fact]
+    public void UpdateOrder_BadRequest_WhenCartIsEmpty()
+    {
+        using var connection = InitializeInMemoryDataStore();
+
+        var (marketId, sessionId) = SeedMarketWithSurchargeAndCart();
+        var created = PostOrder(sessionId, marketId, "SE");
+
+        DataStore.Instance.ClearCart(sessionId);
+
+        Assert.IsType<BadRequestObjectResult>(PutOrder(created.Id, sessionId, "SE").Result);
+    }
+
+    // An update is not a status change: it must never reserve or release stock (that only happens on a
+    // settle transition inside OrderStatusService).
+    [Fact]
+    public void UpdateOrder_LeavesStockUntouched()
+    {
+        using var connection = InitializeInMemoryDataStore();
+
+        var (marketId, sessionId) = SeedMarketWithSurchargeAndCart();
+        DataStore.Instance.AddProduct(new Product
+        {
+            Id = "prod-1",
+            TenantId = "tenant-a",
+            MarketId = marketId,
+            Name = "Widget",
+            Sku = "sku-1",
+            StockQuantity = 7,
+            Version = 1,
+            IsCurrentVersion = true
+        });
+        var created = PostOrder(sessionId, marketId, "SE");
+
+        PutOrderOk(created.Id, sessionId, "SE");
+
+        Assert.Equal(7, DataStore.Instance.GetProducts().Single(p => p.Id == "prod-1").StockQuantity);
     }
 }

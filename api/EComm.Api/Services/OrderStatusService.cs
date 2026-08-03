@@ -65,7 +65,7 @@ public static class OrderStatusService
     /// move for a market that calls the state something else (e.g. "processing"); the previous
     /// hardcoded <c>"paid"</c> comparison silently skipped those.
     /// </summary>
-    private static bool IsSettled(string? status, string? settledStatus)
+    public static bool IsSettled(string? status, string? settledStatus)
         => !string.IsNullOrWhiteSpace(status)
            && (status.Equals("paid", StringComparison.OrdinalIgnoreCase)
                || (!string.IsNullOrWhiteSpace(settledStatus)

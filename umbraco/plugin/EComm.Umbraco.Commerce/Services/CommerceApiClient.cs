@@ -953,6 +953,50 @@ public class CommerceApiClient : ICommerceApiClient
         }
     }
 
+    public async Task<Order?> UpdateOrderAsync(string orderId, string sessionId, CreateOrderRequest request, string? marketId = null)
+    {
+        var settings = await _settingsService.GetSettingsAsync();
+        if (settings == null || !settings.IsValid) return null;
+
+        try
+        {
+            var client = await CreateClientAsync(settings);
+            var payload = new
+            {
+                sessionId,
+                customer = request.Customer,
+                shippingAddress = request.ShippingAddress,
+                billingAddress = request.BillingAddress,
+                shippingMethodId = request.ShippingMethodId,
+                customProperties = request.CustomProperties
+            };
+            var json = JsonSerializer.Serialize(payload, JsonOptions);
+            var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+            // Same body as CreateOrderAsync — the API takes CreateOrderRequest for both, so the update
+            // re-prices from the cart exactly like a first submit.
+            var httpRequest = new HttpRequestMessage(HttpMethod.Put, $"orders/{orderId}") { Content = content };
+            httpRequest.Headers.Add("X-Tenant-ID", settings.TenantId);
+            httpRequest.Headers.Add("X-Market-ID", marketId ?? settings.MarketId);
+
+            var response = await client.SendAsync(httpRequest);
+            if (!response.IsSuccessStatusCode)
+            {
+                // 404 (gone) and 409 (settled) are expected outcomes, not faults — the caller falls back
+                // to creating a new order when this returns null.
+                var err = await response.Content.ReadAsStringAsync();
+                _logger.LogWarning("Could not update order {OrderId} ({Status}): {Error}", orderId, (int)response.StatusCode, err);
+                return null;
+            }
+            return await response.Content.ReadFromJsonAsync<Order>(JsonOptions);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to update order {OrderId}", orderId);
+            return null;
+        }
+    }
+
     public async Task<List<OrderStatusDefinition>> GetOrderStatusDefinitionsAsync()
     {
         var settings = await _settingsService.GetSettingsAsync();

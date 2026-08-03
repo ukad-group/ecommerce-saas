@@ -131,9 +131,18 @@ memory, and not mirrored as "new"-status orders. A cart has no customer info; th
 ### 4. OrdersController
 ```csharp
 GET    /api/v1/orders                  // List customer orders
-POST   /api/v1/orders                  // Create order
+POST   /api/v1/orders                  // Create order from the session's cart
 GET    /api/v1/orders/{id}             // Get order details
+PUT    /api/v1/orders/{id}             // Update in place: rebuild an unpaid order from the session's
+                                       // current cart, keeping Id/OrderNumber/CreatedAt (auth required)
+PUT    /api/v1/orders/{id}/status      // Update status (via OrderStatusService)
 ```
+`PUT /api/v1/orders/{id}` takes the same `CreateOrderRequest` body as POST and shares
+`ApplyCartAndPricing` with it, so a re-submitted checkout re-prices exactly like a first submit. It
+returns **409** once the order is settled (`paid`/the market's `OrderStatusAfterPayment`, or a
+`PaymentStatus` of `Authorized`/`Captured`) so a real sale can never be rewritten, and moves no stock.
+It exists for storefronts that create the order before the payment step and would otherwise mint a
+second order when the customer backs out and re-submits.
 
 ### 5. AdminOrdersController
 ```csharp

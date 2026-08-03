@@ -185,6 +185,10 @@ public interface ICommerceApiClient
 
     /// <summary>Creates an order from the session's current cart</summary>
     Task<Order?> CreateOrderAsync(string sessionId, CreateOrderRequest request, string? marketId = null);
+
+    /// <summary>Rebuilds an existing unpaid order from the session's current cart and the given customer
+    /// details, keeping its id and order number. Null when the order is gone or no longer updatable.</summary>
+    Task<Order?> UpdateOrderAsync(string orderId, string sessionId, CreateOrderRequest request, string? marketId = null);
 }
 
 public class ProductListResult
