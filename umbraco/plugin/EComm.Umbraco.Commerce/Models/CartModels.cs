@@ -6,10 +6,26 @@ namespace EComm.Umbraco.Commerce.Models;
 public class Cart
 {
     public string Id { get; set; } = string.Empty;
+
+    /// <summary>The storefront's handle on the cart — and the only identity it has, since a cart
+    /// carries no customer details until checkout turns it into an order.</summary>
+    public string SessionId { get; set; } = string.Empty;
+
+    public string TenantId { get; set; } = string.Empty;
+    public string MarketId { get; set; } = string.Empty;
     public List<CartItem> Items { get; set; } = new();
     public decimal Subtotal { get; set; }
     public decimal Tax { get; set; }
     public decimal Total { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public DateTime UpdatedAt { get; set; }
+}
+
+/// <summary>Paged cart list for the backoffice Carts view — mirrors <see cref="OrderListResult"/>.</summary>
+public class CartListResult
+{
+    public List<Cart> Carts { get; set; } = new();
+    public int TotalCount { get; set; }
 }
 
 public class CartItem

@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using EComm.Data.Entities;
+using EComm.Data.ValueObjects.Cart;
 using EComm.Data.ValueObjects.Common;
 using EComm.Data.ValueObjects.Order;
 using EComm.Data.ValueObjects.Product;
@@ -17,6 +18,7 @@ public class ECommDbContext : DbContext
     public DbSet<Product> Products => Set<Product>();
     public DbSet<Category> Categories => Set<Category>();
     public DbSet<Order> Orders => Set<Order>();
+    public DbSet<Cart> Carts => Set<Cart>();
     public DbSet<Tenant> Tenants => Set<Tenant>();
     public DbSet<Market> Markets => Set<Market>();
     public DbSet<ApiKey> ApiKeys => Set<ApiKey>();
@@ -140,6 +142,29 @@ public class ECommDbContext : DbContext
             entity.HasIndex(e => e.OrderNumber);
             // Webhooks arrive keyed only by the gateway's payment id — this is the lookup path.
             entity.HasIndex(e => e.PaymentReference);
+        });
+
+        // Carts are persisted rather than held in memory, so the backoffice Carts list survives an
+        // API restart. SessionId is the only handle the storefront has on a cart, hence the unique
+        // index — it, not Id, is every lookup's key.
+        modelBuilder.Entity<Cart>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).IsRequired();
+            entity.Property(e => e.SessionId).IsRequired();
+            entity.Property(e => e.TenantId).IsRequired();
+            entity.Property(e => e.MarketId).IsRequired();
+            entity.Property(e => e.Subtotal).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.Tax).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.Total).HasColumnType("decimal(18,2)");
+
+            entity.Property(e => e.Items)
+                .HasConversion(
+                    v => JsonSerializer.Serialize(v, (JsonSerializerOptions?)null),
+                    v => JsonSerializer.Deserialize<List<CartItem>>(v, (JsonSerializerOptions?)null) ?? new List<CartItem>());
+
+            entity.HasIndex(e => e.SessionId).IsUnique();
+            entity.HasIndex(e => new { e.TenantId, e.MarketId });
         });
 
         // Webhooks we have already processed — the idempotency ledger. Id is

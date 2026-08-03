@@ -58,7 +58,11 @@ interface OrderStatusChange {
 ```
 
 ### Key Concepts
-- **Cart = Order with "new" status**: No separate cart entity
+- **Cart is its own entity**, persisted in the `Carts` table and keyed by `SessionId` (the storefront's
+  only handle on it — a cart carries no customer details until checkout creates the order). Carts are
+  market-scoped and deleted on `ClearCart`, so only abandoned ones accumulate. They are **not** orders
+  in a "new" status: cart→order mirroring was removed (it polluted the Orders list with `CART-*` junk),
+  and `GetAllOrders()` still filters out legacy `cart-*` rows.
 - **Market-scoped**: Orders belong to specific markets
 - **Custom order statuses**: Tenant-scoped, customizable names/colors/order
 - **Default statuses**: Each tenant gets 8 defaults (new, submitted, paid, processing, shipped, completed, cancelled, on-hold, refunded)
@@ -74,21 +78,29 @@ interface OrderStatusChange {
 ✅ Stock warnings in cart
 ✅ Custom order status management (create/edit/delete, custom colors)
 ✅ Dynamic status filters and badges using custom statuses
+✅ Cart persistence across restarts (SQLite `Carts` table)
+✅ Backoffice cart list + detail view (Umbraco Commerce section → Carts), paged server-side
 
 ### Not Implemented
 ❌ Checkout UI (forms and pages) - API ready
 ❌ Customer order tracking
-❌ Cart persistence across sessions
 ❌ Refund workflows
-❌ Abandoned cart recovery
+❌ Abandoned cart recovery (carts persist and are listable, but nothing emails or re-targets them;
+   there is also no TTL/eviction, so the table grows until carts are checked out or cleared)
 
 ### API Endpoints
 
-**Cart (Customer-facing)**:
-- `GET /api/v1/cart` - Get current cart (new order)
+**Cart (Customer-facing, anonymous, `X-Session-ID` identifies the cart)**:
+- `GET /api/v1/cart` - Get (or implicitly create) the session's cart
 - `POST /api/v1/cart/items` - Add item
 - `PUT /api/v1/cart/items/:id` - Update quantity
 - `DELETE /api/v1/cart/items/:id` - Remove item
+- `DELETE /api/v1/cart` - Clear the whole cart (e.g. after a paid order)
+
+**Carts (Admin)**:
+- `GET /api/v1/carts?search&page&pageSize` - Paged cart list for the market, `UpdatedAt DESC`.
+  Requires auth (JWT **or** API key, so the Umbraco plugin reaches it); `search` matches session id
+  and product names, since a cart has no customer or order number.
 
 **Orders (Admin)**:
 - `GET /api/v1/admin/orders` - List all orders

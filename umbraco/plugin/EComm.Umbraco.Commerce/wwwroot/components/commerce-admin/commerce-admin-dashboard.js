@@ -16,9 +16,10 @@ const ORDER_STATUS_LABELS = {
 };
 const PAYMENT_STATUS_LABELS = { initialized: 'Initialized', authorized: 'Authorized', paid: 'Paid', cancelled: 'Cancelled', refunded: 'Refunded' };
 
+// `detail` is the drill-down view the nav item stays highlighted for.
 const NAV_ITEMS = [
-  { key: 'orders',    label: 'Orders',     icon: 'icon-document',        enabled: true  },
-  { key: 'carts',     label: 'Carts',      icon: 'icon-shopping-basket',  enabled: true  },
+  { key: 'orders',    label: 'Orders',     icon: 'icon-document',         enabled: true, detail: 'order-detail' },
+  { key: 'carts',     label: 'Carts',      icon: 'icon-shopping-basket',  enabled: true, detail: 'cart-detail'  },
   { key: 'discounts', label: 'Discounts',  icon: 'icon-tag',              enabled: true  },
   { key: 'analytics', label: 'Analytics',  icon: 'icon-chart',            enabled: true  },
 ];
@@ -45,14 +46,13 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
   static properties = {
     // navigation
     activeView:     { type: String  },
-    storeExpanded:  { type: Boolean },
     expandedStores: { type: Object },
-    optionsOpen:    { type: Boolean },
+    // Both Sets of market ids: sidebar state is per store, so one store's open node never opens another's.
+    optionsOpenStores: { type: Object },
     marketName:     { type: String  },
     // multi-market
     markets:          { type: Array  },
     selectedMarketId: { type: String },
-    cartOrderStatus:  { type: String },
     // orders
     orders:              { type: Array   },
     ordersLoading:       { type: Boolean },
@@ -71,10 +71,13 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
     pageSize:            { type: Number  },
     totalCount:          { type: Number  },
     // carts
-    carts:         { type: Array   },
-    cartsLoading:  { type: Boolean },
-    cartsError:    { type: String  },
-    cartsSearch:   { type: String  },
+    carts:           { type: Array   },
+    cartsLoading:    { type: Boolean },
+    cartsError:      { type: String  },
+    cartsSearch:     { type: String  },
+    selectedCart:    { type: Object  },
+    cartsPage:       { type: Number  },
+    cartsTotalCount: { type: Number  },
     // analytics
     analyticsOrders:   { type: Array   },
     analyticsLoading:  { type: Boolean },
@@ -126,11 +129,10 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
   constructor() {
     super();
     this.activeView    = 'home';
-    this.storeExpanded = true;
     this.expandedStores = new Set();
-    this.optionsOpen   = false;
+    this.optionsOpenStores = new Set();
     this.marketName    = 'Store';
-    this.markets = []; this.selectedMarketId = ''; this.cartOrderStatus = 'new';
+    this.markets = []; this.selectedMarketId = '';
 
     this.orders = []; this.ordersLoading = false; this.ordersError = null;
     this.orderStatusFilter = ''; this.paymentStatusFilter = ''; this.ordersSearch = '';
@@ -140,6 +142,7 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
     this.currentPage = 1; this.pageSize = 20; this.totalCount = 0;
 
     this.carts = []; this.cartsLoading = false; this.cartsError = null; this.cartsSearch = '';
+    this.selectedCart = null; this.cartsPage = 1; this.cartsTotalCount = 0;
 
     this.analyticsOrders = []; this.analyticsLoading = false; this.analyticsError = null;
 
@@ -176,14 +179,13 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
   async _init() {
     const s = await this._fetchSettings(await this.getAuthHeaders());
 
-    // Load markets for the tenant (cartOrderStatus comes from per-market settings)
+    // Load markets for the tenant
     try {
       const data = await this._get('/umbraco/management/api/ecomm-commerce/markets');
       this.markets = Array.isArray(data) ? data : [];
       if (this.markets.length > 0) {
         this.selectedMarketId = this.markets[0].id;
         this.marketName = this.markets[0].name;
-        this.cartOrderStatus = this.markets[0].cartOrderStatus || 'new';
       } else if (s?.marketId) {
         this.marketName = s.marketId;
       }
@@ -191,7 +193,8 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
 
     this.loadDefaultAliases();
     await this.loadStatusDefs();
-    this.loadOrders();
+    // No list is loaded here on purpose: the landing view is the store cards, and every view fetches
+    // when it is opened (_loadView). Priming orders here is what used to leave them stale.
   }
 
   async loadDefaultAliases() {
@@ -200,19 +203,13 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
     } catch { /* focal point defaults on, no crop */ }
   }
 
-  _selectMarket(m) {
+  // State only, no fetching — so a caller that also switches view (_selectStoreView) fetches once,
+  // for the store it is switching to, instead of once for the view it is leaving.
+  _setMarket(m) {
     this.selectedMarketId = m.id;
     this.marketName = m.name;
-    this.cartOrderStatus = m.cartOrderStatus || 'new';
     this.currentPage = 1;
-    if (this.activeView === 'orders' || this.activeView === 'order-detail') this.loadOrders();
-    else if (this.activeView === 'carts') this.loadCarts();
-    else if (this.activeView === 'discounts') this.loadDiscounts();
-    else if (this.activeView === 'analytics') this.loadAnalytics();
-    else if (this.activeView === 'property-templates') { this.loadPropertyTemplates(); this.loadAttributes(); }
-    else if (this.activeView === 'attributes') { this.editingAttribute = null; this.loadAttributes(); }
-    else if (this.activeView === 'attribute-presets') { this.editingAttributePreset = null; this.loadAttributes(); this.loadAttributePresets(); }
-    else if (this.activeView === 'tax-classes') { this.editingTaxClass = null; this.loadTaxClasses(); }
+    this.cartsPage = 1;
   }
 
   async loadStatusDefs() {
@@ -260,6 +257,9 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
       const data = await this._get(`/umbraco/management/api/ecomm-commerce/orders?${qs}`);
       this.orders = data.orders || [];
       this.totalCount = data.totalCount ?? 0;
+      // Row selection refers to the rows that were on screen; a refetch replaces them.
+      this.selectedIds = new Set();
+      this.allSelected = false;
     } catch (e) { this.ordersError = e.message; }
     finally { this.ordersLoading = false; }
   }
@@ -290,24 +290,19 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
 
   // ── Carts ──────────────────────────────────────────────────────────────────
 
+  // Real carts, not orders-in-a-cart-status: the API persists carts and lists them newest-activity
+  // first. Paged and searched server-side, like orders.
   async loadCarts() {
     this.cartsLoading = true; this.cartsError = null;
     try {
-      const qs = new URLSearchParams({ status: this.cartOrderStatus || 'new' });
+      const qs = new URLSearchParams({ page: this.cartsPage, pageSize: this.pageSize });
+      if (this.cartsSearch) qs.set('search', this.cartsSearch);
       if (this.selectedMarketId) qs.set('marketId', this.selectedMarketId);
-      const data = await this._get(`/umbraco/management/api/ecomm-commerce/orders?${qs}`);
-      this.carts = data.orders || [];
+      const data = await this._get(`/umbraco/management/api/ecomm-commerce/carts?${qs}`);
+      this.carts = data.carts || [];
+      this.cartsTotalCount = data.totalCount ?? 0;
     } catch (e) { this.cartsError = e.message; }
     finally { this.cartsLoading = false; }
-  }
-
-  get filteredCarts() {
-    if (!this.cartsSearch) return this.carts;
-    const q = this.cartsSearch.toLowerCase();
-    return this.carts.filter(c =>
-      c.orderNumber?.toLowerCase().includes(q) ||
-      c.customer?.fullName?.toLowerCase().includes(q) ||
-      c.customer?.email?.toLowerCase().includes(q));
   }
 
   // ── Analytics ──────────────────────────────────────────────────────────────
@@ -601,15 +596,30 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
 
   _selectView(key) {
     this.activeView = key;
-    if (OPTIONS_SUBITEMS.find(i => i.key === key)) this.optionsOpen = true;
-    if (key === 'carts'          && !this.carts.length          && !this.cartsLoading)          this.loadCarts();
-    if (key === 'analytics'      && !this.analyticsOrders.length && !this.analyticsLoading)     this.loadAnalytics();
-    if (key === 'order-statuses' && !this.orderStatuses.length   && !this.orderStatusesLoading) this.loadOrderStatuses();
-    if (key === 'discounts'      && !this.discounts.length       && !this.discountsLoading)      this.loadDiscounts();
-    if (key === 'property-templates') { if (!this.propertyTemplates.length && !this.propertyTemplatesLoading) this.loadPropertyTemplates(); if (!this.attributes.length && !this.attributesLoading) this.loadAttributes(); }
-    if (key === 'attributes'         && !this.attributes.length         && !this.attributesLoading)        this.loadAttributes();
-    if (key === 'attribute-presets') { if (!this.attributes.length && !this.attributesLoading) this.loadAttributes(); if (!this.attributePresets.length && !this.attributePresetsLoading) this.loadAttributePresets(); }
-    if (key === 'tax-classes'    && !this.taxClasses.length     && !this.taxClassesLoading)     this.loadTaxClasses();
+    if (OPTIONS_SUBITEMS.find(i => i.key === key))
+      this.optionsOpenStores = new Set(this.optionsOpenStores).add(this.selectedMarketId);
+    this._loadView(key);
+  }
+
+  // The single place a view's data is loaded, for both "switched view" and "switched store".
+  // Unconditional on purpose: the `!length` guards this replaced meant a list loaded once per session
+  // and then showed stale data forever, with pagination as the only way to force a refresh.
+  _loadView(key) {
+    switch (key) {
+      case 'orders':
+      case 'order-detail':       this.loadOrders(); break;
+      case 'carts':
+      case 'cart-detail':        this.loadCarts(); break;
+      case 'analytics':          this.loadAnalytics(); break;
+      case 'discounts':          this.loadDiscounts(); break;
+      case 'order-statuses':     this.loadOrderStatuses(); break;
+      case 'property-templates': this.loadPropertyTemplates(); this.loadAttributes(); break;
+      case 'attributes':         this.editingAttribute = null; this.loadAttributes(); break;
+      case 'attribute-presets':  this.editingAttributePreset = null; this.loadAttributes(); this.loadAttributePresets(); break;
+      case 'tax-classes':        this.editingTaxClass = null; this.loadTaxClasses(); break;
+      // 'home' has no data of its own; 'payment-providers' is a child element bound to .marketId,
+      // so it reloads itself when the store changes.
+    }
   }
 
   // ── Formatting ─────────────────────────────────────────────────────────────
@@ -859,40 +869,15 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
               </table>
             </div>`}
 
-        ${this._renderPagination()}
+        ${this._renderPager(this.totalCount, this.currentPage, this.pageSize,
+            p => { this.currentPage = p; this.loadOrders(); })}
         <div class="view-footer"><span class="breadcrumb">${this.marketName} / Orders</span></div>
       </div>`;
   }
 
-  _renderPagination() {
-    const totalPages = Math.ceil(this.totalCount / this.pageSize);
-    if (totalPages <= 1) return '';
-
-    const pages = new Set([1, totalPages]);
-    for (let p = this.currentPage - 1; p <= this.currentPage + 1; p++) {
-      if (p >= 1 && p <= totalPages) pages.add(p);
-    }
-    const sorted = [...pages].sort((a, b) => a - b);
-    const items = [];
-    for (let i = 0; i < sorted.length; i++) {
-      if (i > 0 && sorted[i] - sorted[i - 1] > 1) items.push(null);
-      items.push(sorted[i]);
-    }
-
-    const goTo = p => { this.currentPage = p; this.loadOrders(); };
-
-    return html`
-      <div class="pagination-bar">
-        <button class="page-btn" ?disabled=${this.currentPage <= 1} @click=${() => goTo(this.currentPage - 1)}>←</button>
-        ${items.map(p => p === null
-          ? html`<span class="page-ellipsis">…</span>`
-          : html`<button class="page-btn ${this.currentPage === p ? 'page-btn--active' : ''}" @click=${() => goTo(p)}>${p}</button>`
-        )}
-        <button class="page-btn" ?disabled=${this.currentPage >= totalPages} @click=${() => goTo(this.currentPage + 1)}>→</button>
-      </div>`;
-  }
-
-  _renderLocalPagination(total, page, pageSize, goTo) {
+  // One pager for every list, server-side (orders, carts — `goTo` refetches) and client-side
+  // (property templates, attributes, presets — `goTo` just moves the page).
+  _renderPager(total, page, pageSize, goTo) {
     const totalPages = Math.ceil(total / pageSize);
     if (totalPages <= 1) return '';
     // Windowed: first, last, and current ±2, with … gaps — never render every page (could be 100s).
@@ -1042,11 +1027,11 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
   // ── Carts ──────────────────────────────────────────────────────────────────
 
   _renderCartsView() {
-    const carts = this.filteredCarts;
+    const carts = this.carts;
     return html`
       <div class="view-container">
         ${this._viewHeader('Carts', html`
-          <uui-button look="secondary" compact @click=${this.loadCarts}>
+          <uui-button look="secondary" compact @click=${() => this.loadCarts()}>
             <uui-icon name="icon-refresh"></uui-icon> Refresh
           </uui-button>`)}
 
@@ -1055,10 +1040,19 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
         <div class="filters-bar">
           <div class="filters-left"></div>
           <div class="filters-right">
+            ${this.cartsSearch ? html`
+              <button type="button" class="filter-btn filter-reset"
+                      @click=${() => { this.cartsSearch = ''; this.cartsPage = 1; this.loadCarts(); }}>
+                ✕ Reset search
+              </button>` : ''}
             <div class="search-wrap">
               <uui-icon name="icon-search" class="search-icon"></uui-icon>
-              <input class="search-input" type="search" placeholder="Search carts…"
-                .value=${this.cartsSearch} @input=${e => { this.cartsSearch = e.target.value; }}>
+              <input class="search-input" type="search" placeholder="Search by session or product…"
+                .value=${this.cartsSearch} @input=${e => {
+                  this.cartsSearch = e.target.value;
+                  clearTimeout(this._cartsSearchDebounce);
+                  this._cartsSearchDebounce = setTimeout(() => { this.cartsPage = 1; this.loadCarts(); }, 300);
+                }}>
             </div>
           </div>
         </div>
@@ -1066,29 +1060,28 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
         ${this.cartsLoading ? this._stateCenter(html`<uui-loader></uui-loader><p>Loading carts…</p>`) :
           carts.length === 0 ? this._stateCenter(html`
             <uui-icon name="icon-shopping-basket" style="font-size:3rem;opacity:0.25"></uui-icon>
-            <p>No active carts</p>
+            <p>${this.cartsSearch ? 'No carts match that search' : 'No active carts'}</p>
             <p style="font-size:0.8rem;color:#aaa">Carts appear here when customers start shopping but haven't checked out yet.</p>`) :
           html`
             <div class="table-scroll">
               <table class="data-table">
                 <thead><tr>
-                  <th>Cart</th><th>Customer</th><th>Items</th><th class="col-r">Total</th><th>Last Activity</th>
+                  <th>Cart</th><th>Session</th><th>Items</th><th class="col-r">Total</th><th>Last Activity</th>
                 </tr></thead>
                 <tbody>
                   ${carts.map(c => html`
-                    <tr class="data-row">
+                    <tr class="data-row"
+                        @click=${() => { this.selectedCart = c; this.activeView = 'cart-detail'; }}>
                       <td>
                         <div class="name-cell">
                           <span class="doc-icon"><uui-icon name="icon-shopping-basket"></uui-icon></span>
-                          <span class="name-primary">${c.orderNumber || c.id}</span>
+                          <span class="name-primary">${(c.items || []).length
+                            ? (c.items[0].productName + ((c.items.length > 1) ? ` +${c.items.length - 1} more` : ''))
+                            : 'Empty cart'}</span>
                         </div>
                       </td>
-                      <td>
-                        ${c.customer?.fullName
-                          ? html`<span class="name-primary">${c.customer.fullName}</span><span class="name-sub">${c.customer.email}</span>`
-                          : html`<span class="muted">Anonymous</span>`}
-                      </td>
-                      <td>${(c.lineItems || c.items || []).length} item${(c.lineItems || c.items || []).length !== 1 ? 's' : ''}</td>
+                      <td><code class="session-id">${c.sessionId || c.id}</code></td>
+                      <td>${(c.items || []).length} item${(c.items || []).length !== 1 ? 's' : ''}</td>
                       <td class="col-r"><span class="pay-amount">${this.formatCurrency(c.total)}</span></td>
                       <td class="col-date">${this.formatDate(c.updatedAt || c.createdAt)}</td>
                     </tr>
@@ -1097,7 +1090,80 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
               </table>
             </div>`}
 
+        ${this._renderPager(this.cartsTotalCount, this.cartsPage, this.pageSize,
+            p => { this.cartsPage = p; this.loadCarts(); })}
         <div class="view-footer"><span class="breadcrumb">${this.marketName} / Carts</span></div>
+      </div>`;
+  }
+
+  // ── Cart Detail ────────────────────────────────────────────────────────────
+
+  // Deliberately not _renderOrderDetailView with a flag: a cart has no customer, addresses, order
+  // number or status, and its lines carry no SKU. Same shell and CSS, different facts.
+  _renderCartDetailView() {
+    const cart = this.selectedCart;
+    if (!cart) return '';
+    const items = cart.items || [];
+    return html`
+      <div class="view-container">
+        <div class="view-header">
+          <div class="detail-breadcrumb">
+            <button class="back-btn" @click=${() => { this.activeView = 'carts'; }}>← Carts</button>
+            <span class="breadcrumb-sep">/</span>
+            <span class="detail-order-num">${items.length} item${items.length !== 1 ? 's' : ''}</span>
+          </div>
+        </div>
+
+        <div class="detail-body">
+          <div class="detail-grid detail-grid--wide">
+            <div class="detail-section">
+              <div class="detail-label">Shopper</div>
+              <p><span class="muted">Anonymous</span></p>
+              <p style="font-size:0.8rem;color:#aaa">A cart has no customer details — those are captured at checkout.</p>
+            </div>
+            <div class="detail-section">
+              <div class="detail-label">Cart Info</div>
+              <p><span class="muted">Session:</span> <code class="session-id">${cart.sessionId || '-'}</code></p>
+              <p><span class="muted">Created:</span> ${this.formatDate(cart.createdAt)}</p>
+              <p><span class="muted">Last activity:</span> ${this.formatDate(cart.updatedAt)}</p>
+              <p><span class="muted">Market:</span> ${cart.marketId}</p>
+            </div>
+            <div class="detail-section">
+              <div class="detail-label">Totals</div>
+              <p><span class="muted">Subtotal:</span> ${this.formatCurrency(cart.subtotal)}</p>
+              <p><span class="muted">Tax:</span> ${this.formatCurrency(cart.tax)}</p>
+              <p class="total-line"><strong>Total: ${this.formatCurrency(cart.total)}</strong></p>
+              <p style="font-size:0.8rem;color:#aaa">Shipping and payment fees are added at checkout.</p>
+            </div>
+          </div>
+
+          <div class="detail-section-block">
+            <div class="detail-label">Items</div>
+            ${items.length === 0 ? html`<p class="muted">This cart is empty.</p>` : html`
+              <table class="items-table">
+                <thead><tr><th>Product</th><th>Unit Price</th><th>Qty</th><th>Total</th></tr></thead>
+                <tbody>
+                  ${items.map(i => html`
+                    <tr>
+                      <td>
+                        <div class="item-name-cell">
+                          ${i.productImageUrl ? html`<img src="${i.productImageUrl}" class="item-thumb" alt="">` : ''}
+                          ${i.productName}
+                        </div>
+                      </td>
+                      <td>${this.formatCurrency(i.unitPrice)}</td>
+                      <td>${i.quantity}</td>
+                      <td>${this.formatCurrency(i.subtotal)}</td>
+                    </tr>
+                  `)}
+                </tbody>
+              </table>`}
+          </div>
+        </div>
+
+        <div class="view-footer">
+          <span class="breadcrumb">${this.marketName} / Carts / ${cart.sessionId || cart.id}</span>
+        </div>
       </div>`;
   }
 
@@ -1406,7 +1472,7 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
                 </tbody>
               </table>
             </div>
-            ${this._renderLocalPagination(filtered.length, page, PAGE_SIZE, p => { this.propertyTemplatesPage = p; })}`}
+            ${this._renderPager(filtered.length, page, PAGE_SIZE, p => { this.propertyTemplatesPage = p; })}`}
 
         <div class="view-footer">
           <span class="breadcrumb">${this.marketName} / Options / Property Templates</span>
@@ -1502,7 +1568,7 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
                 </tbody>
               </table>
             </div>
-            ${this._renderLocalPagination(filtered.length, page, PAGE_SIZE, p => { this.attributesPage = p; })}`}
+            ${this._renderPager(filtered.length, page, PAGE_SIZE, p => { this.attributesPage = p; })}`}
 
         <div class="view-footer">
           <span class="breadcrumb">${this.marketName} / Options / Product Attributes</span>
@@ -1593,7 +1659,7 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
                 </tbody>
               </table>
             </div>
-            ${this._renderLocalPagination(filtered.length, page, PAGE_SIZE, p => { this.attributePresetsPage = p; })}`}
+            ${this._renderPager(filtered.length, page, PAGE_SIZE, p => { this.attributePresetsPage = p; })}`}
 
         <div class="view-footer">
           <span class="breadcrumb">${this.marketName} / Options / Product Attribute Presets</span>
@@ -1730,6 +1796,7 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
 
   _renderStoreNode(m) {
     const expanded = this.expandedStores.has(m.id);
+    const optionsOpen = this.optionsOpenStores.has(m.id);
     const inThisStore = this.selectedMarketId === m.id;
     return html`
       <div class="store-node ${inThisStore ? 'store-node--active' : ''}"
@@ -1741,20 +1808,20 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
       ${expanded ? html`
         <ul class="nav-list">
           ${NAV_ITEMS.map(item => html`
-            <li class="nav-item ${inThisStore && (this.activeView === item.key || (item.key === 'orders' && this.activeView === 'order-detail')) ? 'active' : ''} ${!item.enabled ? 'disabled' : ''}"
+            <li class="nav-item ${inThisStore && (this.activeView === item.key || this.activeView === item.detail) ? 'active' : ''} ${!item.enabled ? 'disabled' : ''}"
                 @click=${(e) => { e.stopPropagation(); item.enabled && this._selectStoreView(m, item.key); }}>
               <uui-icon name="${item.icon}" class="nav-icon"></uui-icon>
               ${item.label}
             </li>`)}
 
           <li class="nav-item nav-item--group"
-              @click=${e => { e.stopPropagation(); this.optionsOpen = !this.optionsOpen; }}>
+              @click=${e => { e.stopPropagation(); this._toggleOptions(m); }}>
             <uui-icon name="icon-settings" class="nav-icon"></uui-icon>
             Options
-            <span class="group-caret ${this.optionsOpen ? 'open' : ''}">▾</span>
+            <span class="group-caret ${optionsOpen ? 'open' : ''}">▾</span>
           </li>
 
-          ${this.optionsOpen ? OPTIONS_SUBITEMS.map(sub => html`
+          ${optionsOpen ? OPTIONS_SUBITEMS.map(sub => html`
             <li class="nav-subitem ${!sub.enabled ? 'disabled' : ''} ${inThisStore && this.activeView === sub.key ? 'nav-subitem--active' : ''}"
                 @click=${(e) => { e.stopPropagation(); sub.enabled && this._selectStoreView(m, sub.key); }}>
               <uui-icon name="${sub.icon}" class="nav-icon nav-icon--sm"></uui-icon>
@@ -1764,19 +1831,30 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
   }
 
   _toggleStore(m) {
-    const next = new Set(this.expandedStores);
-    if (next.has(m.id)) next.delete(m.id); else next.add(m.id);
-    this.expandedStores = next;
+    this.expandedStores = this._toggled(this.expandedStores, m.id);
   }
 
+  _toggleOptions(m) {
+    this.optionsOpenStores = this._toggled(this.optionsOpenStores, m.id);
+  }
+
+  _toggled(set, id) {
+    const next = new Set(set);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  }
+
+  // Set the store first, then switch view: _selectView does the one and only fetch, so it happens
+  // once and for the store being switched to. Fetching on the market change instead would load the
+  // view being left — which is how clicking store B's Orders used to show store A's.
   _selectStoreView(m, key) {
-    if (this.selectedMarketId !== m.id) this._selectMarket(m);
+    if (this.selectedMarketId !== m.id) this._setMarket(m);
     this._selectView(key);
   }
 
   _openStore(m) {
     this.expandedStores = new Set(this.expandedStores).add(m.id);
-    this._selectMarket(m);
+    this._setMarket(m);
     this._selectView('orders');
   }
 
@@ -1808,6 +1886,7 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
       case 'orders':         return this._renderOrdersView();
       case 'order-detail':   return this._renderOrderDetailView();
       case 'carts':          return this._renderCartsView();
+      case 'cart-detail':    return this._renderCartDetailView();
       case 'analytics':      return this._renderAnalyticsView();
       case 'order-statuses': return this._renderOrderStatusesView();
       case 'discounts':      return this._renderDiscountsView();
@@ -2058,6 +2137,9 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
     .pay-method { display: block; font-size: 0.75rem; color: #888888; }
 
     .muted { color: #888888; }
+
+    /* Session ids are GUIDs — keep them from stretching the Carts table. */
+    .session-id { font-size: 0.78rem; color: #666666; word-break: break-all; }
 
     /* ── Status pills ─────────────────────────────────────────── */
     .pill {

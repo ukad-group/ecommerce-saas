@@ -15,7 +15,8 @@
 - **Two-project architecture**: EComm.Api (controllers, DTOs) + EComm.Data (entities, data access)
 - **SQLite database with Entity Framework Core** (persistent storage)
 - Factory pattern for thread-safe DbContext access
-- 15 Controllers: Products, Categories, Cart, Orders, AdminOrders, OrderStatus, Tenants, Markets, ApiKeys, Auth, Files, Countries, Discounts, Payments, TenantApiKeys
+- 16 Controllers: Products, Categories, Cart, Carts, Orders, AdminOrders, OrderStatus, Tenants, Markets, ApiKeys, Auth, Files, Countries, Discounts, Payments, TenantApiKeys
+  (`Cart` = anonymous storefront, session-scoped; `Carts` = authenticated backoffice list)
 - Nets Easy payment gateway integration (hosted checkout)
 - Port: http://localhost:5180
 
@@ -43,7 +44,8 @@ Tenant (Business Entity - e.g., Retail Chain)
 
 **Key Points**:
 - Products and categories are **market-specific** (not tenant-wide)
-- Orders belong to specific markets
+- Orders belong to specific markets; so do carts, which are persisted and keyed by session id (a cart
+  has no customer until checkout turns it into an order)
 - Users have tenant-level access with optional market restrictions
 - API calls include both `X-Tenant-ID` and `X-Market-ID` headers
 - Markets also hold shared configuration: shipping methods and leasing periods

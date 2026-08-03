@@ -168,6 +168,12 @@ public interface ICommerceApiClient
     /// <summary>Gets (or implicitly creates) the cart for a session</summary>
     Task<Cart?> GetCartAsync(string sessionId, string? marketId = null);
 
+    /// <summary>
+    /// Backoffice cart list for a market, most recent activity first. Search matches session id and
+    /// product names — a cart has no customer or order number to match on.
+    /// </summary>
+    Task<CartListResult> GetCartsAsync(int page = 1, int pageSize = 20, string? search = null, string? marketId = null);
+
     Task<CartItem?> AddCartItemAsync(string sessionId, string productId, string? variantId,
         int quantity, string? itemType = null, string? itemSubType = null, string? marketId = null);
 

@@ -926,7 +926,10 @@ Site B (US Store)           │
 ## Future Enhancements
 
 ### Phase 2 Features (Post-MVP)
-- [x] Cart management UI in backoffice - Carts tab in the Commerce Admin dashboard
+- [x] Cart management UI in backoffice - Carts tab in the Commerce Admin dashboard: real persisted
+      carts from `GET /api/v1/carts`, server-side paging + search (session id / product name), and a
+      read-only cart detail view. Read-only on purpose — a cart belongs to a shopper's session, so the
+      backoffice observes it rather than editing it.
 - [x] Order dashboard - Orders/Analytics tabs in the Commerce Admin dashboard (charts still basic)
 - [ ] Product search integration
 - [ ] Multi-language support

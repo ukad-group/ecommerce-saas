@@ -5,7 +5,7 @@
 ## Quick Reference
 
 **What Works**: Products, Categories, Orders (admin), Cart, Tenants, Markets, API Keys, Superadmin Auth, **Product Attributes** (per-store variant-axis library + presets), Discounts (API), **Pluggable Payments** (Nets Easy provider), **Responsive UI**, **UKAD Branding**
-**What's Missing**: Tenant Admin/User login flows, Checkout UI (showcase-dotnet), Cart persistence
+**What's Missing**: Tenant Admin/User login flows, Checkout UI (showcase-dotnet), Abandoned-cart recovery
 
 ---
 
@@ -95,6 +95,10 @@ None
 - Order details view
 - Order status updates with notes
 - Stock warnings in cart
+- **Cart persistence** — carts are a real entity in the `Carts` table, keyed by session id, and survive
+  an API restart
+- **Backoffice cart list** (Umbraco Commerce section → Carts) — server-side paging + search, cart detail
+  view
 - **Custom order status management** (tenant-scoped)
   - Default status preset per tenant
   - Create/edit/delete custom statuses
@@ -105,17 +109,20 @@ None
 ### Missing
 - ❌ Checkout UI (forms and pages) - **API infrastructure ready**
 - ❌ Customer-facing order tracking
-- ❌ Cart persistence across sessions
 - ❌ Refund workflows
-- ❌ Abandoned cart recovery
+- ❌ Abandoned cart recovery (carts persist and are listable, but nothing re-targets them)
 
 ### API Endpoints
 ```
-# Cart (Customer)
+# Cart (Customer, anonymous; X-Session-ID identifies the cart)
 GET   /api/v1/cart
 POST   /api/v1/cart/items
 PUT   /api/v1/cart/items/:id
 DELETE   /api/v1/cart/items/:id
+DELETE   /api/v1/cart
+
+# Carts (Admin — JWT or API key)
+GET   /api/v1/carts?search&page&pageSize
 
 # Orders (Admin)
 GET   /api/v1/admin/orders
@@ -132,7 +139,12 @@ POST   /api/v1/order-statuses/reset-defaults
 ```
 
 ### Known Issues
-- No cart persistence for guest users (carts stored in-memory, synced to Orders with "new" status)
+- A cart has no customer details (they arrive at checkout), so the backoffice list shows every cart as
+  "Anonymous" and can only search session id / product name
+- No TTL or eviction on `Carts` — a cart is removed when it's cleared or checked out, so abandoned ones
+  accumulate indefinitely
+- The Orders list's **Payment Status** filter is applied client-side over the current page while
+  `totalCount` stays the unfiltered server count, so page counts are wrong while that filter is active
 
 ---
 

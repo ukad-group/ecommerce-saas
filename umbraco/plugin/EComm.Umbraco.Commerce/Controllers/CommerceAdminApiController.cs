@@ -69,6 +69,20 @@ public class CommerceAdminApiController : ManagementApiControllerBase
         return Ok(updated);
     }
 
+    // ── Carts ─────────────────────────────────────────────────────────────────
+
+    [HttpGet("carts")]
+    [ProducesResponseType(typeof(CartListResult), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetCarts(
+        [FromQuery] string? search = null,
+        [FromQuery] string? marketId = null,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20)
+    {
+        var result = await _apiClient.GetCartsAsync(page, pageSize, search, marketId);
+        return Ok(result);
+    }
+
     [HttpGet("order-statuses")]
     [ProducesResponseType(typeof(List<OrderStatusDefinition>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetOrderStatuses()

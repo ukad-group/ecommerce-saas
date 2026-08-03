@@ -161,9 +161,6 @@ public class CartController : ControllerBase
 
         _store.UpdateCart(cart);
 
-        // Sync cart to order with status "new"
-        _store.SyncCartToOrder(cart);
-
         return Ok(existingItem);
     }
 
@@ -229,9 +226,6 @@ public class CartController : ControllerBase
 
         _store.UpdateCart(cart);
 
-        // Sync cart to order with status "new"
-        _store.SyncCartToOrder(cart);
-
         return Ok(item);
     }
 
@@ -256,9 +250,6 @@ public class CartController : ControllerBase
 
         cart.Items.Remove(item);
         _store.UpdateCart(cart);
-
-        // Sync cart to order with status "new" (or delete if empty)
-        _store.SyncCartToOrder(cart);
 
         return NoContent();
     }

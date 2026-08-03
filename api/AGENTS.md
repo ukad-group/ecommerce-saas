@@ -112,13 +112,21 @@ PUT    /api/v1/categories/{id}         // Update category
 DELETE /api/v1/categories/{id}         // Delete category
 ```
 
-### 3. CartController
+### 3. CartController / CartsController
 ```csharp
-GET    /api/v1/cart                    // Get cart (new order)
+// Storefront (anonymous; X-Session-ID identifies the cart)
+GET    /api/v1/cart                    // Get (or implicitly create) the session's cart
 POST   /api/v1/cart/items              // Add item to cart
 PUT    /api/v1/cart/items/{id}         // Update item quantity
 DELETE /api/v1/cart/items/{id}         // Remove item
+DELETE /api/v1/cart                    // Clear the whole cart
+
+// Backoffice (authenticated: JWT or API key)
+GET    /api/v1/carts?search&page&pageSize // Paged cart list for the market, UpdatedAt DESC
 ```
+**Carts are persisted** in a `Carts` table (JSON `Items` column), keyed by `SessionId` — not held in
+memory, and not mirrored as "new"-status orders. A cart has no customer info; that arrives with
+`CreateOrderRequest` at checkout. `search` therefore matches session id and product names.
 
 ### 4. OrdersController
 ```csharp
@@ -228,7 +236,12 @@ The generic layer (`EComm.Payment/`) contains no gateway code. Providers self-re
 ## Data Store
 
 **SQLite Database** (`ecomm.db`):
-- Persistent storage across API restarts
+- Persistent storage across API restarts (including carts)
+- **Never delete `ecomm.db` to pick up a schema change** — `EnsureCreated()` is a no-op on an existing
+  file, so additive changes go through `SchemaUpgrader` (called from `Program.cs` after
+  `EnsureCreated()`): `ALTER TABLE ... ADD COLUMN` for columns, `CREATE TABLE IF NOT EXISTS` for new
+  tables such as `Carts`. `CartSchemaUpgraderTests` asserts the hand-written SQL and the EF model
+  agree, since drift would only surface at runtime on an upgraded database.
 - Entity Framework Core with JSON column support
 - Automatic database creation and seeding
 - **Reset capability**: Delete `ecomm.db` file, restart API → fresh database

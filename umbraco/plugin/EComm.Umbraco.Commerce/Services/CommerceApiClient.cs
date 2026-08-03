@@ -768,6 +768,37 @@ public class CommerceApiClient : ICommerceApiClient
         }
     }
 
+    public async Task<CartListResult> GetCartsAsync(int page = 1, int pageSize = 20, string? search = null, string? marketId = null)
+    {
+        var settings = await _settingsService.GetSettingsAsync();
+        if (settings == null || !settings.IsValid)
+            return new CartListResult();
+
+        try
+        {
+            var client = await CreateClientAsync(settings);
+            var qs = new List<string> { $"page={page}", $"pageSize={pageSize}" };
+            if (!string.IsNullOrEmpty(search))
+                qs.Add($"search={Uri.EscapeDataString(search)}");
+            var url = "carts?" + string.Join("&", qs);
+
+            var request = new HttpRequestMessage(HttpMethod.Get, url);
+            request.Headers.Add("X-Tenant-ID", settings.TenantId);
+            request.Headers.Add("X-Market-ID", marketId ?? settings.MarketId);
+
+            var response = await client.SendAsync(request);
+            response.EnsureSuccessStatusCode();
+
+            var result = await response.Content.ReadFromJsonAsync<CartListResult>(JsonOptions);
+            return result ?? new CartListResult();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to fetch carts from eCommerce API");
+            return new CartListResult();
+        }
+    }
+
     public async Task<CartItem?> AddCartItemAsync(string sessionId, string productId, string? variantId,
         int quantity, string? itemType = null, string? itemSubType = null, string? marketId = null)
     {

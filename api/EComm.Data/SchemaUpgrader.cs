@@ -43,6 +43,31 @@ public static class SchemaUpgrader
             Execute(connection, "CREATE INDEX IF NOT EXISTS IX_Orders_PaymentReference ON Orders (PaymentReference)");
         });
 
+    /// <summary>
+    /// The Carts table. Carts used to live in an in-memory dictionary on <see cref="DataStore"/>;
+    /// persisting them is what lets the backoffice Carts list survive an API restart.
+    /// </summary>
+    public static void EnsureCartSchema(ECommDbContext context)
+        => WithConnection(context, connection =>
+        {
+            Execute(connection, """
+                CREATE TABLE IF NOT EXISTS Carts (
+                    Id TEXT NOT NULL CONSTRAINT PK_Carts PRIMARY KEY,
+                    SessionId TEXT NOT NULL,
+                    TenantId TEXT NOT NULL,
+                    MarketId TEXT NOT NULL,
+                    Items TEXT NOT NULL,
+                    Subtotal decimal(18,2) NOT NULL,
+                    Tax decimal(18,2) NOT NULL,
+                    Total decimal(18,2) NOT NULL,
+                    CreatedAt TEXT NOT NULL,
+                    UpdatedAt TEXT NOT NULL
+                )
+                """);
+            Execute(connection, "CREATE UNIQUE INDEX IF NOT EXISTS IX_Carts_SessionId ON Carts (SessionId)");
+            Execute(connection, "CREATE INDEX IF NOT EXISTS IX_Carts_TenantId_MarketId ON Carts (TenantId, MarketId)");
+        });
+
     private static void WithConnection(ECommDbContext context, Action<System.Data.Common.DbConnection> work)
     {
         var connection = context.Database.GetDbConnection();

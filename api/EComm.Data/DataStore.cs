@@ -4,7 +4,6 @@ using EComm.Data.ValueObjects.Order;
 using EComm.Data.ValueObjects.Product;
 using EComm.Data.ValueObjects.Tenant;
 using Microsoft.EntityFrameworkCore;
-using System.Collections.Concurrent;
 
 namespace EComm.Data;
 
@@ -18,7 +17,6 @@ public class DataStore
     public static DataStore Instance => _instance;
 
     private DbContextOptions<ECommDbContext>? _dbOptions;
-    private readonly ConcurrentDictionary<string, Cart> _carts = new(); // Carts still in memory for now (can be migrated later)
 
     private DataStore()
     {
@@ -333,10 +331,16 @@ public class DataStore
         }
     }
 
-    // Carts (still in-memory for simplicity - can be migrated to DB later if needed)
+    // Carts — persisted, so the backoffice Carts list survives an API restart. Every lookup is by
+    // SessionId (the storefront's only handle on a cart), not by Id.
     public Cart GetOrCreateCart(string sessionId, string tenantId, string marketId)
     {
-        return _carts.GetOrAdd(sessionId, _ => new Cart
+        using var context = CreateContext();
+        var existing = context.Carts.AsNoTracking().FirstOrDefault(c => c.SessionId == sessionId);
+        if (existing != null)
+            return existing;
+
+        var cart = new Cart
         {
             Id = Guid.NewGuid().ToString(),
             SessionId = sessionId,
@@ -345,7 +349,20 @@ public class DataStore
             Items = new List<CartItem>(),
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
-        });
+        };
+        context.Carts.Add(cart);
+        try
+        {
+            context.SaveChanges();
+            return cart;
+        }
+        catch (DbUpdateException)
+        {
+            // Two concurrent first-touches for one session; the unique SessionId index rejected the
+            // loser. The winner's row is the cart.
+            using var retry = CreateContext();
+            return retry.Carts.AsNoTracking().First(c => c.SessionId == sessionId);
+        }
     }
 
     public void UpdateCart(Cart cart)
@@ -357,24 +374,42 @@ public class DataStore
         var taxRate = GetMarket(cart.MarketId)?.Settings?.ResolveGoodsTaxRate() ?? 0m;
         cart.Tax = Math.Round(cart.Subtotal * taxRate, 2, MidpointRounding.AwayFromZero);
         cart.Total = cart.Subtotal + cart.Tax;
-        _carts[cart.SessionId] = cart;
+
+        using var context = CreateContext();
+        var existing = context.Carts.FirstOrDefault(c => c.SessionId == cart.SessionId);
+        if (existing == null)
+        {
+            context.Carts.Add(cart);
+        }
+        else
+        {
+            context.Entry(existing).CurrentValues.SetValues(cart);
+            existing.Items = cart.Items; // SetValues skips the JSON-converted collection
+        }
+        context.SaveChanges();
     }
 
     public void ClearCart(string sessionId)
     {
-        _carts.TryRemove(sessionId, out _);
+        using var context = CreateContext();
+        var cart = context.Carts.FirstOrDefault(c => c.SessionId == sessionId);
+        if (cart != null)
+        {
+            context.Carts.Remove(cart);
+            context.SaveChanges();
+        }
     }
 
-    /// <summary>
-    /// No-op. Carts live in the in-memory <see cref="_carts"/> store; they used to be mirrored as
-    /// "cart-{sessionId}" pseudo-orders (status "new", "Guest") purely for admin visibility, which
-    /// polluted the Orders list with CART-* junk (QA F-BACKOFFICE-1). Real orders are created via
-    /// OrdersController.CreateOrder. Kept as a no-op so the CartController call sites need no change.
-    /// </summary>
-    public void SyncCartToOrder(Cart cart)
+    /// <summary>Backoffice cart list, most recent activity first.</summary>
+    public List<Cart> GetCarts(string? tenantId = null, string? marketId = null)
     {
-        // ponytail: intentionally does nothing — see summary. Delete the CartController calls if this
-        // never comes back.
+        using var context = CreateContext();
+        var query = context.Carts.AsNoTracking().AsQueryable();
+        if (!string.IsNullOrEmpty(tenantId))
+            query = query.Where(c => c.TenantId == tenantId);
+        if (!string.IsNullOrEmpty(marketId))
+            query = query.Where(c => c.MarketId == marketId);
+        return query.OrderByDescending(c => c.UpdatedAt).ToList();
     }
 
     // Orders

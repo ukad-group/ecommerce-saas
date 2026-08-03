@@ -181,7 +181,7 @@ import { UMB_CURRENT_USER_CONTEXT } from '@umbraco-cms/backoffice/current-user';
 - In-memory caching (categories: 5min, products: 2min)
 - Settings integration (reads from CommerceSettingsService)
 - Methods: `GetCategoriesAsync`, `GetCategoryAsync`, `CreateCategoryAsync`, `GetProductsAsync`, `GetProductBySlugAsync`, `GetMarketsAsync`, `GetCountriesAsync`, `CreateProductAsync`, `DeleteProductAsync`
-- **Cart**: `GetCartAsync`, `AddCartItemAsync`, `UpdateCartItemAsync`, `RemoveCartItemAsync`, `CreateOrderAsync` (session-based)
+- **Cart**: `GetCartAsync`, `AddCartItemAsync`, `UpdateCartItemAsync`, `RemoveCartItemAsync`, `CreateOrderAsync` (session-based), plus `GetCartsAsync` (paged backoffice list, market-scoped)
 - **Orders**: `GetOrdersAsync`, `GetOrderAsync`, `UpdateOrderStatusAsync`, `GetOrderStatusDefinitionsAsync`, `CreatePaymentAsync` (provider-neutral — starts a payment via the market's configured provider; see [docs/PAYMENT-PROVIDERS.md](../../docs/PAYMENT-PROVIDERS.md))
 - **Market config**: `GetAttributesAsync`/`UpdateAttributesAsync`, `GetAttributePresetsAsync`/`UpdateAttributePresetsAsync`, shipping methods, leasing periods, property templates, discounts (full CRUD)
 
@@ -214,7 +214,18 @@ request.Headers.Add("X-API-Key", settings.ApiKey);
 **Purpose**: Full commerce back-office inside Umbraco, in a dedicated "Commerce" section (auto-granted to the Administrators group by `Migrations/AddCommerceSectionToAdminGroupMigration.cs`)
 **Shell**: a "Welcome to the Commerce Section" landing (`activeView='home'`) with clickable **store cards**, and a left **per-store tree** — each market is an expandable node whose children are the nav items (Orders/Carts/Discounts/Analytics) + Options submenu. Selecting a child sets both the store and the view; the selected store scopes every view.
 **Tabs**: Orders, Carts, Discounts, **Product Attributes**, **Product Attribute Presets**, Order Statuses, Property Templates, Analytics
-**API Route**: `/umbraco/management/api/ecomm-commerce` - `markets`, `orders`, `orders/{id}`, `orders/{id}/status`, `order-statuses`, `attributes`, `attribute-presets`, `property-templates`, `discounts` (CRUD), `payment-providers/*`
+**API Route**: `/umbraco/management/api/ecomm-commerce` - `markets`, `orders`, `orders/{id}`, `orders/{id}/status`, `carts`, `order-statuses`, `attributes`, `attribute-presets`, `property-templates`, `discounts` (CRUD), `payment-providers/*`
+**Data loading**: every view fetches when it is opened, via a single `_loadView(key)` dispatch shared by
+"switched view" and "switched store". Nothing is primed at startup and there are no load-once guards —
+those made lists show data from the moment the section was first opened, with pagination as the only
+way to force a refresh. `_selectStoreView` sets the store *then* switches view so exactly one fetch
+happens, for the store being switched to.
+**Sidebar state** (`expandedStores`, `optionsOpenStores`) is a `Set` of market ids — per store, so one
+store's expanded Options node doesn't open every other store's.
+**Carts tab**: real carts from `GET /api/v1/carts` (persisted `Carts` table), paged and searched
+server-side, rows open a read-only cart detail view. Not orders-in-a-cart-status — that never worked,
+since cart→order mirroring was removed. A cart has no customer, address, order number or status, and
+its lines have no SKU, so `_renderCartDetailView` is its own renderer rather than a flag on the order one.
 **Payment Providers** (`wwwroot/components/commerce-admin/payment-providers-dashboard.js`): a `<ecomm-payment-providers-dashboard embedded>` element rendered as the **Options → Payment Providers** view inside the Commerce Admin dashboard, scoped to the dashboard's selected store (no own market picker when `embedded`). List the store's configured providers, add (pick from `payment-providers/catalog`), edit, delete, and choose the active one. The settings form is rendered from each provider's schema the moment a provider is chosen, so new gateways need no UI changes; secrets are write-only (masked, only sent when changed). See [docs/PAYMENT-PROVIDERS.md](../../docs/PAYMENT-PROVIDERS.md).
 **Product Attributes tabs**: per-store attribute library (Name+Alias, values Name+Alias) and named presets (bundles of attributes), scoped to the selected market (`?marketId=`). Property Templates tab gains a "Values from attribute" binding so a template's product value becomes a dropdown of that attribute's values.
 

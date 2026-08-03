@@ -81,10 +81,11 @@ dotnet run
 - **Use `/ctx-products` for details**
 
 ### Orders & Cart
-- Shopping cart (add/update/remove)
+- Shopping cart (add/update/remove), persisted in the `Carts` table and keyed by session id
 - Admin order dashboard with filters
+- Backoffice cart list + detail view (Umbraco Commerce section), paged server-side
 - Custom order status management (tenant-scoped, custom colors)
-- **Missing**: Checkout UI, cart persistence
+- **Missing**: Checkout UI, abandoned-cart recovery
 - **Use `/ctx-orders` for details**
 
 ### Role-Based Access
