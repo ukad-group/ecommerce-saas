@@ -301,7 +301,8 @@ GET/PUT/DELETE   /api/v1/discounts/:id
 - Webhook URLs are built from `Payments:PublicBaseUrl`; the Nets provider registers its own subscriptions per payment with a per-payment authorization token
 - A successful payment advances the order through `OrderStatusService`, the shared transition also used by `PUT /orders/{id}/status` and `PUT /admin/orders/{id}/status` — so paying reserves stock and issues a tracking number from every path, including markets whose paid state is a custom status
 - Wired into the Umbraco sample site's real checkout flow (Cart → Checkout → Confirmation)
-- **Provider management UI** in both the React admin (Markets → edit → Payment providers) and the Umbraco plugin (Commerce → store → Options → Payment Providers), schema-driven from `GET /payments/providers` with masked/write-only secrets
+- **Common settings on every provider** — Continue / Cancel / Error / Terms / Merchant Terms URL + Language, declared once in `PaymentCommonSettings` and appended to every descriptor. They replace the URLs the storefront used to pass per request, so `POST /orders/{id}/payment` takes no body; URLs must be absolute and are validated before any gateway call. Nets maps them onto its checkout URLs and puts the language on the hosted-page URL
+- **Provider management UI** in both the React admin (Markets → edit → Payment providers) and the Umbraco plugin (Commerce → store → Options → Payment Providers), schema-driven from `GET /payments/providers` with masked/write-only secrets, each revealable on demand via `GET …/payment-providers/{alias}/secrets/{key}`
 - **Payment surcharge fee** — an optional flat fee per provider alias (`MarketSettings.PaymentSurcharges`), taxed via a [Tax Class](TAX-CLASSES.md), snapshotted onto `Order.PaymentFee`/`Order.PaymentFeeTax` at order-creation time and folded into `Order.Total` + the Nets Easy request's line items
 
 ### Missing / Known Issues

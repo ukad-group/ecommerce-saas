@@ -19,9 +19,6 @@ public class NetsEasySettings
     /// <summary>The secret key for the active environment.</summary>
     public string? ActiveSecretKey => TestMode ? TestSecretKey : LiveSecretKey;
 
-    /// <summary>The URL to the privacy and cookie settings of your webshop (sent as checkout.merchantTermsUrl).</summary>
-    public string? MerchantTermsUrl { get; set; }
-
     /// <summary>
     /// Only for Nets partners initiating checkout with partner keys instead of the webshop's own
     /// integration keys (sent as the request's merchantNumber). Leave blank otherwise.

@@ -28,5 +28,20 @@ public class PaymentProviderDescriptor
 {
     public string Alias { get; init; } = "";
     public string DisplayName { get; init; } = "";
-    public IReadOnlyList<PaymentSettingField> Fields { get; init; } = [];
+
+    /// <summary>
+    /// Only what this gateway needs beyond the common set — a provider never re-declares the URLs
+    /// and language every gateway takes. Not serialized; consumers read <see cref="Fields"/>.
+    /// </summary>
+    [JsonIgnore]
+    public IReadOnlyList<PaymentSettingField> ProviderFields { get; init; } = [];
+
+    /// <summary>
+    /// The full schema: this provider's own fields, then <see cref="PaymentCommonSettings.Fields"/>.
+    /// Everything keys off this one list — form rendering, secret masking, and the pruning of
+    /// undeclared keys in <see cref="PaymentSettings.Merge"/> — so common settings are stored,
+    /// rendered and validated exactly like a provider's own.
+    /// </summary>
+    public IReadOnlyList<PaymentSettingField> Fields =>
+        [.. ProviderFields, .. PaymentCommonSettings.Fields];
 }

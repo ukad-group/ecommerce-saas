@@ -18,7 +18,7 @@ public class NetsEasyPaymentProvider : IPaymentProvider
         {
             Alias = Alias,
             DisplayName = "Nets Easy",
-            Fields =
+            ProviderFields =
             [
                 new()
                 {
@@ -49,13 +49,6 @@ public class NetsEasyPaymentProvider : IPaymentProvider
                     Type = PaymentFieldType.Text,
                     HelpText =
                         "Your test Nets checkout key. Only used by embedded checkout — the hosted payment page doesn't need it.",
-                },
-                new()
-                {
-                    Key = "merchantTermsUrl",
-                    Label = "Merchant Terms URL",
-                    Type = PaymentFieldType.Text,
-                    HelpText = "The URL to the privacy and cookie settings of your webshop.",
                 },
                 new()
                 {
@@ -169,10 +162,10 @@ public class NetsEasyPaymentProvider : IPaymentProvider
             Checkout = new NetsCheckout
             {
                 IntegrationType = "HostedPaymentPage",
-                ReturnUrl = context.ReturnUrl,
-                CancelUrl = context.CancelUrl,
-                TermsUrl = context.TermsUrl,
-                MerchantTermsUrl = NullIfBlank(settings.MerchantTermsUrl),
+                ReturnUrl = context.Common.ContinueUrl,
+                CancelUrl = context.Common.CancelUrl,
+                TermsUrl = context.Common.TermsUrl,
+                MerchantTermsUrl = NullIfBlank(context.Common.MerchantTermsUrl),
                 Consumer = BuildConsumer(order), // prefill (still editable) so the shopper doesn't re-type
                 MerchantHandlesConsumerData = settings.MerchantHandlesConsumerData,
                 // consumerType drives which consumer fields the page renders — without it Nets has
@@ -205,10 +198,24 @@ public class NetsEasyPaymentProvider : IPaymentProvider
         return new PaymentCreationResult
         {
             PaymentId = result.PaymentId,
-            RedirectUrl = result.HostedPaymentPageUrl,
+            RedirectUrl = WithLanguage(result.HostedPaymentPageUrl, context.Common.Language),
             // Only meaningful if we actually registered webhooks carrying it.
             WebhookSecret = string.IsNullOrWhiteSpace(context.WebhookUrl) ? null : webhookSecret,
         };
+    }
+
+    /// <summary>
+    /// Nets takes the hosted page's language as a <c>language</c> query parameter on the URL it hands
+    /// back — there is no language field in the create-payment body. Unknown or unsupported codes fall
+    /// back to Nets' default, so the value goes through as configured.
+    /// </summary>
+    private static string? WithLanguage(string? hostedPageUrl, string language)
+    {
+        if (string.IsNullOrWhiteSpace(hostedPageUrl) || string.IsNullOrWhiteSpace(language))
+            return hostedPageUrl;
+
+        var separator = hostedPageUrl.Contains('?') ? '&' : '?';
+        return $"{hostedPageUrl}{separator}language={Uri.EscapeDataString(language.Trim())}";
     }
 
     /// <summary>

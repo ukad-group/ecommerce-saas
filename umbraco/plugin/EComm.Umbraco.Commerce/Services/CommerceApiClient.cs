@@ -716,7 +716,7 @@ public class CommerceApiClient : ICommerceApiClient
         }
     }
 
-    public async Task<CreatePaymentResult?> CreatePaymentAsync(string orderId, string returnUrl, string cancelUrl, string termsUrl)
+    public async Task<CreatePaymentResult?> CreatePaymentAsync(string orderId)
     {
         var settings = await _settingsService.GetSettingsAsync();
         if (settings == null || !settings.IsValid) return null;
@@ -724,11 +724,9 @@ public class CommerceApiClient : ICommerceApiClient
         try
         {
             var client = await CreateClientAsync(settings);
-            var payload = new { returnUrl, cancelUrl, termsUrl };
-            var json = JsonSerializer.Serialize(payload, JsonOptions);
-            var content = new StringContent(json, Encoding.UTF8, "application/json");
 
-            var response = await client.PostAsync($"orders/{orderId}/payment", content);
+            // No body: the URLs and language the payment needs are the market's provider settings.
+            var response = await client.PostAsync($"orders/{orderId}/payment", content: null);
             if (!response.IsSuccessStatusCode)
             {
                 var err = await response.Content.ReadAsStringAsync();
@@ -1248,6 +1246,16 @@ public class CommerceApiClient : ICommerceApiClient
         var client = await CreateClientAsync(settings);
         var response = await client.DeleteAsync($"admin/markets/{marketId}/payment-providers/{alias}");
         return response.IsSuccessStatusCode;
+    }
+
+    public async Task<JsonElement> GetPaymentProviderSecretAsync(string marketId, string alias, string key)
+    {
+        var settings = await _settingsService.GetSettingsAsync();
+        if (settings == null || !settings.IsValid) return default;
+        var client = await CreateClientAsync(settings);
+        var response = await client.GetAsync($"admin/markets/{marketId}/payment-providers/{alias}/secrets/{key}");
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<JsonElement>(JsonOptions);
     }
 
     public async Task<JsonElement> SetActivePaymentProviderAsync(string marketId, string? alias)

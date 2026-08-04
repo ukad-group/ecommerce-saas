@@ -22,6 +22,9 @@ public interface ICommerceApiClient
     /// <summary>Remove a provider's config from a market.</summary>
     Task<bool> DeleteMarketPaymentProviderAsync(string marketId, string alias);
 
+    /// <summary>The unmasked value of one Secret-typed setting, so an admin can see the stored key.</summary>
+    Task<JsonElement> GetPaymentProviderSecretAsync(string marketId, string alias, string key);
+
     /// <summary>Set (alias) or clear (null) the market's active provider.</summary>
     Task<JsonElement> SetActivePaymentProviderAsync(string marketId, string? alias);
 
@@ -126,8 +129,13 @@ public interface ICommerceApiClient
     /// Starts a payment for an order via the market's configured payment provider and returns the URL
     /// to redirect the customer to. Poll <see cref="GetOrderAsync"/> and read
     /// <see cref="Order.PaymentStatus"/> for the outcome.
+    /// <para>
+    /// Where the customer is sent afterwards (continue/cancel/error), the shop's terms URLs and the
+    /// payment window's language are configured per market on the provider itself — in the Commerce
+    /// section under Options → Payment Providers — so no storefront passes them here.
+    /// </para>
     /// </summary>
-    Task<CreatePaymentResult?> CreatePaymentAsync(string orderId, string returnUrl, string cancelUrl, string termsUrl);
+    Task<CreatePaymentResult?> CreatePaymentAsync(string orderId);
 
     /// <summary>
     /// Gets all order status definitions for the configured tenant

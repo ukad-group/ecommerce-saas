@@ -16,9 +16,12 @@ public class PaymentCreationContext
     /// </summary>
     public JsonElement? ProviderSettingsJson { get; init; }
 
-    public string ReturnUrl { get; init; } = string.Empty;
-    public string CancelUrl { get; init; } = string.Empty;
-    public string TermsUrl { get; init; } = string.Empty;
+    /// <summary>
+    /// The settings every provider shares — customer-facing URLs and the payment window's language.
+    /// The pipeline reads them from the same settings bag and validates them (URLs are absolute) before
+    /// a provider ever sees them, so a provider can pass them straight to its gateway.
+    /// </summary>
+    public required PaymentCommonSettings Common { get; init; }
 
     /// <summary>
     /// Absolute, publicly reachable URL this provider's gateway should POST status updates to

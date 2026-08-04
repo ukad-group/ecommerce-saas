@@ -102,10 +102,24 @@ public class NetsEasyPaymentProviderTests
             ShippingAddress = shipping ?? new Address()
         };
         var market = new Market { Id = "m1", Currency = "USD", Settings = new MarketSettings() };
-        settingsJson ??= secretKey == null
-            ? JsonSerializer.SerializeToElement(new { testMode = true })
-            : JsonSerializer.SerializeToElement(new { testSecretKey = secretKey, testMode = true });
-        return new PaymentCreationContext { Order = order, Market = market, ProviderSettingsJson = settingsJson, ReturnUrl = "r", CancelUrl = "c", TermsUrl = "t", WebhookUrl = webhookUrl };
+        settingsJson ??= JsonSerializer.SerializeToElement(new
+        {
+            testSecretKey = secretKey,
+            testMode = true,
+            continueUrl = "https://shop.example/continue",
+            cancelUrl = "https://shop.example/cancel",
+            termsUrl = "https://shop.example/terms"
+        });
+        return new PaymentCreationContext
+        {
+            Order = order,
+            Market = market,
+            ProviderSettingsJson = settingsJson,
+            // Read out of the same bag the pipeline reads it from, so a settings-shape change can't
+            // pass here and fail in production.
+            Common = PaymentSettings.Read<PaymentCommonSettings>(settingsJson),
+            WebhookUrl = webhookUrl
+        };
     }
 
     [Fact]
@@ -178,6 +192,36 @@ public class NetsEasyPaymentProviderTests
 
         Assert.Null(nets.LastRequest!.Checkout.MerchantTermsUrl);
         Assert.Null(nets.LastRequest.MerchantNumber);
+    }
+
+    [Fact]
+    public async Task CreatePaymentAsync_SendsTheCommonUrlsToTheCheckout()
+    {
+        var nets = new RecordingNetsEasyClient(new NetsCreatePaymentResult { PaymentId = "p", HostedPaymentPageUrl = "u" });
+        var provider = new NetsEasyPaymentProvider(nets);
+
+        await provider.CreatePaymentAsync(ContextWith("secret"));
+
+        var checkout = nets.LastRequest!.Checkout;
+        Assert.Equal("https://shop.example/continue", checkout.ReturnUrl);   // Continue URL → Nets' returnUrl
+        Assert.Equal("https://shop.example/cancel", checkout.CancelUrl);
+        Assert.Equal("https://shop.example/terms", checkout.TermsUrl);
+    }
+
+    [Theory]
+    // Nets takes the language on the hosted page's URL, not in the create-payment body.
+    [InlineData("https://pay.nets/hpp", "sv-SE", "https://pay.nets/hpp?language=sv-SE")]
+    [InlineData("https://pay.nets/hpp?id=42", "da-DK", "https://pay.nets/hpp?id=42&language=da-DK")]
+    [InlineData("https://pay.nets/hpp", "", "https://pay.nets/hpp")]
+    public async Task CreatePaymentAsync_AppendsConfiguredLanguageToTheRedirectUrl(string hostedUrl, string language, string expected)
+    {
+        var nets = new RecordingNetsEasyClient(new NetsCreatePaymentResult { PaymentId = "p", HostedPaymentPageUrl = hostedUrl });
+        var provider = new NetsEasyPaymentProvider(nets);
+        var settingsJson = JsonSerializer.SerializeToElement(new { testSecretKey = "secret", testMode = true, language });
+
+        var result = await provider.CreatePaymentAsync(ContextWith("secret", settingsJson: settingsJson));
+
+        Assert.Equal(expected, result!.RedirectUrl);
     }
 
     [Fact]
@@ -509,12 +553,72 @@ public class PaymentProviderResolverTests
     }
 }
 
+public class PaymentCommonSettingsTests
+{
+    private static PaymentCommonSettings Configured() =>
+        new() { ContinueUrl = "https://shop.example/continue/", TermsUrl = "https://shop.example/terms/" };
+
+    [Fact]
+    public void Validate_PassesWhenTheRequiredUrlsAreAbsolute() => Assert.Null(Configured().Validate());
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void Validate_RejectsAMissingRequiredUrl(string continueUrl)
+    {
+        var settings = Configured();
+        settings.ContinueUrl = continueUrl;
+        Assert.Equal("Continue URL is required for this payment provider", settings.Validate());
+    }
+
+    [Fact]
+    public void Validate_RejectsARelativeUrl()
+    {
+        // The gateway redirects a browser here, so "/continue/" would fail at the gateway instead.
+        var settings = Configured();
+        settings.ContinueUrl = "/continue/";
+        Assert.Contains("Continue URL must be an absolute URL", settings.Validate());
+    }
+
+    [Fact]
+    public void Validate_RejectsARelativeOptionalUrl()
+    {
+        var settings = Configured();
+        settings.CancelUrl = "/cancel/";
+        Assert.Contains("Cancel URL must be an absolute URL", settings.Validate());
+    }
+
+    [Fact]
+    public void Validate_AllowsBlankOptionalUrls()
+    {
+        var settings = Configured();
+        settings.CancelUrl = settings.ErrorUrl = settings.MerchantTermsUrl = "";
+        Assert.Null(settings.Validate());
+    }
+
+    [Fact]
+    public void Fields_AreAppendedToEveryProvidersSchema()
+    {
+        // The descriptor is the schema for rendering, masking and pruning, so the common fields have
+        // to be in Fields or Merge would drop them on the next save.
+        var descriptor = new PaymentProviderDescriptor
+        {
+            Alias = "acme",
+            ProviderFields = [new() { Key = "apiKey", Type = PaymentFieldType.Secret }]
+        };
+
+        Assert.Equal("apiKey", descriptor.Fields[0].Key);
+        foreach (var common in PaymentCommonSettings.Fields)
+            Assert.Contains(descriptor.Fields, f => f.Key == common.Key);
+    }
+}
+
 public class PaymentSettingsTests
 {
     private static readonly PaymentProviderDescriptor Descriptor = new()
     {
         Alias = "nets-easy",
-        Fields =
+        ProviderFields =
         [
             new() { Key = "secretApiKey", Type = PaymentFieldType.Secret },
             new() { Key = "testMode", Type = PaymentFieldType.Bool }

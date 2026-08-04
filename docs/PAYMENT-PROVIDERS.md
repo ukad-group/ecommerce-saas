@@ -14,7 +14,7 @@ the generic pipeline knows nothing about any specific gateway.
 
 ```
 Storefront (Umbraco plugin consumer, e.g. Westbay)
-   │  ICommerceApiClient.CreatePaymentAsync(orderId, returnUrl, cancelUrl, termsUrl)
+   │  ICommerceApiClient.CreatePaymentAsync(orderId)     ← no URLs: they're market configuration
    ▼
 EComm.Api  POST /api/v1/orders/{id}/payment
    │  IPaymentProviderResolver.ResolveForMarket(market)   ← market.Settings.PaymentProvider
@@ -22,7 +22,7 @@ EComm.Api  POST /api/v1/orders/{id}/payment
 IPaymentProvider  (e.g. NetsEasyPaymentProvider)          → { paymentId, redirectUrl }
    │  gateway REST call
    ▼
-Payment gateway hosted checkout  → customer pays → returnUrl
+Payment gateway hosted checkout  → customer pays → the configured Continue URL
    │  gateway webhook
    ▼
 EComm.Api  POST /api/v1/payments/webhook/{provider?}
@@ -58,9 +58,10 @@ public interface IPaymentProvider
 }
 ```
 
-- `CreatePaymentAsync` receives a `PaymentCreationContext` — the order, market, return/cancel/terms
-  URLs, the absolute `WebhookUrl` your gateway should call back on, and the provider's settings. Read
-  the settings as your **own typed model** via `context.GetSettings<TSettings>()` (see below). It
+- `CreatePaymentAsync` receives a `PaymentCreationContext` — the order, market, the validated
+  `Common` settings (customer-facing URLs + language, see "Common settings" below), the absolute
+  `WebhookUrl` your gateway should call back on, and the provider's own settings. Read those as your
+  **own typed model** via `context.GetSettings<TSettings>()` (see below). It
   returns the redirect URL + provider payment id (and optionally a `WebhookSecret`, below), or
   **`null`** when the provider isn't configured for the market or the gateway rejected the request.
 - `HandleWebhookAsync` parses the request into zero or more `WebhookResult`s. A **list**, because
@@ -140,7 +141,7 @@ default/sole logic, so a gateway callback URL registered as `/api/v1/payments/we
 
 | Method & route | Purpose |
 | --- | --- |
-| `POST /api/v1/orders/{id}/payment` | Start a payment. **Authenticated** (JWT or `X-API-Key`) — it spends against the market's live gateway credentials. Body: `{ returnUrl, cancelUrl, termsUrl }`. Returns `{ paymentId, redirectUrl }`. `400` if no provider is configured for the market; `502` if the provider couldn't create the payment. |
+| `POST /api/v1/orders/{id}/payment` | Start a payment. **Authenticated** (JWT or `X-API-Key`) — it spends against the market's live gateway credentials. **No body**: where the customer goes next is the provider's own market configuration. Returns `{ paymentId, redirectUrl }`. `400` if no provider is configured for the market, or its common settings don't validate (missing/relative Continue or Terms URL); `502` if the provider couldn't create the payment. Both failures also return the configured `errorUrl`, so a storefront knows where to send the customer. |
 | `POST /api/v1/payments/webhook/{provider?}` | Gateway status webhook, anonymous by necessity — authenticity comes from `VerifyWebhookAsync`, not from a caller identity. `200` for anything parseable (including unknown providers and unknown payments, so the gateway stops retrying); `401` only when verification fails. |
 
 ### Webhook delivery guarantees
@@ -203,7 +204,16 @@ alias):
   "paymentProvider": "nets-easy",           // which provider handles this market
   "orderStatusAfterPayment": "paid",        // generic — applies no matter which provider is active
   "paymentProviders": {
-    "nets-easy": { "testSecretKey": "…", "liveSecretKey": "…", "testMode": true, "merchantNumber": "…" }
+    "nets-easy": {
+      "testSecretKey": "…", "liveSecretKey": "…", "testMode": true, "merchantNumber": "…",
+      // the common settings every provider gets — see below
+      "continueUrl": "https://shop.example.com/continue/",
+      "cancelUrl": "https://shop.example.com/cancel/",
+      "errorUrl": "https://shop.example.com/error/",
+      "language": "sv-SE",
+      "termsUrl": "https://shop.example.com/terms/",
+      "merchantTermsUrl": "https://shop.example.com/privacy/"
+    }
     // "acme": { "apiKey": "…", "webhookSecret": "…" }   ← another provider, no schema change
   }
 }
@@ -220,13 +230,40 @@ Each provider alias in `paymentProviders` still maps to an **opaque JSON object*
 never interprets it — the provider deserializes its own entry into a **strongly-typed settings
 model** via `context.GetSettings<T>()` (case-insensitive). For example the Nets provider defines
 `NetsEasySettings { LiveSecretKey, TestSecretKey, LiveCheckoutKey, TestCheckoutKey,
-MerchantTermsUrl, MerchantNumber, TestMode, MerchantHandlesConsumerData }` — `TestMode` selects the
+MerchantNumber, TestMode, MerchantHandlesConsumerData }` — `TestMode` selects the
 live-vs-test key pair *and* the API host (`test.api.dibspayment.eu` vs `api.dibspayment.eu`),
-`MerchantTermsUrl`/`MerchantNumber` map directly to the real Nets Easy API's
-`checkout.merchantTermsUrl` and request-level `merchantNumber` fields (the latter only needed for
-Nets partners using partner keys), and `MerchantHandlesConsumerData` decides whether Nets renders the
-consumer fields (prefilled from the order) or only asks for payment details. Secrets stay server-side
-and are never exposed to the browser.
+`MerchantNumber` maps to the real Nets Easy API's request-level `merchantNumber` field (only needed
+for Nets partners using partner keys), and `MerchantHandlesConsumerData` decides whether Nets renders
+the consumer fields (prefilled from the order) or only asks for payment details. Secrets stay
+server-side and are never exposed to the browser.
+
+### Common settings (every provider gets these)
+
+Six settings every gateway needs live in `PaymentCommonSettings`
+(`api/EComm.Payment/PaymentCommonSettings.cs`), which declares both the typed model **and** its
+schema fields. `PaymentProviderDescriptor.Fields` appends them to each provider's own
+`ProviderFields`, so a provider never re-declares them and every UI, `Mask` and `Merge` treats them
+exactly like a provider's own field:
+
+| Key | Required | Meaning |
+| --- | --- | --- |
+| `continueUrl` | ✔ | Where the customer continues to after the provider is done processing. |
+| `cancelUrl` | | Where the customer returns if they cancel the payment. |
+| `errorUrl` | | Where the customer returns if the attempt errors — returned on the `400`/`502` create-payment responses, since no gateway takes an error URL of its own. |
+| `language` | | Language of the payment window, as a locale code (`sv-SE`, `da-DK`, `en-GB`). Blank ⇒ the gateway's default. |
+| `termsUrl` | ✔ | The webshop's terms and conditions. |
+| `merchantTermsUrl` | | The webshop's privacy and cookie settings. |
+
+**URLs must be absolute** (`https://shop.example.com/continue/`). Gateways redirect a browser to
+them, so a relative path would fail at the gateway; `PaymentCommonSettings.Validate()` catches that
+first and `POST /orders/{id}/payment` answers `400`. Required-ness is enforced there, at payment
+time — not on save, so a half-configured provider can still be stored mid-edit.
+
+A provider reads them off `context.Common` and maps them to its own gateway's vocabulary; nothing is
+sent automatically. Nets maps `ContinueUrl`/`CancelUrl`/`TermsUrl`/`MerchantTermsUrl` onto
+`checkout.returnUrl`/`cancelUrl`/`termsUrl`/`merchantTermsUrl`, and `Language` onto a `language`
+query parameter appended to the hosted-page URL it returns (that is how Nets takes it — there is no
+language field in the create-payment body).
 
 The two checkout keys are the one exception to "every declared field is read": they're consumed only
 by Nets' browser-side Checkout JS, which the hosted payment page
@@ -239,6 +276,14 @@ a flag that gates nothing is config for a value that never changes — declare t
 operations, not before. `PaymentSettings.Merge` drops stored keys the descriptor no longer declares,
 so removing a field cleans it out of every market on the next save.
 
+### Reading a stored secret back
+
+Secrets are write-only everywhere else: `PaymentSettings.Mask` replaces them with `********` on read,
+and a blank or still-masked value on save keeps what's stored. To let an admin check *which* key is
+actually configured, `GET /api/v1/admin/markets/{id}/payment-providers/{alias}/secrets/{key}` returns
+one unmasked value — one field per request, by name, `404` unless the descriptor declares that key as
+`Secret`. Both admin surfaces put an eye button next to each secret field that calls it on demand.
+
 ## Payment surcharge fee
 
 A market can charge an optional flat fee when a specific provider is its active one (e.g. a
@@ -249,7 +294,7 @@ each provider's opaque settings, in a parallel dictionary keyed by the same alia
 "settings": {
   "paymentProvider": "nets-easy",
   "paymentSurcharges": {
-    "nets-easy": { "sku": "CARD-FEE", "taxClassId": "tc-1", "amount": 5.00 }
+    "nets-easy": { "taxClassId": "tc-1", "amount": 5.00 }
   },
   "taxClasses": [
     { "id": "tc-1", "name": "Standard", "defaultRate": 0.20, "countryRates": [{ "countryCode": "SE", "rate": 0.25 }] }
@@ -257,7 +302,6 @@ each provider's opaque settings, in a parallel dictionary keyed by the same alia
 }
 ```
 
-- `sku` is an admin-facing label only — it is **not** sent to the payment gateway.
 - `taxClassId` references one of the market's `taxClasses` (see [docs/TAX-CLASSES.md](TAX-CLASSES.md));
   the fee's tax is resolved from that class using the order's shipping country (exact match →
   the class's `defaultRate` → `0` if no tax class is set).
@@ -351,7 +395,10 @@ Practical consequences:
    request and return a `PaymentCreationResult`. Parse your webhook body in `HandleWebhookAsync`.
 2. **Define a settings model** (a plain POCO, e.g. `AcmeSettings`) and read it with
    `context.GetSettings<AcmeSettings>()` — the market's `paymentProviders["acme"]` JSON is deserialized
-   into it. No new fields on `MarketSettings`, no changes to the generic layer.
+   into it. Declare only your own fields, in `Descriptor.ProviderFields`: the
+   [common settings](#common-settings-every-provider-gets-these) are appended for you, so map them
+   from `context.Common` to your gateway's own vocabulary rather than re-declaring them. No new
+   fields on `MarketSettings`, no changes to the generic layer.
 3. **Self-register** with an extension method, e.g.:
    ```csharp
    public static IServiceCollection AddAcmePaymentProvider(this IServiceCollection services)
@@ -387,7 +434,7 @@ plugin client and redirects the customer — it does not know or care which gate
 
 ```csharp
 // In a checkout/surface controller:
-var payment = await _commerceApi.CreatePaymentAsync(orderId, successUrl, cancelUrl, termsUrl);
+var payment = await _commerceApi.CreatePaymentAsync(orderId);
 if (!string.IsNullOrEmpty(payment?.RedirectUrl))
     return Redirect(payment.RedirectUrl);        // hosted checkout for the market's provider
 
@@ -396,9 +443,15 @@ await _commerceApi.UpdateOrderStatusAsync(orderId, "paid", "Marked paid (no prov
 return Redirect(successUrl);
 ```
 
-Wire the storefront's success and cancel pages to the `returnUrl` / `cancelUrl` you pass in. The
-final paid/authorized state is confirmed server-side by the gateway webhook, independent of the
-customer returning to the site.
+The customer-facing URLs are **not** passed here — they're the provider's market configuration
+(Continue / Cancel / Error / Terms URL, see [Common settings](#common-settings-every-provider-gets-these)),
+so configure them per market in either admin and point them at the storefront's own success, cancel
+and error pages. The final paid/authorized state is confirmed server-side by the gateway webhook,
+independent of the customer returning to the site.
+
+> **Upgrading:** `CreatePaymentAsync` used to take `(orderId, returnUrl, cancelUrl, termsUrl)`. Drop
+> the three URL arguments and configure them on the provider instead — until Continue URL and Terms
+> URL are set for a market, `POST /orders/{id}/payment` answers `400` naming the missing field.
 
 ## Upgrade notes — webhook hardening
 
@@ -487,7 +540,8 @@ No reset, no reseed, no data migration.
 - `DELETE /api/v1/admin/markets/{id}/payment-providers/{alias}` — remove a provider (clears active if it was active).
 - `PUT /api/v1/admin/markets/{id}/active-payment-provider` — set/clear the active provider.
 - `PUT /api/v1/admin/markets/{id}/order-status-after-payment` — set/clear the order status applied on a successful payment (`{ code }`), regardless of the active provider.
-- `PUT /api/v1/admin/markets/{id}/payment-providers/{alias}/surcharge` — set a provider's surcharge fee (`{ sku, taxClassId, amount }`).
+- `GET /api/v1/admin/markets/{id}/payment-providers/{alias}/secrets/{key}` — one Secret field's unmasked value (`404` unless the descriptor declares it as `Secret`).
+- `PUT /api/v1/admin/markets/{id}/payment-providers/{alias}/surcharge` — set a provider's surcharge fee (`{ taxClassId, amount }`).
 - `DELETE /api/v1/admin/markets/{id}/payment-providers/{alias}/surcharge` — remove a provider's surcharge fee.
 
 The Umbraco plugin proxies these through its management API (`/umbraco/management/api/ecomm-commerce/payment-providers…`).

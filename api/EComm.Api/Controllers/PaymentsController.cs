@@ -42,7 +42,7 @@ public class PaymentsController : ControllerBase
     /// </summary>
     [Authorize]
     [HttpPost("api/v1/orders/{id}/payment")]
-    public async Task<ActionResult> CreatePayment(string id, [FromBody] CreatePaymentRequest request)
+    public async Task<ActionResult> CreatePayment(string id)
     {
         var order = _store.GetOrder(id);
         if (order == null) return NotFound();
@@ -54,19 +54,28 @@ public class PaymentsController : ControllerBase
         if (provider == null)
             return BadRequest(new { message = "No payment provider is configured for this market" });
 
+        // Where the customer goes next comes from the provider's settings for this market, not from
+        // the caller — so a storefront can't send a payment somewhere the market never configured.
+        var settingsJson = ProviderSettingsFor(market, provider.Alias);
+        var common = PaymentSettings.Read<PaymentCommonSettings>(settingsJson);
+        if (common.Validate() is { } problem)
+            return BadRequest(new { message = problem, errorUrl = common.ErrorUrl });
+
         var result = await provider.CreatePaymentAsync(new PaymentCreationContext
         {
             Order = order,
             Market = market,
-            ProviderSettingsJson = ProviderSettingsFor(market, provider.Alias),
-            ReturnUrl = request.ReturnUrl,
-            CancelUrl = request.CancelUrl,
-            TermsUrl = request.TermsUrl,
+            ProviderSettingsJson = settingsJson,
+            Common = common,
             WebhookUrl = WebhookUrlFor(provider.Alias)
         });
 
         if (result == null)
-            return StatusCode(502, new { message = "Payment provider could not create the payment" });
+            return StatusCode(502, new
+            {
+                message = "Payment provider could not create the payment",
+                errorUrl = common.ErrorUrl
+            });
 
         order.PaymentReference = result.PaymentId;
         order.PaymentStatus = nameof(PaymentState.Initialized);

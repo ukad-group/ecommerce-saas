@@ -8,9 +8,6 @@ namespace EComm.Data.ValueObjects.Tenant;
 /// </summary>
 public class PaymentSurcharge
 {
-    /// <summary>Free-text label, admin-facing only — not sent to the payment gateway.</summary>
-    public string? Sku { get; set; }
-
     /// <summary>References MarketSettings.TaxClasses[].Id.</summary>
     public string? TaxClassId { get; set; }
 

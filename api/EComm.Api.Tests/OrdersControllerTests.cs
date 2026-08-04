@@ -71,7 +71,7 @@ public class OrdersControllerTests
                 PaymentProvider = "nets-easy",
                 PaymentSurcharges = new Dictionary<string, PaymentSurcharge>
                 {
-                    ["nets-easy"] = new PaymentSurcharge { Sku = "CARD-FEE", TaxClassId = "tc1", Amount = 5m }
+                    ["nets-easy"] = new PaymentSurcharge { TaxClassId = "tc1", Amount = 5m }
                 },
                 TaxClasses = new List<TaxClass>
                 {

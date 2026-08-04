@@ -332,6 +332,37 @@ public class MarketsController : ControllerBase
         });
     }
 
+    /// <summary>
+    /// The real value of one <see cref="PaymentFieldType.Secret"/> setting, for an admin who needs to
+    /// check which key is actually stored — everything else masks secrets to
+    /// <see cref="PaymentSettings.SecretMask"/>. Deliberately one field per request and never part of
+    /// the list response, so a secret only leaves the server when someone asks for that one by name.
+    /// </summary>
+    [HttpGet("{id}/payment-providers/{alias}/secrets/{key}")]
+    [Authorize(Policy = "AdminOrApiKey")]
+    public ActionResult GetPaymentProviderSecret(string id, string alias, string key)
+    {
+        var market = _store.GetMarket(id);
+        if (market == null) return NotFound();
+
+        var descriptor = _paymentProviders.Resolve(alias)?.Descriptor;
+        var field = descriptor?.Fields.FirstOrDefault(f =>
+            f.Key.Equals(key, StringComparison.OrdinalIgnoreCase) && f.Type == PaymentFieldType.Secret);
+        if (field == null) return NotFound();
+
+        var stored = market.Settings?.PaymentProviders is { } bag && bag.TryGetValue(alias, out var element)
+            ? element
+            : (JsonElement?)null;
+
+        var value = stored is { ValueKind: JsonValueKind.Object } settings
+            && settings.TryGetProperty(field.Key, out var secret)
+            && secret.ValueKind == JsonValueKind.String
+                ? secret.GetString() ?? ""
+                : "";
+
+        return Ok(new { key = field.Key, value });
+    }
+
     [HttpDelete("{id}/payment-providers/{alias}")]
     [Authorize(Policy = "AdminOrApiKey")]
     public ActionResult DeletePaymentProvider(string id, string alias)
@@ -404,7 +435,7 @@ public class MarketsController : ControllerBase
         market.Settings.PaymentSurcharges ??= new();
 
         // An entirely blank surcharge means "none" — store nothing rather than an empty husk. Note a
-        // zero amount is NOT blank: a tax class or SKU set before the amount is worth keeping, and a
+        // zero amount is NOT blank: a tax class chosen before the amount is worth keeping, and a
         // 0 amount costs the shopper nothing (OrdersController skips the fee and its tax unless > 0).
         if (IsBlank(surcharge))
             market.Settings.PaymentSurcharges.Remove(alias);
@@ -431,9 +462,9 @@ public class MarketsController : ControllerBase
         return NoContent();
     }
 
-    /// <summary>Nothing filled in at all — no label, no tax class, no amount.</summary>
+    /// <summary>Nothing filled in at all — no tax class, no amount.</summary>
     private static bool IsBlank(PaymentSurcharge s) =>
-        string.IsNullOrWhiteSpace(s.Sku) && string.IsNullOrWhiteSpace(s.TaxClassId) && s.Amount == 0;
+        string.IsNullOrWhiteSpace(s.TaxClassId) && s.Amount == 0;
 
     // ----- Tax Classes (market-scoped; drives the goods rate and the surcharge fee's tax) -----
     // taxRate rides along with the classes: it's the fallback for the same lookup, so both admins

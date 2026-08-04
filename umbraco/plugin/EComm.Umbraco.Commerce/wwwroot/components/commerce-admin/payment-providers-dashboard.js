@@ -22,6 +22,7 @@ class ECommPaymentProvidersDashboard extends UmbElementMixin(LitElement) {
     taxClasses: { type: Array, state: true },
     surcharges: { type: Object, state: true },
     editing: { type: Object, state: true },
+    revealed: { type: Object, state: true },
     addAlias: { type: String, state: true },
     loading: { type: Boolean, state: true },
     saving: { type: Boolean, state: true },
@@ -43,6 +44,7 @@ class ECommPaymentProvidersDashboard extends UmbElementMixin(LitElement) {
     this.taxClasses = [];
     this.surcharges = {};
     this.editing = null;
+    this.revealed = {};
     this.addAlias = '';
     this.loading = true;
     this.saving = false;
@@ -173,12 +175,13 @@ class ECommPaymentProvidersDashboard extends UmbElementMixin(LitElement) {
 
   seedSurcharge(alias) {
     const s = this.surcharges?.[alias];
-    return { sku: s?.sku ?? '', taxClassId: s?.taxClassId ?? '', amount: s?.amount ? String(s.amount) : '' };
+    return { taxClassId: s?.taxClassId ?? '', amount: s?.amount ? String(s.amount) : '' };
   }
 
   startAdd() {
     const d = this.descriptor(this.addAlias);
     if (!d) return;
+    this.revealed = {}; // a freshly opened form never starts with a secret on screen
     this.editing = { alias: d.alias, values: this.seedValues(d), surcharge: this.seedSurcharge(d.alias), isNew: true };
   }
 
@@ -186,7 +189,30 @@ class ECommPaymentProvidersDashboard extends UmbElementMixin(LitElement) {
     const d = this.descriptor(alias);
     const current = this.providers.find((p) => p.alias === alias);
     if (!d) return;
+    this.revealed = {};
     this.editing = { alias, values: this.seedValues(d, current?.settings), surcharge: this.seedSurcharge(alias), isNew: false };
+  }
+
+  /**
+   * Fetches the stored value of one secret and drops it into the field. A following save just
+   * re-sends the same value, which the API keeps either way.
+   */
+  async revealSecret(key) {
+    try {
+      const headers = await this.getAuthHeaders();
+      const alias = encodeURIComponent(this.editing.alias);
+      const mid = encodeURIComponent(this.marketId);
+      const response = await fetch(
+        `${API}/payment-providers/${alias}/secrets/${encodeURIComponent(key)}?marketId=${mid}`,
+        { headers }
+      );
+      if (!response.ok) throw new Error();
+      const { value } = await response.json();
+      this.setFieldValue(key, value ?? '');
+      this.revealed = { ...this.revealed, [key]: true };
+    } catch {
+      this.error = 'Failed to read the stored secret.';
+    }
   }
 
   setSurchargeField(key, value) {
@@ -248,7 +274,6 @@ class ECommPaymentProvidersDashboard extends UmbElementMixin(LitElement) {
         method: 'PUT',
         headers,
         body: JSON.stringify({
-          sku: this.editing.surcharge.sku || null,
           taxClassId: this.editing.surcharge.taxClassId || null,
           amount: Number(this.editing.surcharge.amount) || 0,
         }),
@@ -280,14 +305,30 @@ class ECommPaymentProvidersDashboard extends UmbElementMixin(LitElement) {
         ${field.helpText ? html`<small>${field.helpText}</small>` : ''}
       `;
     }
-    const type = field.type === 'Secret' ? 'password' : field.type === 'Number' ? 'number' : 'text';
+    const isSecret = field.type === 'Secret';
+    const revealed = Boolean(this.revealed?.[field.key]);
+    const type = isSecret && !revealed ? 'password' : field.type === 'Number' ? 'number' : 'text';
     return html`
       <uui-label>${field.label}${field.required ? ' *' : ''}</uui-label>
-      <uui-input
-        type=${type}
-        .value=${typeof value === 'string' ? value : ''}
-        placeholder=${field.type === 'Secret' ? 'Leave blank to keep current' : ''}
-        @input=${(e) => this.setFieldValue(field.key, e.target.value)}></uui-input>
+      <div class="secret-row">
+        <uui-input
+          type=${type}
+          .value=${typeof value === 'string' ? value : ''}
+          placeholder=${isSecret ? 'Leave blank to keep current' : ''}
+          @input=${(e) => this.setFieldValue(field.key, e.target.value)}></uui-input>
+        ${isSecret
+          ? html`<uui-button
+              compact
+              look="secondary"
+              label=${revealed ? 'Hide the secret' : 'Show the stored secret'}
+              @click=${() =>
+                revealed
+                  ? (this.revealed = { ...this.revealed, [field.key]: false })
+                  : this.revealSecret(field.key)}>
+              <uui-icon name=${revealed ? 'icon-eye-off' : 'icon-eye'}></uui-icon>
+            </uui-button>`
+          : ''}
+      </div>
       ${field.helpText ? html`<small>${field.helpText}</small>` : ''}
     `;
   }
@@ -390,11 +431,6 @@ class ECommPaymentProvidersDashboard extends UmbElementMixin(LitElement) {
             <div class="surcharge">
               <h5>Surcharge fee (optional)</h5>
               <div class="field">
-                <uui-label>SKU</uui-label>
-                <uui-input .value=${this.editing.surcharge.sku}
-                  @input=${(e) => this.setSurchargeField('sku', e.target.value)}></uui-input>
-              </div>
-              <div class="field">
                 <uui-label>Tax Class</uui-label>
                 <select @change=${(e) => this.setSurchargeField('taxClassId', e.target.value)}>
                   <option value="" ?selected=${!this.editing.surcharge.taxClassId}>None</option>
@@ -458,6 +494,8 @@ class ECommPaymentProvidersDashboard extends UmbElementMixin(LitElement) {
 
     .field { margin-bottom: var(--uui-size-space-4); display: flex; flex-direction: column; gap: 4px; }
     .field uui-input { width: 100%; max-width: 480px; }
+    .secret-row { display: flex; align-items: center; gap: 4px; max-width: 520px; }
+    .secret-row uui-input { flex: 1; }
     .surcharge { margin-top: var(--uui-size-space-5); padding-top: var(--uui-size-space-4); border-top: 1px solid var(--uui-color-border); }
     .surcharge h5 { margin: 0 0 var(--uui-size-space-4) 0; }
     .actions { display: flex; gap: var(--uui-size-space-3); align-items: center; margin-top: var(--uui-size-space-5); padding-top: var(--uui-size-space-4); border-top: 1px solid var(--uui-color-border); }

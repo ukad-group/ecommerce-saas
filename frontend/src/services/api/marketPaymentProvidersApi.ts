@@ -32,7 +32,6 @@ export interface MarketPaymentProvider {
 }
 
 export interface PaymentSurcharge {
-  sku: string | null;
   taxClassId: string | null;
   amount: number;
 }
@@ -68,6 +67,21 @@ export async function upsertMarketPaymentProvider(
     `/admin/markets/${marketId}/payment-providers/${alias}`,
     settings
   );
+}
+
+/**
+ * The unmasked value of one Secret-typed setting, for an admin checking which key is stored.
+ * Everything else masks secrets, so this is the only way to read one back.
+ */
+export async function getPaymentProviderSecret(
+  marketId: string,
+  alias: string,
+  key: string
+): Promise<string> {
+  const result = await apiClient.get<{ key: string; value: string }>(
+    `/admin/markets/${marketId}/payment-providers/${alias}/secrets/${key}`
+  );
+  return result.value;
 }
 
 /** Remove a provider's configuration (also clears it as active). */

@@ -4,13 +4,13 @@
  * Add / edit / delete the payment providers configured for a market, and choose which is active.
  * The settings form for each provider is rendered from the provider's schema (catalog), so new
  * gateways need no UI changes. Secrets are write-only: they come back masked and are only sent
- * when the user types a new value.
+ * when the user types a new value — the eye button fetches the stored one on demand.
  */
 
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { PlusIcon, TrashIcon, PencilIcon } from '@heroicons/react/24/outline';
+import { PlusIcon, TrashIcon, PencilIcon, EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline';
 import { Button } from '../common/Button';
 import { Input } from '../common/Input';
 import { Select } from '../common/Select';
@@ -24,6 +24,7 @@ import {
   setActivePaymentProvider,
   setOrderStatusAfterPayment,
   setPaymentSurcharge,
+  getPaymentProviderSecret,
   type PaymentProviderDescriptor,
   type PaymentSettingField,
   type PaymentSurcharge,
@@ -35,9 +36,9 @@ interface Props {
 }
 
 type FieldValues = Record<string, string | boolean>;
-type SurchargeFormValues = { sku: string; taxClassId: string; amount: string };
+type SurchargeFormValues = { taxClassId: string; amount: string };
 
-const BLANK_SURCHARGE: SurchargeFormValues = { sku: '', taxClassId: '', amount: '' };
+const BLANK_SURCHARGE: SurchargeFormValues = { taxClassId: '', amount: '' };
 
 export function MarketPaymentProviders({ marketId, currency }: Props) {
   const queryClient = useQueryClient();
@@ -108,7 +109,6 @@ export function MarketPaymentProviders({ marketId, currency }: Props) {
   function surchargeToFormValues(surcharge?: PaymentSurcharge): SurchargeFormValues {
     if (!surcharge) return BLANK_SURCHARGE;
     return {
-      sku: surcharge.sku ?? '',
       taxClassId: surcharge.taxClassId ?? '',
       amount: surcharge.amount ? String(surcharge.amount) : '',
     };
@@ -145,7 +145,6 @@ export function MarketPaymentProviders({ marketId, currency }: Props) {
       await surchargeMutation.mutateAsync({
         alias: editing.alias,
         surcharge: {
-          sku: editing.surcharge.sku || null,
           taxClassId: editing.surcharge.taxClassId || null,
           amount: Number(editing.surcharge.amount) || 0,
         },
@@ -274,6 +273,8 @@ export function MarketPaymentProviders({ marketId, currency }: Props) {
               key={field.key}
               field={field}
               value={editing.values[field.key]}
+              marketId={marketId}
+              alias={editing.alias}
               onChange={(v) =>
                 setEditing((prev) =>
                   prev ? { ...prev, values: { ...prev.values, [field.key]: v } } : prev
@@ -285,13 +286,6 @@ export function MarketPaymentProviders({ marketId, currency }: Props) {
           {/* Surcharge fee (optional) — generic, not part of the provider's own schema */}
           <div className="space-y-2 border-t border-indigo-200 pt-3">
             <h5 className="text-sm font-semibold text-gray-900">Surcharge fee (optional)</h5>
-            <Input
-              label="SKU"
-              value={editing.surcharge.sku}
-              onChange={(e) =>
-                setEditing((prev) => prev ? { ...prev, surcharge: { ...prev.surcharge, sku: e.target.value } } : prev)
-              }
-            />
             <Select
               label="Tax Class"
               value={editing.surcharge.taxClassId}
@@ -340,12 +334,18 @@ export function MarketPaymentProviders({ marketId, currency }: Props) {
 function ProviderField({
   field,
   value,
+  marketId,
+  alias,
   onChange,
 }: {
   field: PaymentSettingField;
   value: string | boolean | undefined;
+  marketId: string;
+  alias: string;
   onChange: (v: string | boolean) => void;
 }) {
+  const [revealed, setRevealed] = useState(false);
+
   if (field.type === 'Bool') {
     return (
       <label className="flex items-center gap-2 text-sm text-gray-700">
@@ -362,15 +362,38 @@ function ProviderField({
   }
 
   const isSecret = field.type === 'Secret';
+
+  // Revealing fetches the stored key and drops it into the field, so a following save just re-sends
+  // the same value — the API keeps the stored secret either way.
+  async function reveal() {
+    const stored = await getPaymentProviderSecret(marketId, alias, field.key);
+    onChange(stored);
+    setRevealed(true);
+  }
+
   return (
     <div>
-      <Input
-        label={field.label}
-        type={isSecret ? 'password' : field.type === 'Number' ? 'number' : 'text'}
-        value={typeof value === 'string' ? value : ''}
-        placeholder={isSecret ? 'Leave blank to keep current' : undefined}
-        onChange={(e) => onChange(e.target.value)}
-      />
+      <div className="flex items-end gap-1">
+        <div className="flex-1">
+          <Input
+            label={`${field.label}${field.required ? ' *' : ''}`}
+            type={isSecret && !revealed ? 'password' : field.type === 'Number' ? 'number' : 'text'}
+            value={typeof value === 'string' ? value : ''}
+            placeholder={isSecret ? 'Leave blank to keep current' : undefined}
+            onChange={(e) => onChange(e.target.value)}
+          />
+        </div>
+        {isSecret && (
+          <button
+            type="button"
+            title={revealed ? 'Hide the secret' : 'Show the stored secret'}
+            className="mb-1 rounded p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+            onClick={() => (revealed ? setRevealed(false) : reveal())}
+          >
+            {revealed ? <EyeSlashIcon className="h-4 w-4" /> : <EyeIcon className="h-4 w-4" />}
+          </button>
+        )}
+      </div>
       {field.helpText && <p className="mt-0.5 text-xs text-gray-400">{field.helpText}</p>}
     </div>
   );

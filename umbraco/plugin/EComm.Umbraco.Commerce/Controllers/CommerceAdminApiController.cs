@@ -204,6 +204,10 @@ public class CommerceAdminApiController : ManagementApiControllerBase
         return ok ? NoContent() : StatusCode(StatusCodes.Status502BadGateway, "Failed to delete payment provider");
     }
 
+    [HttpGet("payment-providers/{alias}/secrets/{key}")]
+    public async Task<IActionResult> GetPaymentProviderSecret(string alias, string key, [FromQuery] string marketId)
+        => Ok(await _apiClient.GetPaymentProviderSecretAsync(marketId, alias, key));
+
     [HttpPut("active-payment-provider")]
     public async Task<IActionResult> SetActivePaymentProvider([FromQuery] string marketId, [FromBody] SetActivePaymentProviderRequest request)
         => Ok(await _apiClient.SetActivePaymentProviderAsync(marketId, request.Alias));
