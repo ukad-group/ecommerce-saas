@@ -60,6 +60,11 @@ Both the cart and the order call this one method so they can't drift apart.
 creation re-resolves with the shipping country, so a per-country rate applies from then on — an order
 total can legitimately differ from the cart estimate it came from. Both round to 2 decimal places.
 
+**Payment gateways see the resolved rate too.** A gateway with per-line tax fields (Nets Easy's
+`taxRate`/`taxAmount`) is handed this same rate, resolved for the order's shipping country, instead of
+being sent tax as a fake product line — see
+[PAYMENT-PROVIDERS.md](PAYMENT-PROVIDERS.md#nets-easy-specifics).
+
 ## Endpoints
 
 - `GET /api/v1/admin/markets/{id}/tax-classes` → `{ taxClasses, taxRate }`.

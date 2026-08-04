@@ -122,28 +122,55 @@ public class NetsEasyPaymentProvider : IPaymentProvider
             return null;
         var testMode = settings.TestMode;
 
-        var items = order
-            .Items.Select(i => new NetsOrderItem
+        // Tax rides on the lines' taxRate/taxAmount, so the rate has to come from the tax class
+        // attached to this market's active payment provider (its surcharge names it).
+        // ResolveGoodsTaxRate owns that lookup and its fallback, so we report exactly the rate the
+        // order was priced with; the same class taxes the surcharge fee, so this covers that line too.
+        var taxRate = market.Settings?.ResolveGoodsTaxRate(order.ShippingAddress?.Country) ?? 0m;
+        var taxRateBps = taxRate > 0m
+            ? (int)Math.Round(taxRate * 10000, MidpointRounding.AwayFromZero)
+            : (int?)null;
+
+        var goodsTaxMinor = ToMinorUnits(order.Tax);
+        var netTotalMinor = order.Items.Sum(i => ToMinorUnits(i.Subtotal));
+
+        var items = new List<NetsOrderItem>();
+        int netSoFar = 0, taxSoFar = 0;
+        foreach (var i in order.Items)
+        {
+            var net = ToMinorUnits(i.Subtotal);
+            netSoFar += net;
+            // Our tax is a flat order-level amount, so it is allocated over the lines rather than
+            // recomputed from the rate: this line's share is the running rounded share minus what
+            // earlier lines already got, which makes the lines sum to exactly goodsTaxMinor. Nets
+            // rejects order.amount != sum(grossTotalAmount), and order.amount is the total we charge.
+            // ponytail: taxRate is the class's current rate, taxAmount the order's snapshot — they can
+            // only disagree if the class was edited between pricing and payment, and the money wins.
+            var tax = netTotalMinor == 0
+                ? 0
+                : (int)Math.Round((decimal)goodsTaxMinor * netSoFar / netTotalMinor, MidpointRounding.AwayFromZero) - taxSoFar;
+            taxSoFar += tax;
+
+            items.Add(new NetsOrderItem
             {
                 Reference = string.IsNullOrEmpty(i.Sku) ? i.ProductId : i.Sku,
                 Name = i.ProductName,
                 Quantity = i.Quantity,
                 UnitPrice = ToMinorUnits(i.UnitPrice),
-                NetTotalAmount = ToMinorUnits(i.Subtotal),
-                GrossTotalAmount = ToMinorUnits(i.Subtotal),
-            })
-            .ToList();
+                TaxRate = tax > 0 ? taxRateBps : null,
+                TaxAmount = tax > 0 ? tax : null,
+                NetTotalAmount = net,
+                GrossTotalAmount = net + tax,
+            });
+        }
 
-        // Our tax/shipping are flat order-level amounts, not per-line — Nets requires
-        // order.amount == sum(item.grossTotalAmount), so represent them as their own lines.
-        if (order.Tax > 0)
-            items.Add(FlatAmountLine("tax", "Tax", order.Tax));
+        // Shipping and the surcharge fee are order-level amounts with no line of their own, and Nets
+        // requires order.amount == sum(item.grossTotalAmount) — so they get one line each. Shipping
+        // carries no tax (this platform never taxes ShippingCost); the fee carries its own.
         if (order.ShippingCost > 0)
             items.Add(FlatAmountLine("shipping", "Shipping", order.ShippingCost));
         if (order.PaymentFee > 0)
-            items.Add(FlatAmountLine("payment-fee", "Payment fee", order.PaymentFee));
-        if (order.PaymentFeeTax > 0)
-            items.Add(FlatAmountLine("payment-fee-tax", "Payment fee tax", order.PaymentFeeTax));
+            items.Add(FlatAmountLine("payment-fee", "Payment fee", order.PaymentFee, order.PaymentFeeTax, taxRateBps));
 
         // Nets echoes this back in the Authorization header of every webhook for this payment, and
         // requires 8-64 alphanumeric characters — "N" gives exactly 32. The pipeline stores it on the
@@ -499,16 +526,30 @@ public class NetsEasyPaymentProvider : IPaymentProvider
         return Alpha2To3.TryGetValue(c, out var a3) ? a3 : null; // unknown → omit
     }
 
-    private static NetsOrderItem FlatAmountLine(string reference, string name, decimal amount) =>
-        new()
+    /// <summary>A single-unit line for an order-level amount. <paramref name="tax"/> is that amount's
+    /// own tax (0 for untaxed ones), and <paramref name="taxRateBps"/> the rate it was taxed at.</summary>
+    private static NetsOrderItem FlatAmountLine(
+        string reference,
+        string name,
+        decimal amount,
+        decimal tax = 0m,
+        int? taxRateBps = null
+    )
+    {
+        var net = ToMinorUnits(amount);
+        var taxMinor = ToMinorUnits(tax);
+        return new NetsOrderItem
         {
             Reference = reference,
             Name = name,
             Quantity = 1,
-            UnitPrice = ToMinorUnits(amount),
-            NetTotalAmount = ToMinorUnits(amount),
-            GrossTotalAmount = ToMinorUnits(amount),
+            UnitPrice = net,
+            TaxRate = taxMinor > 0 ? taxRateBps : null,
+            TaxAmount = taxMinor > 0 ? taxMinor : null,
+            NetTotalAmount = net,
+            GrossTotalAmount = net + taxMinor,
         };
+    }
 
     private static int ToMinorUnits(decimal amount) =>
         (int)Math.Round(amount * 100, MidpointRounding.AwayFromZero);

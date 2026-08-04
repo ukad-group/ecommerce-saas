@@ -12,8 +12,20 @@ public class NetsOrderItem
     public string Name { get; set; } = string.Empty;
     public double Quantity { get; set; } = 1;
     public string Unit { get; set; } = "pcs";
+    /// <summary>Price per unit, excluding VAT.</summary>
     public int UnitPrice { get; set; }
+
+    /// <summary>VAT rate as percentage × 100 (2500 = 25%). Null ⇒ omitted.</summary>
+    public int? TaxRate { get; set; }
+
+    /// <summary>This line's VAT. <see cref="GrossTotalAmount"/> must equal
+    /// <see cref="NetTotalAmount"/> + this. Null ⇒ omitted.</summary>
+    public int? TaxAmount { get; set; }
+
+    /// <summary>Line total excluding VAT (unitPrice × quantity).</summary>
     public int NetTotalAmount { get; set; }
+
+    /// <summary>Line total including VAT.</summary>
     public int GrossTotalAmount { get; set; }
 }
 

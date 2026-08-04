@@ -349,9 +349,21 @@ each provider's opaque settings, in a parallel dictionary keyed by the same alia
   fine, so only their `error { code, message, source }` is recorded on `Order.PaymentError`.
 - **On success** the webhook advances `Order.Status` to the market's **`orderStatusAfterPayment`**
   (default `paid`) through `OrderStatusService`, so stock is reserved and a tracking number issued.
-- **Surcharge fee line items** — since Nets requires `order.amount == sum(item.grossTotalAmount)`,
-  a non-zero `Order.PaymentFee`/`PaymentFeeTax` is sent as two extra flat lines (references
-  `"payment-fee"` / `"payment-fee-tax"`), the same technique already used for `"tax"`/`"shipping"`.
+- **Tax rides on the lines, not on a line of its own** — each goods line carries `taxRate`
+  (percentage × 100, so `2500` = 25%) and `taxAmount`, with `grossTotalAmount = netTotalAmount +
+  taxAmount`. The rate is the one the order was priced with: the [tax class attached to the market's
+  active provider](TAX-CLASSES.md), read through `MarketSettings.ResolveGoodsTaxRate(country)` for the
+  order's shipping country. There is no `"tax"` product line any more — shoppers used to see "Tax"
+  listed as an item on the hosted page.
+  - `Order.Tax` is a flat order-level amount, so it is **allocated** across the lines (running
+    rounded share minus what earlier lines took) rather than recomputed per line: `sum(taxAmount)`
+    has to land on `ToMinorUnits(Order.Tax)` exactly, because Nets requires
+    `order.amount == sum(item.grossTotalAmount)` and `order.amount` is the total we charge.
+    Per-line `round(net × rate)` would drift by a minor unit or two and Nets would answer `400`.
+- **Shipping and surcharge fee line items** — both are order-level amounts with no line of their own,
+  so each becomes one line (references `"shipping"` / `"payment-fee"`). Shipping carries no tax
+  fields at all, because this platform never taxes `ShippingCost`; the fee carries its own
+  `taxAmount` (`Order.PaymentFeeTax`) at the same class rate, so `"payment-fee-tax"` is gone too.
 - **Diagnostics** — `NetsEasyClient` logs the outbound create-payment JSON at `Debug`, and includes
   it in the error log on failure. That is how you tell "Nets ignored our prefill" apart from "the
   order had no customer data to send".

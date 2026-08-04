@@ -87,21 +87,34 @@ internal class RecordingNetsEasyClient : INetsEasyClient
 
 public class NetsEasyPaymentProviderTests
 {
-    private static PaymentCreationContext ContextWith(string? secretKey, CustomerInfo? customer = null, Address? shipping = null, JsonElement? settingsJson = null, string webhookUrl = "")
+    /// <summary>
+    /// A market taxed the way a real one is: the active provider's surcharge names a tax class, and
+    /// that class's rate (25%, or a country override) is what the provider must report per line.
+    /// </summary>
+    private static MarketSettings TaxedMarketSettings(List<CountryTaxRate>? countryRates = null) =>
+        new()
+        {
+            PaymentProvider = "nets-easy",
+            PaymentSurcharges = new() { ["nets-easy"] = new PaymentSurcharge { TaxClassId = "tc-standard" } },
+            TaxClasses = [new TaxClass { Id = "tc-standard", Name = "Standard", DefaultRate = 0.25m, CountryRates = countryRates }]
+        };
+
+    private static PaymentCreationContext ContextWith(string? secretKey, CustomerInfo? customer = null, Address? shipping = null, JsonElement? settingsJson = null, string webhookUrl = "", MarketSettings? marketSettings = null)
     {
         var order = new Order
         {
             Id = "o1",
             OrderNumber = "ORD-1",
             MarketId = "m1",
-            Tax = 2.00m,
+            Subtotal = 10.00m,
+            Tax = 2.50m,
             ShippingCost = 5.00m,
-            Total = 17.00m,
+            Total = 17.50m,
             Items = { new OrderItem { ProductId = "p1", Sku = "sku-1", ProductName = "Widget", Quantity = 1, UnitPrice = 10.00m, Subtotal = 10.00m } },
             Customer = customer ?? new CustomerInfo(),
             ShippingAddress = shipping ?? new Address()
         };
-        var market = new Market { Id = "m1", Currency = "USD", Settings = new MarketSettings() };
+        var market = new Market { Id = "m1", Currency = "USD", Settings = marketSettings ?? TaxedMarketSettings() };
         settingsJson ??= JsonSerializer.SerializeToElement(new
         {
             testSecretKey = secretKey,
@@ -123,7 +136,7 @@ public class NetsEasyPaymentProviderTests
     }
 
     [Fact]
-    public async Task CreatePaymentAsync_MapsOrderWithTaxAndShippingLines()
+    public async Task CreatePaymentAsync_TaxesTheGoodsLines_InsteadOfSendingATaxLine()
     {
         var nets = new RecordingNetsEasyClient(new NetsCreatePaymentResult { PaymentId = "pay_1", HostedPaymentPageUrl = "https://pay" });
         var provider = new NetsEasyPaymentProvider(nets);
@@ -136,16 +149,41 @@ public class NetsEasyPaymentProviderTests
 
         var req = nets.LastRequest!;
         Assert.Equal("HostedPaymentPage", req.Checkout.IntegrationType);
-        Assert.Equal(1700, req.Order.Amount);                       // 17.00 → minor units
-        Assert.Equal(3, req.Order.Items.Count);                     // widget + tax + shipping
-        Assert.Contains(req.Order.Items, i => i.Reference == "tax" && i.GrossTotalAmount == 200);
-        Assert.Contains(req.Order.Items, i => i.Reference == "shipping" && i.GrossTotalAmount == 500);
+        Assert.Equal(1750, req.Order.Amount);                       // 17.50 → minor units
+        Assert.Equal(2, req.Order.Items.Count);                     // widget + shipping, no "tax" product
+        Assert.DoesNotContain(req.Order.Items, i => i.Reference == "tax");
+
+        var widget = req.Order.Items.Single(i => i.Reference == "sku-1");
+        Assert.Equal(1000, widget.NetTotalAmount);
+        Assert.Equal(2500, widget.TaxRate);                         // 25% from the provider's tax class
+        Assert.Equal(250, widget.TaxAmount);
+        Assert.Equal(1250, widget.GrossTotalAmount);
+
+        // Shipping is untaxed in this platform, so its line claims no rate at all.
+        var shipping = req.Order.Items.Single(i => i.Reference == "shipping");
+        Assert.Equal(500, shipping.GrossTotalAmount);
+        Assert.Null(shipping.TaxRate);
+        Assert.Null(shipping.TaxAmount);
+
         // Nets contract: order.amount must equal the sum of item gross totals.
         Assert.Equal(req.Order.Amount, req.Order.Items.Sum(i => i.GrossTotalAmount));
     }
 
     [Fact]
-    public async Task CreatePaymentAsync_MapsPaymentFeeAndFeeTaxLines()
+    public async Task CreatePaymentAsync_TaxRateComesFromTheProvidersTaxClass()
+    {
+        var nets = new RecordingNetsEasyClient(new NetsCreatePaymentResult { PaymentId = "pay_1", HostedPaymentPageUrl = "https://pay" });
+        var provider = new NetsEasyPaymentProvider(nets);
+        // The class carries a country override for where the order ships, so that rate must win.
+        var settings = TaxedMarketSettings([new CountryTaxRate { CountryCode = "SE", Rate = 0.12m }]);
+
+        await provider.CreatePaymentAsync(ContextWith("secret", shipping: new Address { Country = "SE" }, marketSettings: settings));
+
+        Assert.Equal(1200, nets.LastRequest!.Order.Items.Single(i => i.Reference == "sku-1").TaxRate);
+    }
+
+    [Fact]
+    public async Task CreatePaymentAsync_MapsPaymentFeeAsOneTaxedLine()
     {
         var nets = new RecordingNetsEasyClient(new NetsCreatePaymentResult { PaymentId = "pay_2", HostedPaymentPageUrl = "https://pay" });
         var provider = new NetsEasyPaymentProvider(nets);
@@ -157,9 +195,44 @@ public class NetsEasyPaymentProviderTests
         await provider.CreatePaymentAsync(ctx);
 
         var req = nets.LastRequest!;
-        Assert.Contains(req.Order.Items, i => i.Reference == "payment-fee" && i.GrossTotalAmount == 500);
-        Assert.Contains(req.Order.Items, i => i.Reference == "payment-fee-tax" && i.GrossTotalAmount == 125);
+        var fee = req.Order.Items.Single(i => i.Reference == "payment-fee");
+        Assert.Equal(500, fee.NetTotalAmount);
+        Assert.Equal(2500, fee.TaxRate);
+        Assert.Equal(125, fee.TaxAmount);
+        Assert.Equal(625, fee.GrossTotalAmount);
+        Assert.DoesNotContain(req.Order.Items, i => i.Reference == "payment-fee-tax");
         Assert.Equal(req.Order.Amount, req.Order.Items.Sum(i => i.GrossTotalAmount));
+    }
+
+    /// <summary>
+    /// Per-line rounding of the rate would give 3 + 3 = 6 minor units against an order tax of 5, and
+    /// Nets rejects order.amount != sum(grossTotalAmount) — so the order's tax is allocated, not
+    /// recomputed.
+    /// </summary>
+    [Fact]
+    public async Task CreatePaymentAsync_AllocatesOrderTaxAcrossLines_WithoutDrift()
+    {
+        var nets = new RecordingNetsEasyClient(new NetsCreatePaymentResult { PaymentId = "pay_4", HostedPaymentPageUrl = "https://pay" });
+        var provider = new NetsEasyPaymentProvider(nets);
+        var ctx = ContextWith("secret");
+        ctx.Order.Items =
+        [
+            new OrderItem { ProductId = "p1", Sku = "sku-1", ProductName = "A", Quantity = 1, UnitPrice = 0.10m, Subtotal = 0.10m },
+            new OrderItem { ProductId = "p2", Sku = "sku-2", ProductName = "B", Quantity = 1, UnitPrice = 0.10m, Subtotal = 0.10m }
+        ];
+        ctx.Order.Subtotal = 0.20m;
+        ctx.Order.Tax = 0.05m;      // round(0.20 * 25%) at order level
+        ctx.Order.ShippingCost = 0m;
+        ctx.Order.Total = 0.25m;
+
+        await provider.CreatePaymentAsync(ctx);
+
+        var req = nets.LastRequest!;
+        Assert.Equal(5, req.Order.Items.Sum(i => i.TaxAmount ?? 0));
+        Assert.Equal(25, req.Order.Amount);
+        Assert.Equal(req.Order.Amount, req.Order.Items.Sum(i => i.GrossTotalAmount));
+        // Every line still satisfies Nets' own gross = net + tax rule.
+        Assert.All(req.Order.Items, i => Assert.Equal(i.NetTotalAmount + (i.TaxAmount ?? 0), i.GrossTotalAmount));
     }
 
     [Fact]
