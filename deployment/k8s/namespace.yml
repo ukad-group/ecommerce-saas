@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: westbay-ecommerce
+  labels:
+    name: westbay-ecommerce
+    app.kubernetes.io/part-of: ecommerce

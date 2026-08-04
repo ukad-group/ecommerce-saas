@@ -1,0 +1,30 @@
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: ecomm-frontend
+  namespace: westbay-ecommerce
+  labels:
+    app: ecomm-frontend
+    app.kubernetes.io/name: ecomm-frontend
+    app.kubernetes.io/part-of: ecommerce
+spec:
+  entryPoints:
+    - web
+    - websecure
+  routes:
+    - kind: Rule
+      match: Host(`ecommerce.k3s.l01.ukad.dev`)
+      middlewares:
+        - name: compress
+          namespace: default
+        - name: redirect-https
+          namespace: default
+        - name: oauth-errors
+          namespace: default
+        - name: oauth-forwardauth
+          namespace: default
+      services:
+        - name: ecomm-frontend
+          port: 80
+  tls:
+    secretName: ecomm-frontend-tls

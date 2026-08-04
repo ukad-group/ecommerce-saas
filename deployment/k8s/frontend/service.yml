@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: ecomm-frontend
+  namespace: westbay-ecommerce
+  labels:
+    app: ecomm-frontend
+    app.kubernetes.io/name: ecomm-frontend
+    app.kubernetes.io/part-of: ecommerce
+spec:
+  type: ClusterIP
+  selector:
+    app: ecomm-frontend
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+      protocol: TCP

@@ -1,0 +1,153 @@
+name: CI/CD API
+
+on:
+  push:
+    branches: [feature/project-integration]
+    paths:
+      - "api/**"
+      - "deployment/k8s/api/**"
+      - "deployment/k8s/namespace.yml"
+      - ".github/workflows/ci-api.yml"
+  pull_request:
+    paths:
+      - "api/**"
+      - "deployment/k8s/api/**"
+      - "deployment/k8s/namespace.yml"
+      - ".github/workflows/ci-api.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: ci-api-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  REGISTRY_USERNAME: ukad
+  IMAGE_NAME: ecommerce-api
+  K8S_NAMESPACE: westbay-ecommerce
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        id: checkout
+        uses: actions/checkout@v7
+
+      - name: Setup .NET
+        id: setup_dotnet
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: |
+            9.0.x
+            10.0.x
+
+      - name: Restore NuGet packages
+        id: restore
+        run: dotnet restore api/EComm.sln
+
+      - name: Build
+        id: build
+        run: dotnet build api/EComm.sln --configuration Release --no-restore
+
+      - name: Test
+        id: test
+        run: >-
+          dotnet test api/EComm.Api.Tests/EComm.Api.Tests.csproj
+          --configuration Release
+          --no-restore
+          --verbosity normal
+
+  build:
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.event_name != 'pull_request'
+    environment:
+      name: development
+    outputs:
+      version: ${{ steps.set_version.outputs.version }}
+    steps:
+      - name: Checkout
+        id: checkout
+        uses: actions/checkout@v7
+
+      - name: Set version
+        id: set_version
+        run: |
+          ver="$(date +%Y%m%d-%H%M)"
+          echo "version=$ver" >> "$GITHUB_OUTPUT"
+
+      - name: Login to Docker Hub
+        id: login_dockerhub
+        uses: docker/login-action@v4
+        with:
+          username: ${{ env.REGISTRY_USERNAME }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+
+      - name: Build and push image
+        id: build_push
+        uses: docker/build-push-action@v7
+        with:
+          context: api/
+          file: api/Dockerfile
+          push: true
+          tags: |
+            ${{ env.REGISTRY_USERNAME }}/${{ env.IMAGE_NAME }}:${{ steps.set_version.outputs.version }}
+            ${{ env.REGISTRY_USERNAME }}/${{ env.IMAGE_NAME }}:latest
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.event_name != 'pull_request'
+    environment:
+      name: development
+      url: https://ecommerce-api.k3s.l01.ukad.dev
+    steps:
+      - name: Checkout
+        id: checkout
+        uses: actions/checkout@v7
+
+      - name: Setup kubectl
+        id: setup_kubectl
+        uses: azure/setup-kubectl@v5
+
+      - name: Set k8s context
+        id: set_context
+        uses: azure/k8s-set-context@v5
+        with:
+          method: kubeconfig
+          kubeconfig: ${{ secrets.KUBECONFIG }}
+
+      - name: Ensure namespace
+        id: ensure_namespace
+        run: kubectl apply -f deployment/k8s/namespace.yml
+
+      - name: Create API secrets
+        id: create_secrets
+        uses: azure/k8s-create-secret@v6
+        with:
+          namespace: ${{ env.K8S_NAMESPACE }}
+          secret-type: generic
+          secret-name: ecomm-api
+          string-data: |
+            {
+              "Jwt__SecretKey": "${{ secrets.JWT_SECRET_KEY }}"
+            }
+
+      - name: Deploy to Kubernetes
+        id: deploy
+        uses: azure/k8s-deploy@v7
+        with:
+          action: deploy
+          strategy: basic
+          namespace: ${{ env.K8S_NAMESPACE }}
+          manifests: |
+            deployment/k8s/api/certificate.yml
+            deployment/k8s/api/pvc.yml
+            deployment/k8s/api/deployment.yml
+            deployment/k8s/api/service.yml
+            deployment/k8s/api/ingress.yml
+          images: |
+            ${{ env.REGISTRY_USERNAME }}/${{ env.IMAGE_NAME }}:${{ needs.build.outputs.version }}

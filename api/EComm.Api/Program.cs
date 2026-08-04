@@ -117,12 +117,23 @@ builder.Services.AddSwaggerGen(options =>
     }
 });
 
-// Add CORS
+// Add CORS (Cors:AllowedOrigins in config / Cors__AllowedOrigins__N in env)
+var corsOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
+    ??
+    [
+        "http://localhost:5173",
+        "http://localhost:5174",
+        "http://localhost:5175",
+        "http://localhost:5176",
+        "http://localhost:5025",
+        "http://localhost:8640"
+    ];
+
 builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policy =>
     {
-        policy.WithOrigins("http://localhost:5173", "http://localhost:5174", "http://localhost:5175", "http://localhost:5176", "http://localhost:5025", "http://localhost:8640")
+        policy.WithOrigins(corsOrigins)
               .AllowAnyMethod()
               .AllowAnyHeader()
               .AllowCredentials();
