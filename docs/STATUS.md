@@ -214,7 +214,8 @@ POST   /api/v1/order-statuses/reset-defaults
   - Masked display (last 4 chars)
   - Revoke functionality
 - **Tenant-level API keys** (superadmin, not market-scoped) - managed at `/admin/tenants/:tenantId/api-keys`
-- Market shipping methods, leasing periods, and shippable countries configuration
+- Market shipping methods and leasing periods configuration
+- **Market currencies and countries** (Umbraco plugin → Commerce → store → Options → Currencies / Countries): currencies carry name, ISO 4217 code, formatting culture and a custom format template, plus which countries they're available in; countries carry name, ISO 3166 code and their default currency / shipping method / payment provider. Both can be created blank, from one ISO preset, or in bulk from every preset. `Market.Currency` is still the store's single active currency — this is settings/reference data, not multi-currency pricing. Replaces `MarketSettings.ShippingZones`, which was seeded with US *state* codes and so matched no ISO country
 - Market tax classes (named tax rates + per-country overrides) + an editable flat fallback rate. The class named by the **active payment provider** sets both the goods tax on carts/orders and that provider's surcharge fee tax — see [TAX-CLASSES.md](TAX-CLASSES.md)
 - Search and filtering
 - Pagination
@@ -233,6 +234,11 @@ GET/PUT/DELETE   /api/v1/markets/:id
 GET/PUT   /api/v1/markets/:id/shipping-methods
 GET/PUT   /api/v1/markets/:id/leasing-periods
 GET/PUT   /api/v1/markets/:id/tax-classes
+GET/PUT   /api/v1/markets/:id/currencies
+GET/PUT   /api/v1/markets/:id/countries
+GET   /api/v1/currencies/presets          # ISO 4217 + culture reference data, from .NET culture data
+GET   /api/v1/countries                   # the full ISO 3166 reference list (presets, tax overrides)
+GET   /api/v1/countries?marketId=:id      # exactly that market's countries — empty when none configured
 
 # API Keys (market-scoped)
 GET   /api/v1/api-keys?marketId=:id

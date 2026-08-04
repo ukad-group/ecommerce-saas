@@ -25,6 +25,8 @@ const NAV_ITEMS = [
 ];
 
 const OPTIONS_SUBITEMS = [
+  { key: 'currencies',            label: 'Currencies',                  icon: 'icon-coins',    enabled: true },
+  { key: 'countries',             label: 'Countries',                   icon: 'icon-flag',     enabled: true },
   { key: 'order-statuses',        label: 'Order Statuses',              icon: 'icon-settings', enabled: true },
   { key: 'payment-providers',     label: 'Payment Providers',           icon: 'icon-bill',     enabled: true },
   { key: 'attributes',            label: 'Product Attributes',          icon: 'icon-tag',      enabled: true },
@@ -123,7 +125,31 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
     storeTaxRate:             { type: Number  },
     // null ⇒ not being edited, so the field shows the stored rate and saves leave it alone.
     storeTaxRateDraft:        { type: String  },
+    // The ISO 3166 reference list — what countries are created FROM, not the store's own.
     countries:                { type: Array   },
+    // currencies (store-scoped)
+    currencies:               { type: Array   },
+    currenciesLoading:        { type: Boolean },
+    currenciesError:          { type: String  },
+    editingCurrency:          { type: Object  },
+    currenciesSearch:         { type: String  },
+    currenciesPage:           { type: Number  },
+    activeCurrencyCode:       { type: String  },
+    currencyPresets:          { type: Object  },
+    // filters the "Available in Countries" toggles inside the currency editor
+    currencyCountryFilter:    { type: String  },
+    // countries the store sells to (store-scoped, with checkout defaults)
+    marketCountries:          { type: Array   },
+    marketCountriesLoading:   { type: Boolean },
+    marketCountriesError:     { type: String  },
+    editingMarketCountry:     { type: Object  },
+    marketCountriesSearch:    { type: String  },
+    marketCountriesPage:      { type: Number  },
+    // dropdown sources for a country's checkout defaults
+    shippingMethods:          { type: Array   },
+    marketPaymentProviders:   { type: Array   },
+    // which Create flyout is open: '' | 'currency' | 'country'
+    createMenu:               { type: String  },
   };
 
   constructor() {
@@ -160,9 +186,19 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
     this.taxClasses = []; this.taxClassesLoading = false; this.taxClassesError = null; this.editingTaxClass = null;
     this.storeTaxRate = 0; this.storeTaxRateDraft = null;
     this.countries = [];
+    this.currencies = []; this.currenciesLoading = false; this.currenciesError = null; this.editingCurrency = null;
+    this.currenciesSearch = ''; this.currenciesPage = 1; this.activeCurrencyCode = ''; this.currencyPresets = null;
+    this.currencyCountryFilter = '';
+    // Which store `currencies` was loaded for — formatCurrency must never format store B's money
+    // with store A's culture.
+    this._currenciesMarketId = null;
+    this.marketCountries = []; this.marketCountriesLoading = false; this.marketCountriesError = null;
+    this.editingMarketCountry = null; this.marketCountriesSearch = ''; this.marketCountriesPage = 1;
+    this.shippingMethods = []; this.marketPaymentProviders = [];
+    this.createMenu = '';
 
     this.consumeContext(UMB_AUTH_CONTEXT, ctx => { this._authContext = ctx; });
-    this._closeMenus = () => { this.showOSMenu = false; this.showPSMenu = false; };
+    this._closeMenus = () => { this.showOSMenu = false; this.showPSMenu = false; this.createMenu = ''; };
   }
 
   connectedCallback() {
@@ -521,6 +557,203 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
     } catch (e) { this.taxClassesError = e.message; }
   }
 
+  // ── Currencies ───────────────────────────────────────────────────────────────
+
+  get _marketQs() {
+    return this.selectedMarketId ? `?marketId=${encodeURIComponent(this.selectedMarketId)}` : '';
+  }
+
+  async loadCurrencies() {
+    this.currenciesLoading = true; this.currenciesError = null;
+    try {
+      const [data, presets, countries] = await Promise.all([
+        this._get(`/umbraco/management/api/ecomm-commerce/currencies${this._marketQs}`),
+        // Reference data, identical for every store — fetch once per session.
+        this.currencyPresets ?? this._get('/umbraco/management/api/ecomm-commerce/currency-presets'),
+        this._get(`/umbraco/management/api/ecomm-commerce/market-countries${this._marketQs}`),
+      ]);
+      this.currencies = data?.currencies ?? [];
+      this.activeCurrencyCode = data?.activeCode ?? '';
+      this._currenciesMarketId = this.selectedMarketId;
+      this.currencyPresets = presets ?? { currencies: [], cultures: [] };
+      // The "Available in Countries" toggles list the store's own countries.
+      this.marketCountries = countries?.countries ?? [];
+    } catch (e) { this.currenciesError = e.message; }
+    finally { this.currenciesLoading = false; }
+  }
+
+  // Keeps `currencies` fresh for formatCurrency without refetching per view.
+  async _ensureCurrencies() {
+    if (!this.selectedMarketId || this._currenciesMarketId === this.selectedMarketId) return;
+    try {
+      const data = await this._get(`/umbraco/management/api/ecomm-commerce/currencies${this._marketQs}`);
+      this.currencies = data?.currencies ?? [];
+      this.activeCurrencyCode = data?.activeCode ?? '';
+      this._currenciesMarketId = this.selectedMarketId;
+    } catch { /* non-fatal: formatCurrency falls back to its built-in locale map */ }
+  }
+
+  async _saveCurrencies(currencies) {
+    const headers = await this.getAuthHeaders();
+    const r = await fetch(`/umbraco/management/api/ecomm-commerce/currencies${this._marketQs}`, {
+      method: 'PUT', headers, credentials: 'include', body: JSON.stringify({ currencies })
+    });
+    if (!r.ok) throw new Error(r.statusText);
+  }
+
+  async saveCurrency() {
+    const c = this.editingCurrency;
+    if (!c || !c.name?.trim()) { this.currenciesError = 'Name is required'; return; }
+    const code = (c.code || '').trim().toUpperCase();
+    if (!/^[A-Z]{3}$/.test(code)) { this.currenciesError = 'ISO code must be 3 letters, e.g. SEK'; return; }
+    this.currenciesError = null;
+    try {
+      const clean = {
+        id: c.id, name: c.name.trim(), code,
+        culture: c.culture || null,
+        formatTemplate: c.formatTemplate?.trim() || null,
+        // "All" ⇒ null, the same spelling the API stores — an empty list would read as
+        // "available nowhere".
+        countryCodes: c.allCountries ? null : (c.countryCodes || []),
+      };
+      const exists = this.currencies.find(x => x.id === c.id);
+      const list = exists ? this.currencies.map(x => x.id === c.id ? clean : x) : [...this.currencies, clean];
+      await this._saveCurrencies(list);
+      this.editingCurrency = null;
+      this.loadCurrencies();
+    } catch (e) { this.currenciesError = e.message; }
+  }
+
+  async deleteCurrency(id) {
+    try {
+      await this._saveCurrencies(this.currencies.filter(x => x.id !== id));
+      this.loadCurrencies();
+    } catch (e) { this.currenciesError = e.message; }
+  }
+
+  _editCurrency(c) {
+    // No stored country codes ⇒ available everywhere, which the form shows as the "All" toggle.
+    this.currencyCountryFilter = '';   // a filter left from the last currency would hide toggles here
+    this.editingCurrency = { ...c, countryCodes: [...(c.countryCodes || [])], allCountries: !(c.countryCodes || []).length };
+  }
+
+  startCurrency(fromPreset) {
+    this.currencyCountryFilter = '';
+    this.editingCurrency = {
+      id: crypto.randomUUID(), name: '', code: '', culture: '', formatTemplate: '',
+      countryCodes: [], allCountries: true, presetPicker: Boolean(fromPreset),
+    };
+  }
+
+  applyCurrencyPreset(code) {
+    const p = (this.currencyPresets?.currencies || []).find(x => x.code === code);
+    if (!p) return;
+    // Culture stays as-is: no default is guessable per currency (see the API's CurrencyPreset).
+    this.editingCurrency = { ...this.editingCurrency, name: p.name, code: p.code };
+  }
+
+  async addAllCurrencyPresets() {
+    const have = new Set(this.currencies.map(c => c.code));
+    const added = (this.currencyPresets?.currencies || [])
+      .filter(p => !have.has(p.code))
+      .map(p => ({ id: crypto.randomUUID(), name: p.name, code: p.code, countryCodes: null }));
+    if (!added.length) { this.currenciesError = 'Every ISO 4217 currency is already in the list.'; return; }
+    this.currenciesError = null;
+    try {
+      await this._saveCurrencies([...this.currencies, ...added]);
+      this.loadCurrencies();
+    } catch (e) { this.currenciesError = e.message; }
+  }
+
+  // ── Countries (the store's own, with checkout defaults) ──────────────────────
+
+  async loadMarketCountries() {
+    this.marketCountriesLoading = true; this.marketCountriesError = null;
+    try {
+      const [data, currencies, shipping, providers, iso] = await Promise.all([
+        this._get(`/umbraco/management/api/ecomm-commerce/market-countries${this._marketQs}`),
+        this._get(`/umbraco/management/api/ecomm-commerce/currencies${this._marketQs}`),
+        this._get(`/umbraco/management/api/ecomm-commerce/shipping-methods${this._marketQs}`),
+        // The payment-providers proxy requires a market — skip it rather than send a 400.
+        this.selectedMarketId
+          ? this._get(`/umbraco/management/api/ecomm-commerce/payment-providers${this._marketQs}`)
+          : Promise.resolve(null),
+        this.countries.length ? this.countries : this._get('/umbraco/management/api/ecomm-commerce/countries'),
+      ]);
+      this.marketCountries = data?.countries ?? [];
+      this.currencies = currencies?.currencies ?? [];
+      this.activeCurrencyCode = currencies?.activeCode ?? '';
+      this._currenciesMarketId = this.selectedMarketId;
+      this.shippingMethods = Array.isArray(shipping) ? shipping : (shipping?.methods ?? []);
+      this.marketPaymentProviders = providers?.providers ?? [];
+      this.countries = Array.isArray(iso) ? iso : [];
+    } catch (e) { this.marketCountriesError = e.message; }
+    finally { this.marketCountriesLoading = false; }
+  }
+
+  async _saveMarketCountries(countries) {
+    const headers = await this.getAuthHeaders();
+    const r = await fetch(`/umbraco/management/api/ecomm-commerce/market-countries${this._marketQs}`, {
+      method: 'PUT', headers, credentials: 'include', body: JSON.stringify({ countries })
+    });
+    if (!r.ok) throw new Error(r.statusText);
+  }
+
+  async saveMarketCountry() {
+    const c = this.editingMarketCountry;
+    if (!c || !c.name?.trim()) { this.marketCountriesError = 'Name is required'; return; }
+    const code = (c.code || '').trim().toUpperCase();
+    if (!/^[A-Z]{2}$/.test(code)) { this.marketCountriesError = 'ISO code must be 2 letters, e.g. SE'; return; }
+    this.marketCountriesError = null;
+    try {
+      const clean = {
+        id: c.id, name: c.name.trim(), code,
+        defaultCurrencyId: c.defaultCurrencyId || null,
+        defaultShippingMethodId: c.defaultShippingMethodId || null,
+        defaultPaymentProviderAlias: c.defaultPaymentProviderAlias || null,
+      };
+      const exists = this.marketCountries.find(x => x.id === c.id);
+      const list = exists ? this.marketCountries.map(x => x.id === c.id ? clean : x) : [...this.marketCountries, clean];
+      await this._saveMarketCountries(list);
+      this.editingMarketCountry = null;
+      this.loadMarketCountries();
+    } catch (e) { this.marketCountriesError = e.message; }
+  }
+
+  async deleteMarketCountry(id) {
+    try {
+      await this._saveMarketCountries(this.marketCountries.filter(x => x.id !== id));
+      this.loadMarketCountries();
+    } catch (e) { this.marketCountriesError = e.message; }
+  }
+
+  startMarketCountry(fromPreset) {
+    this.editingMarketCountry = {
+      id: crypto.randomUUID(), name: '', code: '',
+      defaultCurrencyId: '', defaultShippingMethodId: '', defaultPaymentProviderAlias: '',
+      presetPicker: Boolean(fromPreset),
+    };
+  }
+
+  applyCountryPreset(code) {
+    const p = this.countries.find(x => x.code === code);
+    if (!p) return;
+    this.editingMarketCountry = { ...this.editingMarketCountry, name: p.name, code: p.code };
+  }
+
+  async addAllCountryPresets() {
+    const have = new Set(this.marketCountries.map(c => c.code));
+    const added = this.countries
+      .filter(p => !have.has(p.code))
+      .map(p => ({ id: crypto.randomUUID(), name: p.name, code: p.code }));
+    if (!added.length) { this.marketCountriesError = 'Every ISO 3166 country is already in the list.'; return; }
+    this.marketCountriesError = null;
+    try {
+      await this._saveMarketCountries([...this.marketCountries, ...added]);
+      this.loadMarketCountries();
+    } catch (e) { this.marketCountriesError = e.message; }
+  }
+
   // ── Product Attribute Presets ─────────────────────────────────────────────────
 
   async loadAttributePresets() {
@@ -605,6 +838,8 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
   // Unconditional on purpose: the `!length` guards this replaced meant a list loaded once per session
   // and then showed stale data forever, with pagination as the only way to force a refresh.
   _loadView(key) {
+    // Money is formatted with the store's configured currency culture, so every view needs it.
+    this._ensureCurrencies();
     switch (key) {
       case 'orders':
       case 'order-detail':       this.loadOrders(); break;
@@ -617,6 +852,8 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
       case 'attributes':         this.editingAttribute = null; this.loadAttributes(); break;
       case 'attribute-presets':  this.editingAttributePreset = null; this.loadAttributes(); this.loadAttributePresets(); break;
       case 'tax-classes':        this.editingTaxClass = null; this.loadTaxClasses(); break;
+      case 'currencies':         this.editingCurrency = null; this.createMenu = ''; this.loadCurrencies(); break;
+      case 'countries':          this.editingMarketCountry = null; this.createMenu = ''; this.loadMarketCountries(); break;
       // 'home' has no data of its own; 'payment-providers' is a child element bound to .marketId,
       // so it reloads itself when the store changes.
     }
@@ -632,7 +869,14 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
   // Currency comes from the selected market (single currency per market), not a hardcoded $.
   formatCurrency(n) {
     const code = this.markets?.find(m => m.id === this.selectedMarketId)?.currency || 'USD';
-    const locale = { SEK: 'sv-SE', NOK: 'nb-NO', DKK: 'da-DK', EUR: 'de-DE', GBP: 'en-GB', USD: 'en-US' }[code] || 'en-US';
+    // Prefer the culture configured on the matching currency (Options → Currencies) — the built-in
+    // map only covers a handful of codes. Guarded on the market the list was loaded for.
+    const configured = this._currenciesMarketId === this.selectedMarketId
+      ? this.currencies?.find(c => c.code === code)?.culture
+      : null;
+    const locale = configured
+      || { SEK: 'sv-SE', NOK: 'nb-NO', DKK: 'da-DK', EUR: 'de-DE', GBP: 'en-GB', USD: 'en-US' }[code]
+      || 'en-US';
     try {
       return new Intl.NumberFormat(locale, { style: 'currency', currency: code }).format(n || 0);
     } catch {
@@ -1767,6 +2011,292 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
       </div>`;
   }
 
+  // ── Currencies ───────────────────────────────────────────────────────────────
+
+  /** Create button with a flyout: blank · one ISO preset · every ISO preset. */
+  _createFlyout(key, label, items) {
+    return html`
+      <div class="filter-wrap">
+        <uui-button look="primary" @click=${e => { e.stopPropagation(); this.createMenu = this.createMenu === key ? '' : key; }}>
+          + Create ${label}
+        </uui-button>
+        ${this.createMenu === key ? html`
+          <div class="dropdown dropdown--right" @click=${e => e.stopPropagation()}>
+            ${items.map(([itemLabel, run]) => html`
+              <button class="dd-item" @click=${() => { this.createMenu = ''; run(); }}>${itemLabel}</button>`)}
+          </div>` : ''}
+      </div>`;
+  }
+
+  /**
+   * The per-country toggles. A store that bulk-added the ISO presets has ~200 countries, which is an
+   * unusable wall of toggles — so the list gets a filter box past a dozen. Filtering only affects what
+   * is rendered; a selected country scrolled out of view stays selected.
+   */
+  _renderCurrencyCountryToggles(c) {
+    const selected = new Set(c.countryCodes || []);
+    const q = (this.currencyCountryFilter || '').toLowerCase();
+    const shown = q
+      ? this.marketCountries.filter(mc => mc.name?.toLowerCase().includes(q) || mc.code?.toLowerCase().includes(q))
+      : this.marketCountries;
+
+    return html`
+      ${this.marketCountries.length > 12 ? html`
+        <div style="display:flex;align-items:center;gap:8px">
+          <input class="form-input" style="flex:1" type="search" placeholder="Filter countries…"
+            .value=${this.currencyCountryFilter || ''}
+            @input=${e => { this.currencyCountryFilter = e.target.value; }}>
+          <span style="color:#999;font-size:0.78rem;white-space:nowrap">${selected.size} selected</span>
+        </div>` : ''}
+      <div style="display:flex;flex-direction:column;gap:6px;max-height:260px;overflow-y:auto">
+        ${shown.map(mc => html`
+          <uui-toggle label=${mc.name} ?checked=${selected.has(mc.code)}
+            @change=${e => {
+              const codes = new Set(c.countryCodes || []);
+              if (e.target.checked) codes.add(mc.code); else codes.delete(mc.code);
+              this.editingCurrency = { ...c, countryCodes: [...codes] };
+            }}>${mc.name}</uui-toggle>`)}
+        ${shown.length === 0 ? html`<span style="color:#999;font-size:0.8rem">No countries match the filter.</span>` : ''}
+      </div>`;
+  }
+
+  _renderCurrenciesView() {
+    const c = this.editingCurrency;
+    const PAGE_SIZE = 10;
+    const q = (this.currenciesSearch || '').toLowerCase();
+    const filtered = q
+      ? this.currencies.filter(x => x.name?.toLowerCase().includes(q) || x.code?.toLowerCase().includes(q))
+      : this.currencies;
+    const page = this.currenciesPage;
+    const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+    const presets = this.currencyPresets?.currencies ?? [];
+    const cultures = this.currencyPresets?.cultures ?? [];
+
+    return html`
+      <div class="view-container">
+        ${this._viewHeader('Currencies', this._createFlyout('currency', 'Currency', [
+          ['New blank currency', () => this.startCurrency(false)],
+          ['New currency from ISO 4217 preset', () => this.startCurrency(true)],
+          ['All currencies from ISO 4217 presets', () => this.addAllCurrencyPresets()],
+        ]))}
+
+        ${this._errorBanner(this.currenciesError, () => { this.currenciesError = null; })}
+
+        ${c ? html`
+          <div class="modal-overlay" @click=${(e) => { if (e.target === e.currentTarget) this.editingCurrency = null; }}>
+          <div class="form-panel form-panel--modal">
+            <h3>${this.currencies.find(x => x.id === c.id) ? 'Edit Currency' : 'New Currency'}</h3>
+
+            ${c.presetPicker ? html`
+              <div class="form-row"><label>ISO 4217 preset</label>
+                <select class="form-input" @change=${e => this.applyCurrencyPreset(e.target.value)}>
+                  <option value="">Choose a currency…</option>
+                  ${presets.map(p => html`<option value=${p.code} ?selected=${p.code === c.code}>${p.code} — ${p.name}</option>`)}
+                </select>
+              </div>` : ''}
+
+            <div class="form-row"><label>Name</label>
+              <input class="form-input" .value=${c.name || ''} placeholder="e.g. Swedish krona"
+                @input=${e => { this.editingCurrency = { ...c, name: e.target.value }; }}>
+            </div>
+            <div class="form-row"><label>ISO Code</label>
+              <input class="form-input" maxlength="3" .value=${c.code || ''} placeholder="3 letter ISO currency code"
+                @input=${e => { this.editingCurrency = { ...c, code: e.target.value.toUpperCase() }; }}>
+            </div>
+            <div class="form-row"><label>Culture</label>
+              <select class="form-input" @change=${e => { this.editingCurrency = { ...c, culture: e.target.value }; }}>
+                <option value="">— None —</option>
+                ${cultures.map(x => html`<option value=${x.name} ?selected=${x.name === c.culture}>${x.displayName}</option>`)}
+              </select>
+            </div>
+            <div class="form-row"><label>Custom Format Template</label>
+              <input class="form-input" .value=${c.formatTemplate || ''} placeholder="e.g. {0:n0} kr — used by storefronts"
+                @input=${e => { this.editingCurrency = { ...c, formatTemplate: e.target.value }; }}>
+            </div>
+
+            <div class="form-row" style="align-items:flex-start">
+              <label>Available in Countries</label>
+              <div style="display:flex;flex-direction:column;gap:6px;flex:1">
+                <uui-toggle label="All" ?checked=${c.allCountries}
+                  @change=${e => { this.editingCurrency = { ...c, allCountries: e.target.checked }; }}>All</uui-toggle>
+                ${c.allCountries ? '' : (this.marketCountries.length ? this._renderCurrencyCountryToggles(c)
+                  : html`<span style="color:#999;font-size:0.8rem">No countries configured for this store yet — add some under Options → Countries.</span>`)}
+              </div>
+            </div>
+
+            <div class="form-actions">
+              <uui-button look="primary" @click=${() => this.saveCurrency()}>Save</uui-button>
+              <uui-button look="secondary" @click=${() => { this.editingCurrency = null; }}>Cancel</uui-button>
+            </div>
+          </div>
+          </div>` : ''}
+
+        <div class="filters-bar">
+          <div class="filters-left"></div>
+          <div class="filters-right">
+            <div class="search-wrap">
+              <uui-icon name="icon-search" class="search-icon"></uui-icon>
+              <input class="search-input" type="search" placeholder="Type to search…"
+                .value=${this.currenciesSearch}
+                @input=${e => { this.currenciesSearch = e.target.value; this.currenciesPage = 1; }}>
+            </div>
+          </div>
+        </div>
+
+        ${this.currenciesLoading ? this._stateCenter(html`<uui-loader></uui-loader><p>Loading…</p>`) :
+          filtered.length === 0 ? this._stateCenter(html`
+            <uui-icon name="icon-coins" style="font-size:3rem;opacity:0.25"></uui-icon>
+            <p>${q ? 'No currencies match your search' : 'No currencies yet'}</p>`) :
+          html`
+            <div class="table-scroll">
+              <table class="data-table">
+                <thead><tr><th>Name</th><th>ISO Code</th><th>Available in</th><th></th></tr></thead>
+                <tbody>
+                  ${paged.map(cur => html`
+                    <tr class="data-row" style="cursor:pointer" @click=${() => this._editCurrency(cur)}>
+                      <td>
+                        <uui-icon name="icon-coins" style="opacity:0.5;margin-right:6px"></uui-icon>
+                        <strong>${cur.name}</strong>
+                        ${cur.code === this.activeCurrencyCode
+                          ? html`<span class="pill" style="background:#16a34a;color:#fff;margin-left:8px">store currency</span>` : ''}
+                      </td>
+                      <td>${cur.code}</td>
+                      <td>${(cur.countryCodes || []).length
+                        ? `${cur.countryCodes.length} countr${cur.countryCodes.length === 1 ? 'y' : 'ies'}`
+                        : 'All countries'}</td>
+                      <td class="row-actions">
+                        <uui-button look="secondary" color="danger" compact
+                          @click=${(e) => { e.stopPropagation(); this.deleteCurrency(cur.id); }}>Del</uui-button>
+                      </td>
+                    </tr>`)}
+                </tbody>
+              </table>
+            </div>
+            ${this._renderPager(filtered.length, page, PAGE_SIZE, p => { this.currenciesPage = p; })}`}
+
+        <div class="view-footer">
+          <span class="breadcrumb">${this.marketName} / Options / Currencies</span>
+          ${filtered.length > 0 ? html`<span class="breadcrumb" style="margin-left:auto">${filtered.length} currenc${filtered.length !== 1 ? 'ies' : 'y'}</span>` : ''}
+        </div>
+      </div>`;
+  }
+
+  // ── Countries ────────────────────────────────────────────────────────────────
+
+  _renderCountriesView() {
+    const c = this.editingMarketCountry;
+    const PAGE_SIZE = 10;
+    const q = (this.marketCountriesSearch || '').toLowerCase();
+    const filtered = q
+      ? this.marketCountries.filter(x => x.name?.toLowerCase().includes(q) || x.code?.toLowerCase().includes(q))
+      : this.marketCountries;
+    const page = this.marketCountriesPage;
+    const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+    const currencyName = id => this.currencies.find(x => x.id === id)?.code || '—';
+
+    return html`
+      <div class="view-container">
+        ${this._viewHeader('Countries', this._createFlyout('country', 'Country', [
+          ['New blank country', () => this.startMarketCountry(false)],
+          ['New country from ISO 3166 preset', () => this.startMarketCountry(true)],
+          ['All countries from ISO 3166 presets', () => this.addAllCountryPresets()],
+        ]))}
+
+        ${this._errorBanner(this.marketCountriesError, () => { this.marketCountriesError = null; })}
+
+        ${c ? html`
+          <div class="modal-overlay" @click=${(e) => { if (e.target === e.currentTarget) this.editingMarketCountry = null; }}>
+          <div class="form-panel form-panel--modal">
+            <h3>${this.marketCountries.find(x => x.id === c.id) ? 'Edit Country' : 'New Country'}</h3>
+
+            ${c.presetPicker ? html`
+              <div class="form-row"><label>ISO 3166 preset</label>
+                <select class="form-input" @change=${e => this.applyCountryPreset(e.target.value)}>
+                  <option value="">Choose a country…</option>
+                  ${this.countries.map(p => html`<option value=${p.code} ?selected=${p.code === c.code}>${p.name} (${p.code})</option>`)}
+                </select>
+              </div>` : ''}
+
+            <div class="form-row"><label>Name</label>
+              <input class="form-input" .value=${c.name || ''} placeholder="e.g. Sweden"
+                @input=${e => { this.editingMarketCountry = { ...c, name: e.target.value }; }}>
+            </div>
+            <div class="form-row"><label>ISO Code</label>
+              <input class="form-input" maxlength="2" .value=${c.code || ''} placeholder="2 letter ISO country code"
+                @input=${e => { this.editingMarketCountry = { ...c, code: e.target.value.toUpperCase() }; }}>
+            </div>
+            <div class="form-row"><label>Default Currency</label>
+              <select class="form-input" @change=${e => { this.editingMarketCountry = { ...c, defaultCurrencyId: e.target.value }; }}>
+                <option value="">— None —</option>
+                ${this.currencies.map(x => html`<option value=${x.id} ?selected=${x.id === c.defaultCurrencyId}>${x.name} (${x.code})</option>`)}
+              </select>
+            </div>
+            <div class="form-row"><label>Default Shipping Method</label>
+              <select class="form-input" @change=${e => { this.editingMarketCountry = { ...c, defaultShippingMethodId: e.target.value }; }}>
+                <option value="">— None —</option>
+                ${this.shippingMethods.map(x => html`<option value=${x.id} ?selected=${x.id === c.defaultShippingMethodId}>${x.name}</option>`)}
+              </select>
+            </div>
+            <div class="form-row"><label>Default Payment Method</label>
+              <select class="form-input" @change=${e => { this.editingMarketCountry = { ...c, defaultPaymentProviderAlias: e.target.value }; }}>
+                <option value="">— None —</option>
+                ${this.marketPaymentProviders.map(p => html`
+                  <option value=${p.alias} ?selected=${p.alias === c.defaultPaymentProviderAlias}>${p.displayName || p.alias}</option>`)}
+              </select>
+            </div>
+
+            <div class="form-actions">
+              <uui-button look="primary" @click=${() => this.saveMarketCountry()}>Save</uui-button>
+              <uui-button look="secondary" @click=${() => { this.editingMarketCountry = null; }}>Cancel</uui-button>
+            </div>
+          </div>
+          </div>` : ''}
+
+        <div class="filters-bar">
+          <div class="filters-left"></div>
+          <div class="filters-right">
+            <div class="search-wrap">
+              <uui-icon name="icon-search" class="search-icon"></uui-icon>
+              <input class="search-input" type="search" placeholder="Type to search…"
+                .value=${this.marketCountriesSearch}
+                @input=${e => { this.marketCountriesSearch = e.target.value; this.marketCountriesPage = 1; }}>
+            </div>
+          </div>
+        </div>
+
+        ${this.marketCountriesLoading ? this._stateCenter(html`<uui-loader></uui-loader><p>Loading…</p>`) :
+          filtered.length === 0 ? this._stateCenter(html`
+            <uui-icon name="icon-flag" style="font-size:3rem;opacity:0.25"></uui-icon>
+            <p>${q ? 'No countries match your search' : 'No countries yet'}</p>
+            ${q ? '' : html`<p style="color:#bbb;font-size:0.8rem">With none configured, the whole ISO 3166 list is offered everywhere.</p>`}`) :
+          html`
+            <div class="table-scroll">
+              <table class="data-table">
+                <thead><tr><th>Name</th><th>ISO Code</th><th>Default Currency</th><th></th></tr></thead>
+                <tbody>
+                  ${paged.map(country => html`
+                    <tr class="data-row" style="cursor:pointer"
+                      @click=${() => { this.editingMarketCountry = { ...country }; }}>
+                      <td><uui-icon name="icon-flag" style="opacity:0.5;margin-right:6px"></uui-icon><strong>${country.name}</strong></td>
+                      <td>${country.code}</td>
+                      <td>${currencyName(country.defaultCurrencyId)}</td>
+                      <td class="row-actions">
+                        <uui-button look="secondary" color="danger" compact
+                          @click=${(e) => { e.stopPropagation(); this.deleteMarketCountry(country.id); }}>Del</uui-button>
+                      </td>
+                    </tr>`)}
+                </tbody>
+              </table>
+            </div>
+            ${this._renderPager(filtered.length, page, PAGE_SIZE, p => { this.marketCountriesPage = p; })}`}
+
+        <div class="view-footer">
+          <span class="breadcrumb">${this.marketName} / Options / Countries</span>
+          ${filtered.length > 0 ? html`<span class="breadcrumb" style="margin-left:auto">${filtered.length} countr${filtered.length !== 1 ? 'ies' : 'y'}</span>` : ''}
+        </div>
+      </div>`;
+  }
+
   // ── Coming Soon ────────────────────────────────────────────────────────────
 
   _renderComingSoon(label) {
@@ -1893,6 +2423,8 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
       case 'attributes':          return this._renderAttributesView();
       case 'attribute-presets':   return this._renderAttributePresetsView();
       case 'tax-classes':         return this._renderTaxClassesView();
+      case 'currencies':          return this._renderCurrenciesView();
+      case 'countries':           return this._renderCountriesView();
       case 'property-templates':  return this._renderPropertyTemplatesView();
       case 'payment-providers':   return html`<div class="view-container"><ecomm-payment-providers-dashboard .marketId=${this.selectedMarketId} .embedded=${true}></ecomm-payment-providers-dashboard></div>`;
       default: {
@@ -2085,6 +2617,8 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
     }
     .dd-item:hover { background: #f5f5f5; }
     .dd-item.active { background: #eff6ff; font-weight: 600; }
+    /* Right-aligned flyout, for a trigger that sits at the right edge of a view header. */
+    .dropdown--right { left: auto; right: 0; white-space: nowrap; }
 
     .icon-btn {
       display: flex; align-items: center; justify-content: center; padding: 5px 8px;

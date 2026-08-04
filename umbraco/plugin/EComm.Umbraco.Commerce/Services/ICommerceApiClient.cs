@@ -45,6 +45,21 @@ public interface ICommerceApiClient
     /// <summary>taxRate null leaves the market's stored fallback rate untouched.</summary>
     Task<bool> UpdateTaxClassesAsync(string? marketId, List<TaxClass> taxClasses, decimal? taxRate = null);
 
+    // ----- Currencies + Countries (market-scoped; saved whole-list) -----
+
+    /// <summary>The currencies a market offers, plus the market's active currency code.</summary>
+    Task<CurrenciesResponse> GetCurrenciesAsync(string? marketId = null);
+
+    Task<bool> UpdateCurrenciesAsync(string? marketId, List<Currency> currencies);
+
+    /// <summary>The countries a market sells to, with their checkout defaults.</summary>
+    Task<MarketCountriesResponse> GetMarketCountriesAsync(string? marketId = null);
+
+    Task<bool> UpdateMarketCountriesAsync(string? marketId, List<MarketCountry> countries);
+
+    /// <summary>ISO 4217 currencies and formatting cultures, for the currency editor's dropdowns.</summary>
+    Task<CurrencyPresetsResponse> GetCurrencyPresetsAsync();
+
     /// <summary>
     /// Gets all markets for the configured tenant
     /// </summary>
@@ -63,8 +78,8 @@ public interface ICommerceApiClient
     Task<Category?> CreateCategoryAsync(Category category, string? marketId = null);
 
     /// <summary>
-    /// Gets the countries a market ships to (or the full reference list if the market has no
-    /// shipping-zone restriction configured)
+    /// With a marketId: exactly the countries that market sells to — empty when it has none
+    /// configured. Without one: the full ISO 3166 reference list.
     /// </summary>
     Task<List<Country>> GetCountriesAsync(string? marketId = null);
 

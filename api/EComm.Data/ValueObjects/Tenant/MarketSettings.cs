@@ -11,7 +11,14 @@ public class MarketSettings
     /// leasing isn't offered for this market (not "0% leasing").</summary>
     public decimal? DefaultLeasingFactor { get; set; }
 
-    public List<string>? ShippingZones { get; set; }
+    /// <summary>Currencies this market offers (name, ISO code, formatting culture). The market's
+    /// active currency is still <c>Market.Currency</c>.</summary>
+    public List<Currency>? Currencies { get; set; }
+
+    /// <summary>Countries this market sells to, with their checkout defaults. Empty/null means the
+    /// market is not restricted to any subset of the ISO 3166 list.</summary>
+    public List<MarketCountry>? Countries { get; set; }
+
     public List<CustomPropertyTemplate>? CustomPropertyTemplates { get; set; }
     public List<ProductAttribute>? Attributes { get; set; }
     public List<ProductAttributePreset>? AttributePresets { get; set; }

@@ -202,7 +202,6 @@ public static class DatabaseSeeder
                 {
                     OrderPrefix = "DT",
                     TaxRate = 0.0875m,
-                    ShippingZones = new List<string> { "NY", "NJ", "CT" },
                     Attributes = new List<ProductAttribute>
                     {
                         new ProductAttribute
@@ -259,7 +258,6 @@ public static class DatabaseSeeder
                 {
                     OrderPrefix = "AP",
                     TaxRate = 0.0875m,
-                    ShippingZones = new List<string> { "NY" }
                 },
                 ApiKeyCount = 1,
                 CreatedAt = new DateTime(2024, 3, 10),
@@ -279,7 +277,6 @@ public static class DatabaseSeeder
                 {
                     OrderPrefix = "WEB",
                     TaxRate = 0m,
-                    ShippingZones = new List<string> { "US", "CA", "MX" }
                 },
                 ApiKeyCount = 3,
                 CreatedAt = new DateTime(2024, 2, 1),
@@ -308,7 +305,6 @@ public static class DatabaseSeeder
                 {
                     OrderPrefix = "ML",
                     TaxRate = 0.1025m,
-                    ShippingZones = new List<string> { "IL", "WI", "IN" }
                 },
                 ApiKeyCount = 1,
                 CreatedAt = new DateTime(2024, 4, 5),
@@ -336,7 +332,6 @@ public static class DatabaseSeeder
                 {
                     OrderPrefix = "OT",
                     TaxRate = 0.0625m,
-                    ShippingZones = new List<string> { "IL" }
                 },
                 ApiKeyCount = 0,
                 CreatedAt = new DateTime(2024, 6, 15),
@@ -357,7 +352,6 @@ public static class DatabaseSeeder
                 {
                     OrderPrefix = "SC",
                     TaxRate = 0m,
-                    ShippingZones = new List<string> { "US" }
                 },
                 ApiKeyCount = 2,
                 CreatedAt = new DateTime(2024, 5, 1),
@@ -385,7 +379,6 @@ public static class DatabaseSeeder
                 {
                     OrderPrefix = "POP",
                     TaxRate = 0.095m,
-                    ShippingZones = new List<string> { "CA" }
                 },
                 ApiKeyCount = 0,
                 CreatedAt = new DateTime(2024, 7, 1),

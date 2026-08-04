@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using EComm.Data;
 using EComm.Data.ValueObjects.Common;
+using EComm.Data.ValueObjects.Tenant;
 
 namespace EComm.Api.Controllers;
 
@@ -117,8 +118,13 @@ public class CountriesController : ControllerBase
     };
 
     /// <summary>
-    /// Lists countries. If marketId is given and that market has ShippingZones configured,
-    /// the list is restricted to those ISO codes — otherwise the full reference list is returned.
+    /// Without marketId: the full ISO 3166 reference list — what countries are created from
+    /// (Commerce → Options → Countries) and what a tax-rate override is picked from.
+    /// <para>
+    /// With marketId: exactly the countries that market sells to, so a market with none configured
+    /// answers an empty list rather than silently standing in the whole world. Callers that want the
+    /// reference list must ask for it by omitting marketId.
+    /// </para>
     /// </summary>
     [HttpGet]
     public ActionResult<List<Country>> GetCountries([FromQuery] string? marketId = null)
@@ -126,11 +132,12 @@ public class CountriesController : ControllerBase
         if (string.IsNullOrEmpty(marketId))
             return Ok(All);
 
-        var market = _store.GetMarket(marketId);
-        var zones = market?.Settings?.ShippingZones;
-        if (zones == null || zones.Count == 0)
-            return Ok(All);
+        var configured = _store.GetMarket(marketId)?.Settings?.Countries ?? new List<MarketCountry>();
 
-        return Ok(All.Where(c => zones.Contains(c.Code)).ToList());
+        // Names come from the market's own records — an admin may have renamed a country.
+        return Ok(configured
+            .Select(c => new Country { Code = c.Code, Name = c.Name })
+            .OrderBy(c => c.Name, StringComparer.OrdinalIgnoreCase)
+            .ToList());
     }
 }

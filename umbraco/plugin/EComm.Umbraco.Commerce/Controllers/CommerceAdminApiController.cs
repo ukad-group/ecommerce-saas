@@ -253,6 +253,47 @@ public class CommerceAdminApiController : ManagementApiControllerBase
         var ok = await _apiClient.UpdateTaxClassesAsync(marketId, request.TaxClasses, request.TaxRate);
         return ok ? Ok() : StatusCode(StatusCodes.Status502BadGateway, "Failed to update tax classes");
     }
+
+    // ── Currencies + store countries ──────────────────────────────────────────────
+
+    [HttpGet("currencies")]
+    [ProducesResponseType(typeof(CurrenciesResponse), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetCurrencies([FromQuery] string? marketId = null)
+        => Ok(await _apiClient.GetCurrenciesAsync(marketId));
+
+    [HttpPut("currencies")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<IActionResult> UpdateCurrencies([FromQuery] string? marketId, [FromBody] UpdateCurrenciesRequest request)
+    {
+        var ok = await _apiClient.UpdateCurrenciesAsync(marketId, request.Currencies);
+        return ok ? Ok() : StatusCode(StatusCodes.Status502BadGateway, "Failed to update currencies");
+    }
+
+    /// <summary>The countries configured for this store — distinct from <c>countries</c> above, which
+    /// is the ISO reference list the presets are created from.</summary>
+    [HttpGet("market-countries")]
+    [ProducesResponseType(typeof(MarketCountriesResponse), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetMarketCountries([FromQuery] string? marketId = null)
+        => Ok(await _apiClient.GetMarketCountriesAsync(marketId));
+
+    [HttpPut("market-countries")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<IActionResult> UpdateMarketCountries([FromQuery] string? marketId, [FromBody] UpdateMarketCountriesRequest request)
+    {
+        var ok = await _apiClient.UpdateMarketCountriesAsync(marketId, request.Countries);
+        return ok ? Ok() : StatusCode(StatusCodes.Status502BadGateway, "Failed to update countries");
+    }
+
+    [HttpGet("currency-presets")]
+    [ProducesResponseType(typeof(CurrencyPresetsResponse), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetCurrencyPresets()
+        => Ok(await _apiClient.GetCurrencyPresetsAsync());
+
+    /// <summary>Delivery options for the store — the country editor's Default Shipping Method list.</summary>
+    [HttpGet("shipping-methods")]
+    [ProducesResponseType(typeof(List<ShippingMethod>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetShippingMethods([FromQuery] string? marketId = null)
+        => Ok(await _apiClient.GetShippingMethodsAsync(marketId));
 }
 
 public class SetActivePaymentProviderRequest
@@ -292,4 +333,14 @@ public class UpdateAttributesRequest
 public class UpdateAttributePresetsRequest
 {
     public List<ProductAttributePreset> Presets { get; set; } = new();
+}
+
+public class UpdateCurrenciesRequest
+{
+    public List<Currency> Currencies { get; set; } = new();
+}
+
+public class UpdateMarketCountriesRequest
+{
+    public List<MarketCountry> Countries { get; set; } = new();
 }

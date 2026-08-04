@@ -69,12 +69,12 @@ dotnet run
     /Providers/NetsEasy/        # Nets Easy provider (first implementation, self-registering)
 
   /EComm.Api/                   # Web API project
-    /Controllers/               # 15 API controllers
+    /Controllers/               # 16 API controllers
       ProductsController.cs, CategoriesController.cs, CartController.cs,
       OrdersController.cs, AdminOrdersController.cs, OrderStatusController.cs,
       TenantsController.cs, MarketsController.cs, ApiKeysController.cs,
       AuthController.cs, FilesController.cs, CountriesController.cs,
-      DiscountsController.cs, PaymentsController.cs,
+      CurrenciesController.cs, DiscountsController.cs, PaymentsController.cs,
       TenantApiKeysController.cs
     /DTOs/                      # Data Transfer Objects
       /Requests/                # Request DTOs by domain
@@ -88,7 +88,7 @@ dotnet run
     appsettings.json           # Configuration
 ```
 
-## 15 Controllers
+## 16 Controllers
 
 ### 1. ProductsController
 ```csharp
@@ -174,6 +174,8 @@ GET/PUT   /api/v1/markets/{id}/leasing-periods        // Market's rental duratio
 GET/POST/PUT/DELETE /api/v1/markets/{id}/attributes       // Market's product-attribute library (variant axes; + bulk PUT)
 GET/POST/PUT/DELETE /api/v1/markets/{id}/attribute-presets // Named bundles of attributes (+ bulk PUT)
 GET/PUT   /api/v1/markets/{id}/tax-classes                    // Market's named tax rates (+ per-country overrides) + the flat fallback taxRate
+GET/PUT   /api/v1/markets/{id}/currencies                     // Market's currencies (name, ISO 4217 code, formatting culture, format template, available-in countries)
+GET/PUT   /api/v1/markets/{id}/countries                      // Market's countries + their checkout defaults (currency, shipping method, payment provider)
 GET/PUT/DELETE /api/v1/markets/{id}/payment-providers[/{alias}]     // Market's payment providers (secrets masked) + active alias
 GET       /api/v1/markets/{id}/payment-providers/{alias}/secrets/{key} // One Secret field, unmasked (404 unless declared Secret)
 PUT/DELETE /api/v1/markets/{id}/payment-providers/{alias}/surcharge // Provider's surcharge fee for this market
@@ -202,8 +204,21 @@ DELETE /api/v1/files/{filename}                                // Delete uploade
 
 ### 10. CountriesController
 ```csharp
-GET    /api/v1/countries?marketId={id} // List countries (ISO list, filtered by market's shipping zones if set)
+GET    /api/v1/countries                // The full ISO 3166 reference list
+GET    /api/v1/countries?marketId={id} // Exactly the countries that market sells to — empty if it has none configured
 ```
+Asking for a market asks *where that market sells*, so a market with no countries answers an empty
+list rather than standing in for the whole world. Callers that want the reference list — the country
+presets in `Commerce → Options → Countries`, and the tax-rate override picker, since a tax law is
+independent of where a store ships — omit `marketId`. `MarketSettings.ShippingZones` used to feed this
+filter but was seeded with US *state* codes, so it matched no ISO country; it has been removed.
+
+### 10b. CurrenciesController
+```csharp
+GET    /api/v1/currencies/presets      // { currencies: [{code,name,defaultCulture}], cultures: [{name,displayName}] }
+```
+Reference data for the currency editor, generated once from `CultureInfo.GetCultures` + `RegionInfo`
+rather than a hardcoded table.
 
 ### 11. DiscountsController
 ```csharp
@@ -240,6 +255,7 @@ The generic layer (`EComm.Payment/`) contains no gateway code. Providers self-re
 
 `Market.Settings` (`MarketSettings`) now also holds, managed via the `MarketsController` sub-resources above:
 - `ShippingMethods`, `LeasingPeriods`
+- `Currencies` (name + ISO 4217 code + formatting `Culture` + `FormatTemplate` + `CountryCodes`, where null/empty = all countries) and `Countries` (`MarketCountry`: name + ISO 3166 code + `DefaultCurrencyId`/`DefaultShippingMethodId`/`DefaultPaymentProviderAlias`). Managed in the Umbraco plugin under Commerce → store → Options → Currencies / Countries. `Market.Currency` remains the store's single **active** currency — these records add display/formatting metadata and the country list, they don't make pricing multi-currency
 - `Attributes` (product-attribute library — variant axes with `{name, alias}` values) + `AttributePresets` (named bundles)
 - `CustomPropertyTemplates` (each may carry an `AttributeId` to render its product value as a dropdown of the attribute's values)
 - `DefaultLeasingFactor`, `CartOrderStatus`

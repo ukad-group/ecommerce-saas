@@ -117,6 +117,14 @@ public class CommerceApiClient : ICommerceApiClient
         }
     }
 
+    /// <summary>
+    /// Distinct keys for the two different lists this endpoint serves: the static ISO reference list
+    /// and one market's own countries. Spelled out rather than interpolating a "all" sentinel, so a
+    /// market whose id happened to be that sentinel couldn't collide with the reference list.
+    /// </summary>
+    private static string CountriesCacheKey(string? marketId)
+        => string.IsNullOrEmpty(marketId) ? "EComm_Countries_iso" : $"EComm_Countries_market_{marketId}";
+
     public async Task<List<Country>> GetCountriesAsync(string? marketId = null)
     {
         var settings = await _settingsService.GetSettingsAsync();
@@ -126,8 +134,10 @@ public class CommerceApiClient : ICommerceApiClient
             return new List<Country>();
         }
 
-        var effectiveMarketId = marketId ?? settings.MarketId;
-        var cacheKey = $"EComm_Countries_{effectiveMarketId}";
+        // No implicit market default: passing one restricts the list to that market's configured
+        // countries, and every caller so far wants the full ISO reference list (to create countries
+        // from, and to pick tax-rate overrides — a tax law is independent of where a store ships).
+        var cacheKey = CountriesCacheKey(marketId);
 
         if (_cache.TryGetValue(cacheKey, out List<Country>? cachedCountries) && cachedCountries != null)
         {
@@ -137,7 +147,7 @@ public class CommerceApiClient : ICommerceApiClient
         try
         {
             var client = await CreateClientAsync(settings);
-            var url = $"countries?marketId={effectiveMarketId}";
+            var url = string.IsNullOrEmpty(marketId) ? "countries" : $"countries?marketId={marketId}";
 
             var response = await client.GetAsync(url);
             response.EnsureSuccessStatusCode();
@@ -145,7 +155,15 @@ public class CommerceApiClient : ICommerceApiClient
             var countries = await response.Content.ReadFromJsonAsync<List<Country>>(JsonOptions);
             countries ??= new List<Country>();
 
-            _cache.Set(cacheKey, countries, CategoryCacheDuration);
+            // Never cache "no countries". A market with none configured legitimately answers an empty
+            // list, and caching that strands a storefront for the whole cache window after an admin
+            // adds the first country — with a checkout view that renders its country field only when
+            // the list is non-empty, the field silently disappears. An empty answer is also what a
+            // null body or a shape change looks like, so it is exactly the answer worth re-asking.
+            if (countries.Count > 0)
+                _cache.Set(cacheKey, countries, CategoryCacheDuration);
+            else
+                _logger.LogDebug("No countries returned for {CacheKey} — not cached", cacheKey);
 
             return countries;
         }
@@ -1342,6 +1360,128 @@ public class CommerceApiClient : ICommerceApiClient
         {
             _logger.LogError(ex, "Failed to update tax classes for market {MarketId}", marketId);
             return false;
+        }
+    }
+
+    // ----- Currencies + Countries (market-scoped; saved whole-list) -----
+
+    public async Task<CurrenciesResponse> GetCurrenciesAsync(string? marketId = null)
+    {
+        var settings = await _settingsService.GetSettingsAsync();
+        if (settings == null || !settings.IsValid) return new CurrenciesResponse();
+
+        try
+        {
+            var mid = marketId ?? settings.MarketId;
+            var client = await CreateClientAsync(settings);
+            var response = await client.GetAsync($"admin/markets/{mid}/currencies");
+            response.EnsureSuccessStatusCode();
+            return await response.Content.ReadFromJsonAsync<CurrenciesResponse>(JsonOptions)
+                   ?? new CurrenciesResponse();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to fetch currencies for market {MarketId}", marketId);
+            return new CurrenciesResponse();
+        }
+    }
+
+    public async Task<bool> UpdateCurrenciesAsync(string? marketId, List<Currency> currencies)
+    {
+        var settings = await _settingsService.GetSettingsAsync();
+        if (settings == null || !settings.IsValid) return false;
+
+        try
+        {
+            var mid = marketId ?? settings.MarketId;
+            var client = await CreateClientAsync(settings);
+            var json = JsonSerializer.Serialize(new { currencies }, JsonOptions);
+            var content = new StringContent(json, Encoding.UTF8, "application/json");
+            var response = await client.PutAsync($"admin/markets/{mid}/currencies", content);
+            return response.IsSuccessStatusCode;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to update currencies for market {MarketId}", marketId);
+            return false;
+        }
+    }
+
+    public async Task<MarketCountriesResponse> GetMarketCountriesAsync(string? marketId = null)
+    {
+        var settings = await _settingsService.GetSettingsAsync();
+        if (settings == null || !settings.IsValid) return new MarketCountriesResponse();
+
+        try
+        {
+            var mid = marketId ?? settings.MarketId;
+            var client = await CreateClientAsync(settings);
+            var response = await client.GetAsync($"admin/markets/{mid}/countries");
+            response.EnsureSuccessStatusCode();
+            return await response.Content.ReadFromJsonAsync<MarketCountriesResponse>(JsonOptions)
+                   ?? new MarketCountriesResponse();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to fetch countries for market {MarketId}", marketId);
+            return new MarketCountriesResponse();
+        }
+    }
+
+    public async Task<bool> UpdateMarketCountriesAsync(string? marketId, List<MarketCountry> countries)
+    {
+        var settings = await _settingsService.GetSettingsAsync();
+        if (settings == null || !settings.IsValid) return false;
+
+        try
+        {
+            var mid = marketId ?? settings.MarketId;
+            var client = await CreateClientAsync(settings);
+            var json = JsonSerializer.Serialize(new { countries }, JsonOptions);
+            var content = new StringContent(json, Encoding.UTF8, "application/json");
+            var response = await client.PutAsync($"admin/markets/{mid}/countries", content);
+
+            // Evict this market's cached list, as the category and product writes do — otherwise a
+            // storefront keeps serving the pre-save countries for the rest of the cache window. The
+            // ISO reference key is deliberately left alone: it is static and unaffected by a store's
+            // configuration.
+            if (response.IsSuccessStatusCode)
+                _cache.Remove(CountriesCacheKey(mid));
+
+            return response.IsSuccessStatusCode;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to update countries for market {MarketId}", marketId);
+            return false;
+        }
+    }
+
+    /// <summary>Reference data only — never changes at runtime, so it's cached like the ISO list.</summary>
+    public async Task<CurrencyPresetsResponse> GetCurrencyPresetsAsync()
+    {
+        var settings = await _settingsService.GetSettingsAsync();
+        if (settings == null || !settings.IsValid) return new CurrencyPresetsResponse();
+
+        const string cacheKey = "EComm_CurrencyPresets";
+        if (_cache.TryGetValue(cacheKey, out CurrencyPresetsResponse? cached) && cached != null)
+            return cached;
+
+        try
+        {
+            var client = await CreateClientAsync(settings);
+            var response = await client.GetAsync("currencies/presets");
+            response.EnsureSuccessStatusCode();
+            var presets = await response.Content.ReadFromJsonAsync<CurrencyPresetsResponse>(JsonOptions)
+                          ?? new CurrencyPresetsResponse();
+
+            _cache.Set(cacheKey, presets, CategoryCacheDuration);
+            return presets;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to fetch currency presets");
+            return new CurrencyPresetsResponse();
         }
     }
 

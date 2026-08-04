@@ -498,6 +498,88 @@ public class MarketsController : ControllerBase
         return Ok(new { taxClasses = market.Settings.TaxClasses, taxRate = market.Settings.TaxRate });
     }
 
+    // ----- Currencies + Countries (market-scoped; whole-list PUT like tax classes) -----
+
+    [HttpGet("{id}/currencies")]
+    [AllowAnonymous] // Allow all authenticated users to read
+    public ActionResult GetCurrencies(string id)
+    {
+        var market = _store.GetMarket(id);
+        if (market == null) return NotFound();
+
+        var currencies = market.Settings?.Currencies ?? new List<Currency>();
+        return Ok(new { currencies, activeCode = market.Currency });
+    }
+
+    [HttpPut("{id}/currencies")]
+    [Authorize(Policy = "AdminOrApiKey")]
+    public ActionResult UpdateCurrencies(string id, [FromBody] UpdateCurrenciesRequest request)
+    {
+        var market = _store.GetMarket(id);
+        if (market == null) return NotFound();
+
+        foreach (var currency in request.Currencies)
+        {
+            if (string.IsNullOrEmpty(currency.Id)) currency.Id = Guid.NewGuid().ToString();
+            currency.Code = currency.Code?.Trim().ToUpperInvariant() ?? string.Empty;
+            // Empty means "all countries" — store null so the two spellings can't diverge.
+            if (currency.CountryCodes?.Count == 0) currency.CountryCodes = null;
+        }
+
+        market.Settings ??= new MarketSettings();
+        market.Settings.Currencies = request.Currencies;
+        market.UpdatedAt = DateTime.UtcNow;
+        _store.UpdateMarket(market);
+
+        return Ok(new { currencies = market.Settings.Currencies, activeCode = market.Currency });
+    }
+
+    [HttpGet("{id}/countries")]
+    [AllowAnonymous] // Allow all authenticated users to read
+    public ActionResult GetMarketCountries(string id)
+    {
+        var market = _store.GetMarket(id);
+        if (market == null) return NotFound();
+
+        var countries = market.Settings?.Countries ?? new List<MarketCountry>();
+        return Ok(new { countries });
+    }
+
+    [HttpPut("{id}/countries")]
+    [Authorize(Policy = "AdminOrApiKey")]
+    public ActionResult UpdateMarketCountries(string id, [FromBody] UpdateMarketCountriesRequest request)
+    {
+        var market = _store.GetMarket(id);
+        if (market == null) return NotFound();
+
+        foreach (var country in request.Countries)
+        {
+            if (string.IsNullOrEmpty(country.Id)) country.Id = Guid.NewGuid().ToString();
+            country.Code = country.Code?.Trim().ToUpperInvariant() ?? string.Empty;
+        }
+
+        market.Settings ??= new MarketSettings();
+        market.Settings.Countries = request.Countries;
+
+        // Drop currency availability for countries the store no longer sells to. Left behind, such a
+        // code is invisible in the editor (which only lists the store's countries) yet still counted,
+        // so a currency would claim "2 countries" with one of them unselectable.
+        var live = request.Countries.Select(c => c.Code).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        foreach (var currency in market.Settings.Currencies ?? new List<Currency>())
+        {
+            if (currency.CountryCodes == null) continue;   // null = all countries, nothing to prune
+            currency.CountryCodes = currency.CountryCodes.Where(live.Contains).ToList();
+            // An emptied list would read as "available nowhere"; "all" is the safer reading, and it
+            // matches what the editor shows once every named country is gone.
+            if (currency.CountryCodes.Count == 0) currency.CountryCodes = null;
+        }
+
+        market.UpdatedAt = DateTime.UtcNow;
+        _store.UpdateMarket(market);
+
+        return Ok(new { countries = market.Settings.Countries });
+    }
+
     // ----- Product Attributes (market-scoped variant-axis library) -----
 
     [HttpGet("{id}/attributes")]
