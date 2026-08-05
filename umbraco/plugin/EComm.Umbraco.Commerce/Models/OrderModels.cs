@@ -87,6 +87,10 @@ public class OrderCustomer
     public string FullName { get; set; } = string.Empty;
     public string Email { get; set; } = string.Empty;
     public string? Phone { get; set; }
+
+    /// <summary>Set for a company (B2B) purchase; null/blank ⇒ a private person. The API fills the
+    /// Nets consumer.company block and defaults the hosted checkout to B2B when this is present.</summary>
+    public string? CompanyName { get; set; }
 }
 
 public class OrderAddress

@@ -196,8 +196,15 @@ public class NetsEasyPaymentProvider : IPaymentProvider
                 Consumer = BuildConsumer(order), // prefill (still editable) so the shopper doesn't re-type
                 MerchantHandlesConsumerData = settings.MerchantHandlesConsumerData,
                 // consumerType drives which consumer fields the page renders — without it Nets has
-                // nothing to prefill *into*. Nets ignores it when the merchant handles the data.
-                ConsumerType = settings.MerchantHandlesConsumerData ? null : new NetsConsumerType(),
+                // nothing to prefill *into*. Both types are always offered so the shopper can switch;
+                // the default follows the order (company ⇒ B2B). Nets ignores it when the merchant
+                // handles the data.
+                ConsumerType = settings.MerchantHandlesConsumerData
+                    ? null
+                    : new NetsConsumerType
+                    {
+                        Default = string.IsNullOrWhiteSpace(order.Customer?.CompanyName) ? "B2C" : "B2B",
+                    },
                 CountryCode = ToAlpha3(order.ShippingAddress?.Country),
             },
             MerchantNumber = NullIfBlank(settings.MerchantNumber),
@@ -360,20 +367,36 @@ public class NetsEasyPaymentProvider : IPaymentProvider
             hasAny = true;
         }
 
-        // privatePerson requires BOTH names — only include when FullName splits into two.
+        // A name only splits into first/last when FullName has an interior space. Used as the
+        // privatePerson (both required) or, for a company order, its optional contact person.
         var fullName = customer?.FullName?.Trim();
+        NetsContact? contact = null;
         if (!string.IsNullOrEmpty(fullName))
         {
             var space = fullName.IndexOf(' ');
             if (space > 0)
-            {
-                consumer.PrivatePerson = new NetsPrivatePerson
+                contact = new NetsContact
                 {
                     FirstName = Clean(fullName[..space]),
                     LastName = Clean(fullName[(space + 1)..]),
                 };
-                hasAny = true;
-            }
+        }
+
+        // company and privatePerson are mutually exclusive; a CompanyName marks the order B2B.
+        var companyName = NullIfBlank(customer?.CompanyName);
+        if (companyName != null)
+        {
+            consumer.Company = new NetsCompany { Name = Clean(companyName), Contact = contact };
+            hasAny = true;
+        }
+        else if (contact != null)
+        {
+            consumer.PrivatePerson = new NetsPrivatePerson
+            {
+                FirstName = contact.FirstName,
+                LastName = contact.LastName,
+            };
+            hasAny = true;
         }
 
         if (BuildPhone(customer?.Phone, address?.Country) is { } phone)

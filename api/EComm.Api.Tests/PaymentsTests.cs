@@ -404,7 +404,29 @@ public class NetsEasyPaymentProviderTests
         var checkout = nets.LastRequest!.Checkout;
         Assert.False(checkout.MerchantHandlesConsumerData);
         Assert.Equal("B2C", checkout.ConsumerType!.Default);
+        Assert.Contains("B2C", checkout.ConsumerType.SupportedTypes);
+        Assert.Contains("B2B", checkout.ConsumerType.SupportedTypes); // both offered so shoppers can switch
         Assert.Equal("SWE", checkout.CountryCode);
+    }
+
+    [Fact]
+    public async Task CreatePaymentAsync_CompanyOrder_SendsCompanyConsumerAndB2BDefault()
+    {
+        var nets = new RecordingNetsEasyClient(new NetsCreatePaymentResult { PaymentId = "p", HostedPaymentPageUrl = "u" });
+        var provider = new NetsEasyPaymentProvider(nets);
+        var ctx = ContextWith("secret",
+            new CustomerInfo { FullName = "John Doe", Email = "john@example.com", CompanyName = "Acme AB" },
+            new Address { Street = "Main 1", City = "Stockholm", PostalCode = "11122", Country = "SE" });
+
+        await provider.CreatePaymentAsync(ctx);
+
+        var checkout = nets.LastRequest!.Checkout;
+        Assert.Equal("B2B", checkout.ConsumerType!.Default);
+        var consumer = checkout.Consumer!;
+        Assert.Equal("Acme AB", consumer.Company!.Name);
+        Assert.Equal("John", consumer.Company.Contact!.FirstName); // FullName becomes the contact person
+        Assert.Equal("Doe", consumer.Company.Contact.LastName);
+        Assert.Null(consumer.PrivatePerson); // mutually exclusive
     }
 
     [Fact]

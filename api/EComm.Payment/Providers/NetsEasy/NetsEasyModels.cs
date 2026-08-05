@@ -69,7 +69,7 @@ public class NetsCheckout
 public class NetsConsumerType
 {
     public string Default { get; set; } = "B2C";
-    public List<string> SupportedTypes { get; set; } = ["B2C"];
+    public List<string> SupportedTypes { get; set; } = ["B2C", "B2B"];
 }
 
 // Optional consumer prefill — Nets shows these on the hosted page, still editable by the shopper.
@@ -80,6 +80,21 @@ public class NetsConsumer
     public NetsAddress? ShippingAddress { get; set; }
     public NetsPhone? PhoneNumber { get; set; }
     public NetsPrivatePerson? PrivatePerson { get; set; }
+
+    /// <summary>Mutually exclusive with <see cref="PrivatePerson"/> — set for a B2B order.</summary>
+    public NetsCompany? Company { get; set; }
+}
+
+public class NetsCompany
+{
+    public string? Name { get; set; }
+    public NetsContact? Contact { get; set; }
+}
+
+public class NetsContact
+{
+    public string? FirstName { get; set; }
+    public string? LastName { get; set; }
 }
 
 public class NetsAddress
