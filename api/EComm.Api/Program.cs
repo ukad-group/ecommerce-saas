@@ -6,6 +6,7 @@ using EComm.Payment.Providers.NetsEasy;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 
@@ -171,6 +172,23 @@ var dbContextOptions = new DbContextOptionsBuilder<ECommDbContext>()
 DataStore.Instance.InitializeDatabase(dbContextOptions);
 
 // Configure the HTTP request pipeline
+
+// Deployed, TLS is terminated at the ingress and this process is handed plain HTTP, so Request.Scheme
+// reads "http" for a request the client made over https — and anything built from it comes out on a
+// scheme the caller can't use. That matters most for the payment webhook callback URL, which a
+// gateway will refuse if it isn't https. Trust the proxy's X-Forwarded-Proto so the scheme reflects
+// how the client actually connected.
+// The scheme only: the original Host header arrives intact, and not honouring X-Forwarded-Host means
+// a request that reaches this container directly can't talk us into generating URLs for someone
+// else's host. The known-proxy lists are cleared because the ingress's pod IP isn't predictable —
+// safe while this container is reachable only through the ingress (a ClusterIP service).
+app.UseForwardedHeaders(new ForwardedHeadersOptions
+{
+    ForwardedHeaders = ForwardedHeaders.XForwardedProto,
+    KnownNetworks = { },
+    KnownProxies = { }
+});
+
 app.UseSwagger();
 app.UseSwaggerUI(options =>
 {
