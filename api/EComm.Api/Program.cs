@@ -1,5 +1,6 @@
 using EComm.Data;
 using EComm.Api.Authentication;
+using EComm.Api.Logging;
 using EComm.Payment;
 using EComm.Payment.Providers.NetsEasy;
 using Microsoft.EntityFrameworkCore;
@@ -9,6 +10,10 @@ using Microsoft.IdentityModel.Tokens;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Keep the most recent log lines in memory so GET /api/v1/admin/logs can serve them to an operator
+// who has no console — what reaches the buffer is configured separately under Logging:Memory.
+builder.Logging.AddMemoryLogger(builder.Configuration.GetSection("Logging:Memory"));
 
 // Add DbContext
 builder.Services.AddDbContext<ECommDbContext>(options =>

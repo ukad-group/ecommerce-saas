@@ -69,13 +69,13 @@ dotnet run
     /Providers/NetsEasy/        # Nets Easy provider (first implementation, self-registering)
 
   /EComm.Api/                   # Web API project
-    /Controllers/               # 16 API controllers
+    /Controllers/               # 17 API controllers
       ProductsController.cs, CategoriesController.cs, CartController.cs,
       OrdersController.cs, AdminOrdersController.cs, OrderStatusController.cs,
       TenantsController.cs, MarketsController.cs, ApiKeysController.cs,
       AuthController.cs, FilesController.cs, CountriesController.cs,
       CurrenciesController.cs, DiscountsController.cs, PaymentsController.cs,
-      TenantApiKeysController.cs
+      TenantApiKeysController.cs, LogsController.cs
     /DTOs/                      # Data Transfer Objects
       /Requests/                # Request DTOs by domain
         /Auth/, /Products/, /Orders/, /Cart/, /Tenants/, /Markets/,
@@ -83,12 +83,13 @@ dotnet run
       /Responses/               # Response DTOs by domain
         /Products/, /Categories/, /Tenants/, /Markets/, /ApiKeys/, /Files/
     /Authentication/            # API Key auth handler
+    /Logging/                   # In-memory log buffer + provider behind GET /admin/logs
     /uploads/                   # Uploaded product images (tenant/market scoped)
     Program.cs                  # API configuration
     appsettings.json           # Configuration
 ```
 
-## 16 Controllers
+## 17 Controllers
 
 ### 1. ProductsController
 ```csharp
@@ -236,6 +237,44 @@ POST   /api/v1/payments/webhook/{provider?} // Provider payment status webhook (
 ```csharp
 GET/POST/DELETE  /api/v1/admin/tenants/{tenantId}/api-keys // Tenant-level API keys (not market-scoped)
 ```
+
+### 14. LogsController
+```csharp
+GET /api/v1/admin/logs?level&category&search&after&take // Read back what the API logged (X-API-Key or admin JWT)
+```
+
+## Reading the API's logs remotely
+
+`GET /api/v1/admin/logs` serves an in-memory ring buffer of recent log lines (`EComm.Api/Logging/`),
+so an integration can be debugged where there's no console to watch — a deployed container, or the
+Umbraco plugin driving a payment gateway. Authenticated with `X-API-Key` or an admin JWT
+(`AdminOrApiKey`).
+
+- Response: `{ lastSequence, capacity, count, entries[] }`, entries oldest-first with
+  `{ sequence, timestamp, level, category, message, exception }`
+- Filters: `level` (minimum), `category` / `search` (case-insensitive substrings), `take` (default 200)
+- Tail it by passing the previous response's `lastSequence` back as `after`
+- **Not persisted, not tenant-scoped**: a restart empties the buffer, and any valid API key sees every
+  tenant's lines — including customer names/emails on order paths. Operator tool; scope the keys that
+  can reach it accordingly.
+
+What reaches the buffer is configured independently of the console, under the provider's `Memory`
+alias — that's how the payment providers' Debug-level request bodies get captured without also
+filling the container log:
+
+```jsonc
+"Logging": {
+  "Memory": {
+    "Capacity": 1000,                    // ring size, oldest line dropped when full
+    "LogLevel": { "Default": "Information", "EComm.Payment": "Debug" }
+  }
+}
+```
+
+With **no `Logging:Memory:LogLevel` section at all** the buffer captures **Debug and above** for
+everything — the useful default for a diagnostics buffer, but note a provider-specific rule outranks
+the general `Microsoft.*` dampers, so configure levels (as `appsettings.json` does) if framework
+chatter starts crowding out what you're looking for.
 
 ## Payments (pluggable providers)
 

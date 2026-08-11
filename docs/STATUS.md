@@ -347,6 +347,7 @@ POST   /api/v1/payments/webhook/{provider?}
 12. DiscountsController - Discount CRUD
 13. PaymentsController - Nets Easy payment creation + webhook
 14. TenantApiKeysController - Tenant-level (superadmin) API keys
+15. LogsController - Reads back recent API log lines (in-memory ring buffer) for operators without console access
 
 ### Authentication
 - **JWT**: 1-hour expiry, httpOnly cookies, BCrypt password hashing
