@@ -91,6 +91,30 @@ public class CommerceAdminApiController : ManagementApiControllerBase
         return Ok(statuses);
     }
 
+    [HttpPost("order-statuses")]
+    [ProducesResponseType(typeof(OrderStatusDefinition), StatusCodes.Status200OK)]
+    public async Task<IActionResult> CreateOrderStatus([FromBody] OrderStatusDefinition status)
+    {
+        var (created, error) = await _apiClient.CreateOrderStatusDefinitionAsync(status);
+        return created != null ? Ok(created) : BadRequest(error);
+    }
+
+    [HttpPut("order-statuses/{id}")]
+    [ProducesResponseType(typeof(OrderStatusDefinition), StatusCodes.Status200OK)]
+    public async Task<IActionResult> UpdateOrderStatus(string id, [FromBody] OrderStatusDefinition status)
+    {
+        var (updated, error) = await _apiClient.UpdateOrderStatusDefinitionAsync(id, status);
+        return updated != null ? Ok(updated) : BadRequest(error);
+    }
+
+    [HttpDelete("order-statuses/{id}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public async Task<IActionResult> DeleteOrderStatus(string id)
+    {
+        var error = await _apiClient.DeleteOrderStatusDefinitionAsync(id);
+        return error == null ? NoContent() : BadRequest(error);
+    }
+
     // ── Property Templates ────────────────────────────────────────────────────
 
     [HttpGet("property-templates")]

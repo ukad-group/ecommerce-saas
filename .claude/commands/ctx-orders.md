@@ -132,9 +132,13 @@ shipping country, shipping cost, payment surcharge + its own tax, then the total
 - `GET /api/v1/order-statuses` - List all statuses for tenant
 - `GET /api/v1/order-statuses/active` - List active statuses only
 - `POST /api/v1/order-statuses` - Create custom status
-- `PUT /api/v1/order-statuses/:id` - Update status
+- `PUT /api/v1/order-statuses/:id` - Update status (`code` is fixed — orders reference it)
 - `DELETE /api/v1/order-statuses/:id` - Delete status (if not in use)
 - `POST /api/v1/order-statuses/reset-defaults` - Reset to defaults
+
+The three write endpoints use the `AdminOrApiKey` policy (not `AdminOnly`, which is JWT-only) so the
+Umbraco plugin can manage statuses with its API key; `reset-defaults` stays JWT-only. Like every other
+`AdminOrApiKey` endpoint they scope by the `X-Tenant-ID` header, not the key's tenant claim.
 
 ### Components
 

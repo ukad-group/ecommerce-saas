@@ -88,6 +88,7 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
     orderStatuses:        { type: Array   },
     orderStatusesLoading: { type: Boolean },
     orderStatusesError:   { type: String  },
+    editingOrderStatus:   { type: Object  },
     // status definitions loaded on init (drives pill colors + filter options)
     statusDefs: { type: Array },
     // discounts
@@ -173,6 +174,7 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
     this.analyticsOrders = []; this.analyticsLoading = false; this.analyticsError = null;
 
     this.orderStatuses = []; this.orderStatusesLoading = false; this.orderStatusesError = null;
+    this.editingOrderStatus = null;
     this.statusDefs = [];
 
     this.discounts = []; this.discountsLoading = false; this.discountsError = null; this.editingDiscount = null;
@@ -810,12 +812,8 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
 
   // ── Order Statuses ─────────────────────────────────────────────────────────
 
+  // Always fetches: statusDefs is what every order pill reads, so an edit here has to refresh it.
   async loadOrderStatuses() {
-    // Reuse statusDefs if already loaded; otherwise fetch fresh
-    if (this.statusDefs.length) {
-      this.orderStatuses = this.statusDefs;
-      return;
-    }
     this.orderStatusesLoading = true; this.orderStatusesError = null;
     try {
       const data = await this._get('/umbraco/management/api/ecomm-commerce/order-statuses');
@@ -823,6 +821,51 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
       this.statusDefs = this.orderStatuses; // keep in sync
     } catch (e) { this.orderStatusesError = e.message; }
     finally { this.orderStatusesLoading = false; }
+  }
+
+  /**
+   * Statuses are tenant-scoped, so unlike the market Options screens they are per-item REST, not a
+   * bulk PUT of the whole list. `code` is the key orders store and the API ignores it on update, so
+   * it is only editable while creating.
+   */
+  async saveOrderStatus() {
+    const s = this.editingOrderStatus;
+    if (!s) return;
+    const name = (s.name || '').trim();
+    const code = (s.code || slugify(name)).trim();
+    if (!name) { this.orderStatusesError = 'Name is required'; return; }
+    if (!code) { this.orderStatusesError = 'Code is required'; return; }
+
+    const isNew = !this.orderStatuses.some(x => x.id === s.id);
+    const body = {
+      name, code, color: s.color || '#6B7280',
+      sortOrder: Number(s.sortOrder) || 0,
+      isActive: s.isActive !== false,
+    };
+    const headers = await this.getAuthHeaders();
+    const base = '/umbraco/management/api/ecomm-commerce/order-statuses';
+    try {
+      const r = await fetch(isNew ? base : `${base}/${encodeURIComponent(s.id)}`, {
+        method: isNew ? 'POST' : 'PUT', headers, credentials: 'include', body: JSON.stringify(body),
+      });
+      if (!r.ok) throw new Error((await r.text()) || r.statusText);
+      this.editingOrderStatus = null;
+      this.orderStatusesError = null;
+      this.loadOrderStatuses();
+    } catch (e) { this.orderStatusesError = e.message; }
+  }
+
+  async deleteOrderStatus(id) {
+    const headers = await this.getAuthHeaders();
+    try {
+      const r = await fetch(`/umbraco/management/api/ecomm-commerce/order-statuses/${encodeURIComponent(id)}`, {
+        method: 'DELETE', headers, credentials: 'include',
+      });
+      // The API refuses system defaults and statuses in use by orders — show why, don't just fail.
+      if (!r.ok) throw new Error((await r.text()) || r.statusText);
+      this.orderStatusesError = null;
+      this.loadOrderStatuses();
+    } catch (e) { this.orderStatusesError = e.message; }
   }
 
   // ── Navigation ─────────────────────────────────────────────────────────────
@@ -847,7 +890,7 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
       case 'cart-detail':        this.loadCarts(); break;
       case 'analytics':          this.loadAnalytics(); break;
       case 'discounts':          this.loadDiscounts(); break;
-      case 'order-statuses':     this.loadOrderStatuses(); break;
+      case 'order-statuses':     this.editingOrderStatus = null; this.loadOrderStatuses(); break;
       case 'property-templates': this.loadPropertyTemplates(); this.loadAttributes(); break;
       case 'attributes':         this.editingAttribute = null; this.loadAttributes(); break;
       case 'attribute-presets':  this.editingAttributePreset = null; this.loadAttributes(); this.loadAttributePresets(); break;
@@ -1487,14 +1530,65 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
   // ── Order Statuses ─────────────────────────────────────────────────────────
 
   _renderOrderStatusesView() {
+    const s = this.editingOrderStatus;
+    const isNew = !!s && !this.orderStatuses.some(x => x.id === s.id);
+    const nextSort = Math.max(0, ...this.orderStatuses.map(x => Number(x.sortOrder) || 0)) + 1;
+
     return html`
       <div class="view-container">
         ${this._viewHeader('Order Statuses', html`
           <uui-button look="secondary" compact @click=${this.loadOrderStatuses}>
             <uui-icon name="icon-refresh"></uui-icon> Refresh
+          </uui-button>
+          <uui-button look="primary" @click=${() => { this.editingOrderStatus = { id: crypto.randomUUID(), name: '', code: '', color: '#6B7280', sortOrder: nextSort, isActive: true }; }}>
+            + Create Order Status
           </uui-button>`)}
 
         ${this._errorBanner(this.orderStatusesError, () => { this.orderStatusesError = null; })}
+
+        ${s ? html`
+          <div class="modal-overlay" @click=${(e) => { if (e.target === e.currentTarget) this.editingOrderStatus = null; }}>
+          <div class="form-panel form-panel--modal">
+            <h3>${isNew ? 'New Order Status' : 'Edit Order Status'}</h3>
+            <div class="form-row"><label>Name</label>
+              <input class="form-input" .value=${s.name || ''} placeholder="e.g. Awaiting Pickup"
+                @input=${e => { this.editingOrderStatus = { ...s, name: e.target.value }; }}>
+            </div>
+            <div class="form-row" style="align-items:flex-start"><label>Code</label>
+              <div style="display:flex;flex-direction:column;gap:4px;flex:1">
+                ${isNew ? html`
+                  <input class="form-input" .value=${s.code || ''} placeholder=${slugify(s.name || '') || 'e.g. awaiting-pickup'}
+                    @input=${e => { this.editingOrderStatus = { ...s, code: e.target.value }; }}>`
+                : html`<code>${s.code}</code>`}
+                <span style="color:#999;font-size:0.8rem">
+                  ${isNew ? 'Derived from the name if left blank. Orders store the code, so it is fixed once created.'
+                          : 'Fixed — existing orders reference this code.'}
+                </span>
+              </div>
+            </div>
+            <div class="form-row"><label>Color</label>
+              <div style="display:flex;gap:8px;align-items:center">
+                <input type="color" .value=${s.color || '#6B7280'} style="width:48px;height:32px;padding:0;border:1px solid #d8d7d9;cursor:pointer"
+                  @input=${e => { this.editingOrderStatus = { ...s, color: e.target.value }; }}>
+                <input class="form-input" style="width:110px" .value=${s.color || '#6B7280'}
+                  @input=${e => { this.editingOrderStatus = { ...s, color: e.target.value }; }}>
+              </div>
+            </div>
+            <div class="form-row"><label>Sort Order</label>
+              <input class="form-input" style="width:110px" type="number" step="1" .value=${s.sortOrder ?? 0}
+                @input=${e => { this.editingOrderStatus = { ...s, sortOrder: e.target.value }; }}>
+            </div>
+            <div class="form-row">
+              <label><input type="checkbox" .checked=${s.isActive !== false}
+                @change=${e => { this.editingOrderStatus = { ...s, isActive: e.target.checked }; }}> Active</label>
+              <span style="color:#999;font-size:0.8rem">Inactive statuses stay on the orders using them but drop out of the pickers.</span>
+            </div>
+            <div class="form-actions">
+              <uui-button look="primary" @click=${() => this.saveOrderStatus()}>Save</uui-button>
+              <uui-button look="secondary" @click=${() => { this.editingOrderStatus = null; }}>Cancel</uui-button>
+            </div>
+          </div>
+          </div>` : ''}
 
         ${this.orderStatusesLoading ? this._stateCenter(html`<uui-loader></uui-loader><p>Loading…</p>`) :
           this.orderStatuses.length === 0 ? this._stateCenter(html`
@@ -1505,24 +1599,30 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
               <table class="data-table">
                 <thead><tr>
                   <th style="width:40px"></th>
-                  <th>Name</th><th>Code</th><th>Sort</th><th>Active</th><th>System</th>
+                  <th>Name</th><th>Code</th><th>Sort</th><th>Active</th><th>System</th><th></th>
                 </tr></thead>
                 <tbody>
-                  ${this.orderStatuses.map(s => html`
-                    <tr class="data-row">
-                      <td><span class="color-dot" style="background:${s.color || '#6B7280'}"></span></td>
-                      <td><strong>${s.name}</strong></td>
-                      <td><code>${s.code}</code></td>
-                      <td>${s.sortOrder}</td>
+                  ${this.orderStatuses.map(st => html`
+                    <tr class="data-row" style="cursor:pointer" @click=${() => { this.editingOrderStatus = { ...st }; }}>
+                      <td><span class="color-dot" style="background:${st.color || '#6B7280'}"></span></td>
+                      <td><strong>${st.name}</strong></td>
+                      <td><code>${st.code}</code></td>
+                      <td>${st.sortOrder}</td>
                       <td>
-                        <span class="pill ${s.isActive ? 'pill--active' : 'pill--inactive'}">
-                          ${s.isActive ? 'Active' : 'Inactive'}
+                        <span class="pill ${st.isActive ? 'pill--active' : 'pill--inactive'}">
+                          ${st.isActive ? 'Active' : 'Inactive'}
                         </span>
                       </td>
                       <td>
-                        ${s.isSystemDefault
+                        ${st.isSystemDefault
                           ? html`<span class="pill pill--system">System</span>`
                           : html`<span class="muted">—</span>`}
+                      </td>
+                      <td class="row-actions">
+                        <!-- System statuses are editable (name/color/sort/active) but not deletable — the API refuses. -->
+                        ${st.isSystemDefault ? '' : html`
+                          <uui-button look="secondary" color="danger" compact
+                            @click=${(e) => { e.stopPropagation(); this.deleteOrderStatus(st.id); }}>Del</uui-button>`}
                       </td>
                     </tr>
                   `)}
@@ -1530,7 +1630,10 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
               </table>
             </div>`}
 
-        <div class="view-footer"><span class="breadcrumb">${this.marketName} / Order Statuses</span></div>
+        <div class="view-footer">
+          <span class="breadcrumb">${this.marketName} / Options / Order Statuses</span>
+          ${this.orderStatuses.length > 0 ? html`<span class="breadcrumb" style="margin-left:auto">${this.orderStatuses.length} status${this.orderStatuses.length !== 1 ? 'es' : ''}</span>` : ''}
+        </div>
       </div>`;
   }
 

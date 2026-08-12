@@ -8,7 +8,9 @@ using EComm.Api.DTOs.Requests.OrderStatuses;
 namespace EComm.Api.Controllers;
 
 /// <summary>
-/// API controller for managing order status definitions per tenant
+/// API controller for managing order status definitions per tenant.
+/// Writes use "AdminOrApiKey" (not "AdminOnly", which is JWT-only) so the Umbraco plugin can manage
+/// statuses with its API key, like the market sub-resources in <see cref="MarketsController"/>.
 /// </summary>
 [Authorize]  // default policy: JWT or API key for reads
 [ApiController]
@@ -90,7 +92,7 @@ public class OrderStatusController : ControllerBase
     /// Create a new order status
     /// </summary>
     [HttpPost]
-    [Authorize(Policy = "AdminOnly")]
+    [Authorize(Policy = "AdminOrApiKey")]
     public async Task<ActionResult<OrderStatus>> CreateOrderStatus(
         [FromBody] CreateOrderStatusRequest request,
         [FromHeader(Name = "X-Tenant-ID")] string? tenantId)
@@ -142,7 +144,7 @@ public class OrderStatusController : ControllerBase
     /// Update an existing order status
     /// </summary>
     [HttpPut("{id}")]
-    [Authorize(Policy = "AdminOnly")]
+    [Authorize(Policy = "AdminOrApiKey")]
     public async Task<ActionResult<OrderStatus>> UpdateOrderStatus(
         string id,
         [FromBody] UpdateOrderStatusDefinitionRequest request,
@@ -178,7 +180,7 @@ public class OrderStatusController : ControllerBase
     /// Delete an order status (only if not in use and not a system default)
     /// </summary>
     [HttpDelete("{id}")]
-    [Authorize(Policy = "AdminOnly")]
+    [Authorize(Policy = "AdminOrApiKey")]
     public async Task<IActionResult> DeleteOrderStatus(
         string id,
         [FromHeader(Name = "X-Tenant-ID")] string? tenantId)

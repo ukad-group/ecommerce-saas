@@ -214,7 +214,7 @@ request.Headers.Add("X-API-Key", settings.ApiKey);
 **Purpose**: Full commerce back-office inside Umbraco, in a dedicated "Commerce" section (auto-granted to the Administrators group by `Migrations/AddCommerceSectionToAdminGroupMigration.cs`)
 **Shell**: a "Welcome to the Commerce Section" landing (`activeView='home'`) with clickable **store cards**, and a left **per-store tree** — each market is an expandable node whose children are the nav items (Orders/Carts/Discounts/Analytics) + Options submenu. Selecting a child sets both the store and the view; the selected store scopes every view.
 **Tabs**: Orders, Carts, Discounts, **Currencies**, **Countries**, **Product Attributes**, **Product Attribute Presets**, Order Statuses, Property Templates, Analytics
-**API Route**: `/umbraco/management/api/ecomm-commerce` - `markets`, `orders`, `orders/{id}`, `orders/{id}/status`, `carts`, `order-statuses`, `attributes`, `attribute-presets`, `property-templates`, `discounts` (CRUD), `payment-providers/*`, `currencies`, `market-countries`, `currency-presets`, `shipping-methods`
+**API Route**: `/umbraco/management/api/ecomm-commerce` - `markets`, `orders`, `orders/{id}`, `orders/{id}/status`, `carts`, `order-statuses` (CRUD), `attributes`, `attribute-presets`, `property-templates`, `discounts` (CRUD), `payment-providers/*`, `currencies`, `market-countries`, `currency-presets`, `shipping-methods`
 **Data loading**: every view fetches when it is opened, via a single `_loadView(key)` dispatch shared by
 "switched view" and "switched store". Nothing is primed at startup and there are no load-once guards —
 those made lists show data from the moment the section was first opened, with pagination as the only
@@ -239,6 +239,12 @@ tax classes. `formatCurrency` prefers the configured `Currency.culture` for the 
 currency, falling back to its built-in locale map (guarded on `_currenciesMarketId`, so store B's money
 is never formatted with store A's culture). `FormatTemplate` is stored for storefront use only — a
 browser can't apply .NET format specifiers.
+**Order Statuses tab**: create / edit / delete tenant statuses (name, code, color, sort, active) through
+the same modal editor kit as tax classes, but per-item REST (`POST`/`PUT`/`DELETE order-statuses[/{id}]`)
+since statuses are tenant-scoped rather than a market settings list. `code` is create-only — orders store
+it and the API ignores it on update. The API's refusals ("in use by orders", system default, duplicate
+code) are surfaced verbatim in the error banner, so `CommerceApiClient` returns the error text for these
+calls instead of swallowing it. Editing here also refreshes `statusDefs`, which colors every order pill.
 **Product Attributes tabs**: per-store attribute library (Name+Alias, values Name+Alias) and named presets (bundles of attributes), scoped to the selected market (`?marketId=`). Property Templates tab gains a "Values from attribute" binding so a template's product value becomes a dropdown of that attribute's values.
 
 #### 9. Product Picker & Store Picker

@@ -157,6 +157,17 @@ public interface ICommerceApiClient
     /// </summary>
     Task<List<OrderStatusDefinition>> GetOrderStatusDefinitionsAsync();
 
+    /// <summary>
+    /// Creates/updates/deletes a tenant order status. These return the API's error text rather than
+    /// swallowing it: refusals are the useful part ("in use by orders", "system default", duplicate
+    /// code), and the editor shows them.
+    /// </summary>
+    Task<(OrderStatusDefinition? Status, string? Error)> CreateOrderStatusDefinitionAsync(OrderStatusDefinition status);
+    Task<(OrderStatusDefinition? Status, string? Error)> UpdateOrderStatusDefinitionAsync(string id, OrderStatusDefinition status);
+
+    /// <summary>Null when deleted, otherwise the reason it was refused.</summary>
+    Task<string?> DeleteOrderStatusDefinitionAsync(string id);
+
     // ── Property Templates ────────────────────────────────────────────────────
 
     Task<List<PropertyTemplate>> GetPropertyTemplatesAsync(string? marketId = null);

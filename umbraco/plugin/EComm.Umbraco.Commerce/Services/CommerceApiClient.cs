@@ -1038,6 +1038,85 @@ public class CommerceApiClient : ICommerceApiClient
         }
     }
 
+    public async Task<(OrderStatusDefinition? Status, string? Error)> CreateOrderStatusDefinitionAsync(OrderStatusDefinition status)
+        => await SendOrderStatusAsync(HttpMethod.Post, "order-statuses", status);
+
+    public async Task<(OrderStatusDefinition? Status, string? Error)> UpdateOrderStatusDefinitionAsync(string id, OrderStatusDefinition status)
+        => await SendOrderStatusAsync(HttpMethod.Put, $"order-statuses/{id}", status);
+
+    private async Task<(OrderStatusDefinition?, string?)> SendOrderStatusAsync(HttpMethod method, string path, OrderStatusDefinition status)
+    {
+        var settings = await _settingsService.GetSettingsAsync();
+        if (settings == null || !settings.IsValid) return (null, "Commerce API is not configured");
+
+        try
+        {
+            var client = await CreateClientAsync(settings);
+            var json = JsonSerializer.Serialize(status, JsonOptions);
+            var request = new HttpRequestMessage(method, path)
+            {
+                Content = new StringContent(json, Encoding.UTF8, "application/json")
+            };
+            request.Headers.Add("X-Tenant-ID", settings.TenantId);
+
+            var response = await client.SendAsync(request);
+            if (!response.IsSuccessStatusCode)
+            {
+                var err = await ReadErrorAsync(response);
+                _logger.LogError("Failed to {Method} {Path}: {Error}", method, path, err);
+                return (null, err);
+            }
+            return (await response.Content.ReadFromJsonAsync<OrderStatusDefinition>(JsonOptions), null);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to {Method} {Path}", method, path);
+            return (null, ex.Message);
+        }
+    }
+
+    public async Task<string?> DeleteOrderStatusDefinitionAsync(string id)
+    {
+        var settings = await _settingsService.GetSettingsAsync();
+        if (settings == null || !settings.IsValid) return "Commerce API is not configured";
+
+        try
+        {
+            var client = await CreateClientAsync(settings);
+            var request = new HttpRequestMessage(HttpMethod.Delete, $"order-statuses/{id}");
+            request.Headers.Add("X-Tenant-ID", settings.TenantId);
+
+            var response = await client.SendAsync(request);
+            if (response.IsSuccessStatusCode) return null;
+
+            var err = await ReadErrorAsync(response);
+            _logger.LogError("Failed to delete order status {Id}: {Error}", id, err);
+            return err;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to delete order status {Id}", id);
+            return ex.Message;
+        }
+    }
+
+    /// <summary>Pulls the message out of the API's `{ "error": "…" }` body, falling back to the raw body.</summary>
+    private static async Task<string> ReadErrorAsync(HttpResponseMessage response)
+    {
+        var body = await response.Content.ReadAsStringAsync();
+        try
+        {
+            var doc = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(body, JsonOptions);
+            if (doc != null && doc.TryGetValue("error", out var error) && error.ValueKind == JsonValueKind.String)
+            {
+                var suggestion = doc.TryGetValue("suggestion", out var s) && s.ValueKind == JsonValueKind.String ? $" {s.GetString()}" : "";
+                return $"{error.GetString()}{suggestion}";
+            }
+        }
+        catch (JsonException) { /* not JSON — use the raw body */ }
+        return string.IsNullOrWhiteSpace(body) ? response.StatusCode.ToString() : body;
+    }
+
     private class PropertyTemplatesResponse
     {
         public List<PropertyTemplate> Templates { get; set; } = new();
