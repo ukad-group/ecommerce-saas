@@ -103,8 +103,8 @@ None
   session's current cart, keeping its id, order number and creation date. Lets a storefront that has to
   create the order before the payment step re-submit checkout without minting a duplicate order.
   Refuses (409) once the order is settled, and moves no stock
-- **Custom order status management** (tenant-scoped)
-  - Default status preset per tenant
+- **Custom order status management** (market-scoped — each store owns its set)
+  - Default status preset per market
   - Create/edit/delete custom statuses
   - Custom colors and sort order
   - Delete protection (statuses in use)

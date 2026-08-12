@@ -1013,7 +1013,7 @@ public class CommerceApiClient : ICommerceApiClient
         }
     }
 
-    public async Task<List<OrderStatusDefinition>> GetOrderStatusDefinitionsAsync()
+    public async Task<List<OrderStatusDefinition>> GetOrderStatusDefinitionsAsync(string? marketId = null)
     {
         var settings = await _settingsService.GetSettingsAsync();
         if (settings == null || !settings.IsValid)
@@ -1024,6 +1024,7 @@ public class CommerceApiClient : ICommerceApiClient
             var client = await CreateClientAsync(settings);
             var request = new HttpRequestMessage(HttpMethod.Get, "order-statuses");
             request.Headers.Add("X-Tenant-ID", settings.TenantId);
+            request.Headers.Add("X-Market-ID", marketId ?? settings.MarketId);
 
             var response = await client.SendAsync(request);
             response.EnsureSuccessStatusCode();
@@ -1038,13 +1039,13 @@ public class CommerceApiClient : ICommerceApiClient
         }
     }
 
-    public async Task<(OrderStatusDefinition? Status, string? Error)> CreateOrderStatusDefinitionAsync(OrderStatusDefinition status)
-        => await SendOrderStatusAsync(HttpMethod.Post, "order-statuses", status);
+    public async Task<(OrderStatusDefinition? Status, string? Error)> CreateOrderStatusDefinitionAsync(OrderStatusDefinition status, string? marketId = null)
+        => await SendOrderStatusAsync(HttpMethod.Post, "order-statuses", status, marketId);
 
-    public async Task<(OrderStatusDefinition? Status, string? Error)> UpdateOrderStatusDefinitionAsync(string id, OrderStatusDefinition status)
-        => await SendOrderStatusAsync(HttpMethod.Put, $"order-statuses/{id}", status);
+    public async Task<(OrderStatusDefinition? Status, string? Error)> UpdateOrderStatusDefinitionAsync(string id, OrderStatusDefinition status, string? marketId = null)
+        => await SendOrderStatusAsync(HttpMethod.Put, $"order-statuses/{id}", status, marketId);
 
-    private async Task<(OrderStatusDefinition?, string?)> SendOrderStatusAsync(HttpMethod method, string path, OrderStatusDefinition status)
+    private async Task<(OrderStatusDefinition?, string?)> SendOrderStatusAsync(HttpMethod method, string path, OrderStatusDefinition status, string? marketId)
     {
         var settings = await _settingsService.GetSettingsAsync();
         if (settings == null || !settings.IsValid) return (null, "Commerce API is not configured");
@@ -1058,6 +1059,7 @@ public class CommerceApiClient : ICommerceApiClient
                 Content = new StringContent(json, Encoding.UTF8, "application/json")
             };
             request.Headers.Add("X-Tenant-ID", settings.TenantId);
+            request.Headers.Add("X-Market-ID", marketId ?? settings.MarketId);
 
             var response = await client.SendAsync(request);
             if (!response.IsSuccessStatusCode)
@@ -1075,7 +1077,7 @@ public class CommerceApiClient : ICommerceApiClient
         }
     }
 
-    public async Task<string?> DeleteOrderStatusDefinitionAsync(string id)
+    public async Task<string?> DeleteOrderStatusDefinitionAsync(string id, string? marketId = null)
     {
         var settings = await _settingsService.GetSettingsAsync();
         if (settings == null || !settings.IsValid) return "Commerce API is not configured";
@@ -1085,6 +1087,7 @@ public class CommerceApiClient : ICommerceApiClient
             var client = await CreateClientAsync(settings);
             var request = new HttpRequestMessage(HttpMethod.Delete, $"order-statuses/{id}");
             request.Headers.Add("X-Tenant-ID", settings.TenantId);
+            request.Headers.Add("X-Market-ID", marketId ?? settings.MarketId);
 
             var response = await client.SendAsync(request);
             if (response.IsSuccessStatusCode) return null;

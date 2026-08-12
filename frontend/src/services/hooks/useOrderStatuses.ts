@@ -22,16 +22,19 @@ import { useAuthStore } from '../../store/authStore';
 
 const QUERY_KEY = 'orderStatuses';
 
+// Statuses are market-scoped, so the selected market is part of every cache key — keyed by tenant
+// alone, switching market showed the previous market's statuses out of cache.
 /**
- * Hook to fetch all order statuses for a tenant
+ * Hook to fetch all order statuses for the selected market
  */
 export function useOrderStatuses() {
   const tenantId = useAuthStore((state) => state.getTenantId());
+  const marketId = useAuthStore((state) => state.getMarketId());
 
   return useQuery({
-    queryKey: [QUERY_KEY, tenantId],
+    queryKey: [QUERY_KEY, tenantId, marketId],
     queryFn: () => getOrderStatuses(),
-    enabled: !!tenantId,
+    enabled: !!tenantId && !!marketId,
   });
 }
 
@@ -40,11 +43,12 @@ export function useOrderStatuses() {
  */
 export function useActiveOrderStatuses() {
   const tenantId = useAuthStore((state) => state.getTenantId());
+  const marketId = useAuthStore((state) => state.getMarketId());
 
   return useQuery({
-    queryKey: [QUERY_KEY, tenantId, 'active'],
+    queryKey: [QUERY_KEY, tenantId, marketId, 'active'],
     queryFn: () => getActiveOrderStatuses(),
-    enabled: !!tenantId,
+    enabled: !!tenantId && !!marketId,
   });
 }
 
@@ -53,11 +57,12 @@ export function useActiveOrderStatuses() {
  */
 export function useOrderStatus(statusId: string) {
   const tenantId = useAuthStore((state) => state.getTenantId());
+  const marketId = useAuthStore((state) => state.getMarketId());
 
   return useQuery({
-    queryKey: [QUERY_KEY, tenantId, statusId],
+    queryKey: [QUERY_KEY, tenantId, marketId, statusId],
     queryFn: () => getOrderStatus(statusId),
-    enabled: !!tenantId && !!statusId,
+    enabled: !!tenantId && !!marketId && !!statusId,
   });
 }
 
@@ -67,11 +72,12 @@ export function useOrderStatus(statusId: string) {
 export function useCreateOrderStatus() {
   const queryClient = useQueryClient();
   const tenantId = useAuthStore((state) => state.getTenantId());
+  const marketId = useAuthStore((state) => state.getMarketId());
 
   return useMutation({
     mutationFn: (data: CreateOrderStatusRequest) => createOrderStatus(data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [QUERY_KEY, tenantId] });
+      queryClient.invalidateQueries({ queryKey: [QUERY_KEY, tenantId, marketId] });
     },
   });
 }
@@ -82,6 +88,7 @@ export function useCreateOrderStatus() {
 export function useUpdateOrderStatus() {
   const queryClient = useQueryClient();
   const tenantId = useAuthStore((state) => state.getTenantId());
+  const marketId = useAuthStore((state) => state.getMarketId());
 
   return useMutation({
     mutationFn: ({
@@ -92,7 +99,7 @@ export function useUpdateOrderStatus() {
       data: UpdateOrderStatusRequest;
     }) => updateOrderStatus(statusId, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [QUERY_KEY, tenantId] });
+      queryClient.invalidateQueries({ queryKey: [QUERY_KEY, tenantId, marketId] });
     },
   });
 }
@@ -103,11 +110,12 @@ export function useUpdateOrderStatus() {
 export function useDeleteOrderStatus() {
   const queryClient = useQueryClient();
   const tenantId = useAuthStore((state) => state.getTenantId());
+  const marketId = useAuthStore((state) => state.getMarketId());
 
   return useMutation({
     mutationFn: (statusId: string) => deleteOrderStatus(statusId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [QUERY_KEY, tenantId] });
+      queryClient.invalidateQueries({ queryKey: [QUERY_KEY, tenantId, marketId] });
     },
   });
 }
@@ -118,11 +126,12 @@ export function useDeleteOrderStatus() {
 export function useResetToDefaultStatuses() {
   const queryClient = useQueryClient();
   const tenantId = useAuthStore((state) => state.getTenantId());
+  const marketId = useAuthStore((state) => state.getMarketId());
 
   return useMutation({
     mutationFn: () => resetToDefaultStatuses(),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [QUERY_KEY, tenantId] });
+      queryClient.invalidateQueries({ queryKey: [QUERY_KEY, tenantId, marketId] });
     },
   });
 }

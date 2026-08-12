@@ -153,20 +153,21 @@ public interface ICommerceApiClient
     Task<CreatePaymentResult?> CreatePaymentAsync(string orderId);
 
     /// <summary>
-    /// Gets all order status definitions for the configured tenant
+    /// Gets a store's order status definitions. Statuses are market-scoped, so every call carries a
+    /// market — omit it and the settings-default market is used.
     /// </summary>
-    Task<List<OrderStatusDefinition>> GetOrderStatusDefinitionsAsync();
+    Task<List<OrderStatusDefinition>> GetOrderStatusDefinitionsAsync(string? marketId = null);
 
     /// <summary>
-    /// Creates/updates/deletes a tenant order status. These return the API's error text rather than
-    /// swallowing it: refusals are the useful part ("in use by orders", "system default", duplicate
-    /// code), and the editor shows them.
+    /// Creates/updates/deletes one of a store's order statuses. These return the API's error text
+    /// rather than swallowing it: refusals are the useful part ("in use by orders", the store settles
+    /// payments into it, duplicate code), and the editor shows them.
     /// </summary>
-    Task<(OrderStatusDefinition? Status, string? Error)> CreateOrderStatusDefinitionAsync(OrderStatusDefinition status);
-    Task<(OrderStatusDefinition? Status, string? Error)> UpdateOrderStatusDefinitionAsync(string id, OrderStatusDefinition status);
+    Task<(OrderStatusDefinition? Status, string? Error)> CreateOrderStatusDefinitionAsync(OrderStatusDefinition status, string? marketId = null);
+    Task<(OrderStatusDefinition? Status, string? Error)> UpdateOrderStatusDefinitionAsync(string id, OrderStatusDefinition status, string? marketId = null);
 
     /// <summary>Null when deleted, otherwise the reason it was refused.</summary>
-    Task<string?> DeleteOrderStatusDefinitionAsync(string id);
+    Task<string?> DeleteOrderStatusDefinitionAsync(string id, string? marketId = null);
 
     // ── Property Templates ────────────────────────────────────────────────────
 

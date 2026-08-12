@@ -160,9 +160,13 @@ using (var scope = app.Services.CreateScope())
     SchemaUpgrader.EnsureOrderPaymentFeeColumns(context);
     SchemaUpgrader.EnsurePaymentWebhookSchema(context);
     SchemaUpgrader.EnsureCartSchema(context);
+    SchemaUpgrader.EnsureOrderStatusMarketColumn(context);
 
     // Seed data
     DatabaseSeeder.SeedDatabase(context);
+
+    // Per-market status codes are only unique once the seeder has re-pointed every row at its market.
+    SchemaUpgrader.EnsureOrderStatusUniqueIndex(context);
 }
 
 // Initialize DataStore with DbContextOptions (factory pattern for thread safety)

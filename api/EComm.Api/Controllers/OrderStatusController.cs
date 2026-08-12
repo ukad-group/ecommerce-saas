@@ -9,7 +9,9 @@ using EComm.Api.DTOs.Requests.OrderStatuses;
 namespace EComm.Api.Controllers;
 
 /// <summary>
-/// API controller for managing order status definitions per tenant.
+/// API controller for managing a market's order status definitions. Statuses are **market-scoped**
+/// like products, categories and orders — every request carries <c>X-Tenant-ID</c> + <c>X-Market-ID</c>,
+/// and each store owns its own set (deleting one in a store leaves its siblings alone).
 /// Writes use "AdminOrApiKey" (not "AdminOnly", which is JWT-only) so the Umbraco plugin can manage
 /// statuses with its API key, like the market sub-resources in <see cref="MarketsController"/>.
 /// </summary>
@@ -26,19 +28,17 @@ public class OrderStatusController : ControllerBase
     }
 
     /// <summary>
-    /// Get all order statuses for a tenant
+    /// Get all order statuses for a market
     /// </summary>
     [HttpGet]
     public async Task<ActionResult<List<OrderStatus>>> GetOrderStatuses(
-        [FromHeader(Name = "X-Tenant-ID")] string? tenantId)
+        [FromHeader(Name = "X-Tenant-ID")] string? tenantId,
+        [FromHeader(Name = "X-Market-ID")] string? marketId)
     {
-        if (string.IsNullOrEmpty(tenantId))
-        {
-            return BadRequest(new { error = "X-Tenant-ID header is required" });
-        }
+        if (MissingScope(tenantId, marketId, out var error)) return error!;
 
         var statuses = await _context.OrderStatuses
-            .Where(s => s.TenantId == tenantId)
+            .Where(s => s.TenantId == tenantId && s.MarketId == marketId)
             .OrderBy(s => s.SortOrder)
             .ToListAsync();
 
@@ -50,15 +50,13 @@ public class OrderStatusController : ControllerBase
     /// </summary>
     [HttpGet("active")]
     public async Task<ActionResult<List<OrderStatus>>> GetActiveOrderStatuses(
-        [FromHeader(Name = "X-Tenant-ID")] string? tenantId)
+        [FromHeader(Name = "X-Tenant-ID")] string? tenantId,
+        [FromHeader(Name = "X-Market-ID")] string? marketId)
     {
-        if (string.IsNullOrEmpty(tenantId))
-        {
-            return BadRequest(new { error = "X-Tenant-ID header is required" });
-        }
+        if (MissingScope(tenantId, marketId, out var error)) return error!;
 
         var statuses = await _context.OrderStatuses
-            .Where(s => s.TenantId == tenantId && s.IsActive)
+            .Where(s => s.TenantId == tenantId && s.MarketId == marketId && s.IsActive)
             .OrderBy(s => s.SortOrder)
             .ToListAsync();
 
@@ -71,15 +69,13 @@ public class OrderStatusController : ControllerBase
     [HttpGet("{id}")]
     public async Task<ActionResult<OrderStatus>> GetOrderStatus(
         string id,
-        [FromHeader(Name = "X-Tenant-ID")] string? tenantId)
+        [FromHeader(Name = "X-Tenant-ID")] string? tenantId,
+        [FromHeader(Name = "X-Market-ID")] string? marketId)
     {
-        if (string.IsNullOrEmpty(tenantId))
-        {
-            return BadRequest(new { error = "X-Tenant-ID header is required" });
-        }
+        if (MissingScope(tenantId, marketId, out var error)) return error!;
 
         var status = await _context.OrderStatuses
-            .FirstOrDefaultAsync(s => s.Id == id && s.TenantId == tenantId);
+            .FirstOrDefaultAsync(s => s.Id == id && s.TenantId == tenantId && s.MarketId == marketId);
 
         if (status == null)
         {
@@ -96,12 +92,10 @@ public class OrderStatusController : ControllerBase
     [Authorize(Policy = "AdminOrApiKey")]
     public async Task<ActionResult<OrderStatus>> CreateOrderStatus(
         [FromBody] CreateOrderStatusRequest request,
-        [FromHeader(Name = "X-Tenant-ID")] string? tenantId)
+        [FromHeader(Name = "X-Tenant-ID")] string? tenantId,
+        [FromHeader(Name = "X-Market-ID")] string? marketId)
     {
-        if (string.IsNullOrEmpty(tenantId))
-        {
-            return BadRequest(new { error = "X-Tenant-ID header is required" });
-        }
+        if (MissingScope(tenantId, marketId, out var error)) return error!;
 
         // Validate required fields
         if (string.IsNullOrEmpty(request.Name) || string.IsNullOrEmpty(request.Code))
@@ -109,9 +103,9 @@ public class OrderStatusController : ControllerBase
             return BadRequest(new { error = "Name and Code are required" });
         }
 
-        // Check if code already exists for this tenant
+        // Only this market's codes collide — a sibling store having "awaiting-pickup" is fine
         var existingStatus = await _context.OrderStatuses
-            .AnyAsync(s => s.TenantId == tenantId && s.Code == request.Code);
+            .AnyAsync(s => s.TenantId == tenantId && s.MarketId == marketId && s.Code == request.Code);
 
         if (existingStatus)
         {
@@ -122,6 +116,7 @@ public class OrderStatusController : ControllerBase
         {
             Id = $"status-{Guid.NewGuid()}",
             TenantId = tenantId,
+            MarketId = marketId!,
             Name = request.Name,
             Code = request.Code,
             Color = request.Color,
@@ -149,15 +144,13 @@ public class OrderStatusController : ControllerBase
     public async Task<ActionResult<OrderStatus>> UpdateOrderStatus(
         string id,
         [FromBody] UpdateOrderStatusDefinitionRequest request,
-        [FromHeader(Name = "X-Tenant-ID")] string? tenantId)
+        [FromHeader(Name = "X-Tenant-ID")] string? tenantId,
+        [FromHeader(Name = "X-Market-ID")] string? marketId)
     {
-        if (string.IsNullOrEmpty(tenantId))
-        {
-            return BadRequest(new { error = "X-Tenant-ID header is required" });
-        }
+        if (MissingScope(tenantId, marketId, out var error)) return error!;
 
         var status = await _context.OrderStatuses
-            .FirstOrDefaultAsync(s => s.Id == id && s.TenantId == tenantId);
+            .FirstOrDefaultAsync(s => s.Id == id && s.TenantId == tenantId && s.MarketId == marketId);
 
         if (status == null)
         {
@@ -187,24 +180,23 @@ public class OrderStatusController : ControllerBase
     [Authorize(Policy = "AdminOrApiKey")]
     public async Task<IActionResult> DeleteOrderStatus(
         string id,
-        [FromHeader(Name = "X-Tenant-ID")] string? tenantId)
+        [FromHeader(Name = "X-Tenant-ID")] string? tenantId,
+        [FromHeader(Name = "X-Market-ID")] string? marketId)
     {
-        if (string.IsNullOrEmpty(tenantId))
-        {
-            return BadRequest(new { error = "X-Tenant-ID header is required" });
-        }
+        if (MissingScope(tenantId, marketId, out var scopeError)) return scopeError!;
 
         var status = await _context.OrderStatuses
-            .FirstOrDefaultAsync(s => s.Id == id && s.TenantId == tenantId);
+            .FirstOrDefaultAsync(s => s.Id == id && s.TenantId == tenantId && s.MarketId == marketId);
 
         if (status == null)
         {
             return NotFound(new { error = "Order status not found" });
         }
 
-        // Check if status is in use by any orders
+        // Only *this* store's orders count. A sibling store using the code is its own business — that
+        // store has its own copy of the status.
         var isInUse = await _context.Orders
-            .AnyAsync(o => o.TenantId == tenantId && o.Status == status.Code);
+            .AnyAsync(o => o.TenantId == tenantId && o.MarketId == marketId && o.Status == status.Code);
 
         if (isInUse)
         {
@@ -215,21 +207,21 @@ public class OrderStatusController : ControllerBase
             });
         }
 
-        // A market pointing at this code would keep writing a status nothing defines — the payment
+        // This store pointing at the code would keep writing a status nothing defines — the payment
         // path sets OrderStatusAfterPayment on every settled order. Settings is a JSON column, so the
-        // tenant's markets (a handful) are matched in memory rather than in SQL.
-        var referencing = (await _context.Markets.Where(m => m.TenantId == tenantId).ToListAsync())
-            .Where(m => status.Code.Equals(m.Settings?.OrderStatusAfterPayment, StringComparison.OrdinalIgnoreCase)
-                     || status.Code.Equals(m.Settings?.CartOrderStatus, StringComparison.OrdinalIgnoreCase))
-            .Select(m => m.Name)
-            .ToList();
+        // check runs in memory rather than in SQL.
+        var market = await _context.Markets.FirstOrDefaultAsync(m => m.Id == marketId && m.TenantId == tenantId);
+        var referencedBy =
+            status.Code.Equals(market?.Settings?.OrderStatusAfterPayment, StringComparison.OrdinalIgnoreCase) ? "the status set after payment"
+            : status.Code.Equals(market?.Settings?.CartOrderStatus, StringComparison.OrdinalIgnoreCase) ? "the cart status"
+            : null;
 
-        if (referencing.Count > 0)
+        if (referencedBy != null)
         {
             return BadRequest(new
             {
-                error = $"Cannot delete status used by the checkout settings of {string.Join(", ", referencing)}",
-                suggestion = "Point those markets at another status first"
+                error = $"Cannot delete the status this store uses as {referencedBy}",
+                suggestion = "Point the store at another status first"
             });
         }
 
@@ -240,27 +232,26 @@ public class OrderStatusController : ControllerBase
     }
 
     /// <summary>
-    /// Reset to default statuses for a tenant
+    /// Reset this market's statuses to the defaults: drop its unused custom ones, reactivate its
+    /// defaults, and re-add any default that was deleted.
     /// </summary>
     [HttpPost("reset-defaults")]
     [Authorize(Policy = "AdminOnly")]
     public async Task<ActionResult<List<OrderStatus>>> ResetToDefaults(
-        [FromHeader(Name = "X-Tenant-ID")] string? tenantId)
+        [FromHeader(Name = "X-Tenant-ID")] string? tenantId,
+        [FromHeader(Name = "X-Market-ID")] string? marketId)
     {
-        if (string.IsNullOrEmpty(tenantId))
-        {
-            return BadRequest(new { error = "X-Tenant-ID header is required" });
-        }
+        if (MissingScope(tenantId, marketId, out var error)) return error!;
 
-        // Remove all custom (non-system-default) statuses that are not in use
-        var customStatuses = await _context.OrderStatuses
-            .Where(s => s.TenantId == tenantId && !s.IsSystemDefault)
+        var statuses = await _context.OrderStatuses
+            .Where(s => s.TenantId == tenantId && s.MarketId == marketId)
             .ToListAsync();
 
-        foreach (var status in customStatuses)
+        // Remove this market's custom statuses that none of its orders use
+        foreach (var status in statuses.Where(s => !s.IsSystemDefault))
         {
             var isInUse = await _context.Orders
-                .AnyAsync(o => o.TenantId == tenantId && o.Status == status.Code);
+                .AnyAsync(o => o.TenantId == tenantId && o.MarketId == marketId && o.Status == status.Code);
 
             if (!isInUse)
             {
@@ -268,23 +259,15 @@ public class OrderStatusController : ControllerBase
             }
         }
 
-        // Reset all system default statuses to active
-        var systemStatuses = await _context.OrderStatuses
-            .Where(s => s.TenantId == tenantId && s.IsSystemDefault)
-            .ToListAsync();
-
-        foreach (var status in systemStatuses)
+        foreach (var status in statuses.Where(s => s.IsSystemDefault))
         {
             status.IsActive = true;
             status.UpdatedAt = DateTime.UtcNow;
         }
 
         // Put back any default that was deleted — this is the way back from deleting one, now that
-        // defaults are deletable. (The seeder only backfills tenants with no statuses at all.)
-        var existingCodes = await _context.OrderStatuses
-            .Where(s => s.TenantId == tenantId)
-            .Select(s => s.Code)
-            .ToListAsync();
+        // defaults are deletable. (The seeder only backfills markets with no statuses at all.)
+        var existingCodes = statuses.Select(s => s.Code).ToList();
 
         foreach (var (name, code, color, sortOrder) in DefaultOrderStatuses.GetDefaults())
         {
@@ -292,8 +275,9 @@ public class OrderStatusController : ControllerBase
 
             _context.OrderStatuses.Add(new OrderStatus
             {
-                Id = $"status-{tenantId}-{code}",
+                Id = $"status-{marketId}-{code}",
                 TenantId = tenantId,
+                MarketId = marketId!,
                 Name = name,
                 Code = code,
                 Color = color,
@@ -306,12 +290,20 @@ public class OrderStatusController : ControllerBase
 
         await _context.SaveChangesAsync();
 
-        // Return all statuses after reset
         var allStatuses = await _context.OrderStatuses
-            .Where(s => s.TenantId == tenantId)
+            .Where(s => s.TenantId == tenantId && s.MarketId == marketId)
             .OrderBy(s => s.SortOrder)
             .ToListAsync();
 
         return Ok(allStatuses);
+    }
+
+    /// <summary>Both scoping headers are mandatory — a status belongs to one store.</summary>
+    private bool MissingScope(string? tenantId, string? marketId, out ActionResult? error)
+    {
+        error = string.IsNullOrEmpty(tenantId) ? BadRequest(new { error = "X-Tenant-ID header is required" })
+              : string.IsNullOrEmpty(marketId) ? BadRequest(new { error = "X-Market-ID header is required" })
+              : null;
+        return error != null;
     }
 }

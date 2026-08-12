@@ -192,8 +192,9 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
     this.currenciesSearch = ''; this.currenciesPage = 1; this.activeCurrencyCode = ''; this.currencyPresets = null;
     this.currencyCountryFilter = '';
     // Which store `currencies` was loaded for — formatCurrency must never format store B's money
-    // with store A's culture.
+    // with store A's culture. Same guard for `statusDefs`, which colours the order pills.
     this._currenciesMarketId = null;
+    this._statusDefsMarketId = null;
     this.marketCountries = []; this.marketCountriesLoading = false; this.marketCountriesError = null;
     this.editingMarketCountry = null; this.marketCountriesSearch = ''; this.marketCountriesPage = 1;
     this.shippingMethods = []; this.marketPaymentProviders = [];
@@ -250,11 +251,18 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
     this.cartsPage = 1;
   }
 
+  // Statuses belong to a store, so statusDefs is reloaded whenever the selected store changes —
+  // otherwise one store's Orders list would colour its pills from another store's definitions.
   async loadStatusDefs() {
     try {
-      const data = await this._get('/umbraco/management/api/ecomm-commerce/order-statuses');
+      const data = await this._get(`/umbraco/management/api/ecomm-commerce/order-statuses${this._marketQs}`);
       this.statusDefs = Array.isArray(data) ? data : [];
+      this._statusDefsMarketId = this.selectedMarketId;
     } catch { /* non-fatal: falls back to CSS pill classes */ }
+  }
+
+  _ensureStatusDefs() {
+    if (this._statusDefsMarketId !== this.selectedMarketId) this.loadStatusDefs();
   }
 
   // code → { name, color } lookup built from API data
@@ -816,17 +824,18 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
   async loadOrderStatuses() {
     this.orderStatusesLoading = true; this.orderStatusesError = null;
     try {
-      const data = await this._get('/umbraco/management/api/ecomm-commerce/order-statuses');
+      const data = await this._get(`/umbraco/management/api/ecomm-commerce/order-statuses${this._marketQs}`);
       this.orderStatuses = Array.isArray(data) ? data : [];
-      this.statusDefs = this.orderStatuses; // keep in sync
+      this.statusDefs = this.orderStatuses; // keep in sync — same store, same list
+      this._statusDefsMarketId = this.selectedMarketId;
     } catch (e) { this.orderStatusesError = e.message; }
     finally { this.orderStatusesLoading = false; }
   }
 
   /**
-   * Statuses are tenant-scoped, so unlike the market Options screens they are per-item REST, not a
-   * bulk PUT of the whole list. `code` is the key orders store and the API ignores it on update, so
-   * it is only editable while creating.
+   * Per-item REST rather than the bulk PUT the other Options screens use, and scoped to the selected
+   * store: each store owns its own statuses. `code` is the key orders store and the API ignores it on
+   * update, so it is only editable while creating.
    */
   async saveOrderStatus() {
     const s = this.editingOrderStatus;
@@ -845,7 +854,7 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
     const headers = await this.getAuthHeaders();
     const base = '/umbraco/management/api/ecomm-commerce/order-statuses';
     try {
-      const r = await fetch(isNew ? base : `${base}/${encodeURIComponent(s.id)}`, {
+      const r = await fetch(isNew ? `${base}${this._marketQs}` : `${base}/${encodeURIComponent(s.id)}${this._marketQs}`, {
         method: isNew ? 'POST' : 'PUT', headers, credentials: 'include', body: JSON.stringify(body),
       });
       if (!r.ok) throw new Error((await r.text()) || r.statusText);
@@ -858,10 +867,10 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
   async deleteOrderStatus(id) {
     const headers = await this.getAuthHeaders();
     try {
-      const r = await fetch(`/umbraco/management/api/ecomm-commerce/order-statuses/${encodeURIComponent(id)}`, {
+      const r = await fetch(`/umbraco/management/api/ecomm-commerce/order-statuses/${encodeURIComponent(id)}${this._marketQs}`, {
         method: 'DELETE', headers, credentials: 'include',
       });
-      // The API refuses system defaults and statuses in use by orders — show why, don't just fail.
+      // The API refuses a status this store's orders use, or that it settles payments into — show why.
       if (!r.ok) throw new Error((await r.text()) || r.statusText);
       this.orderStatusesError = null;
       this.loadOrderStatuses();
@@ -881,8 +890,10 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
   // Unconditional on purpose: the `!length` guards this replaced meant a list loaded once per session
   // and then showed stale data forever, with pagination as the only way to force a refresh.
   _loadView(key) {
-    // Money is formatted with the store's configured currency culture, so every view needs it.
+    // Money is formatted with the store's configured currency culture, and order pills are coloured
+    // from the store's own status definitions — every view needs both.
     this._ensureCurrencies();
+    this._ensureStatusDefs();
     switch (key) {
       case 'orders':
       case 'order-detail':       this.loadOrders(); break;

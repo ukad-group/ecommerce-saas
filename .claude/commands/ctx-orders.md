@@ -64,7 +64,8 @@ interface OrderStatusChange {
   in a "new" status: cart→order mirroring was removed (it polluted the Orders list with `CART-*` junk),
   and `GetAllOrders()` still filters out legacy `cart-*` rows.
 - **Market-scoped**: Orders belong to specific markets
-- **Custom order statuses**: Tenant-scoped, customizable names/colors/order
+- **Custom order statuses**: Market-scoped — each store owns its own set (names/colors/order). They
+  used to be tenant-wide, so deleting one in a store deleted it in every sibling store
 - **Default statuses**: Each tenant gets 8 defaults (new, submitted, paid, processing, shipped, completed, cancelled, on-hold, refunded)
 - **Delete protection**: Any status can be deleted, system defaults included — what blocks it is a
   reference to the code (an order, or a market's `OrderStatusAfterPayment`/`CartOrderStatus`).
@@ -131,7 +132,8 @@ shipping country, shipping cost, payment surcharge + its own tax, then the total
   verbatim (migration) — no cart, no re-pricing, no stock side-effects
 
 **Order Statuses (Admin)**:
-- `GET /api/v1/order-statuses` - List all statuses for tenant
+- `GET /api/v1/order-statuses` - List the market's statuses (every endpoint below requires
+  `X-Market-ID` as well as `X-Tenant-ID`, and answers 400 without it)
 - `GET /api/v1/order-statuses/active` - List active statuses only
 - `POST /api/v1/order-statuses` - Create custom status
 - `PUT /api/v1/order-statuses/:id` - Update status (`code` is fixed — orders reference it)
@@ -187,7 +189,8 @@ Umbraco plugin can manage statuses with its API key; `reset-defaults` stays JWT-
 - new, submitted, paid, processing, shipped, completed, cancelled, on-hold, refunded
 
 **Features**:
-- Tenant-scoped (each tenant has own status definitions)
+- Market-scoped (each store has its own status definitions; `OrderStatus.MarketId`, unique on
+  `(TenantId, MarketId, Code)`)
 - Custom names, colors, and sort order
 - System defaults are deletable; "Reset to defaults" restores any that were deleted
 - A status referenced by an order or a market's checkout settings cannot be deleted

@@ -72,15 +72,13 @@ class ECommPaymentProvidersDashboard extends UmbElementMixin(LitElement) {
       const headers = await this.getAuthHeaders();
       // Embedded (inside the Commerce dashboard) the market comes from the store switcher, so we
       // don't fetch/show our own market list. Standalone we load markets and default to the first.
-      const requests = [
-        fetch(`${API}/payment-providers/catalog`, { headers }).then((r) => r.json()),
-        fetch(`${API}/order-statuses`, { headers }).then((r) => r.json()),
-      ];
+      // Order statuses are per store, so they load with the rest of the market's data in
+      // loadProviders() — here we only need what is the same for every store.
+      const requests = [fetch(`${API}/payment-providers/catalog`, { headers }).then((r) => r.json())];
       if (!this.embedded) requests.push(fetch(`${API}/markets`, { headers }).then((r) => r.json()));
-      const [catalog, orderStatuses, markets] = await Promise.all(requests);
+      const [catalog, markets] = await Promise.all(requests);
 
       this.catalog = Array.isArray(catalog) ? catalog : [];
-      this.orderStatuses = Array.isArray(orderStatuses) ? orderStatuses.filter((s) => s.isActive) : [];
       this._catalogLoaded = true;
       if (!this.embedded) {
         this.markets = Array.isArray(markets) ? markets : [];
@@ -107,10 +105,13 @@ class ECommPaymentProvidersDashboard extends UmbElementMixin(LitElement) {
     this.editing = null;
     this.addAlias = '';
     const headers = await this.getAuthHeaders();
-    const [data, tax] = await Promise.all([
+    const [data, tax, statuses] = await Promise.all([
       fetch(`${API}/payment-providers?marketId=${encodeURIComponent(this.marketId)}`, { headers }).then((r) => r.json()),
       fetch(`${API}/tax-classes?marketId=${encodeURIComponent(this.marketId)}`, { headers }).then((r) => r.json()),
+      fetch(`${API}/order-statuses?marketId=${encodeURIComponent(this.marketId)}`, { headers }).then((r) => r.json()),
     ]);
+    // "Status after payment" must offer this store's statuses, not another store's.
+    this.orderStatuses = Array.isArray(statuses) ? statuses.filter((s) => s.isActive) : [];
     this.providers = data?.providers ?? [];
     this.active = data?.active ?? null;
     this.orderStatusAfterPayment = data?.orderStatusAfterPayment ?? null;

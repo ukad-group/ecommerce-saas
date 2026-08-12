@@ -242,12 +242,14 @@ public class ECommDbContext : DbContext
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Id).IsRequired();
             entity.Property(e => e.TenantId).IsRequired();
+            entity.Property(e => e.MarketId).IsRequired();
             entity.Property(e => e.Name).IsRequired();
             entity.Property(e => e.Code).IsRequired();
             entity.Property(e => e.Color).IsRequired();
 
-            entity.HasIndex(e => e.TenantId);
-            entity.HasIndex(e => new { e.TenantId, e.Code }).IsUnique();
+            entity.HasIndex(e => new { e.TenantId, e.MarketId });
+            // Unique per market, not per tenant: every store owns a status called "paid".
+            entity.HasIndex(e => new { e.TenantId, e.MarketId, e.Code }).IsUnique();
         });
 
         // Configure Discount entity

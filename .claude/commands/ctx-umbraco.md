@@ -241,7 +241,8 @@ is never formatted with store A's culture). `FormatTemplate` is stored for store
 browser can't apply .NET format specifiers.
 **Order Statuses tab**: create / edit / delete tenant statuses (name, code, color, sort, active) through
 the same modal editor kit as tax classes, but per-item REST (`POST`/`PUT`/`DELETE order-statuses[/{id}]`)
-since statuses are tenant-scoped rather than a market settings list. `code` is create-only — orders store
+since statuses are their own rows rather than a market settings list. Every call carries the selected
+store (`?marketId=`) — each store owns its set. `code` is create-only — orders store
 it and the API ignores it on update. Every row can be deleted, including the seeded system defaults —
 what blocks a delete is a *reference* to the code (an order, or a market's checkout settings), and the
 API's refusals are surfaced verbatim in the error banner, so `CommerceApiClient` returns the error text

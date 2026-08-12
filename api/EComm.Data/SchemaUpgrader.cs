@@ -68,6 +68,32 @@ public static class SchemaUpgrader
             Execute(connection, "CREATE INDEX IF NOT EXISTS IX_Carts_TenantId_MarketId ON Carts (TenantId, MarketId)");
         });
 
+    /// <summary>
+    /// Order statuses moved from tenant-wide to per-market: the new column, and the uniqueness rule
+    /// that goes with it (a code is unique within a store, not within the tenant — every store has its
+    /// own "paid"). Rows are re-pointed at their markets by
+    /// <c>DatabaseSeeder.MigrateOrderStatusesToMarkets</c>, which must run before the unique index is
+    /// created, or the copies would collide on the old (TenantId, Code) rule.
+    /// </summary>
+    public static void EnsureOrderStatusMarketColumn(ECommDbContext context)
+        => WithConnection(context, connection =>
+        {
+            AddColumns(connection, "OrderStatuses", "TEXT NOT NULL DEFAULT ''", "MarketId");
+            Execute(connection, "DROP INDEX IF EXISTS IX_OrderStatuses_TenantId_Code");
+            Execute(connection, "DROP INDEX IF EXISTS IX_OrderStatuses_TenantId");
+            Execute(connection, "CREATE INDEX IF NOT EXISTS IX_OrderStatuses_TenantId_MarketId ON OrderStatuses (TenantId, MarketId)");
+        });
+
+    /// <summary>
+    /// The per-market uniqueness rule, created after the migration has re-pointed every row (an index
+    /// built while rows still share a blank MarketId would reject the second store's copy).
+    /// </summary>
+    public static void EnsureOrderStatusUniqueIndex(ECommDbContext context)
+        => WithConnection(context, connection =>
+        {
+            Execute(connection, "CREATE UNIQUE INDEX IF NOT EXISTS IX_OrderStatuses_TenantId_MarketId_Code ON OrderStatuses (TenantId, MarketId, Code)");
+        });
+
     private static void WithConnection(ECommDbContext context, Action<System.Data.Common.DbConnection> work)
     {
         var connection = context.Database.GetDbConnection();

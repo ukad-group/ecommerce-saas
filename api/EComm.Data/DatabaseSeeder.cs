@@ -27,6 +27,7 @@ public static class DatabaseSeeder
         if (context.Tenants.Any())
         {
             // Additive seeding: fill in data added after the initial release
+            MigrateOrderStatusesToMarkets(context);
             SeedMissingOrderStatuses(context);
             MigrateOrderStatusAfterPaymentToMarketSettings(context);
             return;
@@ -153,28 +154,8 @@ public static class DatabaseSeeder
         };
         context.Tenants.AddRange(tenants);
 
-        // Seed Order Statuses for all tenants
-        var orderStatuses = new List<OrderStatus>();
-        foreach (var tenant in tenants)
-        {
-            var defaults = DefaultOrderStatuses.GetDefaults();
-            foreach (var (name, code, color, sortOrder) in defaults)
-            {
-                orderStatuses.Add(new OrderStatus
-                {
-                    Id = $"status-{tenant.Id}-{code}",
-                    TenantId = tenant.Id,
-                    Name = name,
-                    Code = code,
-                    Color = color,
-                    SortOrder = sortOrder,
-                    IsSystemDefault = true,
-                    IsActive = true,
-                    CreatedAt = tenant.CreatedAt
-                });
-            }
-        }
-        context.OrderStatuses.AddRange(orderStatuses);
+        // Order statuses are seeded per market by SeedMissingOrderStatuses, below — markets don't
+        // exist yet at this point in the fresh-seed path.
 
         // Seed Markets
         var markets = new[]
@@ -1179,28 +1160,35 @@ public static class DatabaseSeeder
 
         // Save all changes
         context.SaveChanges();
+
+        // Markets exist now, so each one can get its own copy of the default statuses.
+        SeedMissingOrderStatuses(context);
     }
 
+    /// <summary>
+    /// Gives every market with no statuses of its own the default set. Runs on each startup, so a
+    /// market created after this release gets its statuses without anyone reseeding.
+    /// </summary>
     private static void SeedMissingOrderStatuses(ECommDbContext context)
     {
-        var tenantIds = context.Tenants.Select(t => t.Id).ToList();
-        var existingTenantIds = context.OrderStatuses.Select(s => s.TenantId).Distinct().ToList();
-        var tenantsNeedingStatuses = tenantIds.Except(existingTenantIds).ToList();
+        var markets = context.Markets.Select(m => new { m.Id, m.TenantId }).ToList();
+        var marketsWithStatuses = context.OrderStatuses.Select(s => s.MarketId).Distinct().ToList();
+        var marketsNeedingStatuses = markets.Where(m => !marketsWithStatuses.Contains(m.Id)).ToList();
 
-        if (!tenantsNeedingStatuses.Any())
+        if (!marketsNeedingStatuses.Any())
             return;
 
         var now = DateTime.UtcNow;
         var orderStatuses = new List<OrderStatus>();
-        foreach (var tenantId in tenantsNeedingStatuses)
+        foreach (var market in marketsNeedingStatuses)
         {
-            var defaults = DefaultOrderStatuses.GetDefaults();
-            foreach (var (name, code, color, sortOrder) in defaults)
+            foreach (var (name, code, color, sortOrder) in DefaultOrderStatuses.GetDefaults())
             {
                 orderStatuses.Add(new OrderStatus
                 {
-                    Id = $"status-{tenantId}-{code}",
-                    TenantId = tenantId,
+                    Id = $"status-{market.Id}-{code}",
+                    TenantId = market.TenantId,
+                    MarketId = market.Id,
                     Name = name,
                     Code = code,
                     Color = color,
@@ -1213,6 +1201,54 @@ public static class DatabaseSeeder
         }
 
         context.OrderStatuses.AddRange(orderStatuses);
+        context.SaveChanges();
+    }
+
+    /// <summary>
+    /// One-time migration: order statuses were tenant-wide, so deleting one in a store deleted it for
+    /// every sibling store. Each tenant-level row becomes one row per market of that tenant — custom
+    /// statuses included, since a tenant that added "Awaiting Pickup" wants it in each of its stores.
+    /// Idempotent: rows that already name a market are left alone.
+    /// </summary>
+    private static void MigrateOrderStatusesToMarkets(ECommDbContext context)
+    {
+        var orphans = context.OrderStatuses.Where(s => s.MarketId == "").ToList();
+        if (orphans.Count == 0)
+            return;
+
+        var marketsByTenant = context.Markets
+            .Select(m => new { m.Id, m.TenantId })
+            .ToList()
+            .GroupBy(m => m.TenantId)
+            .ToDictionary(g => g.Key, g => g.Select(m => m.Id).ToList());
+
+        foreach (var orphan in orphans)
+        {
+            if (!marketsByTenant.TryGetValue(orphan.TenantId, out var marketIds))
+                continue; // a tenant with no markets has nothing to scope its statuses to
+
+            foreach (var marketId in marketIds)
+            {
+                context.OrderStatuses.Add(new OrderStatus
+                {
+                    Id = $"status-{marketId}-{orphan.Code}",
+                    TenantId = orphan.TenantId,
+                    MarketId = marketId,
+                    Name = orphan.Name,
+                    Code = orphan.Code,
+                    Color = orphan.Color,
+                    SortOrder = orphan.SortOrder,
+                    IsSystemDefault = orphan.IsSystemDefault,
+                    IsActive = orphan.IsActive,
+                    CreatedAt = orphan.CreatedAt,
+                    UpdatedAt = DateTime.UtcNow
+                });
+            }
+        }
+
+        // The tenant-level rows go, including any belonging to a tenant with no markets — nothing can
+        // read them any more, every query is market-scoped.
+        context.OrderStatuses.RemoveRange(orphans);
         context.SaveChanges();
     }
 

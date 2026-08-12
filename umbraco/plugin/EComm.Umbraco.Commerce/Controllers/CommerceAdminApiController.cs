@@ -83,35 +83,36 @@ public class CommerceAdminApiController : ManagementApiControllerBase
         return Ok(result);
     }
 
+    // Statuses belong to a store, so every one of these takes the store the dashboard has selected.
     [HttpGet("order-statuses")]
     [ProducesResponseType(typeof(List<OrderStatusDefinition>), StatusCodes.Status200OK)]
-    public async Task<IActionResult> GetOrderStatuses()
+    public async Task<IActionResult> GetOrderStatuses([FromQuery] string? marketId = null)
     {
-        var statuses = await _apiClient.GetOrderStatusDefinitionsAsync();
+        var statuses = await _apiClient.GetOrderStatusDefinitionsAsync(marketId);
         return Ok(statuses);
     }
 
     [HttpPost("order-statuses")]
     [ProducesResponseType(typeof(OrderStatusDefinition), StatusCodes.Status200OK)]
-    public async Task<IActionResult> CreateOrderStatus([FromBody] OrderStatusDefinition status)
+    public async Task<IActionResult> CreateOrderStatus([FromBody] OrderStatusDefinition status, [FromQuery] string? marketId = null)
     {
-        var (created, error) = await _apiClient.CreateOrderStatusDefinitionAsync(status);
+        var (created, error) = await _apiClient.CreateOrderStatusDefinitionAsync(status, marketId);
         return created != null ? Ok(created) : BadRequest(error);
     }
 
     [HttpPut("order-statuses/{id}")]
     [ProducesResponseType(typeof(OrderStatusDefinition), StatusCodes.Status200OK)]
-    public async Task<IActionResult> UpdateOrderStatus(string id, [FromBody] OrderStatusDefinition status)
+    public async Task<IActionResult> UpdateOrderStatus(string id, [FromBody] OrderStatusDefinition status, [FromQuery] string? marketId = null)
     {
-        var (updated, error) = await _apiClient.UpdateOrderStatusDefinitionAsync(id, status);
+        var (updated, error) = await _apiClient.UpdateOrderStatusDefinitionAsync(id, status, marketId);
         return updated != null ? Ok(updated) : BadRequest(error);
     }
 
     [HttpDelete("order-statuses/{id}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
-    public async Task<IActionResult> DeleteOrderStatus(string id)
+    public async Task<IActionResult> DeleteOrderStatus(string id, [FromQuery] string? marketId = null)
     {
-        var error = await _apiClient.DeleteOrderStatusDefinitionAsync(id);
+        var error = await _apiClient.DeleteOrderStatusDefinitionAsync(id, marketId);
         return error == null ? NoContent() : BadRequest(error);
     }
 
