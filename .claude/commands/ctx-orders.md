@@ -66,7 +66,9 @@ interface OrderStatusChange {
 - **Market-scoped**: Orders belong to specific markets
 - **Custom order statuses**: Tenant-scoped, customizable names/colors/order
 - **Default statuses**: Each tenant gets 8 defaults (new, submitted, paid, processing, shipped, completed, cancelled, on-hold, refunded)
-- **Delete protection**: Cannot delete statuses in use or system defaults
+- **Delete protection**: Any status can be deleted, system defaults included — what blocks it is a
+  reference to the code (an order, or a market's `OrderStatusAfterPayment`/`CartOrderStatus`).
+  `isSystemDefault` is only the marker `reset-defaults` restores from
 
 ### Implemented Features
 ✅ Shopping cart (add, update, remove items)
@@ -133,8 +135,10 @@ shipping country, shipping cost, payment surcharge + its own tax, then the total
 - `GET /api/v1/order-statuses/active` - List active statuses only
 - `POST /api/v1/order-statuses` - Create custom status
 - `PUT /api/v1/order-statuses/:id` - Update status (`code` is fixed — orders reference it)
-- `DELETE /api/v1/order-statuses/:id` - Delete status (if not in use)
-- `POST /api/v1/order-statuses/reset-defaults` - Reset to defaults
+- `DELETE /api/v1/order-statuses/:id` - Delete status (refused while an order, or a market's
+  `OrderStatusAfterPayment`/`CartOrderStatus`, still names its code — system defaults *are* deletable)
+- `POST /api/v1/order-statuses/reset-defaults` - Reset to defaults, re-adding any default that was
+  deleted (the way back from deleting one; the seeder only backfills tenants with no statuses at all)
 
 The three write endpoints use the `AdminOrApiKey` policy (not `AdminOnly`, which is JWT-only) so the
 Umbraco plugin can manage statuses with its API key; `reset-defaults` stays JWT-only. Like every other
@@ -174,7 +178,7 @@ Umbraco plugin can manage statuses with its API key; `reset-defaults` stays JWT-
 
 ### Common Tasks
 **Add order field**: Update Order type → OrderDetails component → API
-**Manage order statuses**: Go to `/admin/order-statuses` to add/edit custom statuses
+**Manage order statuses**: Go to `/admin/order-statuses` to add/edit/delete statuses
 **Add order filter**: Update AdminOrdersPage filters
 **Implement checkout**: Create CheckoutPage → multi-step form → submit order
 
@@ -185,8 +189,8 @@ Umbraco plugin can manage statuses with its API key; `reset-defaults` stays JWT-
 **Features**:
 - Tenant-scoped (each tenant has own status definitions)
 - Custom names, colors, and sort order
-- System defaults cannot be deleted
-- Statuses in use cannot be deleted (validated against orders)
+- System defaults are deletable; "Reset to defaults" restores any that were deleted
+- A status referenced by an order or a market's checkout settings cannot be deleted
 - Active/inactive toggle
 - Reset to defaults button
 

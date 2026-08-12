@@ -242,9 +242,11 @@ browser can't apply .NET format specifiers.
 **Order Statuses tab**: create / edit / delete tenant statuses (name, code, color, sort, active) through
 the same modal editor kit as tax classes, but per-item REST (`POST`/`PUT`/`DELETE order-statuses[/{id}]`)
 since statuses are tenant-scoped rather than a market settings list. `code` is create-only — orders store
-it and the API ignores it on update. The API's refusals ("in use by orders", system default, duplicate
-code) are surfaced verbatim in the error banner, so `CommerceApiClient` returns the error text for these
-calls instead of swallowing it. Editing here also refreshes `statusDefs`, which colors every order pill.
+it and the API ignores it on update. Every row can be deleted, including the seeded system defaults —
+what blocks a delete is a *reference* to the code (an order, or a market's checkout settings), and the
+API's refusals are surfaced verbatim in the error banner, so `CommerceApiClient` returns the error text
+for these calls instead of swallowing it. Editing here also refreshes `statusDefs`, which colors every
+order pill.
 **Product Attributes tabs**: per-store attribute library (Name+Alias, values Name+Alias) and named presets (bundles of attributes), scoped to the selected market (`?marketId=`). Property Templates tab gains a "Values from attribute" binding so a template's product value becomes a dropdown of that attribute's values.
 
 #### 9. Product Picker & Store Picker

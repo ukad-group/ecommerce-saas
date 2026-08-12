@@ -373,15 +373,13 @@ export function AdminOrderStatusesPage() {
                         >
                           Edit
                         </button>
-                        {!status.isSystemDefault && (
-                          <button
-                            onClick={() => handleDelete(status.id, status.name)}
-                            className="text-red-600 hover:text-red-800"
-                            disabled={deleteMutation.isPending}
-                          >
-                            Delete
-                          </button>
-                        )}
+                        <button
+                          onClick={() => handleDelete(status.id, status.name)}
+                          className="text-red-600 hover:text-red-800"
+                          disabled={deleteMutation.isPending}
+                        >
+                          Delete
+                        </button>
                       </>
                     )}
                   </td>
@@ -395,8 +393,11 @@ export function AdminOrderStatusesPage() {
         <div className="mt-6 rounded-lg border bg-[#4a6ba8]/5 p-4">
           <h3 className="mb-2 font-semibold text-[#304477]">Notes:</h3>
           <ul className="list-inside list-disc space-y-1 text-sm text-[#3d5789]">
-            <li>System default statuses cannot be deleted</li>
-            <li>Custom statuses can only be deleted if not used by any orders</li>
+            <li>
+              A status can only be deleted once nothing points at it — no order uses it, and no
+              market's checkout settings name it
+            </li>
+            <li>System defaults can be deleted, and "Reset to Defaults" puts them back</li>
             <li>Inactive statuses won't appear in dropdowns but remain in the system</li>
             <li>
               Use "Reset to Defaults" to remove unused custom statuses and restore all

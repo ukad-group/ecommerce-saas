@@ -1619,10 +1619,8 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
                           : html`<span class="muted">—</span>`}
                       </td>
                       <td class="row-actions">
-                        <!-- System statuses are editable (name/color/sort/active) but not deletable — the API refuses. -->
-                        ${st.isSystemDefault ? '' : html`
-                          <uui-button look="secondary" color="danger" compact
-                            @click=${(e) => { e.stopPropagation(); this.deleteOrderStatus(st.id); }}>Del</uui-button>`}
+                        <uui-button look="secondary" color="danger" compact
+                          @click=${(e) => { e.stopPropagation(); this.deleteOrderStatus(st.id); }}>Del</uui-button>
                       </td>
                     </tr>
                   `)}

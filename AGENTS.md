@@ -233,7 +233,7 @@ Images: `ukad/ecommerce-api`, `ukad/ecommerce-frontend` (date tag + `latest`).
 ## Common Tasks
 
 **Add product field**: Update Product type → ProductForm → API model → frontend
-**Manage order statuses**: Go to `/admin/order-statuses` to add/edit/delete custom statuses
+**Manage order statuses**: Go to `/admin/order-statuses` to add/edit/delete statuses (or Commerce → Options → Order Statuses in Umbraco)
 **Add permission**: Check authStore.user.role → conditional UI → route protection
 **Add tenant/market**: Update types → forms → API → frontend
 **Reset database**: Delete `api/EComm.Api/ecomm.db` file and restart API

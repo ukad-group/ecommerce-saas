@@ -31,7 +31,8 @@ public class OrderStatus
     public int SortOrder { get; set; }
 
     /// <summary>
-    /// System default statuses cannot be deleted
+    /// Seeded with the tenant. Deletable like any other status — this only marks which ones
+    /// <c>reset-defaults</c> restores.
     /// </summary>
     public bool IsSystemDefault { get; set; }
 

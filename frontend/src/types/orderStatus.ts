@@ -16,7 +16,7 @@ export interface OrderStatusDefinition {
   code: string; // URL-safe code (e.g., "pending-payment")
   color: string; // Hex color code (e.g., "#3B82F6")
   sortOrder: number; // Display order
-  isSystemDefault: boolean; // Cannot be deleted if true
+  isSystemDefault: boolean; // Seeded with the tenant; deletable, and what "reset defaults" restores
   isActive: boolean; // Whether status is available for use
   createdAt: string; // ISO 8601
   updatedAt?: string; // ISO 8601

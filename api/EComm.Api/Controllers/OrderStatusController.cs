@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using EComm.Data;
+using EComm.Data.Common;
 using EComm.Data.Entities;
 using EComm.Api.DTOs.Requests.OrderStatuses;
 
@@ -177,7 +178,10 @@ public class OrderStatusController : ControllerBase
     }
 
     /// <summary>
-    /// Delete an order status (only if not in use and not a system default)
+    /// Delete an order status. Refused while something still points at its code: an order, or a
+    /// market's checkout settings. System defaults are deletable — a tenant that never puts an order
+    /// "On Hold" shouldn't be stuck with the status forever; <c>IsSystemDefault</c> stays as the marker
+    /// <c>reset-defaults</c> uses.
     /// </summary>
     [HttpDelete("{id}")]
     [Authorize(Policy = "AdminOrApiKey")]
@@ -198,12 +202,6 @@ public class OrderStatusController : ControllerBase
             return NotFound(new { error = "Order status not found" });
         }
 
-        // Cannot delete system default statuses
-        if (status.IsSystemDefault)
-        {
-            return BadRequest(new { error = "Cannot delete system default statuses" });
-        }
-
         // Check if status is in use by any orders
         var isInUse = await _context.Orders
             .AnyAsync(o => o.TenantId == tenantId && o.Status == status.Code);
@@ -214,6 +212,24 @@ public class OrderStatusController : ControllerBase
             {
                 error = "Cannot delete status that is currently in use by orders",
                 suggestion = "You can deactivate the status instead"
+            });
+        }
+
+        // A market pointing at this code would keep writing a status nothing defines — the payment
+        // path sets OrderStatusAfterPayment on every settled order. Settings is a JSON column, so the
+        // tenant's markets (a handful) are matched in memory rather than in SQL.
+        var referencing = (await _context.Markets.Where(m => m.TenantId == tenantId).ToListAsync())
+            .Where(m => status.Code.Equals(m.Settings?.OrderStatusAfterPayment, StringComparison.OrdinalIgnoreCase)
+                     || status.Code.Equals(m.Settings?.CartOrderStatus, StringComparison.OrdinalIgnoreCase))
+            .Select(m => m.Name)
+            .ToList();
+
+        if (referencing.Count > 0)
+        {
+            return BadRequest(new
+            {
+                error = $"Cannot delete status used by the checkout settings of {string.Join(", ", referencing)}",
+                suggestion = "Point those markets at another status first"
             });
         }
 
@@ -261,6 +277,31 @@ public class OrderStatusController : ControllerBase
         {
             status.IsActive = true;
             status.UpdatedAt = DateTime.UtcNow;
+        }
+
+        // Put back any default that was deleted — this is the way back from deleting one, now that
+        // defaults are deletable. (The seeder only backfills tenants with no statuses at all.)
+        var existingCodes = await _context.OrderStatuses
+            .Where(s => s.TenantId == tenantId)
+            .Select(s => s.Code)
+            .ToListAsync();
+
+        foreach (var (name, code, color, sortOrder) in DefaultOrderStatuses.GetDefaults())
+        {
+            if (existingCodes.Contains(code)) continue;
+
+            _context.OrderStatuses.Add(new OrderStatus
+            {
+                Id = $"status-{tenantId}-{code}",
+                TenantId = tenantId,
+                Name = name,
+                Code = code,
+                Color = color,
+                SortOrder = sortOrder,
+                IsSystemDefault = true,
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow
+            });
         }
 
         await _context.SaveChangesAsync();
