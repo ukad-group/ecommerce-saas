@@ -248,7 +248,10 @@ public class PaymentsController : ControllerBase
     {
         var baseUrl = _configuration["Payments:PublicBaseUrl"];
         if (string.IsNullOrWhiteSpace(baseUrl))
-            baseUrl = $"{Request.Scheme}://{Request.Host}";
+            // ponytail: https hardcoded, not Request.Scheme — a gateway only accepts an https callback,
+            // and a host reachable from the internet is served over TLS. Falls to the request's host
+            // only, which is the tunnel's host when Payments:PublicBaseUrl is unset locally.
+            baseUrl = $"https://{Request.Host}";
 
         return $"{baseUrl.TrimEnd('/')}/api/v1/payments/webhook/{alias}";
     }
