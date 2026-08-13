@@ -68,7 +68,9 @@ Never hardcode a colour or radius in a component. The values live on `:host` in 
 ## Components
 
 **Header** — every list view: title, then `Refresh` (`look="outline"`), then the primary create
-button labelled `+ Create <Thing>`.
+button labelled `+ Create <Thing>`. Header buttons never wrap (the kit pins `white-space: nowrap`),
+so put nothing else in there — a lone `<select>` next to the button is what squeezed
+`+ Create Payment Method` onto three lines.
 
 ```js
 viewHeader('Order Statuses', html`
@@ -78,6 +80,21 @@ viewHeader('Order Statuses', html`
   <uui-button look="primary" @click=${() => { this.editingOrderStatus = {...}; }}>
     + Create Order Status
   </uui-button>`)
+```
+
+**Create that needs a choice first** — `createFlyout` makes the button *be* the picker, instead of
+parking a dropdown beside it. Used by Currencies/Countries (blank · one ISO preset · all presets) and
+Payment Providers (which gateway). Disable it when there is nothing left to create, and close it on an
+outside click with a `document` listener, the way the dashboard closes its filter menus.
+
+```js
+createFlyout({
+  label: 'Payment Method',
+  open: this.createMenu,
+  onToggle: () => { this.createMenu = !this.createMenu; },
+  disabled: !this.unconfigured.length,
+  items: this.unconfigured.map((d) => [d.displayName, () => this.startAdd(d.alias)]),
+})
 ```
 
 **Table** — `.data-table` inside `.table-scroll`. Sticky header, one row per record.
@@ -107,7 +124,10 @@ glyph, `.row-icon` for a bare one. `.data-row--static` for a row that isn't clic
 **Pills** — status and state, never `uui-badge` or `uui-tag`:
 `pill('Active', 'active')`, or `.pill--inactive`, `--system`, `--single`, `--group`, `--info`,
 `--warning`, `--danger`, `--current`, `--neutral`, `--order-*`, `--payment-*`. An order status pill
-uses the status's own colour inline (`style="background:${def.color}"`).
+uses the status's own colour inline (`style="background:${def.color}"`). The `--payment-*` set mirrors
+the API's `PaymentState` (`initialized`/`authorized`/`captured`/`cancelled`/`failed`/`refunded`) plus
+`--payment-none` for an order with no payment record — read the order's stored status, never infer a
+payment state from its order status.
 
 **States** — `loadingState('Loading…')`, `emptyState('icon-tag', 'No attributes yet', optionalNote)`,
 or `stateCenter(anything)`.
@@ -165,6 +185,25 @@ handles it). Headline is a sentence, not a shout. No `.form-actions` inside a mo
 dialog owns the action row. The shell renders in place rather than through
 `UMB_MODAL_MANAGER_CONTEXT`, so a view keeps its plain `editingX` state.
 
+**Drawer** — `size: 'drawer'` anchors the same card full-height to the right edge, for a panel that
+belongs *beside* the list it acts on rather than over it (the Orders advanced filter). Rows stack
+automatically (440px can't hold a 180px label column), and a drawer with more than Cancel + confirm
+passes `footer` instead of `actions` — it renders below the scrolling body and sticks to the bottom:
+
+```js
+modalShell({
+  headline: 'Advanced filter', size: 'drawer', onClose: close,
+  body: html`${SECTIONS.map(s => html`<h4>${s.title}</h4>${s.fields.map(f => formRow(…))}`)}`,
+  footer: html`
+    <uui-button label="Close" @click=${close}>Close</uui-button>
+    <uui-button label="Reset" @click=${this.resetDraft}>Reset</uui-button>
+    <uui-button look="primary" color="positive" label="Apply" @click=${this.apply}>Apply</uui-button>`,
+})
+```
+
+A drawer that *applies* something edits a **draft** (`xDraft`) copied from the live state (`x`) on
+open, so Close discards and only Apply commits and refetches.
+
 **Confirm before destroying** — `await confirmDelete(this, name)` in the delete *method* (not on the
 button), so every caller is covered:
 
@@ -202,7 +241,11 @@ refetches) and client-side ones (`goTo` sets the page). Renders nothing at one p
 7. No inline `style=` for anything the kit names. Column widths and a status's own colour are the
    allowed exceptions.
 8. New colour? Add a token. Don't paste a hex.
-9. **Never name a method or reactive property after a DOM API member** — `remove`, `click`, `focus`,
+9. **Every filter is server-side.** A filter belongs in the request, applied by the API before paging
+   — never a `filteredX` getter over the rows already fetched. `pager` and the `viewFooter` count come
+   from the server's total, so a client-side filter puts "No orders found" next to "219 orders" and
+   buries matches on pages you can't see. Same rule for search and pagination themselves.
+10. **Never name a method or reactive property after a DOM API member** — `remove`, `click`, `focus`,
    `append`, `before`, `after`, `closest`, `title`, `hidden`, `id`, `slot`, `children`. These are
    custom elements, so a method called `remove(x)` shadows `Element.prototype.remove()`, and
    lit-html's part cleanup (`ChildPart._$clear` → `node.remove()`) calls it when the element is
@@ -234,8 +277,8 @@ its split-panel/variant-table/image-gallery layout is local CSS.
 
 | Surface | State |
 |---|---|
-| `commerce-admin-dashboard.js` | ✅ kit styles + `modalShell` (order status, reassign, attribute, tax class, currency, country), one row-action/header/footer/search pattern across all 14 views |
-| `payment-providers-dashboard.js` | ✅ kit shell, `.data-table`, pills, settings `.form-panel`; delete now goes through `confirmDelete` |
+| `commerce-admin-dashboard.js` | ✅ kit styles + `modalShell` (order status, reassign, attribute, tax class, currency, country) and the Orders advanced-filter drawer, one row-action/header/footer/search pattern across all 14 views |
+| `payment-providers-dashboard.js` | ✅ kit shell, `.data-table`, pills, settings `.form-panel`; delete goes through `confirmDelete`, create through `createFlyout` |
 | `category-picker.js`, `product-picker.js` create popups | ✅ `modalShell({ size: 'sm' })` |
 | `products-workspace-view.js` | ✅ `.workspace-panel` + kit states/pills/notices, photo browser via `modalShell`, product & variant deletes via `confirmDelete`; ~420 lines of dead old-table renderers removed |
 | `settings-dashboard.js` | ➖ out of scope — native `uui-box`, lives in Umbraco's Settings section |

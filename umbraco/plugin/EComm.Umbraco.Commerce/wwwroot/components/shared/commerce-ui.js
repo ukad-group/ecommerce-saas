@@ -69,6 +69,9 @@ const kit = css`
   .view-title { margin: 0; font-size: 1.2rem; font-weight: 600; color: var(--ec-text); }
   .view-actions { display: flex; align-items: center; gap: 8px; }
   .view-actions uui-button uui-icon { margin-right: 6px; }
+  /* A header button keeps its label on one line: flex was shrinking "+ Create Payment Method"
+     down to three. Whatever else a header carries, the actions stay legible. */
+  .view-actions uui-button { white-space: nowrap; flex-shrink: 0; }
 
   .view-footer {
     display: flex; align-items: center; justify-content: space-between; gap: 12px;
@@ -209,10 +212,14 @@ const kit = css`
   /* fallback for any unknown status */
   .pill[class*='pill--order-'] { background: #6b7280; color: #fff; }
 
+  /* The PaymentState lifecycle as the API stores it (Initialized → Authorized → Captured, or
+     Cancelled/Failed/Refunded). "none" is an order with no payment record — invoiced or imported. */
+  .pill--payment-none        { background: #f3f4f6; color: #9ca3af; }
   .pill--payment-initialized { background: #e5e7eb; color: #374151; }
   .pill--payment-authorized  { background: #dbeafe; color: #1d4ed8; }
-  .pill--payment-paid        { background: #d1fae5; color: #065f46; }
+  .pill--payment-captured    { background: #d1fae5; color: #065f46; }
   .pill--payment-cancelled   { background: #fee2e2; color: #991b1b; }
+  .pill--payment-failed      { background: #fee2e2; color: #991b1b; }
   .pill--payment-refunded    { background: #fce7f3; color: #9d174d; }
 
   .pill--active   { background: #d1fae5; color: #065f46; }
@@ -367,6 +374,33 @@ const kit = css`
   /* An inline failure inside a dialog (a create that the API refused). */
   .modal-error { color: var(--ec-error-text); font-size: 0.84rem; margin: 4px 0 0; }
 
+  /* Drawer: the same card, anchored full-height to the right edge. For a filter panel that sits
+     beside the list it narrows, rather than covering it. */
+  .ec-modal-backdrop--drawer { align-items: stretch; justify-content: flex-end; padding: 0; }
+  .ec-modal--drawer {
+    width: min(440px, 100%); height: 100%; max-height: none; overflow: hidden;
+    border-radius: 0; box-shadow: -8px 0 32px rgba(0, 0, 0, 0.22);
+    animation: ec-drawer-in 0.18s ease-out;
+    display: flex; flex-direction: column;
+  }
+  /* The body scrolls, not the drawer, so a short form's footer still sits at the bottom edge
+     instead of floating halfway up the panel. */
+  .ec-modal--drawer uui-dialog-layout { flex: 1; min-height: 0; overflow-y: auto; }
+  @keyframes ec-drawer-in { from { transform: translateX(100%); } to { transform: none; } }
+  @media (prefers-reduced-motion: reduce) { .ec-modal--drawer { animation: none; } }
+  /* 440px can't hold a 180px label column and a usable input, so drawer rows stack. */
+  .ec-modal--drawer .form-row { grid-template-columns: minmax(0, 1fr); gap: 4px; margin-bottom: 16px; }
+  .ec-modal h4 { margin: 4px 0 12px; font-size: 0.88rem; color: var(--ec-text); }
+  .ec-modal h4:not(:first-child) { margin-top: 22px; padding-top: 16px; border-top: 1px solid var(--ec-border-soft); }
+
+  /* Actions that stay reachable while a tall drawer body scrolls. modalActions covers Cancel +
+     confirm; this is for a dialog whose actions don't fit that shape. */
+  .ec-modal-footer {
+    position: sticky; bottom: 0; z-index: 1;
+    display: flex; align-items: center; justify-content: flex-end; gap: 8px;
+    padding: 12px 20px; background: var(--ec-surface); border-top: 1px solid var(--ec-border);
+  }
+
   /* A form inside the dialog is already in a padded card — no second frame, no second margin.
      Modal bodies are bare .form-rows; this only catches a panel reused as-is from a view. */
   .ec-modal .form-panel { margin: 0; padding: 0; border: none; background: none; }
@@ -470,6 +504,23 @@ export const refreshButton = (onClick) => html`
 export const createButton = (label, onClick) => html`
   <uui-button look="primary" label="Create ${label}" @click=${onClick}>+ Create ${label}</uui-button>`;
 
+/**
+ * `createButton` for a create that needs a choice first (which ISO preset, which payment provider):
+ * the button *is* the picker. `items` are `[label, run]` pairs; `open` is the caller's flag and
+ * `onToggle` flips it. The caller closes it on outside click — a document `click` listener, the way
+ * commerce-admin-dashboard.js closes its filter menus.
+ */
+export const createFlyout = ({ label, open, onToggle, items, disabled = false }) => html`
+  <div class="filter-wrap">
+    <uui-button look="primary" label="Create ${label}" ?disabled=${disabled}
+      @click=${(e) => { e.stopPropagation(); onToggle(); }}>+ Create ${label}</uui-button>
+    ${open ? html`
+      <div class="dropdown dropdown--right" @click=${(e) => e.stopPropagation()}>
+        ${items.map(([itemLabel, run]) => html`
+          <button class="dd-item" @click=${() => { onToggle(); run(); }}>${itemLabel}</button>`)}
+      </div>` : ''}
+  </div>`;
+
 /** Breadcrumb left, count right. */
 export const viewFooter = (breadcrumb, right) => html`
   <div class="view-footer">
@@ -570,10 +621,13 @@ export const pill = (text, variant) => html`<span class="pill ${variant ? `pill-
  * its plain `editingX` state — clicking the backdrop or pressing Escape calls `onClose`.
  *
  * `actions` templates must carry `slot="actions"`; use `modalActions()` unless the modal needs
- * something other than Cancel + confirm.
+ * something other than Cancel + confirm — in which case pass `footer` instead, which renders below
+ * the card body and sticks to the bottom while a tall body scrolls.
+ *
+ * `size: 'drawer'` anchors the card full-height to the right edge (a filter panel beside its list).
  */
-export const modalShell = ({ headline, body, actions, onClose, size = 'md' }) => html`
-  <div class="ec-modal-backdrop"
+export const modalShell = ({ headline, body, actions, footer, onClose, size = 'md' }) => html`
+  <div class="ec-modal-backdrop ${size === 'drawer' ? 'ec-modal-backdrop--drawer' : ''}"
     @click=${(e) => { if (e.target === e.currentTarget) onClose?.(); }}>
     <div class="ec-modal ec-modal--${size}" role="dialog" aria-modal="true" aria-label=${headline ?? ''}
       tabindex="-1" ${umbFocus()}
@@ -582,6 +636,7 @@ export const modalShell = ({ headline, body, actions, onClose, size = 'md' }) =>
         ${body}
         ${actions}
       </uui-dialog-layout>
+      ${footer ? html`<div class="ec-modal-footer">${footer}</div>` : ''}
     </div>
   </div>`;
 

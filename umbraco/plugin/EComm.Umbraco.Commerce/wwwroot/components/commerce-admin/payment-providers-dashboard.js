@@ -4,7 +4,7 @@ import { UMB_AUTH_CONTEXT } from '@umbraco-cms/backoffice/auth';
 // The shared design kit — see umbraco/docs/DESIGN-SYSTEM.md before adding UI here.
 import {
   commerceStyles, viewHeader, viewFooter, errorBanner, loadingState, emptyState,
-  formRow, checkRow, iconButton, pill, refreshButton, createButton, confirmDelete,
+  formRow, checkRow, iconButton, pill, refreshButton, createFlyout, confirmDelete,
 } from '../shared/commerce-ui.js';
 
 const API = '/umbraco/management/api/ecomm-commerce';
@@ -29,7 +29,7 @@ class ECommPaymentProvidersDashboard extends UmbElementMixin(LitElement) {
     surcharges: { type: Object, state: true },
     editing: { type: Object, state: true },
     revealed: { type: Object, state: true },
-    addAlias: { type: String, state: true },
+    createMenu: { type: Boolean, state: true },
     loading: { type: Boolean, state: true },
     saving: { type: Boolean, state: true },
     error: { type: String, state: true },
@@ -52,7 +52,7 @@ class ECommPaymentProvidersDashboard extends UmbElementMixin(LitElement) {
     this.surcharges = {};
     this.editing = null;
     this.revealed = {};
-    this.addAlias = '';
+    this.createMenu = false;
     this.loading = true;
     this.saving = false;
     this.error = null;
@@ -60,6 +60,19 @@ class ECommPaymentProvidersDashboard extends UmbElementMixin(LitElement) {
     this.consumeContext(UMB_AUTH_CONTEXT, (ctx) => {
       this._authContext = ctx;
     });
+
+    // Same outside-click close the dashboard uses for its filter menus.
+    this._closeCreateMenu = () => { this.createMenu = false; };
+  }
+
+  connectedCallback() {
+    super.connectedCallback();
+    document.addEventListener('click', this._closeCreateMenu);
+  }
+
+  disconnectedCallback() {
+    document.removeEventListener('click', this._closeCreateMenu);
+    super.disconnectedCallback();
   }
 
   firstUpdated() {
@@ -110,7 +123,6 @@ class ECommPaymentProvidersDashboard extends UmbElementMixin(LitElement) {
   async loadProviders() {
     this._loadedMarketId = this.marketId;
     this.editing = null;
-    this.addAlias = '';
     const headers = await this.getAuthHeaders();
     const [data, tax, statuses] = await Promise.all([
       fetch(`${API}/payment-providers?marketId=${encodeURIComponent(this.marketId)}`, { headers }).then((r) => r.json()),
@@ -193,8 +205,8 @@ class ECommPaymentProvidersDashboard extends UmbElementMixin(LitElement) {
     return { taxClassId: s?.taxClassId ?? '', amount: s?.amount ? String(s.amount) : '' };
   }
 
-  startAdd() {
-    const d = this.descriptor(this.addAlias);
+  startAdd(alias) {
+    const d = this.descriptor(alias);
     if (!d) return;
     this.revealed = {}; // a freshly opened form never starts with a secret on screen
     this.editing = { alias: d.alias, values: this.seedValues(d), surcharge: this.seedSurcharge(d.alias), isNew: true };
@@ -236,7 +248,6 @@ class ECommPaymentProvidersDashboard extends UmbElementMixin(LitElement) {
 
   backToList() {
     this.editing = null;
-    this.addAlias = '';
   }
 
   seedValues(descriptor, stored) {
@@ -322,6 +333,7 @@ class ECommPaymentProvidersDashboard extends UmbElementMixin(LitElement) {
       <div class="secret-row">
         <uui-input
           type=${type}
+          label=${field.label}
           .value=${typeof value === 'string' ? value : ''}
           placeholder=${isSecret ? 'Leave blank to keep current' : ''}
           @input=${(e) => this.setFieldValue(field.key, e.target.value)}></uui-input>
@@ -373,13 +385,15 @@ class ECommPaymentProvidersDashboard extends UmbElementMixin(LitElement) {
         ${viewHeader('Payment Providers', html`
           ${this._marketSelector()}
           ${refreshButton(() => this.loadProviders())}
-          <div class="form-inline">
-            <select class="form-input" @change=${(e) => (this.addAlias = e.target.value)}>
-              <option value="">Choose a provider…</option>
-              ${this.unconfigured.map((d) => html`<option value=${d.alias} ?selected=${d.alias === this.addAlias}>${d.displayName}</option>`)}
-            </select>
-            ${createButton('Payment Method', this.startAdd)}
-          </div>`)}
+          <!-- The button IS the provider picker: nothing to create until you've named a gateway,
+               and nothing left to create once every one in the catalogue is configured. -->
+          ${createFlyout({
+            label: 'Payment Method',
+            open: this.createMenu,
+            onToggle: () => { this.createMenu = !this.createMenu; },
+            disabled: !this.unconfigured.length,
+            items: this.unconfigured.map((d) => [d.displayName, () => this.startAdd(d.alias)]),
+          })}`)}
 
         ${errorBanner(this.error, () => { this.error = null; })}
 
@@ -402,7 +416,7 @@ class ECommPaymentProvidersDashboard extends UmbElementMixin(LitElement) {
 
         ${this.providers.length === 0
           ? emptyState('icon-bill', 'No payment methods configured for this store yet',
-              'Pick a provider above and create it to get started.')
+              'Use + Create Payment Method to add the first one.')
           : html`
             <div class="table-scroll">
               <table class="data-table">

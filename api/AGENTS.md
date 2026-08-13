@@ -131,13 +131,22 @@ memory, and not mirrored as "new"-status orders. A cart has no customer info; th
 
 ### 4. OrdersController
 ```csharp
-GET    /api/v1/orders                  // List customer orders
+GET    /api/v1/orders                  // List the market's orders, paged. Filters: status,
+                                       // paymentStatus, search + the advanced filter
+                                       // (firstName/lastName/email/orderNumber/placedAfter/
+                                       // placedBefore/properties/skus), all applied before paging
 POST   /api/v1/orders                  // Create order from the session's cart
 GET    /api/v1/orders/{id}             // Get order details
 PUT    /api/v1/orders/{id}             // Update in place: rebuild an unpaid order from the session's
                                        // current cart, keeping Id/OrderNumber/CreatedAt (auth required)
 PUT    /api/v1/orders/{id}/status      // Update status (via OrderStatusService)
 ```
+The advanced filter's fields and matching rules live together in
+`DTOs/Requests/Orders/OrderFilterRequest.cs` (`Apply(IEnumerable<Order>)`), so `AdminOrdersController`
+can adopt them without a second copy — see [ctx-orders](../.claude/commands/ctx-orders.md) for the
+per-parameter semantics. Every property declares `[FromQuery(Name = …)]`, so binding never depends on
+the action's parameter name as a prefix.
+
 `PUT /api/v1/orders/{id}` takes the same `CreateOrderRequest` body as POST and shares
 `ApplyCartAndPricing` with it, so a re-submitted checkout re-prices exactly like a first submit. It
 returns **409** once the order is settled (`paid`/the market's `OrderStatusAfterPayment`, or a

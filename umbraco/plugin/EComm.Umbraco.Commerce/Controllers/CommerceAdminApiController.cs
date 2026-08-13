@@ -41,9 +41,10 @@ public class CommerceAdminApiController : ManagementApiControllerBase
         [FromQuery] string? search = null,
         [FromQuery] string? marketId = null,
         [FromQuery] int page = 1,
-        [FromQuery] int pageSize = 20)
+        [FromQuery] int pageSize = 20,
+        [FromQuery] OrderFilter? filter = null)
     {
-        var result = await _apiClient.GetOrdersAsync(status, page, pageSize, search, marketId);
+        var result = await _apiClient.GetOrdersAsync(status, page, pageSize, search, marketId, filter);
         return Ok(result);
     }
 

@@ -35,6 +35,10 @@ Tenant (Business Entity)
 2. **YAGNI**: Only build what's explicitly requested
 3. **Keep It Simple**: Prefer simple over clever
 4. **Multi-Tenant**: Data isolation at tenant and market level
+5. **Filter server-side, always**: every list filter, search and page is applied by the API *before*
+   paging — status dropdowns, date ranges, advanced filters, all of them. Never fetch a page and
+   filter the rows in hand: the count and pager come from the server, so a client-side filter makes
+   the UI contradict itself ("No orders found" beside "219 orders") and hides matches on other pages.
 
 ## Running the Application
 
@@ -83,6 +87,9 @@ dotnet run
 ### Orders & Cart
 - Shopping cart (add/update/remove), persisted in the `Carts` table and keyed by session id
 - Admin order dashboard with filters
+- **Advanced order filter** (Umbraco Commerce → Orders): customer name/email, order number, payment
+  status, date range, order properties, order-line SKUs — a right-hand drawer, applied server-side
+  before paging
 - Backoffice cart list + detail view (Umbraco Commerce section), paged server-side
 - Custom order status management (market-scoped — each store owns its set, custom colors). Deleting a
   status that orders still use asks which status those orders should move to

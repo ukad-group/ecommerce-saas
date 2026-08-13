@@ -6,21 +6,28 @@ import '@umbraco-cms/backoffice/media'; // registers the native <umb-input-rich-
 import {
   commerceStyles, viewHeader, viewFooter, errorBanner, stateCenter, loadingState, emptyState,
   pager, searchBox, searchBar, formRow, checkRow, iconButton, pill, refreshButton, createButton,
-  modalShell, modalActions, confirmDelete,
+  createFlyout, modalShell, modalActions, confirmDelete,
 } from '../shared/commerce-ui.js';
 import './payment-providers-dashboard.js'; // registers <ecomm-payment-providers-dashboard> (Options → Payment Providers)
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
 const ORDER_STATUSES = ['pending', 'processing', 'paid', 'shipped', 'cancelled', 'refunded'];
-const PAYMENT_STATUSES = ['initialized', 'authorized', 'paid', 'cancelled', 'refunded'];
+
+// The payment lifecycle the API actually stores on an order (EComm.Payment PaymentState), plus the
+// filter-only 'none' for an order that has no payment record — invoiced or imported. This list is not
+// derived from the order status: an order status says where fulfilment got to, not whether money moved.
+const PAYMENT_STATUSES = ['none', 'initialized', 'authorized', 'captured', 'cancelled', 'failed', 'refunded'];
 
 const ORDER_STATUS_LABELS = {
   new: 'New', pending: 'New', submitted: 'Submitted', processing: 'Processing',
   paid: 'Paid', shipped: 'Shipped', completed: 'Completed',
   cancelled: 'Cancelled', 'on-hold': 'On Hold', refunded: 'Refunded',
 };
-const PAYMENT_STATUS_LABELS = { initialized: 'Initialized', authorized: 'Authorized', paid: 'Paid', cancelled: 'Cancelled', refunded: 'Refunded' };
+const PAYMENT_STATUS_LABELS = {
+  none: 'No payment', initialized: 'Initialized', authorized: 'Authorized', captured: 'Captured',
+  cancelled: 'Cancelled', failed: 'Failed', refunded: 'Refunded',
+};
 
 // `detail` is the drill-down view the nav item stays highlighted for.
 const NAV_ITEMS = [
@@ -40,13 +47,46 @@ const OPTIONS_SUBITEMS = [
   { key: 'tax-classes',           label: 'Tax Classes',                 icon: 'icon-calculator', enabled: true },
 ];
 
+// The Orders advanced filter, declared once: the drawer renders from this and loadOrders() sends it.
+// `key` is the query parameter the API binds — see EComm.Api OrderFilterRequest for the match rules.
+const ADV_FILTER_SECTIONS = [
+  {
+    title: 'Customer',
+    fields: [
+      { key: 'firstName', label: 'First name', hint: 'A full or partial first name to search on.' },
+      { key: 'lastName', label: 'Last name', hint: 'A full or partial last name to search on.' },
+      { key: 'email', label: 'Email address', hint: 'A full or partial email address to search on.' },
+    ],
+  },
+  {
+    title: 'Order',
+    fields: [
+      { key: 'orderNumber', label: 'Order number', hint: 'A full or partial order number to search on.' },
+      { key: 'placedAfter', label: 'Placed on or after', type: 'date', hint: 'Orders placed on or after this date.' },
+      { key: 'placedBefore', label: 'Placed on or before', type: 'date', hint: 'Orders placed on or before this date.' },
+      { key: 'properties', label: 'Properties', hint: "Order properties as 'alias:value', comma separated. An alias on its own matches any order carrying it." },
+    ],
+  },
+  {
+    title: 'Order line',
+    fields: [
+      { key: 'skus', label: 'SKUs', hint: 'Matches orders containing any of these SKUs, comma separated.' },
+    ],
+  },
+];
+
+const ADV_FILTER_KEYS = ADV_FILTER_SECTIONS.flatMap(s => s.fields.map(f => f.key));
+
+const emptyAdvFilter = () => Object.fromEntries(ADV_FILTER_KEYS.map(k => [k, '']));
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 const slugify = s => (s || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 
 const getOrderStatusLabel  = s => ORDER_STATUS_LABELS[s]   || s || 'Unknown';
-const getPaymentStatusLabel = s => PAYMENT_STATUS_LABELS[s] || s || 'Unknown';
-const derivePaymentStatus  = s => s === 'paid' ? 'paid' : (s === 'cancelled' || s === 'refunded' ? s : 'initialized');
+// An order with no payment reads as 'none', not as the first state of a payment that never started.
+const paymentStatusKey = s => (s || '').toLowerCase() || 'none';
+const getPaymentStatusLabel = s => PAYMENT_STATUS_LABELS[paymentStatusKey(s)] || s;
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
@@ -70,6 +110,11 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
     ordersSearch:        { type: String  },
     showOSMenu:          { type: Boolean },
     showPSMenu:          { type: Boolean },
+    // Advanced filter: `advFilter` is what the list is filtered by, `advDraft` is what the drawer is
+    // editing. Two objects so Close discards and only Apply refetches.
+    advFilter:           { type: Object  },
+    advDraft:            { type: Object  },
+    showAdvFilter:       { type: Boolean },
     selectedOrder:       { type: Object  },
     updatingStatusId:    { type: String  },
     allSelected:         { type: Boolean },
@@ -172,6 +217,7 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
     this.orders = []; this.ordersLoading = false; this.ordersError = null;
     this.orderStatusFilter = ''; this.paymentStatusFilter = ''; this.ordersSearch = '';
     this.showOSMenu = false; this.showPSMenu = false;
+    this.advFilter = emptyAdvFilter(); this.advDraft = emptyAdvFilter(); this.showAdvFilter = false;
     this.selectedOrder = null; this.updatingStatusId = null;
     this.allSelected = false; this.selectedIds = new Set();
     this.currentPage = 1; this.pageSize = 20; this.totalCount = 0;
@@ -306,8 +352,14 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
     try {
       const qs = new URLSearchParams({ page: this.currentPage, pageSize: this.pageSize });
       if (this.orderStatusFilter) qs.set('status', this.orderStatusFilter);
+      if (this.paymentStatusFilter) qs.set('paymentStatus', this.paymentStatusFilter);
       if (this.ordersSearch) qs.set('search', this.ordersSearch);
       if (this.selectedMarketId) qs.set('marketId', this.selectedMarketId);
+      // Sent server-side so the advanced filter narrows every page, not the one on screen.
+      for (const key of ADV_FILTER_KEYS) {
+        const value = (this.advFilter[key] || '').trim();
+        if (value) qs.set(key, value);
+      }
       const data = await this._get(`/umbraco/management/api/ecomm-commerce/orders?${qs}`);
       this.orders = data.orders || [];
       this.totalCount = data.totalCount ?? 0;
@@ -337,9 +389,38 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
     finally { this.updatingStatusId = null; }
   }
 
-  get filteredOrders() {
-    if (!this.paymentStatusFilter) return this.orders;
-    return this.orders.filter(o => derivePaymentStatus(o.status) === this.paymentStatusFilter);
+
+  // ── Orders: advanced filter ────────────────────────────────────────────────
+  // The drawer edits a draft, so closing it leaves the list as it was and only Apply refetches.
+
+  get advCount() {
+    return ADV_FILTER_KEYS.filter(k => (this.advFilter[k] || '').trim()).length;
+  }
+
+  openAdvFilter() {
+    this.advDraft = { ...this.advFilter };
+    this.showAdvFilter = true;
+  }
+
+  applyAdvFilter() {
+    this.advFilter = { ...this.advDraft };
+    this.showAdvFilter = false;
+    this.currentPage = 1;
+    this.loadOrders();
+  }
+
+  /** Blanks the drawer's fields; the list only changes once Apply is pressed. */
+  resetAdvDraft() {
+    this.advDraft = emptyAdvFilter();
+  }
+
+  clearOrderFilters() {
+    this.orderStatusFilter = '';
+    this.paymentStatusFilter = '';
+    this.ordersSearch = '';
+    this.advFilter = emptyAdvFilter();
+    this.currentPage = 1;
+    this.loadOrders();
   }
 
   // ── Carts ──────────────────────────────────────────────────────────────────
@@ -985,9 +1066,10 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
     return html`<span class="pill pill--order-${statusCode}">${getOrderStatusLabel(statusCode)}</span>`;
   }
 
-  _pillPayment(orderStatus) {
-    const ps = derivePaymentStatus(orderStatus);
-    return html`<span class="pill pill--payment-${ps}">${getPaymentStatusLabel(ps)}</span>`;
+  /** The order's own PaymentStatus — never inferred from the order status. */
+  _pillPayment(paymentStatus) {
+    const key = paymentStatusKey(paymentStatus);
+    return html`<span class="pill pill--payment-${key}">${getPaymentStatusLabel(paymentStatus)}</span>`;
   }
 
   // "trailerName" -> "Trailer Name" for the order-detail custom-properties table.
@@ -1094,15 +1176,16 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
   // ── Orders ─────────────────────────────────────────────────────────────────
 
   _renderOrdersView() {
-    const orders = this.filteredOrders;
+    const orders = this.orders;
     const osLabel = this.orderStatusFilter ? getOrderStatusLabel(this.orderStatusFilter) : 'All';
-    const psLabel = this.paymentStatusFilter ? getPaymentStatusLabel(derivePaymentStatus(this.paymentStatusFilter)) : 'All';
+    const psLabel = this.paymentStatusFilter ? getPaymentStatusLabel(this.paymentStatusFilter) : 'All';
 
     return html`
       <div class="view-container">
         ${this._viewHeader('Orders', refreshButton(() => this.loadOrders()))}
 
         ${this._errorBanner(this.ordersError, () => { this.ordersError = null; })}
+        ${this.showAdvFilter ? this._renderAdvFilterDrawer() : ''}
 
         <div class="filters-bar">
           <div class="filters-left">
@@ -1123,13 +1206,16 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
               ${this.showPSMenu ? this._dropdown(
                 [['', 'All'], ...PAYMENT_STATUSES.map(s => [s, getPaymentStatusLabel(s)])],
                 this.paymentStatusFilter,
-                v => { this.paymentStatusFilter = v; this.showPSMenu = false; },
+                v => { this.paymentStatusFilter = v; this.showPSMenu = false; this.currentPage = 1; this.loadOrders(); },
                 e => e.stopPropagation()) : ''}
             </div>
+            ${this._filterBtn('Advanced filter',
+              this.advCount ? `${this.advCount} field${this.advCount !== 1 ? 's' : ''}` : 'None',
+              this.showAdvFilter, (e) => { e.stopPropagation(); this.openAdvFilter(); })}
           </div>
           <div class="filters-right">
-            ${(this.orderStatusFilter || this.paymentStatusFilter || this.ordersSearch) ? html`
-              <button type="button" class="filter-btn filter-reset" @click=${() => { this.orderStatusFilter = ''; this.paymentStatusFilter = ''; this.ordersSearch = ''; this.currentPage = 1; this.loadOrders(); }}>
+            ${(this.orderStatusFilter || this.paymentStatusFilter || this.ordersSearch || this.advCount) ? html`
+              <button type="button" class="filter-btn filter-reset" @click=${this.clearOrderFilters}>
                 ✕ Reset filters
               </button>` : ''}
             <div class="search-wrap">
@@ -1172,7 +1258,7 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
                       </td>
                       <td class="col-date">${this.formatDate(o.createdAt)}</td>
                       <td>${this._pillOrder(o.status)}</td>
-                      <td>${this._pillPayment(o.status)}</td>
+                      <td>${this._pillPayment(o.paymentStatus)}</td>
                       <td class="col-r">
                         <span class="pay-amount">${this.formatCurrency(o.total)}</span>
                         <span class="pay-method">Invoice</span>
@@ -1190,16 +1276,43 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
       </div>`;
   }
 
+  /**
+   * The advanced filter, as a right-hand drawer beside the list it narrows. Rendered from
+   * ADV_FILTER_SECTIONS, so a new criterion is one entry there plus one field on the API's
+   * OrderFilterRequest — nothing to add here.
+   */
+  _renderAdvFilterDrawer() {
+    const close = () => { this.showAdvFilter = false; };
+    return modalShell({
+      headline: 'Advanced filter',
+      size: 'drawer',
+      onClose: close,
+      body: html`
+        ${ADV_FILTER_SECTIONS.map(section => html`
+          <h4>${section.title}</h4>
+          ${section.fields.map(field => formRow(field.label, html`
+            <input class="form-input" type=${field.type || 'text'}
+              .value=${this.advDraft[field.key] || ''}
+              @input=${e => { this.advDraft = { ...this.advDraft, [field.key]: e.target.value }; }}
+              @keydown=${e => { if (e.key === 'Enter') this.applyAdvFilter(); }}>`,
+            field.hint))}`)}`,
+      footer: html`
+        <uui-button label="Close" @click=${close}>Close</uui-button>
+        <uui-button label="Reset" @click=${this.resetAdvDraft}>Reset</uui-button>
+        <uui-button look="primary" color="positive" label="Apply" @click=${this.applyAdvFilter}>Apply</uui-button>`,
+    });
+  }
+
   _toggleSelectAll() {
     this.allSelected = !this.allSelected;
-    this.selectedIds = this.allSelected ? new Set(this.filteredOrders.map(o => o.id)) : new Set();
+    this.selectedIds = this.allSelected ? new Set(this.orders.map(o => o.id)) : new Set();
   }
 
   _toggleSelectRow(id) {
     const next = new Set(this.selectedIds);
     next.has(id) ? next.delete(id) : next.add(id);
     this.selectedIds = next;
-    this.allSelected = next.size === this.filteredOrders.length;
+    this.allSelected = next.size === this.orders.length;
   }
 
   // ── Order Detail ───────────────────────────────────────────────────────────
@@ -1215,7 +1328,7 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
             <span class="breadcrumb-sep">/</span>
             <span class="detail-order-num">${order.orderNumber}</span>
           </div>
-          <div class="detail-status-badge">${this._pillOrder(order.status)} ${this._pillPayment(order.status)}</div>
+          <div class="detail-status-badge">${this._pillOrder(order.status)} ${this._pillPayment(order.paymentStatus)}</div>
         </div>
 
         ${this._errorBanner(this.ordersError, () => { this.ordersError = null; })}
@@ -2079,17 +2192,11 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
 
   /** Create button with a flyout: blank · one ISO preset · every ISO preset. */
   _createFlyout(key, label, items) {
-    return html`
-      <div class="filter-wrap">
-        <uui-button look="primary" @click=${e => { e.stopPropagation(); this.createMenu = this.createMenu === key ? '' : key; }}>
-          + Create ${label}
-        </uui-button>
-        ${this.createMenu === key ? html`
-          <div class="dropdown dropdown--right" @click=${e => e.stopPropagation()}>
-            ${items.map(([itemLabel, run]) => html`
-              <button class="dd-item" @click=${() => { this.createMenu = ''; run(); }}>${itemLabel}</button>`)}
-          </div>` : ''}
-      </div>`;
+    return createFlyout({
+      label, items,
+      open: this.createMenu === key,
+      onToggle: () => { this.createMenu = this.createMenu === key ? '' : key; },
+    });
   }
 
   /**

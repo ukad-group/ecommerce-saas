@@ -224,7 +224,7 @@ request.Headers.Add("X-API-Key", settings.ApiKey);
 **Purpose**: Full commerce back-office inside Umbraco, in a dedicated "Commerce" section (auto-granted to the Administrators group by `Migrations/AddCommerceSectionToAdminGroupMigration.cs`)
 **Shell**: a "Welcome to the Commerce Section" landing (`activeView='home'`) with clickable **store cards**, and a left **per-store tree** — each market is an expandable node whose children are the nav items (Orders/Carts/Discounts/Analytics) + Options submenu. Selecting a child sets both the store and the view; the selected store scopes every view.
 **Tabs**: Orders, Carts, Discounts, **Currencies**, **Countries**, **Product Attributes**, **Product Attribute Presets**, Order Statuses, Property Templates, Analytics
-**API Route**: `/umbraco/management/api/ecomm-commerce` - `markets`, `orders`, `orders/{id}`, `orders/{id}/status`, `carts`, `order-statuses` (CRUD), `attributes`, `attribute-presets`, `property-templates`, `discounts` (CRUD), `payment-providers/*`, `currencies`, `market-countries`, `currency-presets`, `shipping-methods`
+**API Route**: `/umbraco/management/api/ecomm-commerce` - `markets`, `orders` (takes `status`, `paymentStatus`, `search`, paging, and the advanced-filter fields via `[FromQuery] OrderFilter`, all forwarded to the eCommerce API), `orders/{id}`, `orders/{id}/status`, `carts`, `order-statuses` (CRUD), `attributes`, `attribute-presets`, `property-templates`, `discounts` (CRUD), `payment-providers/*`, `currencies`, `market-countries`, `currency-presets`, `shipping-methods`
 **Data loading**: every view fetches when it is opened, via a single `_loadView(key)` dispatch shared by
 "switched view" and "switched store". Nothing is primed at startup and there are no load-once guards —
 those made lists show data from the moment the section was first opened, with pagination as the only
@@ -232,11 +232,23 @@ way to force a refresh. `_selectStoreView` sets the store *then* switches view s
 happens, for the store being switched to.
 **Sidebar state** (`expandedStores`, `optionsOpenStores`) is a `Set` of market ids — per store, so one
 store's expanded Options node doesn't open every other store's.
+**Orders tab**: Order Status · Payment Status · **Advanced filter** · search. Every one of them is sent
+to the API and applied before paging — no `filteredX` getter over the fetched rows (that is what made
+the table read "No orders found" beside a footer saying "219 orders"). The advanced filter is a
+right-hand drawer (`modalShell({ size: 'drawer' })` with a sticky `footer` carrying Close · Reset ·
+Apply) rendered from the `ADV_FILTER_SECTIONS` constant — Customer (first/last name, email), Order
+(number, placed on or after/before, properties), Order line (SKUs) — so a new criterion is one entry
+there plus one field on the API's `OrderFilterRequest`. `advFilter` is what the list is filtered by and
+`advDraft` is what the drawer edits, so Close discards and only Apply refetches (resetting to page 1).
+Payment Status reads and filters the order's **real** `PaymentStatus` (`Initialized`/`Authorized`/
+`Captured`/`Cancelled`/`Failed`/`Refunded`, plus `none` for orders with no payment record); it used to
+derive one from the order status, which printed a fabricated "Initialized" on every unpaid order and hid
+the difference between *Authorized* and *Captured*.
 **Carts tab**: real carts from `GET /api/v1/carts` (persisted `Carts` table), paged and searched
 server-side, rows open a read-only cart detail view. Not orders-in-a-cart-status — that never worked,
 since cart→order mirroring was removed. A cart has no customer, address, order number or status, and
 its lines have no SKU, so `_renderCartDetailView` is its own renderer rather than a flag on the order one.
-**Payment Providers** (`wwwroot/components/commerce-admin/payment-providers-dashboard.js`): a `<ecomm-payment-providers-dashboard embedded>` element rendered as the **Options → Payment Providers** view inside the Commerce Admin dashboard, scoped to the dashboard's selected store (no own market picker when `embedded`). List the store's configured providers, add (pick from `payment-providers/catalog`), edit, delete, and choose the active one. The settings form is rendered from each provider's schema the moment a provider is chosen, so new gateways need no UI changes; secrets are write-only (masked, only sent when changed). See [docs/PAYMENT-PROVIDERS.md](../../docs/PAYMENT-PROVIDERS.md).
+**Payment Providers** (`wwwroot/components/commerce-admin/payment-providers-dashboard.js`): a `<ecomm-payment-providers-dashboard embedded>` element rendered as the **Options → Payment Providers** view inside the Commerce Admin dashboard, scoped to the dashboard's selected store (no own market picker when `embedded`). List the store's configured providers, add (pick from `payment-providers/catalog`), edit, delete, and choose the active one. **`+ Create Payment Method` is itself the provider picker** — a `createFlyout` listing the catalogue entries this store hasn't configured, disabled once none are left. It replaced a `Choose a provider…` `<select>` in the header, which no other view has and which squeezed the button's label onto three lines. The settings form is rendered from each provider's schema the moment a provider is chosen, so new gateways need no UI changes; secrets are write-only (masked, only sent when changed). See [docs/PAYMENT-PROVIDERS.md](../../docs/PAYMENT-PROVIDERS.md).
 **Currencies + Countries (Options)**: per-store settings screens rendered inline in
 `commerce-admin-dashboard.js` (they reuse `_viewHeader`/`_errorBanner`/`_renderPager` and the
 `.data-table`/`.form-panel--modal` kit, so no new element or CSS). Currencies edit ISO code, formatting

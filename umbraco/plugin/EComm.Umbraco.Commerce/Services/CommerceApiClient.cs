@@ -652,7 +652,7 @@ public class CommerceApiClient : ICommerceApiClient
         }
     }
 
-    public async Task<OrderListResult> GetOrdersAsync(string? status = null, int page = 1, int pageSize = 20, string? search = null, string? marketId = null)
+    public async Task<OrderListResult> GetOrdersAsync(string? status = null, int page = 1, int pageSize = 20, string? search = null, string? marketId = null, OrderFilter? filter = null)
     {
         var settings = await _settingsService.GetSettingsAsync();
         if (settings == null || !settings.IsValid)
@@ -666,6 +666,8 @@ public class CommerceApiClient : ICommerceApiClient
                 qs.Add($"status={Uri.EscapeDataString(status)}");
             if (!string.IsNullOrEmpty(search))
                 qs.Add($"search={Uri.EscapeDataString(search)}");
+            foreach (var (name, value) in filter?.ToQuery() ?? [])
+                qs.Add($"{name}={Uri.EscapeDataString(value)}");
             var url = "orders?" + string.Join("&", qs);
 
             var request = new HttpRequestMessage(HttpMethod.Get, url);

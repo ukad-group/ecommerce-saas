@@ -95,7 +95,9 @@ None
 - Shopping cart (add/update/remove items)
 - Cart totals calculation
 - Admin order dashboard with metrics
-- Order list with filters (status, tenant, date, search)
+- Order list with filters (status, payment status, tenant, date, search)
+- Advanced order filter in the Umbraco Commerce section (customer, order number, date range, order
+  properties, order-line SKUs) — every criterion applied server-side before paging
 - Order details view
 - Order status updates with notes
 - Stock warnings in cart
@@ -157,8 +159,9 @@ POST   /api/v1/order-statuses/reset-defaults
   "Anonymous" and can only search session id / product name
 - No TTL or eviction on `Carts` — a cart is removed when it's cleared or checked out, so abandoned ones
   accumulate indefinitely
-- The Orders list's **Payment Status** filter is applied client-side over the current page while
-  `totalCount` stays the unfiltered server count, so page counts are wrong while that filter is active
+- Most orders carry no `PaymentStatus` at all (they were invoiced or imported), so the Orders list
+  shows them as **No payment**. The filter's `No payment` option is how you list them; an order status
+  of `paid` next to a payment of `Authorized` means funds were reserved and never captured
 
 ---
 

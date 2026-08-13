@@ -24,7 +24,8 @@ public class OrdersController : ControllerBase
         [FromQuery] string? status = null,
         [FromQuery] string? search = null,
         [FromQuery] int page = 1,
-        [FromQuery] int pageSize = 20)
+        [FromQuery] int pageSize = 20,
+        [FromQuery] OrderFilterRequest? filter = null)
     {
         var query = _store.GetAllOrders().AsEnumerable();
 
@@ -44,6 +45,13 @@ public class OrdersController : ControllerBase
                 (o.OrderNumber?.ToLower().Contains(q) ?? false) ||
                 (o.Customer?.FullName?.ToLower().Contains(q) ?? false) ||
                 (o.Customer?.Email?.ToLower().Contains(q) ?? false));
+        }
+
+        // The advanced filter (customer / order / order-line criteria) narrows before paging, so it
+        // applies to the whole result set rather than whichever page the caller happens to be on.
+        if (filter != null)
+        {
+            query = filter.Apply(query);
         }
 
         var sorted = query.OrderByDescending(o => o.CreatedAt).ToList();

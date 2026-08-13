@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using Microsoft.AspNetCore.Mvc;
 
 namespace EComm.Umbraco.Commerce.Models;
 
@@ -107,6 +108,61 @@ public class OrderListResult
 {
     public List<Order> Orders { get; set; } = new();
     public int TotalCount { get; set; }
+}
+
+/// <summary>
+/// The Orders view's advanced filter, forwarded to GET /api/v1/orders verbatim. Every field is a
+/// string because the plugin only relays them — the API owns the parsing (dates, the comma-separated
+/// property/SKU lists) and the matching rules.
+///
+/// The query names are explicit so both hops use the same spelling (`?skus=…`, not `?filter.skus=…`)
+/// and neither depends on prefix fallback to bind.
+/// </summary>
+public class OrderFilter
+{
+    [FromQuery(Name = "firstName")]
+    public string? FirstName { get; set; }
+
+    [FromQuery(Name = "lastName")]
+    public string? LastName { get; set; }
+
+    [FromQuery(Name = "email")]
+    public string? Email { get; set; }
+
+    [FromQuery(Name = "orderNumber")]
+    public string? OrderNumber { get; set; }
+
+    /// <summary>A payment state, or "none" for orders with no payment record.</summary>
+    [FromQuery(Name = "paymentStatus")]
+    public string? PaymentStatus { get; set; }
+
+    [FromQuery(Name = "placedAfter")]
+    public string? PlacedAfter { get; set; }
+
+    [FromQuery(Name = "placedBefore")]
+    public string? PlacedBefore { get; set; }
+
+    [FromQuery(Name = "properties")]
+    public string? Properties { get; set; }
+
+    [FromQuery(Name = "skus")]
+    public string? Skus { get; set; }
+
+    /// <summary>The supplied fields as query-string pairs, blanks dropped.</summary>
+    public IEnumerable<KeyValuePair<string, string>> ToQuery()
+    {
+        var fields = new (string Name, string? Value)[]
+        {
+            ("firstName", FirstName), ("lastName", LastName), ("email", Email),
+            ("orderNumber", OrderNumber), ("paymentStatus", PaymentStatus),
+            ("placedAfter", PlacedAfter), ("placedBefore", PlacedBefore),
+            ("properties", Properties), ("skus", Skus),
+        };
+
+        return fields
+            .Where(f => !string.IsNullOrWhiteSpace(f.Value))
+            .Select(f => new KeyValuePair<string, string>(f.Name, f.Value!.Trim()));
+    }
 }
 
 public class UpdateOrderStatusRequest

@@ -126,9 +126,10 @@ public interface ICommerceApiClient
     Task<Product?> CreateProductAsync(Product product, string? marketId = null);
 
     /// <summary>
-    /// Gets orders for the configured tenant/market with optional status filter
+    /// Gets orders for the configured tenant/market with optional status filter, free-text search and
+    /// advanced filter (customer / order / order-line criteria — see <see cref="OrderFilter"/>)
     /// </summary>
-    Task<OrderListResult> GetOrdersAsync(string? status = null, int page = 1, int pageSize = 20, string? search = null, string? marketId = null);
+    Task<OrderListResult> GetOrdersAsync(string? status = null, int page = 1, int pageSize = 20, string? search = null, string? marketId = null, OrderFilter? filter = null);
 
     /// <summary>
     /// Gets a single order by ID

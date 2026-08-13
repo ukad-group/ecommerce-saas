@@ -402,4 +402,41 @@ public class OrdersControllerTests
 
         Assert.Equal(7, DataStore.Instance.GetProducts().Single(p => p.Id == "prod-1").StockQuantity);
     }
+
+    // The advanced filter has to narrow before paging, or it would only ever filter the page the
+    // caller is already looking at. Asserted through the endpoint, on totalCount.
+    [Fact]
+    public void GetOrders_AdvancedFilterNarrowsTheWholeResultSetNotJustThePage()
+    {
+        using var connection = InitializeInMemoryDataStore();
+
+        var (marketId, sessionId) = SeedMarketWithSurchargeAndCart();
+        var mine = PostOrder(sessionId, marketId, "SE");
+        mine.Customer.Email = "wanted@example.com";
+        DataStore.Instance.UpdateOrder(mine);
+
+        var otherSession = $"session-{Guid.NewGuid()}";
+        AddCartLine(otherSession, marketId, 50m);
+        PostOrder(otherSession, marketId, "SE");
+
+        var unfiltered = ReadOrderList(new OrdersController().GetOrders("tenant-a", marketId));
+        Assert.Equal(2, unfiltered.TotalCount);
+
+        var filtered = ReadOrderList(new OrdersController().GetOrders(
+            "tenant-a", marketId, filter: new OrderFilterRequest { Email = "wanted@" }));
+
+        Assert.Equal(1, filtered.TotalCount);
+        Assert.Equal(mine.Id, Assert.Single(filtered.Orders).Id);
+    }
+
+    /// <summary>GetOrders answers an anonymous object, so read it back by reflection rather than
+    /// changing the shape the clients already consume.</summary>
+    private static (int TotalCount, List<Order> Orders) ReadOrderList(ActionResult result)
+    {
+        var value = Assert.IsType<OkObjectResult>(result).Value!;
+        var type = value.GetType();
+        return (
+            (int)type.GetProperty("totalCount")!.GetValue(value)!,
+            (List<Order>)type.GetProperty("orders")!.GetValue(value)!);
+    }
 }

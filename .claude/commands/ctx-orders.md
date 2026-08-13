@@ -76,6 +76,9 @@ interface OrderStatusChange {
 ✅ Cart totals calculation
 ✅ Admin order dashboard with metrics
 ✅ Order list with filters (status, tenant, date, search)
+✅ Advanced order filter — customer name/email, order number, payment status, date range, order
+   properties, order-line SKUs. Applied server-side before paging (Umbraco Commerce section → Orders →
+   *Advanced filter*, a right-hand drawer)
 ✅ Order details view
 ✅ Order status updates with notes
 ✅ Stock warnings in cart
@@ -106,6 +109,9 @@ interface OrderStatusChange {
   and product names, since a cart has no customer or order number.
 
 **Orders (Storefront)**:
+- `GET /api/v1/orders?status&paymentStatus&search&page&pageSize` + the **advanced filter** below —
+  the market's orders, `CreatedAt DESC`, paged. Every criterion is applied **before** paging, so
+  `totalCount` and the page agree (see the server-side-filtering principle in the root `AGENTS.md`)
 - `POST /api/v1/orders` - Create an order from the session's cart
 - `GET /api/v1/orders/:id` - Get order details
 - `PUT /api/v1/orders/:id` - **Update in place**: rebuild an existing unpaid order from the session's
@@ -123,6 +129,29 @@ interface OrderStatusChange {
 Both POST and PUT share `OrdersController.ApplyCartAndPricing`, so a re-submitted checkout re-prices
 identically to a first submit: lines re-projected from the cart, goods tax re-resolved from the
 shipping country, shipping cost, payment surcharge + its own tax, then the total.
+
+**Advanced order filter** (`EComm.Api/DTOs/Requests/Orders/OrderFilterRequest.cs`, applied by
+`GET /api/v1/orders`). One class holds the fields *and* the matching rules — `Apply(IEnumerable<Order>)`
+— so `AdminOrdersController` can adopt it without a second copy. Each property declares its own
+`[FromQuery(Name = …)]`, so the wire names are `?firstName=…` rather than depending on the action's
+parameter name as a prefix.
+
+| Parameter | Matches |
+|---|---|
+| `firstName`, `lastName` | both partial, case-insensitive, against `Customer.FullName` — the data has no first/last split, so they AND ("Felix" + "Andersson" finds "Felix Andersson") |
+| `email` | partial, `Customer.Email` |
+| `orderNumber` | partial, `OrderNumber` |
+| `paymentStatus` | exact `Order.PaymentStatus` (`Initialized`/`Authorized`/`Captured`/`Cancelled`/`Failed`/`Refunded`), or the literal `none` for orders with no payment record |
+| `placedAfter`, `placedBefore` | `CreatedAt` bounds. A date with no time component means the **whole** day, so `placedBefore=2026-08-11` includes an order placed at 14:13 |
+| `properties` | `alias:value` pairs, comma separated, against `Order.CustomProperties` — name equal, value partial; a bare alias just requires the property. All pairs must match |
+| `skus` | comma separated, OR'd, **exact** (case-insensitive) against `OrderItem.Sku` — a prefix does not match |
+
+Supplied fields AND together; blank/whitespace fields are ignored. `OrderFilterTests` covers the
+semantics; `OrdersControllerTests.GetOrders_AdvancedFilterNarrowsTheWholeResultSetNotJustThePage`
+covers the narrow-before-paging contract.
+
+There is no order-line *properties* filter: `OrderItem` carries `itemType`/`itemSubType` but no
+property bag, so the field would have nothing to match.
 
 **Orders (Admin)**:
 - `GET /api/v1/admin/orders` - List all orders
