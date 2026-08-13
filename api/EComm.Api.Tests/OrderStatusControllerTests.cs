@@ -53,7 +53,38 @@ public class OrderStatusControllerTests
 
         var refused = await Controller(new ECommDbContext(options))
             .DeleteOrderStatus($"status-{Accessories}-paid", "tenant-a", Accessories);
-        Assert.Contains("in use by orders", Error(refused));
+        Assert.Contains("still use this status", Error(refused));
+    }
+
+    /// <summary>The way out of that refusal: say where the orders should land, and they move with it.</summary>
+    [Fact]
+    public async Task Delete_WithReassignTo_MovesTheOrdersAndDeletes()
+    {
+        using var connection = InMemoryDb(out var options);
+        var context = new ECommDbContext(options);
+        AddStatus(context, Trailers, "on-hold");
+        AddStatus(context, Trailers, "processing");
+        context.Orders.Add(new Order { Id = "order-1", TenantId = "tenant-a", MarketId = Trailers, Status = "on-hold" });
+        context.Orders.Add(new Order { Id = "order-2", TenantId = "tenant-a", MarketId = Accessories, Status = "on-hold" });
+        context.SaveChanges();
+
+        // Without a target the caller is told how many orders it has to place first.
+        var conflict = Assert.IsType<ConflictObjectResult>(await Controller(context)
+            .DeleteOrderStatus($"status-{Trailers}-on-hold", "tenant-a", Trailers));
+        Assert.Equal(1, conflict.Value!.GetType().GetProperty("inUseCount")!.GetValue(conflict.Value));
+
+        // A code no status in this store has is a mistake, not a reason to delete anyway.
+        Assert.IsType<BadRequestObjectResult>(await Controller(new ECommDbContext(options))
+            .DeleteOrderStatus($"status-{Trailers}-on-hold", "tenant-a", Trailers, reassignTo: "nope"));
+
+        Assert.IsType<NoContentResult>(await Controller(new ECommDbContext(options))
+            .DeleteOrderStatus($"status-{Trailers}-on-hold", "tenant-a", Trailers, reassignTo: "processing"));
+
+        var reloaded = new ECommDbContext(options);
+        Assert.Empty(reloaded.OrderStatuses.Where(s => s.MarketId == Trailers && s.Code == "on-hold"));
+        Assert.Equal("processing", reloaded.Orders.Single(o => o.Id == "order-1").Status);
+        // The sibling store's order keeps the code it always had — its own copy of the status still exists.
+        Assert.Equal("on-hold", reloaded.Orders.Single(o => o.Id == "order-2").Status);
     }
 
     [Fact]
@@ -152,7 +183,7 @@ public class OrderStatusControllerTests
     /// <summary>The refusals are anonymous objects (internal to their assembly), so read reflectively.</summary>
     private static string Error(IActionResult result)
     {
-        var value = Assert.IsType<BadRequestObjectResult>(result).Value!;
+        var value = Assert.IsType<ObjectResult>(result, exactMatch: false).Value!;
         return (string)value.GetType().GetProperty("error")!.GetValue(value)!;
     }
 

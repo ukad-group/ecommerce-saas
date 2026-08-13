@@ -26,6 +26,11 @@ export function AdminOrderStatusesPage() {
 
   const [isAddingNew, setIsAddingNew] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [reassign, setReassign] = useState<{
+    status: OrderStatusDefinition;
+    message: string;
+    target: string;
+  } | null>(null);
   const [formData, setFormData] = useState<Partial<OrderStatusDefinition>>({
     name: '',
     code: '',
@@ -77,15 +82,23 @@ export function AdminOrderStatusesPage() {
     }
   };
 
-  const handleDelete = async (statusId: string, statusName: string) => {
-    if (!confirm(`Are you sure you want to delete "${statusName}"?`)) {
+  // Orders using a status are not a dead end: the API answers 409, and we ask which status those
+  // orders should use instead, then delete with that as `reassignTo`.
+  const handleDelete = async (status: OrderStatusDefinition, reassignTo?: string) => {
+    if (!reassign && !confirm(`Are you sure you want to delete "${status.name}"?`)) {
       return;
     }
 
     try {
-      await deleteMutation.mutateAsync(statusId);
+      await deleteMutation.mutateAsync({ statusId: status.id, reassignTo });
+      setReassign(null);
     } catch (error: any) {
-      alert(error.response?.data?.error || 'Failed to delete status');
+      if (error?.statusCode === 409) {
+        setReassign({ status, message: error.message, target: '' });
+        return;
+      }
+      setReassign(null);
+      alert(error?.message || 'Failed to delete status');
     }
   };
 
@@ -374,7 +387,7 @@ export function AdminOrderStatusesPage() {
                           Edit
                         </button>
                         <button
-                          onClick={() => handleDelete(status.id, status.name)}
+                          onClick={() => handleDelete(status)}
                           className="text-red-600 hover:text-red-800"
                           disabled={deleteMutation.isPending}
                         >
@@ -390,12 +403,58 @@ export function AdminOrderStatusesPage() {
         </table>
         </div>
 
+        {reassign && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+            <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-lg">
+              <h3 className="mb-2 text-lg font-semibold">
+                Delete "{reassign.status.name}"
+              </h3>
+              <p className="mb-4 text-sm text-gray-600">
+                {reassign.message}. Pick the status those orders should use instead — deleting
+                moves them over.
+              </p>
+              <select
+                value={reassign.target}
+                onChange={(e) => setReassign({ ...reassign, target: e.target.value })}
+                className="mb-4 w-full rounded border px-2 py-2"
+              >
+                <option value="">— Select a status —</option>
+                {statuses
+                  .filter((s) => s.id !== reassign.status.id)
+                  .map((s) => (
+                    <option key={s.id} value={s.code}>
+                      {s.name}
+                    </option>
+                  ))}
+              </select>
+              <div className="flex justify-end gap-2">
+                <button
+                  onClick={() => setReassign(null)}
+                  className="rounded border border-gray-300 px-4 py-2 hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => handleDelete(reassign.status, reassign.target)}
+                  className="rounded bg-red-600 px-4 py-2 text-white hover:bg-red-700 disabled:opacity-50"
+                  disabled={!reassign.target || deleteMutation.isPending}
+                >
+                  Move orders &amp; delete
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="mt-6 rounded-lg border bg-[#4a6ba8]/5 p-4">
           <h3 className="mb-2 font-semibold text-[#304477]">Notes:</h3>
           <ul className="list-inside list-disc space-y-1 text-sm text-[#3d5789]">
             <li>
-              A status can only be deleted once nothing points at it — no order uses it, and no
-              market's checkout settings name it
+              Deleting a status that orders still use asks which status to move those orders to
+            </li>
+            <li>
+              A status a market's checkout settings name (cart status, status after payment) can't
+              be deleted until the store points elsewhere
             </li>
             <li>System defaults can be deleted, and "Reset to Defaults" puts them back</li>
             <li>Inactive statuses won't appear in dropdowns but remain in the system</li>

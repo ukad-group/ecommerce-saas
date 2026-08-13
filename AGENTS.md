@@ -84,7 +84,8 @@ dotnet run
 - Shopping cart (add/update/remove), persisted in the `Carts` table and keyed by session id
 - Admin order dashboard with filters
 - Backoffice cart list + detail view (Umbraco Commerce section), paged server-side
-- Custom order status management (market-scoped — each store owns its set, custom colors)
+- Custom order status management (market-scoped — each store owns its set, custom colors). Deleting a
+  status that orders still use asks which status those orders should move to
 - Order **update in place** (`PUT /api/v1/orders/{id}`) — re-submitting checkout rebuilds the existing
   unpaid order from the current cart instead of creating a duplicate; refuses once settled
 - **Missing**: Checkout UI, abandoned-cart recovery

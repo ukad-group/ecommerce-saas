@@ -1,4 +1,5 @@
 using System.Linq;
+using System.Net;
 using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
@@ -1077,30 +1078,46 @@ public class CommerceApiClient : ICommerceApiClient
         }
     }
 
-    public async Task<string?> DeleteOrderStatusDefinitionAsync(string id, string? marketId = null)
+    public async Task<(string? Error, int InUseCount)> DeleteOrderStatusDefinitionAsync(string id, string? marketId = null, string? reassignTo = null)
     {
         var settings = await _settingsService.GetSettingsAsync();
-        if (settings == null || !settings.IsValid) return "Commerce API is not configured";
+        if (settings == null || !settings.IsValid) return ("Commerce API is not configured", 0);
 
         try
         {
             var client = await CreateClientAsync(settings);
-            var request = new HttpRequestMessage(HttpMethod.Delete, $"order-statuses/{id}");
+            var path = $"order-statuses/{id}";
+            if (!string.IsNullOrWhiteSpace(reassignTo)) path += $"?reassignTo={Uri.EscapeDataString(reassignTo)}";
+            var request = new HttpRequestMessage(HttpMethod.Delete, path);
             request.Headers.Add("X-Tenant-ID", settings.TenantId);
             request.Headers.Add("X-Market-ID", marketId ?? settings.MarketId);
 
             var response = await client.SendAsync(request);
-            if (response.IsSuccessStatusCode) return null;
+            if (response.IsSuccessStatusCode) return (null, 0);
 
             var err = await ReadErrorAsync(response);
+            // 409 + inUseCount is the API asking where the orders should go, not a plain failure.
+            var inUse = response.StatusCode == HttpStatusCode.Conflict ? await ReadIntAsync(response, "inUseCount") : 0;
             _logger.LogError("Failed to delete order status {Id}: {Error}", id, err);
-            return err;
+            return (err, inUse);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to delete order status {Id}", id);
-            return ex.Message;
+            return (ex.Message, 0);
         }
+    }
+
+    /// <summary>Reads a number out of an error body, 0 when it isn't there.</summary>
+    private static async Task<int> ReadIntAsync(HttpResponseMessage response, string property)
+    {
+        try
+        {
+            var doc = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(
+                await response.Content.ReadAsStringAsync(), JsonOptions);
+            return doc != null && doc.TryGetValue(property, out var v) && v.TryGetInt32(out var n) ? n : 0;
+        }
+        catch (JsonException) { return 0; }
     }
 
     /// <summary>Pulls the message out of the API's `{ "error": "…" }` body, falling back to the raw body.</summary>

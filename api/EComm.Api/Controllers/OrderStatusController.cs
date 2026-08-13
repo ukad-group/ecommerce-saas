@@ -171,17 +171,21 @@ public class OrderStatusController : ControllerBase
     }
 
     /// <summary>
-    /// Delete an order status. Refused while something still points at its code: an order, or a
-    /// market's checkout settings. System defaults are deletable — a tenant that never puts an order
-    /// "On Hold" shouldn't be stuck with the status forever; <c>IsSystemDefault</c> stays as the marker
-    /// <c>reset-defaults</c> uses.
+    /// Delete an order status. Orders using it are not a dead end: pass <paramref name="reassignTo"/>
+    /// (another status's code in this store) and they are moved there first — without it the call
+    /// answers <b>409</b> and the number of orders involved, which is what the backoffice turns into
+    /// "which status should these orders use instead?". Still refused outright while the market's
+    /// checkout settings name the code. System defaults are deletable — a tenant that never puts an
+    /// order "On Hold" shouldn't be stuck with the status forever; <c>IsSystemDefault</c> stays as the
+    /// marker <c>reset-defaults</c> uses.
     /// </summary>
     [HttpDelete("{id}")]
     [Authorize(Policy = "AdminOrApiKey")]
     public async Task<IActionResult> DeleteOrderStatus(
         string id,
         [FromHeader(Name = "X-Tenant-ID")] string? tenantId,
-        [FromHeader(Name = "X-Market-ID")] string? marketId)
+        [FromHeader(Name = "X-Market-ID")] string? marketId,
+        [FromQuery] string? reassignTo = null)
     {
         if (MissingScope(tenantId, marketId, out var scopeError)) return scopeError!;
 
@@ -193,23 +197,9 @@ public class OrderStatusController : ControllerBase
             return NotFound(new { error = "Order status not found" });
         }
 
-        // Only *this* store's orders count. A sibling store using the code is its own business — that
-        // store has its own copy of the status.
-        var isInUse = await _context.Orders
-            .AnyAsync(o => o.TenantId == tenantId && o.MarketId == marketId && o.Status == status.Code);
-
-        if (isInUse)
-        {
-            return BadRequest(new
-            {
-                error = "Cannot delete status that is currently in use by orders",
-                suggestion = "You can deactivate the status instead"
-            });
-        }
-
-        // This store pointing at the code would keep writing a status nothing defines — the payment
-        // path sets OrderStatusAfterPayment on every settled order. Settings is a JSON column, so the
-        // check runs in memory rather than in SQL.
+        // Checked before anything is moved: this store pointing at the code would keep writing a status
+        // nothing defines — the payment path sets OrderStatusAfterPayment on every settled order.
+        // Settings is a JSON column, so the check runs in memory rather than in SQL.
         var market = await _context.Markets.FirstOrDefaultAsync(m => m.Id == marketId && m.TenantId == tenantId);
         var referencedBy =
             status.Code.Equals(market?.Settings?.OrderStatusAfterPayment, StringComparison.OrdinalIgnoreCase) ? "the status set after payment"
@@ -223,6 +213,40 @@ public class OrderStatusController : ControllerBase
                 error = $"Cannot delete the status this store uses as {referencedBy}",
                 suggestion = "Point the store at another status first"
             });
+        }
+
+        // Only *this* store's orders count. A sibling store using the code is its own business — that
+        // store has its own copy of the status.
+        var orders = await _context.Orders
+            .Where(o => o.TenantId == tenantId && o.MarketId == marketId && o.Status == status.Code)
+            .ToListAsync();
+
+        if (orders.Count > 0)
+        {
+            var target = string.IsNullOrWhiteSpace(reassignTo) ? null : await _context.OrderStatuses
+                .FirstOrDefaultAsync(s => s.TenantId == tenantId && s.MarketId == marketId
+                                          && s.Code == reassignTo && s.Id != status.Id);
+
+            if (target == null)
+            {
+                return string.IsNullOrWhiteSpace(reassignTo)
+                    ? Conflict(new
+                    {
+                        error = $"{orders.Count} order{(orders.Count == 1 ? "" : "s")} still use this status",
+                        suggestion = "Choose the status those orders should use instead",
+                        inUseCount = orders.Count
+                    })
+                    : BadRequest(new { error = $"No status with code '{reassignTo}' in this store to move the orders to" });
+            }
+
+            // Re-labelling orders, not transitioning them: no stock is reserved or released, because
+            // merging two status definitions says nothing about the goods. A real transition still goes
+            // through OrderStatusService (PUT /orders/{id}/status).
+            foreach (var order in orders)
+            {
+                order.Status = target.Code;
+                order.UpdatedAt = DateTime.UtcNow;
+            }
         }
 
         _context.OrderStatuses.Remove(status);

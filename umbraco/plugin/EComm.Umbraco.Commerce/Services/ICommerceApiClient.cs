@@ -166,8 +166,13 @@ public interface ICommerceApiClient
     Task<(OrderStatusDefinition? Status, string? Error)> CreateOrderStatusDefinitionAsync(OrderStatusDefinition status, string? marketId = null);
     Task<(OrderStatusDefinition? Status, string? Error)> UpdateOrderStatusDefinitionAsync(string id, OrderStatusDefinition status, string? marketId = null);
 
-    /// <summary>Null when deleted, otherwise the reason it was refused.</summary>
-    Task<string?> DeleteOrderStatusDefinitionAsync(string id, string? marketId = null);
+    /// <summary>
+    /// Deletes one of a store's order statuses; <paramref name="reassignTo"/> is the code its orders
+    /// should move to. Error is null when deleted, otherwise the reason it was refused —
+    /// <c>InUseCount</c> is non-zero exactly when that reason is "orders still use it", which is the
+    /// dashboard's cue to ask which status to move them to instead.
+    /// </summary>
+    Task<(string? Error, int InUseCount)> DeleteOrderStatusDefinitionAsync(string id, string? marketId = null, string? reassignTo = null);
 
     // ── Property Templates ────────────────────────────────────────────────────
 

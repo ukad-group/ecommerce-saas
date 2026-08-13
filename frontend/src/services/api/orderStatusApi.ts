@@ -59,10 +59,15 @@ export async function updateOrderStatus(
 }
 
 /**
- * Delete an order status (only if not in use)
+ * Delete an order status. Orders using it must be given somewhere to land: pass `reassignTo` (another
+ * status's code) and they move there. Without it the API answers 409 so the caller can ask which.
  */
-export async function deleteOrderStatus(statusId: string): Promise<void> {
-  await apiClient.delete(`${BASE_PATH}/${statusId}`);
+export async function deleteOrderStatus(
+  statusId: string,
+  reassignTo?: string
+): Promise<void> {
+  const query = reassignTo ? `?reassignTo=${encodeURIComponent(reassignTo)}` : '';
+  await apiClient.delete(`${BASE_PATH}/${statusId}${query}`);
 }
 
 /**

@@ -108,12 +108,17 @@ public class CommerceAdminApiController : ManagementApiControllerBase
         return updated != null ? Ok(updated) : BadRequest(error);
     }
 
+    /// <summary>
+    /// 409 + inUseCount means the status still labels orders: the dashboard asks which status they
+    /// should use instead and retries with <paramref name="reassignTo"/>.
+    /// </summary>
     [HttpDelete("order-statuses/{id}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
-    public async Task<IActionResult> DeleteOrderStatus(string id, [FromQuery] string? marketId = null)
+    public async Task<IActionResult> DeleteOrderStatus(string id, [FromQuery] string? marketId = null, [FromQuery] string? reassignTo = null)
     {
-        var error = await _apiClient.DeleteOrderStatusDefinitionAsync(id, marketId);
-        return error == null ? NoContent() : BadRequest(error);
+        var (error, inUseCount) = await _apiClient.DeleteOrderStatusDefinitionAsync(id, marketId, reassignTo);
+        if (error == null) return NoContent();
+        return inUseCount > 0 ? Conflict(new { error, inUseCount }) : BadRequest(error);
     }
 
     // ── Property Templates ────────────────────────────────────────────────────

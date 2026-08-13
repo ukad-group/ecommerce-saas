@@ -144,7 +144,7 @@ GET   /api/v1/order-statuses
 GET   /api/v1/order-statuses/active
 POST   /api/v1/order-statuses
 PUT   /api/v1/order-statuses/:id
-DELETE   /api/v1/order-statuses/:id
+DELETE   /api/v1/order-statuses/:id[?reassignTo=code]   # 409 + inUseCount when orders still use it
 POST   /api/v1/order-statuses/reset-defaults
 ```
 

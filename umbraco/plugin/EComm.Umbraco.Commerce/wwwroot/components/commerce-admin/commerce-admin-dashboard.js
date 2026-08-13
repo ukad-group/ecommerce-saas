@@ -1,6 +1,7 @@
 import { LitElement, html, css } from '@umbraco-cms/backoffice/external/lit';
 import { UmbElementMixin } from '@umbraco-cms/backoffice/element-api';
 import { UMB_AUTH_CONTEXT } from '@umbraco-cms/backoffice/auth';
+import { umbConfirmModal } from '@umbraco-cms/backoffice/modal';
 import '@umbraco-cms/backoffice/media'; // registers the native <umb-input-rich-media> element
 import './payment-providers-dashboard.js'; // registers <ecomm-payment-providers-dashboard> (Options → Payment Providers)
 
@@ -89,6 +90,8 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
     orderStatusesLoading: { type: Boolean },
     orderStatusesError:   { type: String  },
     editingOrderStatus:   { type: Object  },
+    // { status, inUseCount, target } while asking where a still-used status's orders should go
+    reassignOrderStatus:  { type: Object  },
     // status definitions loaded on init (drives pill colors + filter options)
     statusDefs: { type: Array },
     // discounts
@@ -174,7 +177,7 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
     this.analyticsOrders = []; this.analyticsLoading = false; this.analyticsError = null;
 
     this.orderStatuses = []; this.orderStatusesLoading = false; this.orderStatusesError = null;
-    this.editingOrderStatus = null;
+    this.editingOrderStatus = null; this.reassignOrderStatus = null;
     this.statusDefs = [];
 
     this.discounts = []; this.discountsLoading = false; this.discountsError = null; this.editingDiscount = null;
@@ -419,6 +422,7 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
   }
 
   async deleteDiscount(id) {
+    if (!await this._confirmDelete(this.discounts.find(x => x.id === id)?.name)) return;
     try {
       const headers = await this.getAuthHeaders();
       const r = await fetch(`/umbraco/management/api/ecomm-commerce/discounts/${id}`, {
@@ -503,6 +507,7 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
   }
 
   async deleteAttribute(id) {
+    if (!await this._confirmDelete(this.attributes.find(x => x.id === id)?.name)) return;
     try {
       await this._saveAttributes(this.attributes.filter(x => x.id !== id));
       this.loadAttributes();
@@ -561,6 +566,7 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
   }
 
   async deleteTaxClass(id) {
+    if (!await this._confirmDelete(this.taxClasses.find(x => x.id === id)?.name)) return;
     try {
       await this._saveTaxClasses(this.taxClasses.filter(x => x.id !== id));
       this.loadTaxClasses();
@@ -635,6 +641,7 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
   }
 
   async deleteCurrency(id) {
+    if (!await this._confirmDelete(this.currencies.find(x => x.id === id)?.name)) return;
     try {
       await this._saveCurrencies(this.currencies.filter(x => x.id !== id));
       this.loadCurrencies();
@@ -731,6 +738,7 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
   }
 
   async deleteMarketCountry(id) {
+    if (!await this._confirmDelete(this.marketCountries.find(x => x.id === id)?.name)) return;
     try {
       await this._saveMarketCountries(this.marketCountries.filter(x => x.id !== id));
       this.loadMarketCountries();
@@ -802,6 +810,7 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
   }
 
   async deleteAttributePreset(id) {
+    if (!await this._confirmDelete(this.attributePresets.find(x => x.id === id)?.name)) return;
     try {
       await this._saveAttributePresets(this.attributePresets.filter(x => x.id !== id));
       this.loadAttributePresets();
@@ -809,6 +818,7 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
   }
 
   async deleteTemplate(idx) {
+    if (!await this._confirmDelete(this.propertyTemplates[idx]?.name)) return;
     try {
       const list = this.propertyTemplates.filter((_, i) => i !== idx);
       // re-assign sort orders
@@ -864,17 +874,36 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
     } catch (e) { this.orderStatusesError = e.message; }
   }
 
-  async deleteOrderStatus(id) {
+  /**
+   * Orders using the status are not a dead end: the API answers 409 with how many still carry it, and
+   * we ask which status they should use instead, then delete with that as `reassignTo`. Other refusals
+   * (the store settles payments into it) are still just shown.
+   */
+  async deleteOrderStatus(st, reassignTo = null) {
+    // Picking where the orders go is its own confirmation — don't ask twice.
+    if (!reassignTo && !await this._confirmDelete(st.name)) return;
+
     const headers = await this.getAuthHeaders();
+    const qs = reassignTo
+      ? `${this._marketQs || '?'}${this._marketQs ? '&' : ''}reassignTo=${encodeURIComponent(reassignTo)}`
+      : this._marketQs;
     try {
-      const r = await fetch(`/umbraco/management/api/ecomm-commerce/order-statuses/${encodeURIComponent(id)}${this._marketQs}`, {
+      const r = await fetch(`/umbraco/management/api/ecomm-commerce/order-statuses/${encodeURIComponent(st.id)}${qs}`, {
         method: 'DELETE', headers, credentials: 'include',
       });
-      // The API refuses a status this store's orders use, or that it settles payments into — show why.
+      if (r.status === 409) {
+        const body = await r.json().catch(() => ({}));
+        this.reassignOrderStatus = { status: st, inUseCount: body.inUseCount ?? body.InUseCount ?? 0, target: '' };
+        return;
+      }
       if (!r.ok) throw new Error((await r.text()) || r.statusText);
+      this.reassignOrderStatus = null;
       this.orderStatusesError = null;
       this.loadOrderStatuses();
-    } catch (e) { this.orderStatusesError = e.message; }
+    } catch (e) {
+      this.reassignOrderStatus = null; // let the banner through
+      this.orderStatusesError = e.message;
+    }
   }
 
   // ── Navigation ─────────────────────────────────────────────────────────────
@@ -963,6 +992,25 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
     return s.charAt(0).toUpperCase() + s.slice(1);
   }
 
+  /**
+   * Umbraco's own confirm dialog, so no row in this dashboard goes on a single click. Lives in the
+   * delete methods rather than on the buttons — every caller is then covered. `umbConfirmModal`
+   * rejects when dismissed, which is the "keep it" answer.
+   */
+  async _confirmDelete(name) {
+    try {
+      await umbConfirmModal(this, {
+        headline: 'Delete',
+        content: `Are you sure you want to delete "${name || 'this item'}"?`,
+        color: 'danger',
+        confirmLabel: 'Delete',
+      });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   _errorBanner(msg, clear) {
     return msg ? html`
       <div class="error-banner">
@@ -976,11 +1024,13 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
     return html`<div class="state-center">${content}</div>`;
   }
 
+  // Actions go in their own box: dropped straight into the space-between row, a second button gets
+  // spaced to the middle of the header instead of sitting next to the first.
   _viewHeader(title, actionSlot) {
     return html`
       <div class="view-header">
         <h2 class="view-title">${title}</h2>
-        ${actionSlot || ''}
+        <div class="view-actions">${actionSlot || ''}</div>
       </div>`;
   }
 
@@ -1540,6 +1590,36 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
 
   // ── Order Statuses ─────────────────────────────────────────────────────────
 
+  /** Asked instead of refusing when the status still labels orders — they move where you point them. */
+  _renderReassignOrderStatus() {
+    const r = this.reassignOrderStatus;
+    if (!r) return '';
+    const many = r.inUseCount !== 1;
+    return html`
+      <div class="modal-overlay" @click=${(e) => { if (e.target === e.currentTarget) this.reassignOrderStatus = null; }}>
+        <div class="form-panel form-panel--modal form-panel--sm">
+          <h3>Delete "${r.status.name}"</h3>
+          <p style="margin:0 0 12px">
+            ${r.inUseCount} order${many ? 's' : ''} still use${many ? '' : 's'} this status.
+            Pick the status ${many ? 'they' : 'it'} should use instead — deleting moves ${many ? 'them' : 'it'} over.
+          </p>
+          <div class="form-row"><label>Use instead</label>
+            <select class="form-input" .value=${r.target}
+              @change=${e => { this.reassignOrderStatus = { ...r, target: e.target.value }; }}>
+              <option value="">— Select a status —</option>
+              ${this.orderStatuses.filter(x => x.id !== r.status.id).map(o => html`
+                <option value=${o.code}>${o.name}</option>`)}
+            </select>
+          </div>
+          <div class="form-actions">
+            <uui-button look="primary" color="danger" ?disabled=${!r.target}
+              @click=${() => this.deleteOrderStatus(r.status, r.target)}>Move orders &amp; delete</uui-button>
+            <uui-button look="secondary" @click=${() => { this.reassignOrderStatus = null; }}>Cancel</uui-button>
+          </div>
+        </div>
+      </div>`;
+  }
+
   _renderOrderStatusesView() {
     const s = this.editingOrderStatus;
     const isNew = !!s && !this.orderStatuses.some(x => x.id === s.id);
@@ -1548,14 +1628,16 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
     return html`
       <div class="view-container">
         ${this._viewHeader('Order Statuses', html`
-          <uui-button look="secondary" compact @click=${this.loadOrderStatuses}>
-            <uui-icon name="icon-refresh"></uui-icon> Refresh
+          <uui-button look="outline" label="Refresh" @click=${this.loadOrderStatuses}>
+            <uui-icon name="icon-refresh" style="margin-right:6px"></uui-icon>Refresh
           </uui-button>
           <uui-button look="primary" @click=${() => { this.editingOrderStatus = { id: crypto.randomUUID(), name: '', code: '', color: '#6B7280', sortOrder: nextSort, isActive: true }; }}>
             + Create Order Status
           </uui-button>`)}
 
         ${this._errorBanner(this.orderStatusesError, () => { this.orderStatusesError = null; })}
+
+        ${this._renderReassignOrderStatus()}
 
         ${s ? html`
           <div class="modal-overlay" @click=${(e) => { if (e.target === e.currentTarget) this.editingOrderStatus = null; }}>
@@ -1609,29 +1691,35 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
             <div class="table-scroll">
               <table class="data-table">
                 <thead><tr>
-                  <th style="width:40px"></th>
-                  <th>Name</th><th>Code</th><th>Sort</th><th>Active</th><th>System</th><th></th>
+                  <th>Status</th>
+                  <th style="width:90px" class="col-r">Sort</th>
+                  <th style="width:220px">State</th>
+                  <th style="width:64px"></th>
                 </tr></thead>
                 <tbody>
                   ${this.orderStatuses.map(st => html`
-                    <tr class="data-row" style="cursor:pointer" @click=${() => { this.editingOrderStatus = { ...st }; }}>
-                      <td><span class="color-dot" style="background:${st.color || '#6B7280'}"></span></td>
-                      <td><strong>${st.name}</strong></td>
-                      <td><code>${st.code}</code></td>
-                      <td>${st.sortOrder}</td>
+                    <tr class="data-row" title="Edit ${st.name}" @click=${() => { this.editingOrderStatus = { ...st }; }}>
+                      <td>
+                        <div class="name-cell">
+                          <span class="color-swatch" style="background:${st.color || '#6B7280'}"></span>
+                          <span>
+                            <span class="name-primary">${st.name}</span>
+                            <span class="name-sub"><code>${st.code}</code></span>
+                          </span>
+                        </div>
+                      </td>
+                      <td class="col-r muted">${st.sortOrder}</td>
                       <td>
                         <span class="pill ${st.isActive ? 'pill--active' : 'pill--inactive'}">
                           ${st.isActive ? 'Active' : 'Inactive'}
                         </span>
+                        ${st.isSystemDefault ? html`<span class="pill pill--system">System</span>` : ''}
                       </td>
-                      <td>
-                        ${st.isSystemDefault
-                          ? html`<span class="pill pill--system">System</span>`
-                          : html`<span class="muted">—</span>`}
-                      </td>
-                      <td class="row-actions">
-                        <uui-button look="secondary" color="danger" compact
-                          @click=${(e) => { e.stopPropagation(); this.deleteOrderStatus(st.id); }}>Del</uui-button>
+                      <td class="col-r">
+                        <button class="icon-btn" title="Delete ${st.name}" aria-label="Delete ${st.name}"
+                          @click=${(e) => { e.stopPropagation(); this.deleteOrderStatus(st); }}>
+                          <uui-icon name="icon-trash"></uui-icon>
+                        </button>
                       </td>
                     </tr>
                   `)}
@@ -2688,6 +2776,7 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
       padding: 18px 24px 0; background: #f4f4f4;
     }
     .view-title { margin: 0; font-size: 1.2rem; font-weight: 600; color: #1a1a1a; }
+    .view-actions { display: flex; align-items: center; gap: 8px; }
 
     .error-banner {
       display: flex; align-items: center; gap: 8px;
@@ -2792,6 +2881,7 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
       display: inline-block; padding: 3px 10px;
       border-radius: 20px; font-size: 0.75rem; font-weight: 600; white-space: nowrap;
     }
+    .pill + .pill { margin-left: 6px; }
     .pill--order-new        { background: #0ea5e9; color: #fff; }
     .pill--order-pending    { background: #0ea5e9; color: #fff; }
     .pill--order-submitted  { background: #8b5cf6; color: #fff; }
@@ -2870,6 +2960,13 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
 
     /* ── Order status color dot ───────────────────────────────── */
     .color-dot { display: inline-block; width: 14px; height: 14px; border-radius: 50%; }
+
+    /* An order status IS its colour on every order pill, so the swatch is the row's icon rather
+       than a column of its own. */
+    .color-swatch {
+      width: 28px; height: 28px; flex-shrink: 0;
+      border-radius: 5px; border: 1px solid rgba(0, 0, 0, 0.12);
+    }
 
     /* ── States ───────────────────────────────────────────────── */
     .state-center {
@@ -2973,8 +3070,21 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
       position: sticky; bottom: 0; margin-top: 14px;
       background: #ffffff; padding-bottom: 4px;
     }
+    /* One question, one answer — a full-width editor panel would dwarf it. */
+    .form-panel--sm { width: min(460px, 100%); }
+    .form-panel--sm .form-row label { min-width: 90px; }
 
     .row-actions { display: flex; gap: 4px; white-space: nowrap; }
+
+    /* Row action that shouldn't shout: grey until you reach for it, red once you do. */
+    .icon-btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 30px; height: 30px; padding: 0;
+      border: 1px solid transparent; border-radius: 4px;
+      background: none; color: #9a9a9a; cursor: pointer;
+    }
+    .icon-btn:hover { color: #d42054; background: #fdeaef; border-color: #f4c6d2; }
+    .icon-btn:focus-visible { outline: 2px solid #3b82f6; outline-offset: 1px; }
   `;
 }
 

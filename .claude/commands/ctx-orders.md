@@ -137,8 +137,12 @@ shipping country, shipping cost, payment surcharge + its own tax, then the total
 - `GET /api/v1/order-statuses/active` - List active statuses only
 - `POST /api/v1/order-statuses` - Create custom status
 - `PUT /api/v1/order-statuses/:id` - Update status (`code` is fixed — orders reference it)
-- `DELETE /api/v1/order-statuses/:id` - Delete status (refused while an order, or a market's
-  `OrderStatusAfterPayment`/`CartOrderStatus`, still names its code — system defaults *are* deletable)
+- `DELETE /api/v1/order-statuses/:id[?reassignTo=code]` - Delete status. Orders still using it are
+  moved to `reassignTo` first; without it the call answers **409** + `inUseCount` so the admin can be
+  asked which status those orders should use instead (both admins show a picker on that 409). The
+  moved orders are only re-labelled — no stock is reserved or released, unlike a real transition
+  through `PUT /orders/:id/status`. Still refused outright while a market's
+  `OrderStatusAfterPayment`/`CartOrderStatus` names the code — system defaults *are* deletable
 - `POST /api/v1/order-statuses/reset-defaults` - Reset to defaults, re-adding any default that was
   deleted (the way back from deleting one; the seeder only backfills tenants with no statuses at all)
 

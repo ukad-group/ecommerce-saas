@@ -113,7 +113,8 @@ export function useDeleteOrderStatus() {
   const marketId = useAuthStore((state) => state.getMarketId());
 
   return useMutation({
-    mutationFn: (statusId: string) => deleteOrderStatus(statusId),
+    mutationFn: ({ statusId, reassignTo }: { statusId: string; reassignTo?: string }) =>
+      deleteOrderStatus(statusId, reassignTo),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [QUERY_KEY, tenantId, marketId] });
     },
