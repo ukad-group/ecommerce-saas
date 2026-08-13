@@ -5,6 +5,11 @@ import { UMB_CURRENT_USER_CONTEXT } from '@umbraco-cms/backoffice/current-user';
 import { UMB_DOCUMENT_WORKSPACE_CONTEXT } from '@umbraco-cms/backoffice/document';
 import { UMB_MODAL_MANAGER_CONTEXT } from '@umbraco-cms/backoffice/modal';
 import { UMB_MEDIA_PICKER_MODAL } from '@umbraco-cms/backoffice/media';
+// The shared design kit — see umbraco/docs/DESIGN-SYSTEM.md before adding UI here.
+import {
+  commerceStyles, stateCenter, loadingState, emptyState, errorBanner,
+  pill, modalShell, confirmDelete,
+} from '../shared/commerce-ui.js';
 
 class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
   static properties = {
@@ -28,8 +33,6 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
     defaultVariantPrice: { type: String },
     defaultVariantStock: { type: String },
     newBaseSku: { type: String },
-    confirmDeleteProductId: { type: String },
-    confirmDeleteVariantId: { type: String },
     newProductImageUrl: { type: String },
     newCreateImageUrl: { type: String },
     imageUploading: { type: Boolean },
@@ -93,8 +96,6 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
     this.defaultVariantPrice = '';
     this.defaultVariantStock = '';
     this.newBaseSku = '';
-    this.confirmDeleteProductId = null;
-    this.confirmDeleteVariantId = null;
     this.newProductImageUrl = '';
     this.newCreateImageUrl = '';
     this.imageUploading = false;
@@ -457,7 +458,7 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
                   @input=${(e) => this._setCustomProperty(prop, 'value', e.target.value)}></uui-input>`;
               })()}
               ${prop.isMarketTemplate
-                ? html`<uui-badge look="secondary" title="Applied to all products">global</uui-badge>`
+                ? html`<span class="pill pill--info" title="Applied to all products">global</span>`
                 : html`<uui-button compact look="secondary" color="danger" label="Remove"
                     ?disabled=${this.saving}
                     @click=${() => this._removeCustomProperty(prop)}>✕</uui-button>`}
@@ -857,8 +858,6 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
     this.newVariantOptions = [];
     this.newOptionName = '';
     this.newOptionValues = '';
-    this.confirmDeleteProductId = null;
-    this.confirmDeleteVariantId = null;
     this.addingVariant = false;
     this.newVariant = null;
     this.addVariantErrors = {};
@@ -1008,10 +1007,21 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
     this.editOptionsDraftNewValues = {};
   }
 
+  /** Umbraco's confirm dialog, so a product is never one click from gone. */
+  async _confirmDeleteProduct(product) {
+    if (!await confirmDelete(this, product?.name)) return;
+    await this.deleteProduct(product.id);
+  }
+
+  async _confirmDeleteVariant(variant) {
+    const label = variant?.sku || Object.values(variant?.options || {}).join(' / ') || 'this variant';
+    if (!await confirmDelete(this, label)) return;
+    this.deleteVariant(variant.id);
+  }
+
   async deleteProduct(productId) {
     this.saving = true;
     this.error = null;
-    this.confirmDeleteProductId = null;
 
     try {
       const headers = await this.getAuthHeaders();
@@ -1042,7 +1052,6 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
       ...this.editedProduct,
       variants: this.editedProduct.variants.filter(v => v.id !== variantId)
     };
-    this.confirmDeleteVariantId = null;
     this.editedVariantId = null;
     this.saveProduct();
   }
@@ -1649,45 +1658,38 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
 
   renderProviderBrowser() {
     if (!this.providerBrowserOpen) return '';
-    return html`
-      <div class="provider-browser-backdrop" @click=${this.closeProviderBrowser}>
-        <div class="provider-browser-panel" @click=${(e) => e.stopPropagation()}>
-          <div class="provider-browser-header">
-            <h3>Provider Photos</h3>
-            <uui-button look="secondary" compact @click=${this.closeProviderBrowser}>Close</uui-button>
+    return modalShell({
+      headline: 'Provider photos',
+      size: 'lg',
+      onClose: () => this.closeProviderBrowser(),
+      body: html`
+        ${this.providerWarning ? html`<p class="modal-error">${this.providerWarning}</p>` : ''}
+
+        ${this.providerPhotos.length === 0 && !this.providerLoading ? html`
+          <p class="form-hint">No photos found in the provider container.</p>
+        ` : html`
+          <div class="provider-photos-grid">
+            ${this.providerPhotos.map((photo) => html`
+              <button class="provider-photo-item" title=${photo.name}
+                @click=${() => this.pickProviderPhoto(photo.url)}>
+                <img src="${photo.url}" alt="${photo.name}" loading="lazy"
+                  @error=${(e) => { e.target.style.display = 'none'; e.target.nextElementSibling.style.display = 'flex'; }} />
+                <div class="image-error-placeholder" style="display:none;">
+                  <uui-icon name="icon-picture"></uui-icon>
+                </div>
+                <span class="provider-photo-name">${photo.name}</span>
+              </button>
+            `)}
           </div>
+        `}
 
-          ${this.providerWarning ? html`
-            <uui-badge color="danger" look="primary">${this.providerWarning}</uui-badge>
-          ` : ''}
-
-          ${this.providerPhotos.length === 0 && !this.providerLoading ? html`
-            <p class="no-images-hint">No photos found in the provider container.</p>
-          ` : html`
-            <div class="provider-photos-grid">
-              ${this.providerPhotos.map((photo) => html`
-                <button class="provider-photo-item" title=${photo.name}
-                  @click=${() => this.pickProviderPhoto(photo.url)}>
-                  <img src="${photo.url}" alt="${photo.name}" loading="lazy"
-                    @error=${(e) => { e.target.style.display = 'none'; e.target.nextElementSibling.style.display = 'flex'; }} />
-                  <div class="image-error-placeholder" style="display:none;">
-                    <uui-icon name="icon-picture"></uui-icon>
-                  </div>
-                  <span class="provider-photo-name">${photo.name}</span>
-                </button>
-              `)}
-            </div>
-          `}
-
-          <div class="provider-browser-footer">
-            ${this.providerLoading ? html`<uui-loader></uui-loader>` : ''}
-            ${this.providerContinuationToken && !this.providerLoading ? html`
-              <uui-button look="secondary" @click=${this.loadProviderPhotos}>Load more</uui-button>
-            ` : ''}
-          </div>
-        </div>
-      </div>
-    `;
+        ${this.providerLoading ? html`<div class="provider-browser-footer"><uui-loader></uui-loader></div>` : ''}`,
+      actions: html`
+        ${this.providerContinuationToken && !this.providerLoading ? html`
+          <uui-button slot="actions" look="outline" label="Load more"
+            @click=${this.loadProviderPhotos}>Load more</uui-button>` : ''}
+        <uui-button slot="actions" label="Close" @click=${this.closeProviderBrowser}>Close</uui-button>`,
+    });
   }
 
   /**
@@ -1747,7 +1749,7 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
         </div>
 
         ${this.providerWarning && !this.providerBrowserOpen ? html`
-          <uui-badge color="warning" look="primary">${this.providerWarning}</uui-badge>
+          <div class="notice notice--warning">${this.providerWarning}</div>
         ` : ''}
 
         <div class="add-image-row">
@@ -2072,7 +2074,7 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
         <h4 class="section-heading">New Product</h4>
 
         ${this.error ? html`
-          <uui-badge color="danger" look="primary" class="save-error">${this.error}</uui-badge>
+          <div class="notice notice--error">${this.error}</div>
         ` : ''}
 
         ${this.newProductType === null
@@ -2299,7 +2301,7 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
                 <div class="new-product-option-card">
                   <div class="new-product-option-header">
                     <strong>${opt.name}</strong>
-                    <uui-badge look="secondary" title="From the store attribute library">global</uui-badge>
+                    <span class="pill pill--info" title="From the store attribute library">global</span>
                     <button class="option-tag-remove"
                       @click=${() => this.removeNewProductVariantOption(optIndex)}
                       ?disabled=${this.createSaving}
@@ -2410,160 +2412,6 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
     if (!dateString) return 'Never';
     const date = new Date(dateString);
     return date.toLocaleString();
-  }
-
-  renderProductRow(product) {
-    const isExpanded = this.expandedProductId === product.id;
-
-    return html`
-      <uui-table-row
-        @click=${() => this.toggleProductEdit(product)}
-        class="product-row ${isExpanded ? 'expanded' : ''}">
-
-        <!-- Image -->
-        <uui-table-cell style="width: 80px;">
-          ${product.images?.length > 0 ? html`
-            <img src="${this._imgSrc(product.images[0])}" alt="${product.name}" class="product-thumbnail" />
-          ` : html`
-            <uui-icon name="icon-picture" class="no-image-icon"></uui-icon>
-          `}
-        </uui-table-cell>
-
-        <!-- Name -->
-        <uui-table-cell>
-          <strong>${product.name}</strong>
-          ${product.hasVariants ? html`
-            <uui-badge color="default" look="outline" style="margin-left: 8px;">
-              ${product.variants?.length || 0} variants
-            </uui-badge>
-          ` : ''}
-        </uui-table-cell>
-
-        <!-- SKU -->
-        <uui-table-cell style="width: 150px;">
-          <code class="sku">${product.hasVariants ? 'See variants' : (product.sku || '-')}</code>
-        </uui-table-cell>
-
-        <!-- Price -->
-        <uui-table-cell style="width: 120px;">
-          ${product.hasVariants ? html`<span class="price">Varies</span>` : html`<span class="price">${this.formatPrice(product.price)}</span>`}
-        </uui-table-cell>
-
-        <!-- Stock -->
-        <uui-table-cell style="width: 100px;">
-          ${product.hasVariants ? html`
-            <span class="price">Varies</span>
-          ` : html`
-            <div class="stock-badge-wrapper">
-              <uui-badge color="${(product.stockQuantity ?? 0) > 0 ? 'positive' : 'danger'}" look="primary">
-                ${product.stockQuantity ?? 0}
-              </uui-badge>
-            </div>
-          `}
-        </uui-table-cell>
-
-        <!-- Status -->
-        <uui-table-cell style="width: 100px;">
-          <div class="status-badge-wrapper">
-            <uui-badge color="${product.status === 'active' ? 'positive' : 'default'}" look="primary">
-              ${product.status || 'active'}
-            </uui-badge>
-          </div>
-        </uui-table-cell>
-
-        <!-- Version -->
-        <uui-table-cell style="width: 80px;">
-          <small>v${product.version || 1}</small>
-        </uui-table-cell>
-      </uui-table-row>
-
-      ${isExpanded ? (
-        this.editingOptions
-          ? this.renderOptionsEditor()
-            : this.creatingVariants
-              ? this.renderVariantBuilder()
-              : (product.hasVariants ? this.renderVariantsSection(product) : this.renderEditForm(product))
-      ) : ''}
-    `;
-  }
-
-  renderVariantsSection(product) {
-    return html`
-      <tr class="variants-section-row">
-        <td colspan="7" @click=${(e) => e.stopPropagation()}>
-          <div class="variants-container">
-            <h4>Product Variants</h4>
-            <p class="variant-info">This product has ${product.variants?.length || 0} variants. Edit individual variant prices and stock below.</p>
-
-            ${this.saveSuccess ? html`
-              <uui-badge color="positive" look="primary" class="save-success">
-                ${this.saveSuccess}
-              </uui-badge>
-            ` : ''}
-
-            ${this.error ? html`
-              <uui-badge color="danger" look="primary" class="save-error">
-                ${this.error}
-              </uui-badge>
-            ` : ''}
-
-            <!-- Version Info -->
-            <div class="version-info">
-              <small>
-                <strong>Version:</strong> ${product.version || 1} |
-                <strong>Last Updated:</strong> ${this.formatDate(product.updatedAt)} |
-                <strong>Updated By:</strong> ${product.versionCreatedBy || 'System'}
-              </small>
-            </div>
-
-            <div class="variants-list">
-              ${product.variants?.map(variant => this.renderVariantRow(variant))}
-            </div>
-
-            ${this.addingVariant ? this.renderAddVariantForm() : ''}
-
-            <div class="button-group">
-              <uui-button look="secondary" @click=${this.cancelEdit} ?disabled=${this.saving}>
-                Close
-              </uui-button>
-
-              ${!this.addingVariant ? html`
-                <uui-button look="secondary" color="positive" @click=${this.startAddVariant} ?disabled=${this.saving}>
-                  Add Variant
-                </uui-button>
-                <uui-button look="secondary" @click=${this.startEditOptions} ?disabled=${this.saving}>
-                  Attributes
-                </uui-button>
-              ` : ''}
-
-              <span class="button-group-separator"></span>
-
-              ${this.confirmDeleteProductId === this.editedProduct?.id ? html`
-                <span class="inline-confirm">
-                  <small>Delete this product?</small>
-                  <uui-button look="primary" color="danger"
-                    @click=${() => this.deleteProduct(this.editedProduct.id)}
-                    ?disabled=${this.saving}>
-                    Yes, delete
-                  </uui-button>
-                  <uui-button look="secondary"
-                    @click=${() => { this.confirmDeleteProductId = null; }}
-                    ?disabled=${this.saving}>
-                    Cancel
-                  </uui-button>
-                </span>
-              ` : html`
-                <uui-button look="secondary" color="danger"
-                  @click=${() => { this.confirmDeleteProductId = this.editedProduct?.id; }}
-                  ?disabled=${this.saving}>
-                  Delete Product
-                </uui-button>
-              `}
-            </div>
-          </div>
-        </td>
-      </tr>
-    `;
   }
 
   renderAddVariantForm() {
@@ -2686,7 +2534,7 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
           <div class="variant-options">
             <uui-icon name="icon-box"></uui-icon>
             <strong>${optionsText}</strong>
-            ${variant.isDefault ? html`<uui-badge color="positive" look="outline">Default</uui-badge>` : ''}
+            ${variant.isDefault ? html`<span class="pill pill--active">Default</span>` : ''}
           </div>
           <div class="variant-summary">
             <span class="variant-sku">${variant.sku}</span>
@@ -2698,27 +2546,10 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
               ${variant.status}
             </span>
 
-            ${this.confirmDeleteVariantId === variant.id ? html`
-              <span class="inline-confirm" @click=${(e) => e.stopPropagation()}>
-                <small>Delete?</small>
-                <uui-button look="primary" color="danger"
-                  @click=${(e) => { e.stopPropagation(); this.deleteVariant(variant.id); }}
-                  ?disabled=${this.saving}>
-                  Yes
-                </uui-button>
-                <uui-button look="secondary"
-                  @click=${(e) => { e.stopPropagation(); this.confirmDeleteVariantId = null; }}
-                  ?disabled=${this.saving}>
-                  No
-                </uui-button>
-              </span>
-            ` : html`
-              <uui-button look="secondary" color="danger"
-                @click=${(e) => { e.stopPropagation(); this.confirmDeleteVariantId = variant.id; }}
-                ?disabled=${this.saving}>
-                Delete
-              </uui-button>
-            `}
+            <uui-button look="secondary" color="danger" label="Delete variant" ?disabled=${this.saving}
+              @click=${(e) => { e.stopPropagation(); this._confirmDeleteVariant(variant); }}>
+              Delete
+            </uui-button>
           </div>
         </div>
 
@@ -2881,277 +2712,6 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
     `;
   }
 
-  renderEditForm(originalProduct) {
-    const productOptions = Array.isArray(originalProduct.customProperties) ? originalProduct.customProperties : [];
-    return html`
-      <tr class="edit-form-row">
-        <td colspan="7" @click=${(e) => e.stopPropagation()}>
-          <div class="edit-form-container">
-
-            ${this.saveSuccess ? html`
-              <uui-badge color="positive" look="primary" class="save-success">
-                ${this.saveSuccess}
-              </uui-badge>
-            ` : ''}
-
-            ${this.error ? html`
-              <uui-badge color="danger" look="primary" class="save-error">
-                ${this.error}
-              </uui-badge>
-            ` : ''}
-
-
-            <h4 class="section-heading">Content</h4>
-            <div class="edit-form-grid">
-
-              <!-- Name -->
-              <div class="form-group">
-                <uui-label for="product-name" required>Name</uui-label>
-                <uui-input
-                  id="product-name"
-                  .value=${this.editedProduct.name}
-                  @input=${(e) => this.handleProductInput('name', e.target.value)}
-                  ?disabled=${this.saving}
-                  required>
-                </uui-input>
-                ${this.validationErrors.name ? html`
-                  <small class="error-text">${this.validationErrors.name}</small>
-                ` : ''}
-              </div>
-
-              <!-- Price -->
-              <div class="form-group">
-                <uui-label for="product-price" required>Price</uui-label>
-                <uui-input
-                  id="product-price"
-                  type="number"
-                  step="0.01"
-                  .value=${String(this.editedProduct.price || '')}
-                  @input=${(e) => this.handleProductInput('price', parseFloat(e.target.value))}
-                  ?disabled=${this.saving}
-                  required>
-                </uui-input>
-                ${this.validationErrors.price ? html`
-                  <small class="error-text">${this.validationErrors.price}</small>
-                ` : ''}
-              </div>
-
-              <!-- Sale Price -->
-              <div class="form-group">
-                <uui-label for="product-sale-price">Sale Price</uui-label>
-                <uui-input
-                  id="product-sale-price"
-                  type="number"
-                  step="0.01"
-                  .value=${String(this.editedProduct.salePrice ?? '')}
-                  @input=${(e) => this.handleProductInput('salePrice', e.target.value ? parseFloat(e.target.value) : null)}
-                  ?disabled=${this.saving}
-                  placeholder="Leave blank if not on sale">
-                </uui-input>
-              </div>
-
-              <!-- Stock -->
-              <div class="form-group">
-                <uui-label for="product-stock" required>Stock Quantity</uui-label>
-                <uui-input
-                  id="product-stock"
-                  type="number"
-                  .value=${String(this.editedProduct.stockQuantity ?? '')}
-                  @input=${(e) => this.handleProductInput('stockQuantity', parseInt(e.target.value))}
-                  ?disabled=${this.saving}
-                  required>
-                </uui-input>
-                ${this.validationErrors.stockQuantity ? html`
-                  <small class="error-text">${this.validationErrors.stockQuantity}</small>
-                ` : ''}
-              </div>
-
-              <!-- Status -->
-              <div class="form-group">
-                <uui-label for="product-status">Status</uui-label>
-                <select
-                  id="product-status"
-                  class="variant-status-select"
-                  @change=${(e) => this.handleProductInput('status', e.target.value)}
-                  ?disabled=${this.saving}>
-                  <option value="active" ?selected=${this.editedProduct.status === 'active'}>Active</option>
-                  <option value="inactive" ?selected=${this.editedProduct.status === 'inactive'}>Inactive</option>
-                  <option value="draft" ?selected=${this.editedProduct.status === 'draft'}>Draft</option>
-                </select>
-              </div>
-
-              <!-- Description (full width) -->
-              <div class="form-group full-width">
-                <uui-label for="product-description">Description</uui-label>
-                <textarea
-                  id="product-description"
-                  class="description-textarea"
-                  .value=${this.editedProduct.description || ''}
-                  @input=${(e) => this.handleProductInput('description', e.target.value)}
-                  ?disabled=${this.saving}
-                  rows="3"
-                  placeholder="Product description..."></textarea>
-              </div>
-
-              <!-- Highlights (full width) -->
-              <div class="form-group full-width">
-                ${this.renderStringListEditor('editedProduct', 'highlights', 'Highlights',
-                  'Short bullet points shown on the product page.', '+ Highlight', 'No highlights yet.', this.saving)}
-              </div>
-
-              <!-- Images (full width) -->
-              <div class="form-group full-width">
-                <uui-label>Images</uui-label>
-                ${this.renderImageGallery(
-                  this.editedProduct.images || [],
-                  (imgs) => { this.editedProduct = { ...this.editedProduct, images: imgs }; },
-                  'edit'
-                )}
-              </div>
-
-            </div>
-
-            <!-- Leasing & Visibility section -->
-            <h4 class="section-heading">Leasing &amp; Visibility</h4>
-            <div class="edit-form-grid">
-
-              <!-- Leasing Factor -->
-              <div class="form-group">
-                <uui-label for="product-leasing-factor">Leasing Factor</uui-label>
-                <uui-input
-                  id="product-leasing-factor"
-                  type="number"
-                  step="0.0001"
-                  .value=${String(this.editedProduct.leasingFactor ?? '')}
-                  @input=${(e) => this.handleProductInput('leasingFactor', e.target.value ? parseFloat(e.target.value) : null)}
-                  ?disabled=${this.saving}
-                  placeholder="e.g. 0.0285">
-                </uui-input>
-                <small class="field-hint">Monthly price = Price × Leasing Factor. Leave blank to hide leasing option.</small>
-              </div>
-
-              <!-- Hide Price -->
-              <div class="form-group">
-                <uui-label for="product-hide-price">Hide Price</uui-label>
-                <div style="display:flex;align-items:center;gap:0.5rem;padding-top:0.25rem;">
-                  <input
-                    id="product-hide-price"
-                    type="checkbox"
-                    style="width:1rem;height:1rem;cursor:pointer;"
-                    .checked=${this.editedProduct.hidePrice || false}
-                    @change=${(e) => this.handleProductInput('hidePrice', e.target.checked)}
-                    ?disabled=${this.saving}>
-                  <small>Replace price with a custom message (enquiry-only products)</small>
-                </div>
-              </div>
-
-              ${this.editedProduct.hidePrice ? html`
-              <!-- Hidden Price Description (full width) -->
-              <div class="form-group full-width">
-                <uui-label for="product-hidden-price-desc">Hidden Price Message</uui-label>
-                <uui-input
-                  id="product-hidden-price-desc"
-                  type="text"
-                  .value=${this.editedProduct.hiddenPriceDescription || ''}
-                  @input=${(e) => this.handleProductInput('hiddenPriceDescription', e.target.value)}
-                  ?disabled=${this.saving}
-                  placeholder="e.g. Price on request — contact us">
-                </uui-input>
-              </div>
-              ` : ''}
-
-            </div>
-
-            <!-- SEO section -->
-            <h4 class="section-heading">SEO</h4>
-            <div class="edit-form-grid">
-
-              <!-- SEO Title -->
-              <div class="form-group">
-                <uui-label for="product-seo-title">Page Title</uui-label>
-                <uui-input
-                  id="product-seo-title"
-                  type="text"
-                  .value=${this.editedProduct.seoTitle || ''}
-                  @input=${(e) => this.handleProductInput('seoTitle', e.target.value)}
-                  ?disabled=${this.saving}
-                  placeholder="Overrides product name in &lt;title&gt; tag">
-                </uui-input>
-              </div>
-
-              <!-- SEO Description (full width) -->
-              <div class="form-group full-width">
-                <uui-label for="product-seo-desc">Meta Description</uui-label>
-                <textarea
-                  id="product-seo-desc"
-                  class="description-textarea"
-                  .value=${this.editedProduct.seoDescription || ''}
-                  @input=${(e) => this.handleProductInput('seoDescription', e.target.value)}
-                  ?disabled=${this.saving}
-                  rows="2"
-                  placeholder="Short description for search engines (150–160 characters)"></textarea>
-              </div>
-
-            </div>
-
-            <!-- Version Info -->
-            <div class="version-info">
-              <small>
-                <strong>Version:</strong> ${originalProduct.version || 1} |
-                <strong>Last Updated:</strong> ${this.formatDate(originalProduct.updatedAt)} |
-                <strong>Updated By:</strong> ${originalProduct.versionCreatedBy || 'System'}
-              </small>
-            </div>
-
-            <!-- Action Buttons -->
-            <div class="button-group">
-              <uui-button look="secondary" @click=${this.cancelEdit} ?disabled=${this.saving}>
-                Cancel
-              </uui-button>
-
-              <uui-button look="secondary" @click=${this.startCreateVariants} ?disabled=${this.saving}>
-                Create product Variants
-              </uui-button>
-
-              <uui-button look="secondary" @click=${this.startEditOptions} ?disabled=${this.saving}>
-                Attributes
-              </uui-button>
-
-              <uui-button look="primary" color="positive" @click=${this.saveProduct} ?disabled=${this.saving}>
-                ${this.saving ? 'Saving...' : 'Save Changes'}
-              </uui-button>
-
-              <span class="button-group-separator"></span>
-
-              ${this.confirmDeleteProductId === this.editedProduct?.id ? html`
-                <span class="inline-confirm">
-                  <small>Delete this product?</small>
-                  <uui-button look="primary" color="danger"
-                    @click=${() => this.deleteProduct(this.editedProduct.id)}
-                    ?disabled=${this.saving}>
-                    Yes, delete
-                  </uui-button>
-                  <uui-button look="secondary"
-                    @click=${() => { this.confirmDeleteProductId = null; }}
-                    ?disabled=${this.saving}>
-                    Cancel
-                  </uui-button>
-                </span>
-              ` : html`
-                <uui-button look="secondary" color="danger"
-                  @click=${() => { this.confirmDeleteProductId = this.editedProduct?.id; }}
-                  ?disabled=${this.saving}>
-                  Delete Product
-                </uui-button>
-              `}
-            </div>
-
-          </div>
-        </td>
-      </tr>
-    `;
-  }
-
   renderOptionsEditor() {
     return html`
       <div class="options-editor-container">
@@ -3168,7 +2728,7 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
             </p>
 
             ${this.error ? html`
-              <uui-badge color="danger" look="primary" class="save-error">${this.error}</uui-badge>
+              <div class="notice notice--error">${this.error}</div>
             ` : ''}
 
             ${this.editOptionsDraft.length > 0 ? html`
@@ -3177,7 +2737,7 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
                   <div class="option-draft-card">
                     <div class="option-draft-name-row">
                       <strong class="option-draft-global-name">${opt.name}</strong>
-                      <uui-badge look="secondary" title="From the store attribute library">global</uui-badge>
+                      <span class="pill pill--info" title="From the store attribute library">global</span>
                       <!-- Global attributes are managed in Commerce → Attributes; not detachable per product. -->
                     </div>
                     <div class="option-draft-values">
@@ -3303,7 +2863,7 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
             </p>
 
             ${this.error ? html`
-              <uui-badge color="danger" look="primary" class="save-error">${this.error}</uui-badge>
+              <div class="notice notice--error">${this.error}</div>
             ` : ''}
 
             <!-- Option Types -->
@@ -3316,7 +2876,7 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
                     <div class="option-type-card">
                       <div class="option-type-header">
                         <strong>${opt.name}</strong>
-                        ${opt.attributeId ? html`<uui-badge look="secondary" title="From the store attribute library">global</uui-badge>` : ''}
+                        ${opt.attributeId ? html`<span class="pill pill--info" title="From the store attribute library">global</span>` : ''}
                         <uui-button look="secondary"
                           @click=${() => this.removeVariantOption(index)}
                           ?disabled=${this.saving}>
@@ -3419,9 +2979,9 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
 
             <!-- Combinations Preview -->
             ${tooMany ? html`
-              <uui-badge color="warning" look="primary" class="save-error">
+              <div class="notice notice--warning">
                 Too many combinations (over 500) — reduce the number of values, or save and add variants manually.
-              </uui-badge>
+              </div>
             ` : combos.length > 0 ? html`
               <div class="builder-section">
                 <h5 class="section-heading">Preview — ${combos.length} variant${combos.length !== 1 ? 's' : ''} will be created</h5>
@@ -3489,16 +3049,15 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
     return html`
       <div class="product-list-panel">
         <div class="product-list-header">
-          <uui-input
-            type="text"
-            placeholder="Search products..."
-            .value=${this.productSearchQuery}
-            @input=${(e) => { this.productSearchQuery = e.target.value; }}
-            class="product-search-input">
-          </uui-input>
+          <div class="search-wrap">
+            <uui-icon name="icon-search" class="search-icon"></uui-icon>
+            <input class="search-input" type="search" placeholder="Search products…"
+              .value=${this.productSearchQuery}
+              @input=${(e) => { this.productSearchQuery = e.target.value; }}>
+          </div>
           ${this._mode !== 'single-product' ? html`
-            <uui-button look="primary" color="positive" @click=${this.startCreateProduct} class="new-product-btn">
-              + New
+            <uui-button look="primary" label="Create Product" @click=${this.startCreateProduct} class="new-product-btn">
+              + Create
             </uui-button>
           ` : ''}
         </div>
@@ -3527,12 +3086,10 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
         <div class="product-list-item-info">
           <strong class="product-list-item-name">${product.name}</strong>
           <div class="product-list-item-meta">
-            ${product.hasVariants ? html`
-              <span class="variant-count-badge">${product.variants?.length || 0} variants</span>
-            ` : html`
-              <span class="product-list-sku">${product.sku || 'No SKU'}</span>
-            `}
-            <span class="product-list-status status-${product.status || 'active'}">${product.status || 'active'}</span>
+            ${product.hasVariants
+              ? pill(`${product.variants?.length || 0} variants`, 'group')
+              : html`<span class="product-list-sku">${product.sku || 'No SKU'}</span>`}
+            ${pill(product.status || 'active', (product.status || 'active') === 'active' ? 'active' : 'inactive')}
           </div>
         </div>
       </div>
@@ -3580,11 +3137,11 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
 
     return html`
       ${this.saveSuccess ? html`
-        <uui-badge color="positive" look="primary" class="save-success">${this.saveSuccess}</uui-badge>
+        <div class="notice notice--success">${this.saveSuccess}</div>
       ` : ''}
 
       ${this.error ? html`
-        <uui-badge color="danger" look="primary" class="save-error">${this.error}</uui-badge>
+        <div class="notice notice--error">${this.error}</div>
       ` : ''}
 
 
@@ -3727,24 +3284,10 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
           ${this.saving ? 'Saving...' : 'Save Changes'}
         </uui-button>
         <span class="button-group-separator"></span>
-        ${this.confirmDeleteProductId === product.id ? html`
-          <span class="inline-confirm">
-            <small>Delete this product?</small>
-            <uui-button look="primary" color="danger"
-              @click=${() => this.deleteProduct(product.id)} ?disabled=${this.saving}>
-              Yes, delete
-            </uui-button>
-            <uui-button look="secondary"
-              @click=${() => { this.confirmDeleteProductId = null; }} ?disabled=${this.saving}>
-              Cancel
-            </uui-button>
-          </span>
-        ` : html`
-          <uui-button look="secondary" color="danger"
-            @click=${() => { this.confirmDeleteProductId = product.id; }} ?disabled=${this.saving}>
-            Delete Product
-          </uui-button>
-        `}
+        <uui-button look="secondary" color="danger" label="Delete Product" ?disabled=${this.saving}
+          @click=${() => this._confirmDeleteProduct(product)}>
+          Delete Product
+        </uui-button>
       </div>
     `;
   }
@@ -3755,11 +3298,11 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
 
     return html`
       ${this.saveSuccess ? html`
-        <uui-badge color="positive" look="primary" class="save-success">${this.saveSuccess}</uui-badge>
+        <div class="notice notice--success">${this.saveSuccess}</div>
       ` : ''}
 
       ${this.error ? html`
-        <uui-badge color="danger" look="primary" class="save-error">${this.error}</uui-badge>
+        <div class="notice notice--error">${this.error}</div>
       ` : ''}
 
 
@@ -3828,24 +3371,10 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
           ${this.saving ? 'Saving...' : 'Save Changes'}
         </uui-button>
         <span class="button-group-separator"></span>
-        ${this.confirmDeleteProductId === product.id ? html`
-          <span class="inline-confirm">
-            <small>Delete this product?</small>
-            <uui-button look="primary" color="danger"
-              @click=${() => this.deleteProduct(product.id)} ?disabled=${this.saving}>
-              Yes, delete
-            </uui-button>
-            <uui-button look="secondary"
-              @click=${() => { this.confirmDeleteProductId = null; }} ?disabled=${this.saving}>
-              Cancel
-            </uui-button>
-          </span>
-        ` : html`
-          <uui-button look="secondary" color="danger"
-            @click=${() => { this.confirmDeleteProductId = product.id; }} ?disabled=${this.saving}>
-            Delete Product
-          </uui-button>
-        `}
+        <uui-button look="secondary" color="danger" label="Delete Product" ?disabled=${this.saving}
+          @click=${() => this._confirmDeleteProduct(product)}>
+          Delete Product
+        </uui-button>
       </div>
 
       ${this.renderVariantTable()}
@@ -3962,112 +3491,75 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
 
   render() {
     if (this.loading) {
-      return html`
-        <div class="loading-state">
-          <uui-loader></uui-loader>
-          <p>Loading products...</p>
-        </div>
-      `;
+      return html`<div class="workspace-panel">${loadingState('Loading products…')}</div>`;
     }
 
     if (!this.categoryId && this._mode !== 'single-product') {
       return html`
-        <uui-box>
-          <div class="info-state">
-            <uui-icon name="icon-info"></uui-icon>
-            <h3>No Product Selected</h3>
-            <p>To edit product data from the eCommerce API, you need to select a product first.</p>
-            <ol>
+        <div class="workspace-panel">
+          ${stateCenter(html`
+            <uui-icon name="icon-info" class="state-icon"></uui-icon>
+            <h3>No product selected</h3>
+            <p>To edit product data from the eCommerce API, pick a product first.</p>
+            <ol class="state-steps">
               <li>Go to the <strong>Content</strong> tab</li>
               <li>Find the <strong>Product</strong> property</li>
               <li>Select a product from the picker</li>
               <li>Save the document</li>
               <li>Return to this tab to edit the product</li>
-            </ol>
-          </div>
-        </uui-box>
+            </ol>`)}
+        </div>
       `;
     }
 
     if (this.error && !this.selectedProductId && !this.creatingProduct) {
       return html`
-        <uui-box>
-          <div class="error-state">
-            <uui-icon name="icon-alert" style="color: var(--uui-color-danger);"></uui-icon>
-            <h3>Error Loading Products</h3>
+        <div class="workspace-panel">
+          ${stateCenter(html`
+            <uui-icon name="icon-alert" class="state-icon state-icon--danger"></uui-icon>
+            <h3>Error loading products</h3>
             <p>${this.error}</p>
-            <uui-button look="secondary" @click=${() => this._refreshView()}>
-              <uui-icon name="icon-refresh"></uui-icon>
-              Retry
-            </uui-button>
-          </div>
-        </uui-box>
+            <uui-button look="outline" label="Retry" @click=${() => this._refreshView()}>
+              <uui-icon name="icon-refresh"></uui-icon>Retry
+            </uui-button>`)}
+        </div>
       `;
     }
 
     if (this.products.length === 0 && !this.creatingProduct) {
       return html`
-        <uui-box>
-          <div class="empty-state">
-            <uui-icon name="icon-box"></uui-icon>
-            <h3>No Products Found</h3>
+        <div class="workspace-panel">
+          ${stateCenter(html`
+            <uui-icon name="icon-box" class="state-icon"></uui-icon>
+            <h3>No products found</h3>
             <p>This category doesn't have any products yet.</p>
-            <uui-button look="primary" color="positive" @click=${this.startCreateProduct}>
-              New Product
-            </uui-button>
-          </div>
-        </uui-box>
+            <uui-button look="primary" label="Create Product" @click=${this.startCreateProduct}>
+              + Create Product
+            </uui-button>`)}
+        </div>
       `;
     }
 
     return html`
-      <uui-box>
-        <div slot="headline">Products (${this.products.length})</div>
+      <div class="workspace-panel">
+        <div class="view-header">
+          <h2 class="view-title">Products (${this.products.length})</h2>
+        </div>
         <div class="split-panel-layout">
           ${this.renderProductListPanel()}
           ${this.renderProductDetailPanel()}
         </div>
-      </uui-box>
+      </div>
       ${this.renderProviderBrowser()}
     `;
   }
 
-  static styles = css`
+  // Kit first, then this editor's own layout (split panels, variant tables, image gallery).
+  // See umbraco/docs/DESIGN-SYSTEM.md.
+  static styles = [commerceStyles, css`
     .provider-upload-toggle {
       display: block;
       margin-top: var(--uui-size-space-2);
-    }
-
-    .provider-browser-backdrop {
-      position: fixed;
-      inset: 0;
-      background: rgba(0, 0, 0, 0.4);
-      z-index: 1000;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .provider-browser-panel {
-      background: var(--uui-color-surface);
-      border-radius: var(--uui-border-radius);
-      box-shadow: var(--uui-shadow-depth-5);
-      width: min(760px, 90vw);
-      max-height: 80vh;
-      display: flex;
-      flex-direction: column;
-      padding: var(--uui-size-space-5);
-    }
-
-    .provider-browser-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: var(--uui-size-space-4);
-    }
-
-    .provider-browser-header h3 {
-      margin: 0;
     }
 
     .provider-photos-grid {
@@ -4120,116 +3612,17 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
       overflow: visible;
     }
 
-    uui-box {
+    /* The workspace equivalent of a view: a surface card inside Umbraco's content editor. */
+    .workspace-panel {
+      background: var(--ec-surface);
+      border: 1px solid var(--ec-border);
+      border-radius: var(--ec-radius-lg);
       overflow: visible;
     }
-
-    uui-table {
-      width: 100%;
-      display: table;
-      table-layout: fixed;
-      border-collapse: collapse;
-    }
-
-    uui-table-head {
-      display: table-header-group;
-    }
-
-    uui-table-body {
-      display: table-row-group;
-    }
-
-    uui-table-row {
-      display: table-row;
-    }
-
-    uui-table-cell,
-    uui-table-head-cell {
-      display: table-cell;
-      vertical-align: middle;
-      padding: var(--uui-size-space-3);
-      box-sizing: border-box;
-    }
-
-    /* Center Stock, Status, and Version columns */
-    uui-table-head-cell:nth-child(5),
-    uui-table-head-cell:nth-child(6),
-    uui-table-head-cell:nth-child(7),
-    uui-table-row > uui-table-cell:nth-child(5),
-    uui-table-row > uui-table-cell:nth-child(6),
-    uui-table-row > uui-table-cell:nth-child(7) {
-      text-align: center;
-    }
-
-    /* Right-align Price column */
-    uui-table-head-cell:nth-child(4),
-    uui-table-row > uui-table-cell:nth-child(4) {
-      text-align: right;
-    }
-
-    uui-table-row > uui-table-cell:nth-child(6) uui-badge,
-    uui-table-row > uui-table-cell:nth-child(7) > * {
-      position: static !important;
-      display: inline-block !important;
-      margin: 0 auto;
-    }
-
-    .stock-badge-wrapper {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      min-height: 24px;
-    }
-
-    .stock-badge-wrapper uui-badge {
-      position: static !important;
-      display: inline-flex;
-      align-items: center;
-    }
-
-    .status-badge-wrapper {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      min-height: 24px;
-    }
-
-    .status-badge-wrapper uui-badge {
-      display: inline-flex;
-      align-items: center;
-    }
-
-    .loading-state {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      padding: var(--uui-size-space-6);
-      gap: var(--uui-size-space-3);
-    }
-
-    .info-state,
-    .error-state,
-    .empty-state {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      padding: var(--uui-size-space-6);
-      text-align: center;
-    }
-
-    .info-state uui-icon,
-    .empty-state uui-icon {
-      font-size: 48px;
-      margin-bottom: var(--uui-size-space-4);
-      color: var(--uui-color-text-alt);
-    }
-
-    .error-state uui-icon {
-      font-size: 48px;
-      margin-bottom: var(--uui-size-space-4);
-    }
+    .workspace-panel .view-header { background: none; padding: 16px 20px 0; }
+    .workspace-panel .state-center h3 { margin: 0; color: var(--ec-text); }
+    .state-icon--danger { color: var(--uui-color-danger); opacity: 0.6; }
+    .state-steps { text-align: left; color: var(--ec-text-alt); font-size: 0.84rem; margin: 0; }
 
     .info-state h3,
     .error-state h3,
@@ -5490,8 +4883,7 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
       padding: var(--uui-size-space-4);
       border-top: 2px solid var(--uui-color-selected);
     }
-
-  `;
+  `];
 }
 
 customElements.define('ecomm-products-workspace-view', ECommProductsWorkspaceView);

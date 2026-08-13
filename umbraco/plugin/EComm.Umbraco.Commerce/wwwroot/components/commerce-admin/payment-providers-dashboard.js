@@ -1,6 +1,11 @@
 import { LitElement, html, css } from '@umbraco-cms/backoffice/external/lit';
 import { UmbElementMixin } from '@umbraco-cms/backoffice/element-api';
 import { UMB_AUTH_CONTEXT } from '@umbraco-cms/backoffice/auth';
+// The shared design kit — see umbraco/docs/DESIGN-SYSTEM.md before adding UI here.
+import {
+  commerceStyles, viewHeader, viewFooter, errorBanner, loadingState, emptyState,
+  formRow, checkRow, iconButton, pill, refreshButton, createButton, confirmDelete,
+} from '../shared/commerce-ui.js';
 
 const API = '/umbraco/management/api/ecomm-commerce';
 
@@ -13,6 +18,7 @@ class ECommPaymentProvidersDashboard extends UmbElementMixin(LitElement) {
   static properties = {
     markets: { type: Array, state: true },
     marketId: { type: String },
+    marketName: { type: String },
     embedded: { type: Boolean },
     catalog: { type: Array, state: true },
     providers: { type: Array, state: true },
@@ -33,6 +39,7 @@ class ECommPaymentProvidersDashboard extends UmbElementMixin(LitElement) {
     super();
     this.markets = [];
     this.marketId = '';
+    this.marketName = '';
     this.embedded = false;
     this._catalogLoaded = false;
     this._loadedMarketId = null;
@@ -160,7 +167,14 @@ class ECommPaymentProvidersDashboard extends UmbElementMixin(LitElement) {
     }
   }
 
-  async remove(alias) {
+  /**
+  * NOT named `remove`: that would shadow Element.prototype.remove(), and lit-html's part cleanup
+  * calls node.remove() to detach this element when the dashboard switches view — which would run a
+  * provider delete (and leave the element on screen) instead of removing it.
+  */
+  async deleteProvider(alias) {
+    const name = this.descriptor(alias)?.displayName ?? alias;
+    if (!await confirmDelete(this, name)) return;
     this.error = null;
     try {
       const headers = await this.getAuthHeaders();
@@ -295,22 +309,16 @@ class ECommPaymentProvidersDashboard extends UmbElementMixin(LitElement) {
 
   renderField(field) {
     const value = this.editing.values[field.key];
+
     if (field.type === 'Bool') {
-      return html`
-        <uui-toggle
-          label=${field.label}
-          ?checked=${Boolean(value)}
-          @change=${(e) => this.setFieldValue(field.key, e.target.checked)}>
-          ${field.label}
-        </uui-toggle>
-        ${field.helpText ? html`<small>${field.helpText}</small>` : ''}
-      `;
+      return checkRow(field.label, Boolean(value),
+        (e) => this.setFieldValue(field.key, e.target.checked), field.helpText);
     }
+
     const isSecret = field.type === 'Secret';
     const revealed = Boolean(this.revealed?.[field.key]);
     const type = isSecret && !revealed ? 'password' : field.type === 'Number' ? 'number' : 'text';
-    return html`
-      <uui-label>${field.label}${field.required ? ' *' : ''}</uui-label>
+    return formRow(`${field.label}${field.required ? ' *' : ''}`, html`
       <div class="secret-row">
         <uui-input
           type=${type}
@@ -329,181 +337,187 @@ class ECommPaymentProvidersDashboard extends UmbElementMixin(LitElement) {
               <uui-icon name=${revealed ? 'icon-eye-off' : 'icon-eye'}></uui-icon>
             </uui-button>`
           : ''}
-      </div>
-      ${field.helpText ? html`<small>${field.helpText}</small>` : ''}
-    `;
+      </div>`,
+      field.helpText);
   }
 
+
   render() {
-    if (this.loading) return html`<uui-loader></uui-loader>`;
+    if (this.loading) return html`<div class="view-container">${loadingState('Loading payment providers…')}</div>`;
     if (!this.embedded && !this.marketId) {
-      return html`<uui-box>${this._marketSelector()}<p>Select a store to manage its payment providers.</p></uui-box>`;
+      return html`
+        <div class="view-container">
+          ${viewHeader('Payment Providers')}
+          ${emptyState('icon-bill', 'Select a store to manage its payment providers')}
+        </div>`;
     }
     return this.editing ? this.renderEditView() : this.renderListView();
   }
 
+  get breadcrumb() {
+    return `${this.marketName || 'Store'} / Options / Payment Providers`;
+  }
+
+  /** Standalone only — embedded, the store comes from the dashboard's tree. */
   _marketSelector() {
     if (this.embedded) return '';
     return html`
-      <div class="row">
-        <uui-label for="market">Market</uui-label>
-        <select id="market" @change=${this.onMarketChange}>
-          ${this.markets.map((m) => html`<option value=${m.id} ?selected=${m.id === this.marketId}>${m.name}</option>`)}
-        </select>
-      </div>`;
+      <select class="form-input" @change=${this.onMarketChange}>
+        ${this.markets.map((m) => html`<option value=${m.id} ?selected=${m.id === this.marketId}>${m.name}</option>`)}
+      </select>`;
   }
 
   renderListView() {
     return html`
-      <uui-box headline="Payment providers">
-        ${this.error ? html`<div class="error">${this.error}</div>` : ''}
-        ${this._marketSelector()}
-
-        <div class="row order-status-row">
-          <uui-label for="order-status">Order status after payment</uui-label>
-          <select id="order-status" @change=${(e) => this.setOrderStatus(e.target.value)}>
-            <option value="" ?selected=${!this.orderStatusAfterPayment}>Default ("paid")</option>
-            ${this.orderStatuses.map((s) => html`<option value=${s.code} ?selected=${s.code === this.orderStatusAfterPayment}>${s.name}</option>`)}
-          </select>
-          <small>Applies regardless of which provider is active, from this tenant's order statuses.</small>
-        </div>
-
-        <div class="toolbar">
-          <div class="create">
-            <select @change=${(e) => (this.addAlias = e.target.value)}>
+      <div class="view-container">
+        ${viewHeader('Payment Providers', html`
+          ${this._marketSelector()}
+          ${refreshButton(() => this.loadProviders())}
+          <div class="form-inline">
+            <select class="form-input" @change=${(e) => (this.addAlias = e.target.value)}>
               <option value="">Choose a provider…</option>
               ${this.unconfigured.map((d) => html`<option value=${d.alias} ?selected=${d.alias === this.addAlias}>${d.displayName}</option>`)}
             </select>
-            <uui-button label="Create payment method" look="primary" ?disabled=${!this.addAlias} @click=${this.startAdd}></uui-button>
-          </div>
-          <div class="active-select">
-            <uui-label for="active">Active</uui-label>
-            <select id="active" @change=${(e) => this.setActive(e.target.value)}>
+            ${createButton('Payment Method', this.startAdd)}
+          </div>`)}
+
+        ${errorBanner(this.error, () => { this.error = null; })}
+
+        <!-- Store-level settings, the same shape as the Tax Classes store rate: they belong on this
+             screen because this is where people come to change how payment behaves. -->
+        <div class="form-panel">
+          ${formRow('Order status after payment', html`
+            <select class="form-input" @change=${(e) => this.setOrderStatus(e.target.value)}>
+              <option value="" ?selected=${!this.orderStatusAfterPayment}>Default ("paid")</option>
+              ${this.orderStatuses.map((s) => html`<option value=${s.code} ?selected=${s.code === this.orderStatusAfterPayment}>${s.name}</option>`)}
+            </select>`,
+            "Applies regardless of which provider is active, from this store's order statuses.")}
+          ${formRow('Active provider', html`
+            <select class="form-input" @change=${(e) => this.setActive(e.target.value)}>
               <option value="" ?selected=${!this.active}>None (default / sole provider)</option>
               ${this.providers.map((p) => html`<option value=${p.alias} ?selected=${p.alias === this.active}>${p.displayName}</option>`)}
-            </select>
-          </div>
+            </select>`,
+            'The provider the storefront starts a payment with.')}
         </div>
 
         ${this.providers.length === 0
-          ? html`<p class="empty">No payment methods configured for this store yet.</p>`
+          ? emptyState('icon-bill', 'No payment methods configured for this store yet',
+              'Pick a provider above and create it to get started.')
           : html`
-              <uui-table class="methods">
-                <uui-table-head>
-                  <uui-table-head-cell>Name</uui-table-head-cell>
-                  <uui-table-head-cell>Provider</uui-table-head-cell>
-                  <uui-table-head-cell></uui-table-head-cell>
-                  <uui-table-head-cell></uui-table-head-cell>
-                </uui-table-head>
-                ${this.providers.map(
-                  (p) => html`
-                    <uui-table-row>
-                      <uui-table-cell class="name-cell" @click=${() => this.startEdit(p.alias)}>
-                        <uui-icon name="icon-bill"></uui-icon>
-                        <strong>${p.displayName}</strong>
-                        ${p.alias === this.active ? html`<uui-tag color="positive" look="secondary">active</uui-tag>` : ''}
-                        ${!p.known ? html`<uui-tag color="warning" look="secondary">unknown</uui-tag>` : ''}
-                      </uui-table-cell>
-                      <uui-table-cell><span class="alias">${p.alias}</span></uui-table-cell>
-                      <uui-table-cell><uui-button label="Edit" look="secondary" compact @click=${() => this.startEdit(p.alias)}></uui-button></uui-table-cell>
-                      <uui-table-cell><uui-button label="Delete" look="secondary" color="danger" compact @click=${() => this.remove(p.alias)}></uui-button></uui-table-cell>
-                    </uui-table-row>`
-                )}
-              </uui-table>`}
-      </uui-box>
-    `;
+            <div class="table-scroll">
+              <table class="data-table">
+                <thead><tr>
+                  <th>Name</th><th>Provider</th><th>State</th><th class="col-actions"></th>
+                </tr></thead>
+                <tbody>
+                  ${this.providers.map((p) => html`
+                    <tr class="data-row" title="Edit ${p.displayName}" @click=${() => this.startEdit(p.alias)}>
+                      <td>
+                        <div class="name-cell">
+                          <uui-icon class="row-icon" name="icon-bill"></uui-icon>
+                          <strong>${p.displayName}</strong>
+                        </div>
+                      </td>
+                      <td><code>${p.alias}</code></td>
+                      <td>
+                        ${p.alias === this.active ? pill('Active', 'active') : pill('Inactive', 'inactive')}
+                        ${!p.known ? pill('Unknown', 'warning') : ''}
+                      </td>
+                      <td class="col-actions">
+                        ${iconButton({ title: `Delete ${p.displayName}`, onClick: () => this.deleteProvider(p.alias) })}
+                      </td>
+                    </tr>`)}
+                </tbody>
+              </table>
+            </div>`}
+
+        ${viewFooter(this.breadcrumb,
+          this.providers.length ? `${this.providers.length} payment method${this.providers.length !== 1 ? 's' : ''}` : '')}
+      </div>`;
   }
 
+  /**
+   * Kept inline rather than in a modal: a provider's schema-driven form plus its info panel is a
+   * screen's worth of settings, not a single question.
+   */
   renderEditView() {
     const d = this.descriptor(this.editing.alias);
     const isActive = this.active === this.editing.alias;
     return html`
-      <uui-box>
-        <div slot="headline" class="edit-head">
-          <uui-button compact look="secondary" label="Back" @click=${this.backToList}><uui-icon name="icon-arrow-left"></uui-icon></uui-button>
-          <span>${d?.displayName ?? this.editing.alias}</span>
+      <div class="view-container">
+        <div class="view-header">
+          <div class="detail-breadcrumb">
+            <button class="back-btn" @click=${this.backToList}>← Payment Providers</button>
+            <span class="breadcrumb-sep">/</span>
+            <span class="detail-order-num">${d?.displayName ?? this.editing.alias}</span>
+          </div>
         </div>
-        ${this.error ? html`<div class="error">${this.error}</div>` : ''}
 
-        <div class="edit-grid">
-          <div class="edit-main">
-            ${d?.fields.map((f) => html`<div class="field">${this.renderField(f)}</div>`)}
+        ${errorBanner(this.error, () => { this.error = null; })}
 
-            <div class="surcharge">
-              <h5>Surcharge fee (optional)</h5>
-              <div class="field">
-                <uui-label>Tax Class</uui-label>
-                <select @change=${(e) => this.setSurchargeField('taxClassId', e.target.value)}>
+        <!-- The form scrolls, not the whole view, so the footer stays put like every list view. -->
+        <div class="edit-scroll">
+        <div class="form-panel">
+          <div class="edit-grid">
+            <div class="edit-main">
+              ${d?.fields.map((f) => this.renderField(f))}
+
+              <h4>Surcharge fee (optional)</h4>
+              ${formRow('Tax Class', html`
+                <select class="form-input" @change=${(e) => this.setSurchargeField('taxClassId', e.target.value)}>
                   <option value="" ?selected=${!this.editing.surcharge.taxClassId}>None</option>
                   ${this.taxClasses.map((tc) => html`<option value=${tc.id} ?selected=${tc.id === this.editing.surcharge.taxClassId}>${tc.name}</option>`)}
-                </select>
-              </div>
-              <div class="field">
-                <uui-label>Default Pricing</uui-label>
-                <uui-input type="number" .value=${this.editing.surcharge.amount}
-                  @input=${(e) => this.setSurchargeField('amount', e.target.value)}></uui-input>
-              </div>
+                </select>`)}
+              ${formRow('Default Pricing', html`
+                <input class="form-input form-input--sm" type="number" .value=${this.editing.surcharge.amount}
+                  @input=${(e) => this.setSurchargeField('amount', e.target.value)}>`)}
             </div>
+
+            <aside class="detail-section-block edit-info">
+              <div class="detail-label">Info</div>
+              <p><span class="muted">Payment Provider Alias</span><br><code>${this.editing.alias}</code></p>
+              ${this.editing.isNew
+                ? html`<p class="form-hint">Save first, then set this provider active for the store.</p>`
+                : html`<uui-toggle label="Active for this store" ?checked=${isActive}
+                      @change=${(e) => this.setActive(e.target.checked ? this.editing.alias : '')}>Active for this store</uui-toggle>`}
+            </aside>
           </div>
-          <aside class="edit-info">
-            <div class="info-title">Info</div>
-            <div class="info-row"><span>Payment Provider Alias</span><code>${this.editing.alias}</code></div>
-            ${this.editing.isNew
-              ? html`<p class="info-note">Save first, then set this provider active for the store.</p>`
-              : html`<uui-toggle label="Active for this store" ?checked=${isActive}
-                    @change=${(e) => this.setActive(e.target.checked ? this.editing.alias : '')}>Active for this store</uui-toggle>`}
-          </aside>
+
+          <div class="form-actions">
+            ${!this.editing.isNew
+              ? html`<uui-button look="secondary" color="danger" label="Delete"
+                  @click=${() => { const a = this.editing.alias; this.backToList(); this.deleteProvider(a); }}>Delete</uui-button>`
+              : ''}
+            <span class="spacer"></span>
+            <uui-button look="secondary" label="Cancel" @click=${this.backToList}>Cancel</uui-button>
+            <uui-button look="primary" color="positive" label="Save" ?disabled=${this.saving}
+              @click=${this.save}>${this.saving ? 'Saving…' : 'Save'}</uui-button>
+          </div>
+        </div>
         </div>
 
-        <div class="actions">
-          ${!this.editing.isNew
-            ? html`<uui-button label="Delete" look="secondary" color="danger" @click=${() => { const a = this.editing.alias; this.backToList(); this.remove(a); }}></uui-button>`
-            : ''}
-          <span class="spacer"></span>
-          <uui-button label="Cancel" look="secondary" @click=${this.backToList}></uui-button>
-          <uui-button label=${this.saving ? 'Saving…' : 'Save'} look="primary" color="positive" ?disabled=${this.saving} @click=${this.save}></uui-button>
-        </div>
-      </uui-box>
-    `;
+        ${viewFooter(this.breadcrumb, d?.displayName ?? this.editing.alias)}
+      </div>`;
   }
 
-  static styles = css`
-    :host { display: block; padding: var(--uui-size-layout-1); }
-    .row { display: flex; align-items: center; gap: var(--uui-size-space-4); margin-bottom: var(--uui-size-space-4); }
-    .order-status-row { flex-wrap: wrap; }
-    .order-status-row small { width: 100%; color: var(--uui-color-text-alt); }
-    select { padding: 6px 8px; min-width: 240px; border: 1px solid var(--uui-color-border); border-radius: 4px; }
+  // Only what the kit doesn't cover: this view's two-column edit layout.
+  static styles = [commerceStyles, css`
+    /* "Merchant handles consumer data" is the longest label in the section; a wider label column
+       keeps these on one line without changing any other surface. */
+    :host { display: block; height: 100%; --ec-label-col: 210px; }
 
-    .toolbar { display: flex; align-items: center; justify-content: space-between; gap: var(--uui-size-space-4); margin-bottom: var(--uui-size-space-5); flex-wrap: wrap; }
-    .create { display: flex; align-items: center; gap: var(--uui-size-space-3); }
-    .active-select { display: flex; align-items: center; gap: var(--uui-size-space-3); }
-
-    .methods { width: 100%; }
-    .name-cell { display: flex; align-items: center; gap: var(--uui-size-space-3); cursor: pointer; }
-    .alias { color: var(--uui-color-text-alt); font-size: 0.85rem; }
-    .empty { color: var(--uui-color-text-alt); }
-
-    .edit-head { display: flex; align-items: center; gap: var(--uui-size-space-3); }
-    .edit-grid { display: flex; gap: var(--uui-size-layout-1); align-items: flex-start; }
+    .edit-scroll { flex: 1; min-height: 0; overflow-y: auto; }
+    .edit-grid { display: flex; gap: 24px; align-items: flex-start; }
     .edit-main { flex: 1; min-width: 0; }
-    .edit-info { width: 280px; flex-shrink: 0; background: var(--uui-color-surface-alt); border: 1px solid var(--uui-color-border); border-radius: 6px; padding: 16px; }
-    .info-title { font-weight: 700; margin-bottom: 12px; }
-    .info-row { display: flex; flex-direction: column; gap: 2px; margin-bottom: 12px; }
-    .info-row span { color: var(--uui-color-text-alt); font-size: 0.8rem; }
-    .info-row code { font-size: 0.85rem; word-break: break-all; }
-    .info-note { color: var(--uui-color-text-alt); font-size: 0.85rem; }
+    .edit-info { width: 280px; flex-shrink: 0; }
+    .edit-info p { margin: 0 0 12px; font-size: 0.84rem; }
+    .edit-info code { word-break: break-all; }
 
-    .field { margin-bottom: var(--uui-size-space-4); display: flex; flex-direction: column; gap: 4px; }
-    .field uui-input { width: 100%; max-width: 480px; }
-    .secret-row { display: flex; align-items: center; gap: 4px; max-width: 520px; }
-    .secret-row uui-input { flex: 1; }
-    .surcharge { margin-top: var(--uui-size-space-5); padding-top: var(--uui-size-space-4); border-top: 1px solid var(--uui-color-border); }
-    .surcharge h5 { margin: 0 0 var(--uui-size-space-4) 0; }
-    .actions { display: flex; gap: var(--uui-size-space-3); align-items: center; margin-top: var(--uui-size-space-5); padding-top: var(--uui-size-space-4); border-top: 1px solid var(--uui-color-border); }
-    .actions .spacer { flex: 1; }
-    .error { background: var(--uui-color-danger); color: #fff; padding: 8px 12px; border-radius: 4px; margin-bottom: var(--uui-size-space-4); }
-    small { color: var(--uui-color-text-alt); }
-  `;
+    .form-actions .spacer { flex: 1; }
+
+    .secret-row { display: flex; align-items: center; gap: 4px; }
+    .secret-row uui-input { flex: 1; min-width: 0; }
+  `];
 }
 
 customElements.define('ecomm-payment-providers-dashboard', ECommPaymentProvidersDashboard);

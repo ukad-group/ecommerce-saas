@@ -4,6 +4,16 @@ Review Umbraco CMS plugin implementation before proceeding.
 
 **Status**: Umbraco 17 (.NET 10) integration - Plugin implemented, Static assets working. Now includes a real cart/checkout with Nets Easy payments, and a full "Commerce" backoffice section (Orders, Carts, Discounts, Currencies, Countries, Order Statuses, Property Templates, Analytics)
 
+### Backoffice design system (read before touching UI)
+Every Commerce surface shares one kit: `wwwroot/components/shared/commerce-ui.js` — `commerceStyles`
+(tokens + view shell, `.data-table`, `.pill`, `.form-*`, modal, pager, states, notices) plus template
+helpers (`viewHeader`, `viewFooter`, `errorBanner`, `loadingState`, `emptyState`, `pager`, `searchBar`,
+`searchBox`, `formRow`, `checkRow`, `iconButton`, `pill`, `refreshButton`, `createButton`, `modalShell`,
+`modalActions`, `confirmDelete`). Rules and copy-paste snippets: **[umbraco/docs/DESIGN-SYSTEM.md](../../umbraco/docs/DESIGN-SYSTEM.md)**.
+Short version: row click = edit, trailing trash `iconButton` for delete, delete always via
+`confirmDelete`, one `modalShell` (Cancel then primary, right-aligned), header = title + `Refresh` +
+`+ Create X`, every list view ends in a `viewFooter`. No new hexes — add a token.
+
 ### Overview
 Umbraco CMS plugin that integrates the eCommerce SaaS platform into Umbraco's content management system. Enables editors to link categories and products from the eCommerce API into Umbraco content nodes.
 

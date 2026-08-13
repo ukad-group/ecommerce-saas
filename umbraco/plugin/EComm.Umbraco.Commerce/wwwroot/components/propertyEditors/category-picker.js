@@ -1,6 +1,8 @@
 import { LitElement, html, css } from '@umbraco-cms/backoffice/external/lit';
 import { UmbElementMixin } from '@umbraco-cms/backoffice/element-api';
 import { UMB_AUTH_CONTEXT } from '@umbraco-cms/backoffice/auth';
+// The shared design kit — see umbraco/docs/DESIGN-SYSTEM.md before adding UI here.
+import { commerceStyles, modalShell, modalActions, formRow } from '../shared/commerce-ui.js';
 import { UMB_PROPERTY_DATASET_CONTEXT } from '@umbraco-cms/backoffice/property';
 import { UMB_DOCUMENT_WORKSPACE_CONTEXT } from '@umbraco-cms/backoffice/document';
 
@@ -280,39 +282,27 @@ class ECommCategoryPicker extends UmbElementMixin(LitElement) {
   }
 
   renderCreatePopup() {
-    return html`
-      <div class="overlay" @click=${() => { this._showCreate = false; }}>
-        <div class="dialog" @click=${(e) => e.stopPropagation()}>
-          <h3>Create category</h3>
-
-          <uui-label for="new-cat-name">Name</uui-label>
-          <uui-input
-            id="new-cat-name"
-            .value=${this._newName}
+    return modalShell({
+      headline: 'Create category',
+      size: 'sm',
+      onClose: () => { this._showCreate = false; },
+      body: html`
+        ${formRow('Name', html`
+          <input class="form-input" id="new-cat-name" .value=${this._newName}
             @input=${(e) => { this._newName = e.target.value; }}
-            placeholder="Category name">
-          </uui-input>
-
-          ${this._createError ? html`<div class="dialog-error">${this._createError}</div>` : ''}
-
-          <div class="dialog-actions">
-            <uui-button look="secondary" label="Cancel"
-              ?disabled=${this._creating}
-              @click=${() => { this._showCreate = false; }}>
-              Cancel
-            </uui-button>
-            <uui-button look="primary" color="positive" label="Create"
-              ?disabled=${this._creating}
-              @click=${this.submitCreate}>
-              ${this._creating ? 'Creating…' : 'Create'}
-            </uui-button>
-          </div>
-        </div>
-      </div>
-    `;
+            placeholder="Category name">`)}
+        ${this._createError ? html`<p class="modal-error">${this._createError}</p>` : ''}`,
+      actions: modalActions({
+        onCancel: () => { this._showCreate = false; },
+        onConfirm: this.submitCreate,
+        confirmLabel: this._creating ? 'Creating…' : 'Create',
+        disabled: this._creating,
+      }),
+    });
   }
 
-  static styles = css`
+  // The create dialog comes from the kit; only the picker row itself is local.
+  static styles = [commerceStyles, css`
     :host { display: block; }
     .loading { display: flex; align-items: center; gap: var(--uui-size-space-2); padding: var(--uui-size-space-2); }
     .error { display: flex; align-items: center; gap: var(--uui-size-space-2); padding: var(--uui-size-space-2); color: var(--uui-color-danger); }
@@ -320,13 +310,7 @@ class ECommCategoryPicker extends UmbElementMixin(LitElement) {
     .picker-row uui-select { flex: 1; }
     uui-select { width: 100%; }
     .selected-info { display: block; margin-top: var(--uui-size-space-1); color: var(--uui-color-text-alt); font-size: var(--uui-size-4); }
-    .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; }
-    .dialog { background: var(--uui-color-surface); border-radius: var(--uui-border-radius); padding: var(--uui-size-space-5); width: 400px; max-width: 90vw; display: flex; flex-direction: column; gap: var(--uui-size-space-3); box-shadow: var(--uui-shadow-depth-3); }
-    .dialog h3 { margin: 0; }
-    .dialog uui-input { width: 100%; }
-    .dialog-error { color: var(--uui-color-danger); }
-    .dialog-actions { display: flex; justify-content: flex-end; gap: var(--uui-size-space-2); margin-top: var(--uui-size-space-2); }
-  `;
+  `];
 }
 
 customElements.define('ecomm-category-picker', ECommCategoryPicker);

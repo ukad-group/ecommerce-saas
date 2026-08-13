@@ -18,6 +18,15 @@ Claude Code supports `/ctx-*` commands; Codex should open the matching `.claude/
 
 - **`/ctx-umbraco`** - Umbraco CMS plugin context (`.claude/commands/ctx-umbraco.md`)
 
+## Backoffice UI
+
+**Read [docs/DESIGN-SYSTEM.md](docs/DESIGN-SYSTEM.md) before adding or changing any backoffice UI.**
+Every Commerce surface shares one design kit —
+`plugin/EComm.Umbraco.Commerce/wwwroot/components/shared/commerce-ui.js` (`commerceStyles` plus
+`viewHeader`/`viewFooter`/`errorBanner`/`loadingState`/`emptyState`/`pager`/`searchBar`/`formRow`/
+`iconButton`/`pill`/`modalShell`/`modalActions`/`confirmDelete`). Use those instead of writing a
+local variant: one modal pattern, one table, one row-action, one confirm.
+
 ## Specialist Agents
 
 Claude Code supports subagents; Codex should open the matching `.claude/agents/*.md` file.

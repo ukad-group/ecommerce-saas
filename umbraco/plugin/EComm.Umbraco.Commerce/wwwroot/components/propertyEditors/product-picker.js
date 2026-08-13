@@ -1,6 +1,8 @@
 import { LitElement, html, css } from '@umbraco-cms/backoffice/external/lit';
 import { UmbElementMixin } from '@umbraco-cms/backoffice/element-api';
 import { UMB_AUTH_CONTEXT } from '@umbraco-cms/backoffice/auth';
+// The shared design kit — see umbraco/docs/DESIGN-SYSTEM.md before adding UI here.
+import { commerceStyles, modalShell, modalActions, formRow } from '../shared/commerce-ui.js';
 import { UMB_DOCUMENT_WORKSPACE_CONTEXT } from '@umbraco-cms/backoffice/document';
 
 class ECommProductPicker extends UmbElementMixin(LitElement) {
@@ -280,67 +282,47 @@ class ECommProductPicker extends UmbElementMixin(LitElement) {
   }
 
   _renderCreatePopup() {
-    return html`
-      <div class="overlay" @click=${() => { this._showCreate = false; }}>
-        <div class="dialog" @click=${(e) => e.stopPropagation()}>
-          <h3>Create product</h3>
-
+    return modalShell({
+      headline: 'Create product',
+      size: 'sm',
+      onClose: () => { this._showCreate = false; },
+      body: html`
+        ${formRow('Type', html`
           <uui-radio-group
             .value=${this._newType}
             @change=${(e) => { this._newType = e.target.value; }}>
             <uui-radio value="single" label="Solo product"></uui-radio>
             <uui-radio value="variants" label="With variants"></uui-radio>
-          </uui-radio-group>
+          </uui-radio-group>`)}
 
-          <uui-label for="new-name">Name</uui-label>
-          <uui-input
-            id="new-name"
-            .value=${this._newName}
+        ${formRow('Name', html`
+          <input class="form-input" id="new-name" .value=${this._newName}
             @input=${(e) => { this._newName = e.target.value; }}
-            placeholder="Product name">
-          </uui-input>
+            placeholder="Product name">`)}
 
-          ${this._newType === 'single' ? html`
-            <uui-label for="new-sku">SKU</uui-label>
-            <uui-input
-              id="new-sku"
-              .value=${this._newSku}
+        ${this._newType === 'single' ? html`
+          ${formRow('SKU', html`
+            <input class="form-input" id="new-sku" .value=${this._newSku}
               @input=${(e) => { this._newSku = e.target.value; }}
-              placeholder="SKU">
-            </uui-input>
-
-            <uui-label for="new-price">Price</uui-label>
-            <uui-input
-              id="new-price"
-              type="number"
-              min="0"
-              step="0.01"
+              placeholder="SKU">`)}
+          ${formRow('Price', html`
+            <input class="form-input" id="new-price" type="number" min="0" step="0.01"
               .value=${this._newPrice}
               @input=${(e) => { this._newPrice = e.target.value; }}
-              placeholder="0.00">
-            </uui-input>
-          ` : ''}
+              placeholder="0.00">`)}` : ''}
 
-          ${this._createError ? html`<div class="error">${this._createError}</div>` : ''}
-
-          <div class="dialog-actions">
-            <uui-button look="secondary" label="Cancel"
-              ?disabled=${this._creating}
-              @click=${() => { this._showCreate = false; }}>
-              Cancel
-            </uui-button>
-            <uui-button look="primary" color="positive" label="Create"
-              ?disabled=${this._creating}
-              @click=${this._submitCreate}>
-              ${this._creating ? 'Creating…' : 'Create'}
-            </uui-button>
-          </div>
-        </div>
-      </div>
-    `;
+        ${this._createError ? html`<p class="modal-error">${this._createError}</p>` : ''}`,
+      actions: modalActions({
+        onCancel: () => { this._showCreate = false; },
+        onConfirm: this._submitCreate,
+        confirmLabel: this._creating ? 'Creating…' : 'Create',
+        disabled: this._creating,
+      }),
+    });
   }
 
-  static styles = css`
+  // The create dialog comes from the kit; only the picker row itself is local.
+  static styles = [commerceStyles, css`
     :host {
       display: block;
     }
@@ -380,44 +362,7 @@ class ECommProductPicker extends UmbElementMixin(LitElement) {
       color: var(--uui-color-text-alt);
       font-size: var(--uui-size-4);
     }
-
-    .overlay {
-      position: fixed;
-      inset: 0;
-      background: rgba(0, 0, 0, 0.5);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 1000;
-    }
-
-    .dialog {
-      background: var(--uui-color-surface);
-      border-radius: var(--uui-border-radius);
-      padding: var(--uui-size-space-5);
-      width: 400px;
-      max-width: 90vw;
-      display: flex;
-      flex-direction: column;
-      gap: var(--uui-size-space-3);
-      box-shadow: var(--uui-shadow-depth-3);
-    }
-
-    .dialog h3 {
-      margin: 0;
-    }
-
-    .dialog uui-input {
-      width: 100%;
-    }
-
-    .dialog-actions {
-      display: flex;
-      justify-content: flex-end;
-      gap: var(--uui-size-space-2);
-      margin-top: var(--uui-size-space-2);
-    }
-  `;
+  `];
 }
 
 customElements.define('ecomm-product-picker', ECommProductPicker);

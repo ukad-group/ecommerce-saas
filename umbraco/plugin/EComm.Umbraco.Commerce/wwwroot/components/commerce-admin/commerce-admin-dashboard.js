@@ -1,8 +1,13 @@
 import { LitElement, html, css } from '@umbraco-cms/backoffice/external/lit';
 import { UmbElementMixin } from '@umbraco-cms/backoffice/element-api';
 import { UMB_AUTH_CONTEXT } from '@umbraco-cms/backoffice/auth';
-import { umbConfirmModal } from '@umbraco-cms/backoffice/modal';
 import '@umbraco-cms/backoffice/media'; // registers the native <umb-input-rich-media> element
+// The shared design kit — see umbraco/docs/DESIGN-SYSTEM.md before adding UI here.
+import {
+  commerceStyles, viewHeader, viewFooter, errorBanner, stateCenter, loadingState, emptyState,
+  pager, searchBox, searchBar, formRow, checkRow, iconButton, pill, refreshButton, createButton,
+  modalShell, modalActions, confirmDelete,
+} from '../shared/commerce-ui.js';
 import './payment-providers-dashboard.js'; // registers <ecomm-payment-providers-dashboard> (Options → Payment Providers)
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -992,47 +997,13 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
     return s.charAt(0).toUpperCase() + s.slice(1);
   }
 
-  /**
-   * Umbraco's own confirm dialog, so no row in this dashboard goes on a single click. Lives in the
-   * delete methods rather than on the buttons — every caller is then covered. `umbConfirmModal`
-   * rejects when dismissed, which is the "keep it" answer.
-   */
-  async _confirmDelete(name) {
-    try {
-      await umbConfirmModal(this, {
-        headline: 'Delete',
-        content: `Are you sure you want to delete "${name || 'this item'}"?`,
-        color: 'danger',
-        confirmLabel: 'Delete',
-      });
-      return true;
-    } catch {
-      return false;
-    }
-  }
-
-  _errorBanner(msg, clear) {
-    return msg ? html`
-      <div class="error-banner">
-        <uui-icon name="icon-alert"></uui-icon>
-        <span>${msg}</span>
-        <button class="error-close" @click=${clear}>×</button>
-      </div>` : '';
-  }
-
-  _stateCenter(content) {
-    return html`<div class="state-center">${content}</div>`;
-  }
-
-  // Actions go in their own box: dropped straight into the space-between row, a second button gets
-  // spaced to the middle of the header instead of sitting next to the first.
-  _viewHeader(title, actionSlot) {
-    return html`
-      <div class="view-header">
-        <h2 class="view-title">${title}</h2>
-        <div class="view-actions">${actionSlot || ''}</div>
-      </div>`;
-  }
+  // These five are the design kit's helpers under this dashboard's original names, so the ~100 call
+  // sites below read the same as they always did. The implementations live in shared/commerce-ui.js.
+  _confirmDelete(name) { return confirmDelete(this, name); }
+  _errorBanner(msg, clear) { return errorBanner(msg, clear); }
+  _stateCenter(content) { return stateCenter(content); }
+  _viewHeader(title, actionSlot) { return viewHeader(title, actionSlot); }
+  _renderPager(total, page, pageSize, goTo) { return pager(total, page, pageSize, goTo); }
 
   _filterBtn(label, value, isOpen, toggle) {
     return html`
@@ -1129,10 +1100,7 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
 
     return html`
       <div class="view-container">
-        ${this._viewHeader('Orders', html`
-          <uui-button look="secondary" compact>
-            Actions <uui-icon name="icon-navigation-down" style="font-size:0.7em;margin-left:2px"></uui-icon>
-          </uui-button>`)}
+        ${this._viewHeader('Orders', refreshButton(() => this.loadOrders()))}
 
         ${this._errorBanner(this.ordersError, () => { this.ordersError = null; })}
 
@@ -1176,10 +1144,8 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
           </div>
         </div>
 
-        ${this.ordersLoading ? this._stateCenter(html`<uui-loader></uui-loader><p>Loading orders…</p>`) :
-          orders.length === 0 ? this._stateCenter(html`
-            <uui-icon name="icon-shopping-basket" style="font-size:3rem;opacity:0.25"></uui-icon>
-            <p>No orders found</p>`) :
+        ${this.ordersLoading ? loadingState('Loading orders…') :
+          orders.length === 0 ? emptyState('icon-shopping-basket', 'No orders found') :
           html`
             <div class="table-scroll">
               <table class="data-table">
@@ -1219,31 +1185,8 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
 
         ${this._renderPager(this.totalCount, this.currentPage, this.pageSize,
             p => { this.currentPage = p; this.loadOrders(); })}
-        <div class="view-footer"><span class="breadcrumb">${this.marketName} / Orders</span></div>
-      </div>`;
-  }
-
-  // One pager for every list, server-side (orders, carts — `goTo` refetches) and client-side
-  // (property templates, attributes, presets — `goTo` just moves the page).
-  _renderPager(total, page, pageSize, goTo) {
-    const totalPages = Math.ceil(total / pageSize);
-    if (totalPages <= 1) return '';
-    // Windowed: first, last, and current ±2, with … gaps — never render every page (could be 100s).
-    const wanted = new Set([1, totalPages]);
-    for (let p = page - 2; p <= page + 2; p++) if (p >= 1 && p <= totalPages) wanted.add(p);
-    const sorted = [...wanted].sort((a, b) => a - b);
-    const items = [];
-    for (let i = 0; i < sorted.length; i++) {
-      if (i > 0 && sorted[i] - sorted[i - 1] > 1) items.push(null);
-      items.push(sorted[i]);
-    }
-    return html`
-      <div class="pagination-bar">
-        <button class="page-btn" ?disabled=${page <= 1} @click=${() => goTo(page - 1)}>←</button>
-        ${items.map(p => p === null
-          ? html`<span class="page-ellipsis">…</span>`
-          : html`<button class="page-btn ${page === p ? 'page-btn--active' : ''}" @click=${() => goTo(p)}>${p}</button>`)}
-        <button class="page-btn" ?disabled=${page >= totalPages} @click=${() => goTo(page + 1)}>→</button>
+        ${viewFooter(`${this.marketName} / Orders`,
+          this.totalCount ? `${this.totalCount} order${this.totalCount !== 1 ? 's' : ''}` : '')}
       </div>`;
   }
 
@@ -1366,9 +1309,7 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
           </div>
         </div>
 
-        <div class="view-footer">
-          <span class="breadcrumb">${this.marketName} / Orders / ${order.orderNumber}</span>
-        </div>
+        ${viewFooter(`${this.marketName} / Orders / ${order.orderNumber}`)}
       </div>`;
   }
 
@@ -1378,10 +1319,7 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
     const carts = this.carts;
     return html`
       <div class="view-container">
-        ${this._viewHeader('Carts', html`
-          <uui-button look="secondary" compact @click=${() => this.loadCarts()}>
-            <uui-icon name="icon-refresh"></uui-icon> Refresh
-          </uui-button>`)}
+        ${this._viewHeader('Carts', refreshButton(() => this.loadCarts()))}
 
         ${this._errorBanner(this.cartsError, () => { this.cartsError = null; })}
 
@@ -1393,23 +1331,22 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
                       @click=${() => { this.cartsSearch = ''; this.cartsPage = 1; this.loadCarts(); }}>
                 ✕ Reset search
               </button>` : ''}
-            <div class="search-wrap">
-              <uui-icon name="icon-search" class="search-icon"></uui-icon>
-              <input class="search-input" type="search" placeholder="Search by session or product…"
-                .value=${this.cartsSearch} @input=${e => {
-                  this.cartsSearch = e.target.value;
-                  clearTimeout(this._cartsSearchDebounce);
-                  this._cartsSearchDebounce = setTimeout(() => { this.cartsPage = 1; this.loadCarts(); }, 300);
-                }}>
-            </div>
+            ${searchBox({
+              value: this.cartsSearch,
+              placeholder: 'Search by session or product…',
+              onInput: e => {
+                this.cartsSearch = e.target.value;
+                clearTimeout(this._cartsSearchDebounce);
+                this._cartsSearchDebounce = setTimeout(() => { this.cartsPage = 1; this.loadCarts(); }, 300);
+              },
+            })}
           </div>
         </div>
 
-        ${this.cartsLoading ? this._stateCenter(html`<uui-loader></uui-loader><p>Loading carts…</p>`) :
-          carts.length === 0 ? this._stateCenter(html`
-            <uui-icon name="icon-shopping-basket" style="font-size:3rem;opacity:0.25"></uui-icon>
-            <p>${this.cartsSearch ? 'No carts match that search' : 'No active carts'}</p>
-            <p style="font-size:0.8rem;color:#aaa">Carts appear here when customers start shopping but haven't checked out yet.</p>`) :
+        ${this.cartsLoading ? loadingState('Loading carts…') :
+          carts.length === 0 ? emptyState('icon-shopping-basket',
+            this.cartsSearch ? 'No carts match that search' : 'No active carts',
+            "Carts appear here when customers start shopping but haven't checked out yet.") :
           html`
             <div class="table-scroll">
               <table class="data-table">
@@ -1440,7 +1377,8 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
 
         ${this._renderPager(this.cartsTotalCount, this.cartsPage, this.pageSize,
             p => { this.cartsPage = p; this.loadCarts(); })}
-        <div class="view-footer"><span class="breadcrumb">${this.marketName} / Carts</span></div>
+        ${viewFooter(`${this.marketName} / Carts`,
+          this.cartsTotalCount ? `${this.cartsTotalCount} cart${this.cartsTotalCount !== 1 ? 's' : ''}` : '')}
       </div>`;
   }
 
@@ -1467,7 +1405,7 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
             <div class="detail-section">
               <div class="detail-label">Shopper</div>
               <p><span class="muted">Anonymous</span></p>
-              <p style="font-size:0.8rem;color:#aaa">A cart has no customer details — those are captured at checkout.</p>
+              <p class="state-note">A cart has no customer details — those are captured at checkout.</p>
             </div>
             <div class="detail-section">
               <div class="detail-label">Cart Info</div>
@@ -1481,7 +1419,7 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
               <p><span class="muted">Subtotal:</span> ${this.formatCurrency(cart.subtotal)}</p>
               <p><span class="muted">Tax:</span> ${this.formatCurrency(cart.tax)}</p>
               <p class="total-line"><strong>Total: ${this.formatCurrency(cart.total)}</strong></p>
-              <p style="font-size:0.8rem;color:#aaa">Shipping and payment fees are added at checkout.</p>
+              <p class="state-note">Shipping and payment fees are added at checkout.</p>
             </div>
           </div>
 
@@ -1509,9 +1447,7 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
           </div>
         </div>
 
-        <div class="view-footer">
-          <span class="breadcrumb">${this.marketName} / Carts / ${cart.sessionId || cart.id}</span>
-        </div>
+        ${viewFooter(`${this.marketName} / Carts / ${cart.sessionId || cart.id}`)}
       </div>`;
   }
 
@@ -1522,17 +1458,12 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
 
     return html`
       <div class="view-container">
-        ${this._viewHeader('Analytics', html`
-          <uui-button look="secondary" compact @click=${this.loadAnalytics}>
-            <uui-icon name="icon-refresh"></uui-icon> Refresh
-          </uui-button>`)}
+        ${this._viewHeader('Analytics', refreshButton(this.loadAnalytics))}
 
         ${this._errorBanner(this.analyticsError, () => { this.analyticsError = null; })}
 
-        ${this.analyticsLoading ? this._stateCenter(html`<uui-loader></uui-loader><p>Loading analytics…</p>`) :
-          !stats ? this._stateCenter(html`
-            <uui-icon name="icon-chart" style="font-size:3rem;opacity:0.25"></uui-icon>
-            <p>No order data available</p>`) :
+        ${this.analyticsLoading ? loadingState('Loading analytics…') :
+          !stats ? emptyState('icon-chart', 'No order data available') :
           html`
             <div class="analytics-body">
               <!-- Stat cards -->
@@ -1584,7 +1515,7 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
               </div>
             </div>`}
 
-        <div class="view-footer"><span class="breadcrumb">${this.marketName} / Analytics</span></div>
+        ${viewFooter(`${this.marketName} / Analytics`)}
       </div>`;
   }
 
@@ -1595,29 +1526,30 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
     const r = this.reassignOrderStatus;
     if (!r) return '';
     const many = r.inUseCount !== 1;
-    return html`
-      <div class="modal-overlay" @click=${(e) => { if (e.target === e.currentTarget) this.reassignOrderStatus = null; }}>
-        <div class="form-panel form-panel--modal form-panel--sm">
-          <h3>Delete "${r.status.name}"</h3>
-          <p style="margin:0 0 12px">
-            ${r.inUseCount} order${many ? 's' : ''} still use${many ? '' : 's'} this status.
-            Pick the status ${many ? 'they' : 'it'} should use instead — deleting moves ${many ? 'them' : 'it'} over.
-          </p>
-          <div class="form-row"><label>Use instead</label>
-            <select class="form-input" .value=${r.target}
-              @change=${e => { this.reassignOrderStatus = { ...r, target: e.target.value }; }}>
-              <option value="">— Select a status —</option>
-              ${this.orderStatuses.filter(x => x.id !== r.status.id).map(o => html`
-                <option value=${o.code}>${o.name}</option>`)}
-            </select>
-          </div>
-          <div class="form-actions">
-            <uui-button look="primary" color="danger" ?disabled=${!r.target}
-              @click=${() => this.deleteOrderStatus(r.status, r.target)}>Move orders &amp; delete</uui-button>
-            <uui-button look="secondary" @click=${() => { this.reassignOrderStatus = null; }}>Cancel</uui-button>
-          </div>
-        </div>
-      </div>`;
+    return modalShell({
+      headline: `Delete "${r.status.name}"`,
+      size: 'sm',
+      onClose: () => { this.reassignOrderStatus = null; },
+      body: html`
+        <p>
+          ${r.inUseCount} order${many ? 's' : ''} still use${many ? '' : 's'} this status.
+          Pick the status ${many ? 'they' : 'it'} should use instead — deleting moves ${many ? 'them' : 'it'} over.
+        </p>
+        ${formRow('Use instead', html`
+          <select class="form-input" .value=${r.target}
+            @change=${e => { this.reassignOrderStatus = { ...r, target: e.target.value }; }}>
+            <option value="">— Select a status —</option>
+            ${this.orderStatuses.filter(x => x.id !== r.status.id).map(o => html`
+              <option value=${o.code}>${o.name}</option>`)}
+          </select>`)}`,
+      actions: modalActions({
+        onCancel: () => { this.reassignOrderStatus = null; },
+        onConfirm: () => this.deleteOrderStatus(r.status, r.target),
+        confirmLabel: 'Move orders & delete',
+        color: 'danger',
+        disabled: !r.target,
+      }),
+    });
   }
 
   _renderOrderStatusesView() {
@@ -1628,73 +1560,56 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
     return html`
       <div class="view-container">
         ${this._viewHeader('Order Statuses', html`
-          <uui-button look="outline" label="Refresh" @click=${this.loadOrderStatuses}>
-            <uui-icon name="icon-refresh" style="margin-right:6px"></uui-icon>Refresh
-          </uui-button>
-          <uui-button look="primary" @click=${() => { this.editingOrderStatus = { id: crypto.randomUUID(), name: '', code: '', color: '#6B7280', sortOrder: nextSort, isActive: true }; }}>
-            + Create Order Status
-          </uui-button>`)}
+          ${refreshButton(this.loadOrderStatuses)}
+          ${createButton('Order Status', () => { this.editingOrderStatus = { id: crypto.randomUUID(), name: '', code: '', color: '#6B7280', sortOrder: nextSort, isActive: true }; })}`)}
 
         ${this._errorBanner(this.orderStatusesError, () => { this.orderStatusesError = null; })}
 
         ${this._renderReassignOrderStatus()}
 
-        ${s ? html`
-          <div class="modal-overlay" @click=${(e) => { if (e.target === e.currentTarget) this.editingOrderStatus = null; }}>
-          <div class="form-panel form-panel--modal">
-            <h3>${isNew ? 'New Order Status' : 'Edit Order Status'}</h3>
-            <div class="form-row"><label>Name</label>
+        ${s ? modalShell({
+          headline: isNew ? 'New Order Status' : 'Edit Order Status',
+          onClose: () => { this.editingOrderStatus = null; },
+          body: html`
+            ${formRow('Name', html`
               <input class="form-input" .value=${s.name || ''} placeholder="e.g. Awaiting Pickup"
-                @input=${e => { this.editingOrderStatus = { ...s, name: e.target.value }; }}>
-            </div>
-            <div class="form-row" style="align-items:flex-start"><label>Code</label>
-              <div style="display:flex;flex-direction:column;gap:4px;flex:1">
-                ${isNew ? html`
-                  <input class="form-input" .value=${s.code || ''} placeholder=${slugify(s.name || '') || 'e.g. awaiting-pickup'}
+                @input=${e => { this.editingOrderStatus = { ...s, name: e.target.value }; }}>`)}
+            ${formRow('Code',
+              isNew
+                ? html`<input class="form-input" .value=${s.code || ''} placeholder=${slugify(s.name || '') || 'e.g. awaiting-pickup'}
                     @input=${e => { this.editingOrderStatus = { ...s, code: e.target.value }; }}>`
-                : html`<code>${s.code}</code>`}
-                <span style="color:#999;font-size:0.8rem">
-                  ${isNew ? 'Derived from the name if left blank. Orders store the code, so it is fixed once created.'
-                          : 'Fixed — existing orders reference this code.'}
-                </span>
-              </div>
-            </div>
-            <div class="form-row"><label>Color</label>
-              <div style="display:flex;gap:8px;align-items:center">
-                <input type="color" .value=${s.color || '#6B7280'} style="width:48px;height:32px;padding:0;border:1px solid #d8d7d9;cursor:pointer"
+                : html`<code>${s.code}</code>`,
+              isNew ? 'Derived from the name if left blank. Orders store the code, so it is fixed once created.'
+                    : 'Fixed — existing orders reference this code.')}
+            ${formRow('Color', html`
+              <div class="form-inline">
+                <input type="color" class="form-input form-input--color" .value=${s.color || '#6B7280'}
                   @input=${e => { this.editingOrderStatus = { ...s, color: e.target.value }; }}>
-                <input class="form-input" style="width:110px" .value=${s.color || '#6B7280'}
+                <input class="form-input form-input--sm" .value=${s.color || '#6B7280'}
                   @input=${e => { this.editingOrderStatus = { ...s, color: e.target.value }; }}>
-              </div>
-            </div>
-            <div class="form-row"><label>Sort Order</label>
-              <input class="form-input" style="width:110px" type="number" step="1" .value=${s.sortOrder ?? 0}
-                @input=${e => { this.editingOrderStatus = { ...s, sortOrder: e.target.value }; }}>
-            </div>
-            <div class="form-row">
-              <label><input type="checkbox" .checked=${s.isActive !== false}
-                @change=${e => { this.editingOrderStatus = { ...s, isActive: e.target.checked }; }}> Active</label>
-              <span style="color:#999;font-size:0.8rem">Inactive statuses stay on the orders using them but drop out of the pickers.</span>
-            </div>
-            <div class="form-actions">
-              <uui-button look="primary" @click=${() => this.saveOrderStatus()}>Save</uui-button>
-              <uui-button look="secondary" @click=${() => { this.editingOrderStatus = null; }}>Cancel</uui-button>
-            </div>
-          </div>
-          </div>` : ''}
+              </div>`)}
+            ${formRow('Sort Order', html`
+              <input class="form-input form-input--sm" type="number" step="1" .value=${s.sortOrder ?? 0}
+                @input=${e => { this.editingOrderStatus = { ...s, sortOrder: e.target.value }; }}>`)}
+            ${checkRow('Active', s.isActive !== false,
+              e => { this.editingOrderStatus = { ...s, isActive: e.target.checked }; },
+              'Inactive statuses stay on the orders using them but drop out of the pickers.')}`,
+          actions: modalActions({
+            onCancel: () => { this.editingOrderStatus = null; },
+            onConfirm: () => this.saveOrderStatus(),
+          }),
+        }) : ''}
 
-        ${this.orderStatusesLoading ? this._stateCenter(html`<uui-loader></uui-loader><p>Loading…</p>`) :
-          this.orderStatuses.length === 0 ? this._stateCenter(html`
-            <uui-icon name="icon-settings" style="font-size:3rem;opacity:0.25"></uui-icon>
-            <p>No order statuses found</p>`) :
+        ${this.orderStatusesLoading ? loadingState() :
+          this.orderStatuses.length === 0 ? emptyState('icon-settings', 'No order statuses found') :
           html`
             <div class="table-scroll">
               <table class="data-table">
                 <thead><tr>
                   <th>Status</th>
-                  <th style="width:90px" class="col-r">Sort</th>
+                  <th class="col-r" style="width:90px">Sort</th>
                   <th style="width:220px">State</th>
-                  <th style="width:64px"></th>
+                  <th class="col-actions"></th>
                 </tr></thead>
                 <tbody>
                   ${this.orderStatuses.map(st => html`
@@ -1715,11 +1630,8 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
                         </span>
                         ${st.isSystemDefault ? html`<span class="pill pill--system">System</span>` : ''}
                       </td>
-                      <td class="col-r">
-                        <button class="icon-btn" title="Delete ${st.name}" aria-label="Delete ${st.name}"
-                          @click=${(e) => { e.stopPropagation(); this.deleteOrderStatus(st); }}>
-                          <uui-icon name="icon-trash"></uui-icon>
-                        </button>
+                      <td class="col-actions">
+                        ${iconButton({ title: `Delete ${st.name}`, onClick: () => this.deleteOrderStatus(st) })}
                       </td>
                     </tr>
                   `)}
@@ -1727,10 +1639,8 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
               </table>
             </div>`}
 
-        <div class="view-footer">
-          <span class="breadcrumb">${this.marketName} / Options / Order Statuses</span>
-          ${this.orderStatuses.length > 0 ? html`<span class="breadcrumb" style="margin-left:auto">${this.orderStatuses.length} status${this.orderStatuses.length !== 1 ? 'es' : ''}</span>` : ''}
-        </div>
+        ${viewFooter(`${this.marketName} / Options / Order Statuses`,
+          this.orderStatuses.length ? `${this.orderStatuses.length} status${this.orderStatuses.length !== 1 ? 'es' : ''}` : '')}
       </div>`;
   }
 
@@ -1741,9 +1651,8 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
     return html`
       <div class="view-container">
         ${this._viewHeader('Discounts', html`
-          <uui-button look="primary" @click=${() => { this.editingDiscount = { code:'', name:'', type:'percentage', value:0, isActive:true }; }}>
-            + New Discount
-          </uui-button>`)}
+          ${refreshButton(() => this.loadDiscounts())}
+          ${createButton('Discount', () => { this.editingDiscount = { code:'', name:'', type:'percentage', value:0, isActive:true }; })}`)}
 
         ${this._errorBanner(this.discountsError, () => { this.discountsError = null; })}
 
@@ -1781,28 +1690,25 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
               <label>Expiry Date</label>
               <input class="form-input" type="date" .value=${d.expiryDate ? d.expiryDate.split('T')[0] : ''} @input=${e => { this.editingDiscount = {...d, expiryDate: e.target.value || null}; }}>
             </div>
-            <div class="form-row">
-              <label><input type="checkbox" .checked=${d.isActive} @change=${e => { this.editingDiscount = {...d, isActive: e.target.checked}; }}> Active</label>
-            </div>
+            ${checkRow('Active', d.isActive, e => { this.editingDiscount = {...d, isActive: e.target.checked}; })}
             <div class="form-actions">
               <uui-button look="primary" @click=${() => this.saveDiscount()}>Save</uui-button>
               <uui-button look="secondary" @click=${() => { this.editingDiscount = null; }}>Cancel</uui-button>
             </div>
           </div>` : ''}
 
-        ${this.discountsLoading ? this._stateCenter(html`<uui-loader></uui-loader><p>Loading discounts…</p>`) :
-          this.discounts.length === 0 && !d ? this._stateCenter(html`
-            <uui-icon name="icon-tag" style="font-size:3rem;opacity:0.25"></uui-icon>
-            <p>No discounts yet</p>`) :
+        ${this.discountsLoading ? loadingState('Loading discounts…') :
+          this.discounts.length === 0 && !d ? emptyState('icon-tag', 'No discounts yet') :
           html`
             <div class="table-scroll">
               <table class="data-table">
                 <thead><tr>
-                  <th>Code</th><th>Name</th><th>Type</th><th>Value</th><th>Uses</th><th>Expiry</th><th>Active</th><th></th>
+                  <th>Code</th><th>Name</th><th>Type</th><th>Value</th><th>Uses</th><th>Expiry</th><th>Active</th><th class="col-actions"></th>
                 </tr></thead>
                 <tbody>
                   ${this.discounts.map(disc => html`
-                    <tr class="data-row">
+                    <tr class="data-row" title="Edit ${disc.name || disc.code}"
+                      @click=${() => { this.editingDiscount = {...disc}; }}>
                       <td><code>${disc.code}</code></td>
                       <td>${disc.name}</td>
                       <td>${disc.type}</td>
@@ -1810,16 +1716,16 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
                       <td>${disc.usesCount}${disc.maxUses ? ' / ' + disc.maxUses : ''}</td>
                       <td>${disc.expiryDate ? new Date(disc.expiryDate).toLocaleDateString() : '—'}</td>
                       <td><span class="pill ${disc.isActive ? 'pill--active' : 'pill--inactive'}">${disc.isActive ? 'Active' : 'Off'}</span></td>
-                      <td class="row-actions">
-                        <uui-button look="secondary" compact @click=${(e) => { e.stopPropagation(); this.editingDiscount = {...disc}; }}>Edit</uui-button>
-                        <uui-button look="secondary" color="danger" compact @click=${(e) => { e.stopPropagation(); this.deleteDiscount(disc.id); }}>Del</uui-button>
+                      <td class="col-actions">
+                        ${iconButton({ title: `Delete ${disc.name || disc.code}`, onClick: () => this.deleteDiscount(disc.id) })}
                       </td>
                     </tr>`)}
                 </tbody>
               </table>
             </div>`}
 
-        <div class="view-footer"><span class="breadcrumb">${this.marketName} / Discounts</span></div>
+        ${viewFooter(`${this.marketName} / Discounts`,
+          this.discounts.length ? `${this.discounts.length} discount${this.discounts.length !== 1 ? 's' : ''}` : '')}
       </div>`;
   }
 
@@ -1836,9 +1742,8 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
     return html`
       <div class="view-container">
         ${this._viewHeader('Property Templates', html`
-          <uui-button look="primary" @click=${() => { this.editingTemplate = { name: '', defaultValue: '', _isNew: true }; }}>
-            + New Template
-          </uui-button>`)}
+          ${refreshButton(() => this.loadPropertyTemplates())}
+          ${createButton('Property Template', () => { this.editingTemplate = { name: '', defaultValue: '', _isNew: true }; })}`)}
 
         ${this._errorBanner(this.propertyTemplatesError, () => { this.propertyTemplatesError = null; })}
 
@@ -1877,40 +1782,33 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
             </div>
           </div>` : ''}
 
-        <div class="filters-bar">
-          <div class="filters-left"></div>
-          <div class="filters-right">
-            <div class="search-wrap">
-              <uui-icon name="icon-search" class="search-icon"></uui-icon>
-              <input class="search-input" type="search" placeholder="Search templates…"
-                .value=${this.propertyTemplatesSearch}
-                @input=${e => { this.propertyTemplatesSearch = e.target.value; this.propertyTemplatesPage = 1; }}>
-            </div>
-          </div>
-        </div>
+        ${searchBar({
+          value: this.propertyTemplatesSearch,
+          placeholder: 'Search templates…',
+          onInput: e => { this.propertyTemplatesSearch = e.target.value; this.propertyTemplatesPage = 1; },
+        })}
 
-        ${this.propertyTemplatesLoading ? this._stateCenter(html`<uui-loader></uui-loader><p>Loading…</p>`) :
-          filtered.length === 0 ? this._stateCenter(html`
-            <uui-icon name="icon-list" style="font-size:3rem;opacity:0.25"></uui-icon>
-            <p>${q ? 'No templates match your search' : 'No property templates yet'}</p>
-            ${q ? '' : html`<p style="color:#999;font-size:0.85rem">Templates define default custom properties added to all products in this store.</p>`}`) :
+        ${this.propertyTemplatesLoading ? loadingState() :
+          filtered.length === 0 ? emptyState('icon-list',
+            q ? 'No templates match your search' : 'No property templates yet',
+            q ? '' : 'Templates define default custom properties added to all products in this store.') :
           html`
             <div class="table-scroll">
               <table class="data-table">
                 <thead><tr>
-                  <th>#</th><th>Name</th><th>Values from</th><th>Default Value</th><th></th>
+                  <th>#</th><th>Name</th><th>Values from</th><th>Default Value</th><th class="col-actions"></th>
                 </tr></thead>
                 <tbody>
                   ${paged.map((tmpl, i) => { const idx = (page - 1) * PAGE_SIZE + i;
                     const boundAttr = this.attributes.find(a => a.id === tmpl.attributeId); return html`
-                    <tr class="data-row">
+                    <tr class="data-row" title="Edit ${tmpl.name}"
+                      @click=${() => { this.editingTemplate = { ...tmpl, _idx: idx }; }}>
                       <td>${tmpl.sortOrder ?? idx}</td>
                       <td><strong>${tmpl.name}</strong></td>
-                      <td>${boundAttr ? html`<span class="pill pill--single">${boundAttr.name}</span>` : html`<em style="color:#999">free text</em>`}</td>
+                      <td>${boundAttr ? pill(boundAttr.name, 'single') : html`<em class="muted">free text</em>`}</td>
                       <td>${tmpl.defaultValue || '—'}</td>
-                      <td class="row-actions">
-                        <uui-button look="secondary" compact @click=${(e) => { e.stopPropagation(); this.editingTemplate = { ...tmpl, _idx: idx }; }}>Edit</uui-button>
-                        <uui-button look="secondary" color="danger" compact @click=${(e) => { e.stopPropagation(); this.deleteTemplate(idx); }}>Del</uui-button>
+                      <td class="col-actions">
+                        ${iconButton({ title: `Delete ${tmpl.name}`, onClick: () => this.deleteTemplate(idx) })}
                       </td>
                     </tr>`;})}
                 </tbody>
@@ -1918,10 +1816,8 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
             </div>
             ${this._renderPager(filtered.length, page, PAGE_SIZE, p => { this.propertyTemplatesPage = p; })}`}
 
-        <div class="view-footer">
-          <span class="breadcrumb">${this.marketName} / Options / Property Templates</span>
-          ${filtered.length > 0 ? html`<span class="breadcrumb" style="margin-left:auto">${filtered.length} template${filtered.length !== 1 ? 's' : ''}</span>` : ''}
-        </div>
+        ${viewFooter(`${this.marketName} / Options / Property Templates`,
+          filtered.length ? `${filtered.length} template${filtered.length !== 1 ? 's' : ''}` : '')}
       </div>`;
   }
 
@@ -1938,75 +1834,64 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
     return html`
       <div class="view-container">
         ${this._viewHeader('Product Attributes', html`
-          <uui-button look="primary" @click=${() => { this.editingAttribute = { id: crypto.randomUUID(), name: '', alias: '', values: [] }; }}>
-            + Create Product Attribute
-          </uui-button>`)}
+          ${refreshButton(() => this.loadAttributes())}
+          ${createButton('Product Attribute', () => { this.editingAttribute = { id: crypto.randomUUID(), name: '', alias: '', values: [] }; })}`)}
 
         ${this._errorBanner(this.attributesError, () => { this.attributesError = null; })}
 
-        ${a ? html`
-          <div class="modal-overlay" @click=${(e) => { if (e.target === e.currentTarget) this.editingAttribute = null; }}>
-          <div class="form-panel form-panel--modal">
-            <h3>${this.attributes.find(x => x.id === a.id) ? 'Edit Attribute' : 'New Attribute'}</h3>
-            <div class="form-row"><label>Name</label>
+        ${a ? modalShell({
+          headline: this.attributes.find(x => x.id === a.id) ? 'Edit Attribute' : 'New Attribute',
+          onClose: () => { this.editingAttribute = null; },
+          body: html`
+            ${formRow('Name', html`
               <input class="form-input" .value=${a.name || ''} placeholder="e.g. Size"
-                @input=${e => { const name = e.target.value; this.editingAttribute = { ...a, name, alias: a.alias || slugify(name) }; }}>
-            </div>
-            <div class="form-row"><label>Alias</label>
+                @input=${e => { const name = e.target.value; this.editingAttribute = { ...a, name, alias: a.alias || slugify(name) }; }}>`)}
+            ${formRow('Alias', html`
               <input class="form-input" .value=${a.alias || ''} placeholder="e.g. size"
-                @input=${e => { this.editingAttribute = { ...a, alias: e.target.value }; }}>
-            </div>
-            <div class="form-row"><label>Values</label>
-              <div style="display:flex;flex-direction:column;gap:6px">
+                @input=${e => { this.editingAttribute = { ...a, alias: e.target.value }; }}>`)}
+            <div class="form-row form-row--top"><label>Values</label>
+              <div class="form-list form-col">
                 ${(a.values || []).map((v, i) => html`
-                  <div style="display:flex;gap:6px;align-items:center">
-                    <input class="form-input" style="flex:1" .value=${v.name || ''} placeholder="Value name (e.g. Small)"
+                  <div class="form-list-row">
+                    <input class="form-input" .value=${v.name || ''} placeholder="Value name (e.g. Small)"
                       @input=${e => { const name = e.target.value; const values = a.values.map((x, j) => j === i ? { ...x, name, alias: x.alias || slugify(name) } : x); this.editingAttribute = { ...a, values }; }}>
-                    <input class="form-input" style="flex:1" .value=${v.alias || ''} placeholder="alias (e.g. small)"
+                    <input class="form-input" .value=${v.alias || ''} placeholder="alias (e.g. small)"
                       @input=${e => { const values = a.values.map((x, j) => j === i ? { ...x, alias: e.target.value } : x); this.editingAttribute = { ...a, values }; }}>
-                    <button style="background:none;border:none;cursor:pointer;color:#999;font-size:1rem"
+                    <button class="remove-btn" title="Remove value"
                       @click=${() => { this.editingAttribute = { ...a, values: a.values.filter((_, j) => j !== i) }; }}>×</button>
                   </div>`)}
-                <button style="background:none;border:1px dashed #ccc;border-radius:4px;padding:6px;font-size:0.85rem;color:#999;cursor:pointer;width:100%"
+                <button class="add-row-btn"
                   @click=${() => { this.editingAttribute = { ...a, values: [...(a.values || []), { name: '', alias: '' }] }; }}>+ Add value</button>
               </div>
-            </div>
-            <div class="form-actions">
-              <uui-button look="primary" @click=${() => this.saveAttribute()}>Save</uui-button>
-              <uui-button look="secondary" @click=${() => { this.editingAttribute = null; }}>Cancel</uui-button>
-            </div>
-          </div>
-          </div>` : ''}
+            </div>`,
+          actions: modalActions({
+            onCancel: () => { this.editingAttribute = null; },
+            onConfirm: () => this.saveAttribute(),
+          }),
+        }) : ''}
 
-        <div class="filters-bar">
-          <div class="filters-left"></div>
-          <div class="filters-right">
-            <div class="search-wrap">
-              <uui-icon name="icon-search" class="search-icon"></uui-icon>
-              <input class="search-input" type="search" placeholder="Search attributes…"
-                .value=${this.attributesSearch}
-                @input=${e => { this.attributesSearch = e.target.value; this.attributesPage = 1; }}>
-            </div>
-          </div>
-        </div>
+        ${searchBar({
+          value: this.attributesSearch,
+          placeholder: 'Search attributes…',
+          onInput: e => { this.attributesSearch = e.target.value; this.attributesPage = 1; },
+        })}
 
-        ${this.attributesLoading ? this._stateCenter(html`<uui-loader></uui-loader><p>Loading…</p>`) :
-          filtered.length === 0 ? this._stateCenter(html`
-            <uui-icon name="icon-tag" style="font-size:3rem;opacity:0.25"></uui-icon>
-            <p>${q ? 'No attributes match your search' : 'No product attributes yet'}</p>`) :
+        ${this.attributesLoading ? loadingState() :
+          filtered.length === 0 ? emptyState('icon-tag',
+            q ? 'No attributes match your search' : 'No product attributes yet') :
           html`
             <div class="table-scroll">
               <table class="data-table">
-                <thead><tr><th>Name</th><th>Alias</th><th>Values</th><th></th></tr></thead>
+                <thead><tr><th>Name</th><th>Alias</th><th>Values</th><th class="col-actions"></th></tr></thead>
                 <tbody>
                   ${paged.map(attr => html`
-                    <tr class="data-row" style="cursor:pointer"
+                    <tr class="data-row" title="Edit ${attr.name}"
                       @click=${() => { this.editingAttribute = { ...attr, values: (attr.values || []).map(v => ({ ...v })) }; }}>
-                      <td><uui-icon name="icon-tag" style="opacity:0.5;margin-right:6px"></uui-icon><strong>${attr.name}</strong></td>
+                      <td><div class="name-cell"><uui-icon class="row-icon" name="icon-tag"></uui-icon><strong>${attr.name}</strong></div></td>
                       <td><code>${attr.alias || '—'}</code></td>
                       <td>${(attr.values || []).length} value${(attr.values || []).length !== 1 ? 's' : ''}</td>
-                      <td class="row-actions">
-                        <uui-button look="secondary" color="danger" compact @click=${(e) => { e.stopPropagation(); this.deleteAttribute(attr.id); }}>Del</uui-button>
+                      <td class="col-actions">
+                        ${iconButton({ title: `Delete ${attr.name}`, onClick: () => this.deleteAttribute(attr.id) })}
                       </td>
                     </tr>`)}
                 </tbody>
@@ -2014,10 +1899,8 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
             </div>
             ${this._renderPager(filtered.length, page, PAGE_SIZE, p => { this.attributesPage = p; })}`}
 
-        <div class="view-footer">
-          <span class="breadcrumb">${this.marketName} / Options / Product Attributes</span>
-          ${filtered.length > 0 ? html`<span class="breadcrumb" style="margin-left:auto">${filtered.length} attribute${filtered.length !== 1 ? 's' : ''}</span>` : ''}
-        </div>
+        ${viewFooter(`${this.marketName} / Options / Product Attributes`,
+          filtered.length ? `${filtered.length} attribute${filtered.length !== 1 ? 's' : ''}` : '')}
       </div>`;
   }
 
@@ -2034,9 +1917,8 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
     return html`
       <div class="view-container">
         ${this._viewHeader('Product Attribute Presets', html`
-          <uui-button look="primary" @click=${() => { this.editingAttributePreset = { id: crypto.randomUUID(), name: '', alias: '', attributeIds: [] }; }}>
-            + Create Preset
-          </uui-button>`)}
+          ${refreshButton(() => this.loadAttributePresets())}
+          ${createButton('Preset', () => { this.editingAttributePreset = { id: crypto.randomUUID(), name: '', alias: '', attributeIds: [] }; })}`)}
 
         ${this._errorBanner(this.attributePresetsError, () => { this.attributePresetsError = null; })}
 
@@ -2051,13 +1933,12 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
               <input class="form-input" .value=${p.alias || ''} placeholder="e.g. apparel"
                 @input=${e => { this.editingAttributePreset = { ...p, alias: e.target.value }; }}>
             </div>
-            <div class="form-row"><label>Attributes in this preset</label>
-              ${this.attributes.length === 0 ? html`<em style="color:#999">No attributes defined yet.</em>` : html`
-                <div style="display:flex;flex-wrap:wrap;gap:6px">
+            <div class="form-row form-row--top"><label>Attributes in this preset</label>
+              ${this.attributes.length === 0 ? html`<em class="muted">No attributes defined yet.</em>` : html`
+                <div class="chip-row">
                   ${this.attributes.map(attr => {
                     const sel = (p.attributeIds || []).includes(attr.id);
-                    return html`<button
-                      style="display:inline-flex;align-items:center;gap:4px;border-radius:999px;padding:4px 12px;font-size:0.8rem;cursor:pointer;border:1px solid ${sel ? '#4a6ba8' : '#d1d5db'};background:${sel ? '#4a6ba8' : '#fff'};color:${sel ? '#fff' : '#374151'}"
+                    return html`<button class="chip ${sel ? 'chip--on' : ''}"
                       @click=${() => { const ids = p.attributeIds || []; this.editingAttributePreset = { ...p, attributeIds: ids.includes(attr.id) ? ids.filter(x => x !== attr.id) : [...ids, attr.id] }; }}>
                       ${attr.name || '(unnamed)'}</button>`;
                   })}
@@ -2069,35 +1950,28 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
             </div>
           </div>` : ''}
 
-        <div class="filters-bar">
-          <div class="filters-left"></div>
-          <div class="filters-right">
-            <div class="search-wrap">
-              <uui-icon name="icon-search" class="search-icon"></uui-icon>
-              <input class="search-input" type="search" placeholder="Search presets…"
-                .value=${this.attributePresetsSearch}
-                @input=${e => { this.attributePresetsSearch = e.target.value; this.attributePresetsPage = 1; }}>
-            </div>
-          </div>
-        </div>
+        ${searchBar({
+          value: this.attributePresetsSearch,
+          placeholder: 'Search presets…',
+          onInput: e => { this.attributePresetsSearch = e.target.value; this.attributePresetsPage = 1; },
+        })}
 
-        ${this.attributePresetsLoading ? this._stateCenter(html`<uui-loader></uui-loader><p>Loading…</p>`) :
-          filtered.length === 0 ? this._stateCenter(html`
-            <uui-icon name="icon-tags" style="font-size:3rem;opacity:0.25"></uui-icon>
-            <p>${q ? 'No presets match your search' : 'No attribute presets yet'}</p>`) :
+        ${this.attributePresetsLoading ? loadingState() :
+          filtered.length === 0 ? emptyState('icon-tags',
+            q ? 'No presets match your search' : 'No attribute presets yet') :
           html`
             <div class="table-scroll">
               <table class="data-table">
-                <thead><tr><th>Name</th><th>Alias</th><th>Attributes</th><th></th></tr></thead>
+                <thead><tr><th>Name</th><th>Alias</th><th>Attributes</th><th class="col-actions"></th></tr></thead>
                 <tbody>
                   ${paged.map(preset => html`
-                    <tr class="data-row">
-                      <td><strong>${preset.name}</strong></td>
+                    <tr class="data-row" title="Edit ${preset.name}"
+                      @click=${() => { this.editingAttributePreset = { ...preset, attributeIds: [...(preset.attributeIds || [])] }; }}>
+                      <td><div class="name-cell"><uui-icon class="row-icon" name="icon-tags"></uui-icon><strong>${preset.name}</strong></div></td>
                       <td><code>${preset.alias || '—'}</code></td>
                       <td>${(preset.attributeIds || []).map(id => (this.attributes.find(a => a.id === id)?.name || id)).join(', ') || '—'}</td>
-                      <td class="row-actions">
-                        <uui-button look="secondary" compact @click=${(e) => { e.stopPropagation(); this.editingAttributePreset = { ...preset, attributeIds: [...(preset.attributeIds || [])] }; }}>Edit</uui-button>
-                        <uui-button look="secondary" color="danger" compact @click=${(e) => { e.stopPropagation(); this.deleteAttributePreset(preset.id); }}>Del</uui-button>
+                      <td class="col-actions">
+                        ${iconButton({ title: `Delete ${preset.name}`, onClick: () => this.deleteAttributePreset(preset.id) })}
                       </td>
                     </tr>`)}
                 </tbody>
@@ -2105,10 +1979,8 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
             </div>
             ${this._renderPager(filtered.length, page, PAGE_SIZE, p => { this.attributePresetsPage = p; })}`}
 
-        <div class="view-footer">
-          <span class="breadcrumb">${this.marketName} / Options / Product Attribute Presets</span>
-          ${filtered.length > 0 ? html`<span class="breadcrumb" style="margin-left:auto">${filtered.length} preset${filtered.length !== 1 ? 's' : ''}</span>` : ''}
-        </div>
+        ${viewFooter(`${this.marketName} / Options / Product Attribute Presets`,
+          filtered.length ? `${filtered.length} preset${filtered.length !== 1 ? 's' : ''}` : '')}
       </div>`;
   }
 
@@ -2122,9 +1994,8 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
     return html`
       <div class="view-container">
         ${this._viewHeader('Tax Classes', html`
-          <uui-button look="primary" @click=${() => { this.editingTaxClass = { id: crypto.randomUUID(), name: '', defaultRate: 0, countryRates: [] }; }}>
-            + Create Tax Class
-          </uui-button>`)}
+          ${refreshButton(() => this.loadTaxClasses())}
+          ${createButton('Tax Class', () => { this.editingTaxClass = { id: crypto.randomUUID(), name: '', defaultRate: 0, countryRates: [] }; })}`)}
 
         ${this._errorBanner(this.taxClassesError, () => { this.taxClassesError = null; })}
 
@@ -2133,7 +2004,7 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
         <div class="store-tax">
           <div class="store-tax-row">
             <label>Store Tax Rate (fallback)</label>
-            <input class="form-input" type="number" step="0.01" min="0" style="width:110px"
+            <input class="form-input form-input--sm" type="number" step="0.01" min="0"
               .value=${this.storeTaxRateDraft ?? String((this.storeTaxRate || 0) * 100)}
               @input=${e => { this.storeTaxRateDraft = e.target.value; }}>
             <span>%</span>
@@ -2144,27 +2015,25 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
           <small>Applied to goods when the active payment provider names no tax class (or names one that has since been deleted).</small>
         </div>
 
-        ${t ? html`
-          <div class="modal-overlay" @click=${(e) => { if (e.target === e.currentTarget) this.editingTaxClass = null; }}>
-          <div class="form-panel form-panel--modal">
-            <h3>${this.taxClasses.find(x => x.id === t.id) ? 'Edit Tax Class' : 'New Tax Class'}</h3>
-            <div class="form-row"><label>Name</label>
+        ${t ? modalShell({
+          headline: this.taxClasses.find(x => x.id === t.id) ? 'Edit Tax Class' : 'New Tax Class',
+          onClose: () => { this.editingTaxClass = null; },
+          body: html`
+            ${formRow('Name', html`
               <input class="form-input" .value=${t.name || ''} placeholder="e.g. Standard"
-                @input=${e => { this.editingTaxClass = { ...t, name: e.target.value }; }}>
-            </div>
-            <div class="form-row"><label>Default Tax Rate (%)</label>
+                @input=${e => { this.editingTaxClass = { ...t, name: e.target.value }; }}>`)}
+            ${formRow('Default Tax Rate (%)', html`
               <input class="form-input" type="number" step="0.01" min="0" .value=${(t.defaultRate || 0) * 100}
-                @input=${e => { this.editingTaxClass = { ...t, defaultRate: (Number(e.target.value) || 0) / 100 }; }}>
-            </div>
-            <div class="form-row"><label>Country/Region Specific Tax Rates</label>
-              <div style="display:flex;flex-direction:column;gap:6px">
+                @input=${e => { this.editingTaxClass = { ...t, defaultRate: (Number(e.target.value) || 0) / 100 }; }}>`)}
+            <div class="form-row form-row--top"><label>Country/Region Specific Tax Rates</label>
+              <div class="form-list form-col">
                 ${(t.countryRates || []).map((r, i) => html`
-                  <div style="display:flex;gap:6px;align-items:center">
+                  <div class="form-list-row">
                     <span style="flex:1">${this.countries.find(c => c.code === r.countryCode)?.name ?? r.countryCode}</span>
-                    <input class="form-input" style="width:100px" type="number" step="0.01" min="0" .value=${(r.rate || 0) * 100}
+                    <input class="form-input form-input--xs" type="number" step="0.01" min="0" .value=${(r.rate || 0) * 100}
                       @input=${e => { const countryRates = t.countryRates.map((x, j) => j === i ? { ...x, rate: (Number(e.target.value) || 0) / 100 } : x); this.editingTaxClass = { ...t, countryRates }; }}>
                     <span>%</span>
-                    <button style="background:none;border:none;cursor:pointer;color:#999;font-size:1rem"
+                    <button class="remove-btn" title="Remove override"
                       @click=${() => { this.editingTaxClass = { ...t, countryRates: t.countryRates.filter((_, j) => j !== i) }; }}>×</button>
                   </div>`)}
                 ${availableCountries.length > 0 ? html`
@@ -2173,41 +2042,36 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
                     ${availableCountries.map(c => html`<option value=${c.code}>${c.name}</option>`)}
                   </select>` : ''}
               </div>
-            </div>
-            <div class="form-actions">
-              <uui-button look="primary" @click=${() => this.saveTaxClass()}>Save</uui-button>
-              <uui-button look="secondary" @click=${() => { this.editingTaxClass = null; }}>Cancel</uui-button>
-            </div>
-          </div>
-          </div>` : ''}
+            </div>`,
+          actions: modalActions({
+            onCancel: () => { this.editingTaxClass = null; },
+            onConfirm: () => this.saveTaxClass(),
+          }),
+        }) : ''}
 
-        ${this.taxClassesLoading ? this._stateCenter(html`<uui-loader></uui-loader><p>Loading…</p>`) :
-          this.taxClasses.length === 0 ? this._stateCenter(html`
-            <uui-icon name="icon-calculator" style="font-size:3rem;opacity:0.25"></uui-icon>
-            <p>No tax classes yet</p>`) :
+        ${this.taxClassesLoading ? loadingState() :
+          this.taxClasses.length === 0 ? emptyState('icon-calculator', 'No tax classes yet') :
           html`
             <div class="table-scroll">
               <table class="data-table">
-                <thead><tr><th>Name</th><th>Default Tax Rate</th><th>Overrides</th><th></th></tr></thead>
+                <thead><tr><th>Name</th><th>Default Tax Rate</th><th>Overrides</th><th class="col-actions"></th></tr></thead>
                 <tbody>
                   ${this.taxClasses.map(tc => html`
-                    <tr class="data-row" style="cursor:pointer"
+                    <tr class="data-row" title="Edit ${tc.name}"
                       @click=${() => { this.editingTaxClass = { ...tc, countryRates: (tc.countryRates || []).map(r => ({ ...r })) }; }}>
-                      <td><uui-icon name="icon-calculator" style="opacity:0.5;margin-right:6px"></uui-icon><strong>${tc.name}</strong></td>
+                      <td><div class="name-cell"><uui-icon class="row-icon" name="icon-calculator"></uui-icon><strong>${tc.name}</strong></div></td>
                       <td>${((tc.defaultRate || 0) * 100).toFixed(2)}%</td>
                       <td>${(tc.countryRates || []).length} override${(tc.countryRates || []).length !== 1 ? 's' : ''}</td>
-                      <td class="row-actions">
-                        <uui-button look="secondary" color="danger" compact @click=${(e) => { e.stopPropagation(); this.deleteTaxClass(tc.id); }}>Del</uui-button>
+                      <td class="col-actions">
+                        ${iconButton({ title: `Delete ${tc.name}`, onClick: () => this.deleteTaxClass(tc.id) })}
                       </td>
                     </tr>`)}
                 </tbody>
               </table>
             </div>`}
 
-        <div class="view-footer">
-          <span class="breadcrumb">${this.marketName} / Options / Tax Classes</span>
-          ${this.taxClasses.length > 0 ? html`<span class="breadcrumb" style="margin-left:auto">${this.taxClasses.length} tax class${this.taxClasses.length !== 1 ? 'es' : ''}</span>` : ''}
-        </div>
+        ${viewFooter(`${this.marketName} / Options / Tax Classes`,
+          this.taxClasses.length ? `${this.taxClasses.length} tax class${this.taxClasses.length !== 1 ? 'es' : ''}` : '')}
       </div>`;
   }
 
@@ -2242,13 +2106,13 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
 
     return html`
       ${this.marketCountries.length > 12 ? html`
-        <div style="display:flex;align-items:center;gap:8px">
-          <input class="form-input" style="flex:1" type="search" placeholder="Filter countries…"
+        <div class="form-inline">
+          <input class="form-input" type="search" placeholder="Filter countries…"
             .value=${this.currencyCountryFilter || ''}
             @input=${e => { this.currencyCountryFilter = e.target.value; }}>
-          <span style="color:#999;font-size:0.78rem;white-space:nowrap">${selected.size} selected</span>
+          <span class="form-hint">${selected.size} selected</span>
         </div>` : ''}
-      <div style="display:flex;flex-direction:column;gap:6px;max-height:260px;overflow-y:auto">
+      <div class="scroll-list">
         ${shown.map(mc => html`
           <uui-toggle label=${mc.name} ?checked=${selected.has(mc.code)}
             @change=${e => {
@@ -2256,7 +2120,7 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
               if (e.target.checked) codes.add(mc.code); else codes.delete(mc.code);
               this.editingCurrency = { ...c, countryCodes: [...codes] };
             }}>${mc.name}</uui-toggle>`)}
-        ${shown.length === 0 ? html`<span style="color:#999;font-size:0.8rem">No countries match the filter.</span>` : ''}
+        ${shown.length === 0 ? html`<span class="form-hint">No countries match the filter.</span>` : ''}
       </div>`;
   }
 
@@ -2274,99 +2138,82 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
 
     return html`
       <div class="view-container">
-        ${this._viewHeader('Currencies', this._createFlyout('currency', 'Currency', [
-          ['New blank currency', () => this.startCurrency(false)],
-          ['New currency from ISO 4217 preset', () => this.startCurrency(true)],
-          ['All currencies from ISO 4217 presets', () => this.addAllCurrencyPresets()],
-        ]))}
+        ${this._viewHeader('Currencies', html`
+          ${refreshButton(() => this.loadCurrencies())}
+          ${this._createFlyout('currency', 'Currency', [
+            ['New blank currency', () => this.startCurrency(false)],
+            ['New currency from ISO 4217 preset', () => this.startCurrency(true)],
+            ['All currencies from ISO 4217 presets', () => this.addAllCurrencyPresets()],
+          ])}`)}
 
         ${this._errorBanner(this.currenciesError, () => { this.currenciesError = null; })}
 
-        ${c ? html`
-          <div class="modal-overlay" @click=${(e) => { if (e.target === e.currentTarget) this.editingCurrency = null; }}>
-          <div class="form-panel form-panel--modal">
-            <h3>${this.currencies.find(x => x.id === c.id) ? 'Edit Currency' : 'New Currency'}</h3>
-
-            ${c.presetPicker ? html`
-              <div class="form-row"><label>ISO 4217 preset</label>
-                <select class="form-input" @change=${e => this.applyCurrencyPreset(e.target.value)}>
-                  <option value="">Choose a currency…</option>
-                  ${presets.map(p => html`<option value=${p.code} ?selected=${p.code === c.code}>${p.code} — ${p.name}</option>`)}
-                </select>
-              </div>` : ''}
-
-            <div class="form-row"><label>Name</label>
+        ${c ? modalShell({
+          headline: this.currencies.find(x => x.id === c.id) ? 'Edit Currency' : 'New Currency',
+          onClose: () => { this.editingCurrency = null; },
+          body: html`
+            ${c.presetPicker ? formRow('ISO 4217 preset', html`
+              <select class="form-input" @change=${e => this.applyCurrencyPreset(e.target.value)}>
+                <option value="">Choose a currency…</option>
+                ${presets.map(p => html`<option value=${p.code} ?selected=${p.code === c.code}>${p.code} — ${p.name}</option>`)}
+              </select>`) : ''}
+            ${formRow('Name', html`
               <input class="form-input" .value=${c.name || ''} placeholder="e.g. Swedish krona"
-                @input=${e => { this.editingCurrency = { ...c, name: e.target.value }; }}>
-            </div>
-            <div class="form-row"><label>ISO Code</label>
+                @input=${e => { this.editingCurrency = { ...c, name: e.target.value }; }}>`)}
+            ${formRow('ISO Code', html`
               <input class="form-input" maxlength="3" .value=${c.code || ''} placeholder="3 letter ISO currency code"
-                @input=${e => { this.editingCurrency = { ...c, code: e.target.value.toUpperCase() }; }}>
-            </div>
-            <div class="form-row"><label>Culture</label>
+                @input=${e => { this.editingCurrency = { ...c, code: e.target.value.toUpperCase() }; }}>`)}
+            ${formRow('Culture', html`
               <select class="form-input" @change=${e => { this.editingCurrency = { ...c, culture: e.target.value }; }}>
                 <option value="">— None —</option>
                 ${cultures.map(x => html`<option value=${x.name} ?selected=${x.name === c.culture}>${x.displayName}</option>`)}
-              </select>
-            </div>
-            <div class="form-row"><label>Custom Format Template</label>
+              </select>`)}
+            ${formRow('Custom Format Template', html`
               <input class="form-input" .value=${c.formatTemplate || ''} placeholder="e.g. {0:n0} kr — used by storefronts"
-                @input=${e => { this.editingCurrency = { ...c, formatTemplate: e.target.value }; }}>
-            </div>
-
-            <div class="form-row" style="align-items:flex-start">
+                @input=${e => { this.editingCurrency = { ...c, formatTemplate: e.target.value }; }}>`)}
+            <div class="form-row form-row--top">
               <label>Available in Countries</label>
-              <div style="display:flex;flex-direction:column;gap:6px;flex:1">
+              <div class="form-col">
                 <uui-toggle label="All" ?checked=${c.allCountries}
                   @change=${e => { this.editingCurrency = { ...c, allCountries: e.target.checked }; }}>All</uui-toggle>
                 ${c.allCountries ? '' : (this.marketCountries.length ? this._renderCurrencyCountryToggles(c)
-                  : html`<span style="color:#999;font-size:0.8rem">No countries configured for this store yet — add some under Options → Countries.</span>`)}
+                  : html`<span class="form-hint">No countries configured for this store yet — add some under Options → Countries.</span>`)}
               </div>
-            </div>
+            </div>`,
+          actions: modalActions({
+            onCancel: () => { this.editingCurrency = null; },
+            onConfirm: () => this.saveCurrency(),
+          }),
+        }) : ''}
 
-            <div class="form-actions">
-              <uui-button look="primary" @click=${() => this.saveCurrency()}>Save</uui-button>
-              <uui-button look="secondary" @click=${() => { this.editingCurrency = null; }}>Cancel</uui-button>
-            </div>
-          </div>
-          </div>` : ''}
+        ${searchBar({
+          value: this.currenciesSearch,
+          onInput: e => { this.currenciesSearch = e.target.value; this.currenciesPage = 1; },
+        })}
 
-        <div class="filters-bar">
-          <div class="filters-left"></div>
-          <div class="filters-right">
-            <div class="search-wrap">
-              <uui-icon name="icon-search" class="search-icon"></uui-icon>
-              <input class="search-input" type="search" placeholder="Type to search…"
-                .value=${this.currenciesSearch}
-                @input=${e => { this.currenciesSearch = e.target.value; this.currenciesPage = 1; }}>
-            </div>
-          </div>
-        </div>
-
-        ${this.currenciesLoading ? this._stateCenter(html`<uui-loader></uui-loader><p>Loading…</p>`) :
-          filtered.length === 0 ? this._stateCenter(html`
-            <uui-icon name="icon-coins" style="font-size:3rem;opacity:0.25"></uui-icon>
-            <p>${q ? 'No currencies match your search' : 'No currencies yet'}</p>`) :
+        ${this.currenciesLoading ? loadingState() :
+          filtered.length === 0 ? emptyState('icon-coins',
+            q ? 'No currencies match your search' : 'No currencies yet') :
           html`
             <div class="table-scroll">
               <table class="data-table">
-                <thead><tr><th>Name</th><th>ISO Code</th><th>Available in</th><th></th></tr></thead>
+                <thead><tr><th>Name</th><th>ISO Code</th><th>Available in</th><th class="col-actions"></th></tr></thead>
                 <tbody>
                   ${paged.map(cur => html`
-                    <tr class="data-row" style="cursor:pointer" @click=${() => this._editCurrency(cur)}>
+                    <tr class="data-row" title="Edit ${cur.name}" @click=${() => this._editCurrency(cur)}>
                       <td>
-                        <uui-icon name="icon-coins" style="opacity:0.5;margin-right:6px"></uui-icon>
-                        <strong>${cur.name}</strong>
-                        ${cur.code === this.activeCurrencyCode
-                          ? html`<span class="pill" style="background:#16a34a;color:#fff;margin-left:8px">store currency</span>` : ''}
+                        <div class="name-cell">
+                          <uui-icon class="row-icon" name="icon-coins"></uui-icon>
+                          <strong>${cur.name}</strong>
+                          ${cur.code === this.activeCurrencyCode ? pill('store currency', 'current') : ''}
+                        </div>
                       </td>
                       <td>${cur.code}</td>
                       <td>${(cur.countryCodes || []).length
                         ? `${cur.countryCodes.length} countr${cur.countryCodes.length === 1 ? 'y' : 'ies'}`
                         : 'All countries'}</td>
-                      <td class="row-actions">
-                        <uui-button look="secondary" color="danger" compact
-                          @click=${(e) => { e.stopPropagation(); this.deleteCurrency(cur.id); }}>Del</uui-button>
+                      <td class="col-actions">
+                        ${iconButton({ title: `Delete ${cur.name}`, onClick: () => this.deleteCurrency(cur.id) })}
                       </td>
                     </tr>`)}
                 </tbody>
@@ -2374,10 +2221,8 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
             </div>
             ${this._renderPager(filtered.length, page, PAGE_SIZE, p => { this.currenciesPage = p; })}`}
 
-        <div class="view-footer">
-          <span class="breadcrumb">${this.marketName} / Options / Currencies</span>
-          ${filtered.length > 0 ? html`<span class="breadcrumb" style="margin-left:auto">${filtered.length} currenc${filtered.length !== 1 ? 'ies' : 'y'}</span>` : ''}
-        </div>
+        ${viewFooter(`${this.marketName} / Options / Currencies`,
+          filtered.length ? `${filtered.length} currenc${filtered.length !== 1 ? 'ies' : 'y'}` : '')}
       </div>`;
   }
 
@@ -2396,93 +2241,75 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
 
     return html`
       <div class="view-container">
-        ${this._viewHeader('Countries', this._createFlyout('country', 'Country', [
-          ['New blank country', () => this.startMarketCountry(false)],
-          ['New country from ISO 3166 preset', () => this.startMarketCountry(true)],
-          ['All countries from ISO 3166 presets', () => this.addAllCountryPresets()],
-        ]))}
+        ${this._viewHeader('Countries', html`
+          ${refreshButton(() => this.loadMarketCountries())}
+          ${this._createFlyout('country', 'Country', [
+            ['New blank country', () => this.startMarketCountry(false)],
+            ['New country from ISO 3166 preset', () => this.startMarketCountry(true)],
+            ['All countries from ISO 3166 presets', () => this.addAllCountryPresets()],
+          ])}`)}
 
         ${this._errorBanner(this.marketCountriesError, () => { this.marketCountriesError = null; })}
 
-        ${c ? html`
-          <div class="modal-overlay" @click=${(e) => { if (e.target === e.currentTarget) this.editingMarketCountry = null; }}>
-          <div class="form-panel form-panel--modal">
-            <h3>${this.marketCountries.find(x => x.id === c.id) ? 'Edit Country' : 'New Country'}</h3>
-
-            ${c.presetPicker ? html`
-              <div class="form-row"><label>ISO 3166 preset</label>
-                <select class="form-input" @change=${e => this.applyCountryPreset(e.target.value)}>
-                  <option value="">Choose a country…</option>
-                  ${this.countries.map(p => html`<option value=${p.code} ?selected=${p.code === c.code}>${p.name} (${p.code})</option>`)}
-                </select>
-              </div>` : ''}
-
-            <div class="form-row"><label>Name</label>
+        ${c ? modalShell({
+          headline: this.marketCountries.find(x => x.id === c.id) ? 'Edit Country' : 'New Country',
+          onClose: () => { this.editingMarketCountry = null; },
+          body: html`
+            ${c.presetPicker ? formRow('ISO 3166 preset', html`
+              <select class="form-input" @change=${e => this.applyCountryPreset(e.target.value)}>
+                <option value="">Choose a country…</option>
+                ${this.countries.map(p => html`<option value=${p.code} ?selected=${p.code === c.code}>${p.name} (${p.code})</option>`)}
+              </select>`) : ''}
+            ${formRow('Name', html`
               <input class="form-input" .value=${c.name || ''} placeholder="e.g. Sweden"
-                @input=${e => { this.editingMarketCountry = { ...c, name: e.target.value }; }}>
-            </div>
-            <div class="form-row"><label>ISO Code</label>
+                @input=${e => { this.editingMarketCountry = { ...c, name: e.target.value }; }}>`)}
+            ${formRow('ISO Code', html`
               <input class="form-input" maxlength="2" .value=${c.code || ''} placeholder="2 letter ISO country code"
-                @input=${e => { this.editingMarketCountry = { ...c, code: e.target.value.toUpperCase() }; }}>
-            </div>
-            <div class="form-row"><label>Default Currency</label>
+                @input=${e => { this.editingMarketCountry = { ...c, code: e.target.value.toUpperCase() }; }}>`)}
+            ${formRow('Default Currency', html`
               <select class="form-input" @change=${e => { this.editingMarketCountry = { ...c, defaultCurrencyId: e.target.value }; }}>
                 <option value="">— None —</option>
                 ${this.currencies.map(x => html`<option value=${x.id} ?selected=${x.id === c.defaultCurrencyId}>${x.name} (${x.code})</option>`)}
-              </select>
-            </div>
-            <div class="form-row"><label>Default Shipping Method</label>
+              </select>`)}
+            ${formRow('Default Shipping Method', html`
               <select class="form-input" @change=${e => { this.editingMarketCountry = { ...c, defaultShippingMethodId: e.target.value }; }}>
                 <option value="">— None —</option>
                 ${this.shippingMethods.map(x => html`<option value=${x.id} ?selected=${x.id === c.defaultShippingMethodId}>${x.name}</option>`)}
-              </select>
-            </div>
-            <div class="form-row"><label>Default Payment Method</label>
+              </select>`)}
+            ${formRow('Default Payment Method', html`
               <select class="form-input" @change=${e => { this.editingMarketCountry = { ...c, defaultPaymentProviderAlias: e.target.value }; }}>
                 <option value="">— None —</option>
                 ${this.marketPaymentProviders.map(p => html`
                   <option value=${p.alias} ?selected=${p.alias === c.defaultPaymentProviderAlias}>${p.displayName || p.alias}</option>`)}
-              </select>
-            </div>
+              </select>`)}`,
+          actions: modalActions({
+            onCancel: () => { this.editingMarketCountry = null; },
+            onConfirm: () => this.saveMarketCountry(),
+          }),
+        }) : ''}
 
-            <div class="form-actions">
-              <uui-button look="primary" @click=${() => this.saveMarketCountry()}>Save</uui-button>
-              <uui-button look="secondary" @click=${() => { this.editingMarketCountry = null; }}>Cancel</uui-button>
-            </div>
-          </div>
-          </div>` : ''}
+        ${searchBar({
+          value: this.marketCountriesSearch,
+          onInput: e => { this.marketCountriesSearch = e.target.value; this.marketCountriesPage = 1; },
+        })}
 
-        <div class="filters-bar">
-          <div class="filters-left"></div>
-          <div class="filters-right">
-            <div class="search-wrap">
-              <uui-icon name="icon-search" class="search-icon"></uui-icon>
-              <input class="search-input" type="search" placeholder="Type to search…"
-                .value=${this.marketCountriesSearch}
-                @input=${e => { this.marketCountriesSearch = e.target.value; this.marketCountriesPage = 1; }}>
-            </div>
-          </div>
-        </div>
-
-        ${this.marketCountriesLoading ? this._stateCenter(html`<uui-loader></uui-loader><p>Loading…</p>`) :
-          filtered.length === 0 ? this._stateCenter(html`
-            <uui-icon name="icon-flag" style="font-size:3rem;opacity:0.25"></uui-icon>
-            <p>${q ? 'No countries match your search' : 'No countries yet'}</p>
-            ${q ? '' : html`<p style="color:#bbb;font-size:0.8rem">With none configured, the whole ISO 3166 list is offered everywhere.</p>`}`) :
+        ${this.marketCountriesLoading ? loadingState() :
+          filtered.length === 0 ? emptyState('icon-flag',
+            q ? 'No countries match your search' : 'No countries yet',
+            q ? '' : 'With none configured, the whole ISO 3166 list is offered everywhere.') :
           html`
             <div class="table-scroll">
               <table class="data-table">
-                <thead><tr><th>Name</th><th>ISO Code</th><th>Default Currency</th><th></th></tr></thead>
+                <thead><tr><th>Name</th><th>ISO Code</th><th>Default Currency</th><th class="col-actions"></th></tr></thead>
                 <tbody>
                   ${paged.map(country => html`
-                    <tr class="data-row" style="cursor:pointer"
+                    <tr class="data-row" title="Edit ${country.name}"
                       @click=${() => { this.editingMarketCountry = { ...country }; }}>
-                      <td><uui-icon name="icon-flag" style="opacity:0.5;margin-right:6px"></uui-icon><strong>${country.name}</strong></td>
+                      <td><div class="name-cell"><uui-icon class="row-icon" name="icon-flag"></uui-icon><strong>${country.name}</strong></div></td>
                       <td>${country.code}</td>
                       <td>${currencyName(country.defaultCurrencyId)}</td>
-                      <td class="row-actions">
-                        <uui-button look="secondary" color="danger" compact
-                          @click=${(e) => { e.stopPropagation(); this.deleteMarketCountry(country.id); }}>Del</uui-button>
+                      <td class="col-actions">
+                        ${iconButton({ title: `Delete ${country.name}`, onClick: () => this.deleteMarketCountry(country.id) })}
                       </td>
                     </tr>`)}
                 </tbody>
@@ -2490,10 +2317,8 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
             </div>
             ${this._renderPager(filtered.length, page, PAGE_SIZE, p => { this.marketCountriesPage = p; })}`}
 
-        <div class="view-footer">
-          <span class="breadcrumb">${this.marketName} / Options / Countries</span>
-          ${filtered.length > 0 ? html`<span class="breadcrumb" style="margin-left:auto">${filtered.length} countr${filtered.length !== 1 ? 'ies' : 'y'}</span>` : ''}
-        </div>
+        ${viewFooter(`${this.marketName} / Options / Countries`,
+          filtered.length ? `${filtered.length} countr${filtered.length !== 1 ? 'ies' : 'y'}` : '')}
       </div>`;
   }
 
@@ -2503,11 +2328,9 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
     return html`
       <div class="view-container">
         ${this._viewHeader(label)}
-        ${this._stateCenter(html`
-          <uui-icon name="icon-box" style="font-size:3rem;opacity:0.2"></uui-icon>
-          <p style="color:#999">${label} is not yet available.</p>
-          <p style="color:#bbb;font-size:0.8rem">This feature will be added in a future release.</p>`)}
-        <div class="view-footer"><span class="breadcrumb">${this.marketName} / ${label}</span></div>
+        ${emptyState('icon-box', `${label} is not yet available.`,
+          'This feature will be added in a future release.')}
+        ${viewFooter(`${this.marketName} / ${label}`)}
       </div>`;
   }
 
@@ -2626,7 +2449,9 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
       case 'currencies':          return this._renderCurrenciesView();
       case 'countries':           return this._renderCountriesView();
       case 'property-templates':  return this._renderPropertyTemplatesView();
-      case 'payment-providers':   return html`<div class="view-container"><ecomm-payment-providers-dashboard .marketId=${this.selectedMarketId} .embedded=${true}></ecomm-payment-providers-dashboard></div>`;
+      // Embedded, so it renders its own .view-container — and takes the store name for its breadcrumb.
+      case 'payment-providers':   return html`<ecomm-payment-providers-dashboard
+        .marketId=${this.selectedMarketId} .marketName=${this.marketName} .embedded=${true}></ecomm-payment-providers-dashboard>`;
       default: {
         const found = [...NAV_ITEMS, ...OPTIONS_SUBITEMS].find(i => i.key === this.activeView);
         return this._renderComingSoon(found?.label ?? this.activeView);
@@ -2646,13 +2471,16 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
   // STYLES
   // ═══════════════════════════════════════════════════════════════════════════
 
-  static styles = css`
+  // Only the chrome that is this dashboard's own — the section shell, the store tree, the welcome
+  // cards, the analytics blocks. Everything shared (views, tables, pills, forms, modals, pagers)
+  // comes from commerceStyles. See umbraco/docs/DESIGN-SYSTEM.md.
+  static styles = [commerceStyles, css`
     :host { display: block; height: 100%; overflow: hidden; }
 
     .commerce-layout {
       display: flex;
       height: 100%;
-      background: #f4f4f4;
+      background: var(--ec-bg);
       font-family: var(--uui-font-family, sans-serif);
       font-size: 0.875rem;
     }
@@ -2661,8 +2489,8 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
     .sidebar {
       width: 260px;
       flex-shrink: 0;
-      background: #ffffff;
-      border-right: 1px solid #e5e5e5;
+      background: var(--ec-surface);
+      border-right: 1px solid var(--ec-border);
       overflow-y: auto;
       padding-bottom: 16px;
       color: #333333;
@@ -2674,10 +2502,10 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
       gap: 8px;
       padding: 14px 12px;
       cursor: pointer;
-      border-bottom: 1px solid #e5e5e5;
+      border-bottom: 1px solid var(--ec-border);
       font-weight: 600;
       font-size: 0.875rem;
-      color: #1a1a1a;
+      color: var(--ec-text);
       user-select: none;
     }
     .store-header:hover { background: #f5f5f5; }
@@ -2685,46 +2513,46 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
     .store-icon-wrap {
       display: flex; align-items: center; justify-content: center;
       width: 26px; height: 26px;
-      background: #1b264f; border-radius: 4px; color: #fff; flex-shrink: 0;
+      background: var(--ec-navy); border-radius: var(--ec-radius); color: #fff; flex-shrink: 0;
     }
 
-    .store-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #1a1a1a; }
-    .store-caret { font-size: 0.7rem; color: #888; display: inline-block; transition: transform .15s ease; }
+    .store-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ec-text); }
+    .store-caret { font-size: 0.7rem; color: var(--ec-text-muted); display: inline-block; transition: transform .15s ease; }
     .store-caret.open { transform: rotate(90deg); }
 
     /* Per-store tree */
     .sidebar-title {
       padding: 14px 12px; font-weight: 700; font-size: 0.8rem; text-transform: uppercase;
-      letter-spacing: 0.03em; color: #6b6b6b; cursor: pointer; border-bottom: 1px solid #e5e5e5;
+      letter-spacing: 0.03em; color: #6b6b6b; cursor: pointer; border-bottom: 1px solid var(--ec-border);
       user-select: none;
     }
     .sidebar-title:hover { background: #f5f5f5; }
-    .sidebar-title--active { color: #c0392b; }
+    .sidebar-title--active { color: var(--ec-accent); }
     .store-node {
       display: flex; align-items: center; gap: 8px; padding: 12px; cursor: pointer;
-      font-weight: 600; font-size: 0.875rem; color: #1a1a1a; user-select: none;
+      font-weight: 600; font-size: 0.875rem; color: var(--ec-text); user-select: none;
     }
     .store-node:hover { background: #f5f5f5; }
-    .store-node--active { color: #1b264f; }
+    .store-node--active { color: var(--ec-navy); }
     .store-node-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
     /* Welcome / store cards */
     .commerce-home { padding: 28px 32px; overflow-y: auto; }
-    .commerce-home h1 { font-size: 1.6rem; margin: 0 0 8px; color: #1a1a1a; }
-    .commerce-home h2 { font-size: 1.1rem; margin: 24px 0 12px; color: #1a1a1a; }
-    .home-intro { color: #555; max-width: 640px; }
+    .commerce-home h1 { font-size: 1.6rem; margin: 0 0 8px; color: var(--ec-text); }
+    .commerce-home h2 { font-size: 1.1rem; margin: 24px 0 12px; color: var(--ec-text); }
+    .home-intro { color: var(--ec-text-alt); max-width: 640px; }
     .store-cards { display: flex; flex-wrap: wrap; gap: 16px; }
     .store-card {
-      width: 220px; background: #fff; border: 1px solid #e5e5e5; border-radius: 8px;
+      width: 220px; background: var(--ec-surface); border: 1px solid var(--ec-border); border-radius: var(--ec-radius-lg);
       padding: 24px 16px; text-align: center; cursor: pointer; transition: box-shadow .15s, border-color .15s;
     }
-    .store-card:hover { box-shadow: 0 4px 14px rgba(0,0,0,0.08); border-color: #1b264f; }
+    .store-card:hover { box-shadow: 0 4px 14px rgba(0,0,0,0.08); border-color: var(--ec-navy); }
     .store-card-icon {
       display: flex; align-items: center; justify-content: center; width: 48px; height: 48px;
-      margin: 0 auto 12px; background: #f0f0f3; border-radius: 50%; color: #1b264f; font-size: 1.2rem;
+      margin: 0 auto 12px; background: #f0f0f3; border-radius: 50%; color: var(--ec-navy); font-size: 1.2rem;
     }
-    .store-card-name { font-weight: 600; color: #1a1a1a; }
-    .store-card-meta { color: #888; font-size: 0.8rem; margin-top: 4px; }
+    .store-card-name { font-weight: 600; color: var(--ec-text); }
+    .store-card-meta { color: var(--ec-text-muted); font-size: 0.8rem; margin-top: 4px; }
 
     .nav-list { list-style: none; margin: 4px 0 8px; padding: 0; }
 
@@ -2735,30 +2563,28 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
       position: relative; user-select: none;
     }
     .nav-item:hover:not(.disabled) { background: #f5f5f5; }
-    .nav-item.active { background: #fde8e8; color: #c0392b; font-weight: 600; }
+    .nav-item.active { background: var(--ec-accent-bg); color: var(--ec-accent); font-weight: 600; }
     .nav-item.active::before {
       content: ''; position: absolute; left: 0; top: 0; bottom: 0;
       width: 3px; background: #d9534f; border-radius: 0 2px 2px 0;
     }
     .nav-item.disabled { color: #bbbbbb; cursor: default; }
-    .nav-item--group { }
 
-    .group-caret { margin-left: auto; font-size: 0.7em; color: #888888; }
+    .group-caret { margin-left: auto; font-size: 0.7em; color: var(--ec-text-muted); }
 
     .nav-subitem {
       display: flex; align-items: center; gap: 8px;
       padding: 6px 14px 6px 40px;
-      font-size: 0.8rem; list-style: none; color: #555555;
-      cursor: pointer; user-select: none;
+      font-size: 0.8rem; list-style: none; color: var(--ec-text-alt);
+      cursor: pointer; user-select: none; position: relative;
     }
     .nav-subitem:hover:not(.disabled) { background: #f5f5f5; }
     .nav-subitem.disabled { color: #bbbbbb; cursor: default; }
-    .nav-subitem--active { background: #fde8e8; color: #c0392b; font-weight: 600; }
+    .nav-subitem--active { background: var(--ec-accent-bg); color: var(--ec-accent); font-weight: 600; }
     .nav-subitem--active::before {
       content: ''; position: absolute; left: 0; top: 0; bottom: 0;
       width: 3px; background: #d9534f; border-radius: 0 2px 2px 0;
     }
-    .nav-subitem { position: relative; }
 
     .nav-icon { font-size: 1rem; flex-shrink: 0; color: inherit; }
     .nav-icon--sm { font-size: 0.85rem; }
@@ -2766,326 +2592,38 @@ class CommerceAdminDashboard extends UmbElementMixin(LitElement) {
     /* ── Content area ─────────────────────────────────────────── */
     .commerce-content { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
 
-    /* overflow-y here, not on each view: the inline views bring their own "flex: 1; overflow: auto"
-       body, but embedded child elements (payment providers) can't — they'd be clipped by
-       .commerce-content's overflow: hidden with no scrollbar anywhere. */
-    .view-container { display: flex; flex-direction: column; height: 100%; background: #f4f4f4; overflow-y: auto; }
-
-    .view-header {
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 18px 24px 0; background: #f4f4f4;
-    }
-    .view-title { margin: 0; font-size: 1.2rem; font-weight: 600; color: #1a1a1a; }
-    .view-actions { display: flex; align-items: center; gap: 8px; }
-
-    .error-banner {
-      display: flex; align-items: center; gap: 8px;
-      margin: 10px 24px 0; padding: 9px 14px;
-      background: #fef2f2; border: 1px solid #fca5a5; border-radius: 6px;
-      color: #dc2626; font-size: 0.84rem;
-    }
-    .error-close { margin-left: auto; background: none; border: none; cursor: pointer; font-size: 1.1rem; color: #dc2626; }
-
-    /* ── Filters bar ──────────────────────────────────────────── */
-    .filters-bar {
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 10px 24px; gap: 12px;
-    }
-    .filters-left { display: flex; gap: 4px; }
-    .filters-right { display: flex; align-items: center; gap: 8px; }
-
-    .filter-wrap { position: relative; }
-
-    .filter-btn {
-      display: flex; align-items: center; gap: 3px;
-      padding: 5px 10px; background: #ffffff;
-      border: 1px solid #d4d4d4; border-radius: 4px;
-      cursor: pointer; font-size: 0.8rem; color: #333333; white-space: nowrap;
-    }
-    .filter-btn:hover { background: #f5f5f5; }
-    .filter-reset { color: #ef4444; border-color: #fca5a5; background: #fff5f5; }
-    .filter-reset:hover { background: #fee2e2; }
-    .caret { font-size: 0.65em; opacity: 0.5; margin-left: 2px; }
-
-    .dropdown {
-      position: absolute; top: calc(100% + 4px); left: 0; z-index: 200;
-      background: #ffffff; border: 1px solid #d4d4d4; border-radius: 6px;
-      box-shadow: 0 4px 16px rgba(0,0,0,0.12); min-width: 160px; overflow: hidden;
-    }
-    .dd-item {
-      display: block; width: 100%; text-align: left; padding: 7px 14px;
-      background: none; border: none; cursor: pointer; font-size: 0.8rem; color: #333333;
-    }
-    .dd-item:hover { background: #f5f5f5; }
-    .dd-item.active { background: #eff6ff; font-weight: 600; }
-    /* Right-aligned flyout, for a trigger that sits at the right edge of a view header. */
-    .dropdown--right { left: auto; right: 0; white-space: nowrap; }
-
-    .icon-btn {
-      display: flex; align-items: center; justify-content: center; padding: 5px 8px;
-      background: #ffffff; border: 1px solid #d4d4d4; border-radius: 4px;
-      cursor: pointer; color: #666666;
-    }
-    .icon-btn:hover { background: #f5f5f5; }
-
-    .search-wrap { position: relative; display: flex; align-items: center; }
-    .search-icon { position: absolute; left: 8px; font-size: 0.875rem; color: #aaaaaa; pointer-events: none; }
-    .search-input {
-      padding: 5px 10px 5px 28px; border: 1px solid #d4d4d4; border-radius: 4px;
-      background: #ffffff; font-size: 0.8rem; width: 200px; outline: none; color: #333333;
-    }
-    .search-input:focus { border-color: #3b82f6; }
-    .search-input::placeholder { color: #bbbbbb; }
-
-    /* ── Table ────────────────────────────────────────────────── */
-    .table-scroll { flex: 1; overflow: auto; background: #ffffff; }
-
-    .data-table { width: 100%; border-collapse: collapse; }
-    .data-table thead { position: sticky; top: 0; z-index: 1; background: #ffffff; }
-    .data-table th {
-      text-align: left; padding: 10px 16px; border-bottom: 1px solid #e5e5e5;
-      font-size: 0.78rem; font-weight: 600; color: #777777; white-space: nowrap;
-    }
-    .data-table td { padding: 12px 16px; border-bottom: 1px solid #f0f0f0; vertical-align: middle; }
-
-    .data-row { cursor: pointer; }
-    .data-row:hover { background: #fafafa; }
-    .data-row.expanded { background: #f5f7ff; }
-    .data-row.selected > td { background: #eff6ff; }
-
-    .col-check { width: 40px; }
-    .col-date { min-width: 190px; color: #666666; font-size: 0.84rem; }
-    .col-r { text-align: right; }
-
-    input[type="checkbox"] { cursor: pointer; accent-color: #3b82f6; }
-
-    .name-cell { display: flex; align-items: center; gap: 10px; }
-    .doc-icon {
-      display: flex; align-items: center; justify-content: center;
-      width: 28px; height: 28px; background: #f0f0f0;
-      border: 1px solid #e0e0e0; border-radius: 4px; color: #888888; flex-shrink: 0;
-    }
-    .name-primary { display: block; font-weight: 600; color: #1a1a1a; }
-    .name-sub { display: block; font-size: 0.75rem; color: #888888; }
-
-    .pay-amount { display: block; font-weight: 700; color: #1a1a1a; }
-    .pay-method { display: block; font-size: 0.75rem; color: #888888; }
-
-    .muted { color: #888888; }
-
-    /* Session ids are GUIDs — keep them from stretching the Carts table. */
-    .session-id { font-size: 0.78rem; color: #666666; word-break: break-all; }
-
-    /* ── Status pills ─────────────────────────────────────────── */
-    .pill {
-      display: inline-block; padding: 3px 10px;
-      border-radius: 20px; font-size: 0.75rem; font-weight: 600; white-space: nowrap;
-    }
-    .pill + .pill { margin-left: 6px; }
-    .pill--order-new        { background: #0ea5e9; color: #fff; }
-    .pill--order-pending    { background: #0ea5e9; color: #fff; }
-    .pill--order-submitted  { background: #8b5cf6; color: #fff; }
-    .pill--order-processing { background: #f59e0b; color: #fff; }
-    .pill--order-paid       { background: #10b981; color: #fff; }
-    .pill--order-shipped    { background: #6366f1; color: #fff; }
-    .pill--order-completed  { background: #059669; color: #fff; }
-    .pill--order-cancelled  { background: #ef4444; color: #fff; }
-    .pill--order-on-hold    { background: #94a3b8; color: #fff; }
-    .pill--order-refunded   { background: #f43f5e; color: #fff; }
-    /* fallback for any unknown status */
-    .pill[class*="pill--order-"] { background: #6b7280; color: #fff; }
-
-    .pill--payment-initialized { background: #e5e7eb; color: #374151; }
-    .pill--payment-authorized  { background: #dbeafe; color: #1d4ed8; }
-    .pill--payment-paid        { background: #d1fae5; color: #065f46; }
-    .pill--payment-cancelled   { background: #fee2e2; color: #991b1b; }
-    .pill--payment-refunded    { background: #fce7f3; color: #9d174d; }
-
-    .pill--active   { background: #d1fae5; color: #065f46; }
-    .pill--inactive { background: #f3f4f6; color: #6b7280; }
-    .pill--system   { background: #dbeafe; color: #1d4ed8; }
-    .pill--single   { background: #f3f4f6; color: #374151; }
-    .pill--group    { background: #ede9fe; color: #5b21b6; }
-
-    .sub-options-grid { display: flex; flex-direction: column; gap: 6px; }
-    .sub-option-item {
-      display: flex; align-items: center; gap: 8px;
-      padding: 6px 10px; border: 1px solid #e5e7eb; border-radius: 6px;
-      font-size: 0.85rem; cursor: pointer;
-    }
-    .sub-option-item--checked { border-color: var(--uui-color-interactive, #4a6ba8); background: #eff6ff; }
-    .sub-option-item input { margin: 0; }
-
-    /* ── Detail row ───────────────────────────────────────────── */
-    .detail-row td { padding: 0; cursor: default; }
-    .detail-panel {
-      padding: 20px 24px 20px 54px;
-      background: #f9f9fb;
-      border-bottom: 2px solid #e0e0e0;
-    }
-    .detail-grid {
-      display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
-      gap: 20px; margin-bottom: 14px;
-    }
-    .detail-section { }
-    .detail-label { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #999999; margin-bottom: 5px; }
-    .detail-section p { margin: 2px 0; font-size: 0.84rem; color: #333333; }
-    .total-line { margin-top: 4px; }
-
-    .items-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; margin: 8px 0 14px; }
-    .items-table th { text-align: left; padding: 5px 10px; border-bottom: 1px solid #dddddd; font-size: 0.75rem; color: #999999; }
-    .items-table td { padding: 7px 10px; border-bottom: 1px solid #eeeeee; color: #333333; }
-    .item-name-cell { display: flex; align-items: center; gap: 8px; }
-    .item-thumb { width: 28px; height: 28px; object-fit: cover; border-radius: 3px; }
-
-    .status-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding-top: 10px; border-top: 1px solid #e5e5e5; }
+    /* overflow-y lives on .view-container (kit), not here: the inline views bring their own
+       "flex: 1; overflow: auto" body, but embedded child elements (payment providers) can't —
+       they'd be clipped by .commerce-content's overflow: hidden with no scrollbar anywhere. */
 
     /* ── Analytics ────────────────────────────────────────────── */
     .analytics-body { flex: 1; overflow: auto; padding: 16px 24px; }
 
-    .stat-cards { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 24px; }
-    .stat-card {
-      background: #ffffff; border: 1px solid #e5e5e5; border-radius: 8px;
-      padding: 16px 20px; min-width: 130px; flex: 1;
-    }
-    .stat-card--highlight { border-color: #10b981; }
-    .stat-value { font-size: 1.5rem; font-weight: 700; color: #1a1a1a; }
-    .stat-label { font-size: 0.75rem; color: #888888; margin-top: 2px; text-transform: uppercase; letter-spacing: 0.04em; }
-
-    .analytics-section { background: #ffffff; border: 1px solid #e5e5e5; border-radius: 8px; overflow: hidden; }
-    .analytics-section-title { padding: 12px 16px; font-size: 0.85rem; font-weight: 600; color: #444444; border-bottom: 1px solid #f0f0f0; }
+    .analytics-section { background: var(--ec-surface); border: 1px solid var(--ec-border); border-radius: var(--ec-radius-lg); overflow: hidden; }
+    .analytics-section-title { padding: 12px 16px; font-size: 0.85rem; font-weight: 600; color: #444444; border-bottom: 1px solid var(--ec-border-soft); }
 
     .progress-wrap { display: flex; align-items: center; gap: 8px; }
     .progress-bar { height: 6px; background: #0ea5e9; border-radius: 3px; min-width: 2px; }
 
-    /* ── Order status color dot ───────────────────────────────── */
-    .color-dot { display: inline-block; width: 14px; height: 14px; border-radius: 50%; }
-
-    /* An order status IS its colour on every order pill, so the swatch is the row's icon rather
-       than a column of its own. */
-    .color-swatch {
-      width: 28px; height: 28px; flex-shrink: 0;
-      border-radius: 5px; border: 1px solid rgba(0, 0, 0, 0.12);
-    }
-
-    /* ── States ───────────────────────────────────────────────── */
-    .state-center {
-      flex: 1; display: flex; flex-direction: column; align-items: center;
-      justify-content: center; gap: 12px; color: #aaaaaa; padding: 60px;
-      text-align: center;
-    }
-
-    /* ── Pagination ───────────────────────────────────────────── */
-    .pagination-bar {
-      display: flex; align-items: center; justify-content: center; gap: 4px;
-      padding: 10px 24px; border-top: 1px solid #e5e5e5; background: #ffffff;
-    }
-    .page-btn {
-      min-width: 30px; height: 30px; padding: 0 8px;
-      background: #ffffff; border: 1px solid #d4d4d4; border-radius: 4px;
-      cursor: pointer; font-size: 0.82rem; color: #333333; line-height: 1;
-    }
-    .page-btn:hover:not(:disabled) { background: #f5f5f5; }
-    .page-btn:disabled { color: #bbbbbb; cursor: default; }
-    .page-btn--active { background: #1b264f; color: #ffffff; border-color: #1b264f; font-weight: 600; }
-    .page-ellipsis { font-size: 0.82rem; color: #888888; padding: 0 4px; line-height: 30px; }
-
-    /* ── Order detail view ────────────────────────────────────── */
-    .detail-breadcrumb { display: flex; align-items: center; gap: 8px; }
-    .back-btn {
-      background: none; border: none; cursor: pointer;
-      font-size: 0.88rem; color: #3b82f6; padding: 4px 0;
-    }
-    .back-btn:hover { text-decoration: underline; }
-    .breadcrumb-sep { color: #cccccc; }
-    .detail-order-num { font-size: 0.9rem; color: #444444; font-weight: 600; }
-    .detail-status-badge { margin-left: auto; }
-
-    .detail-body {
-      flex: 1; overflow-y: auto; padding: 20px 24px;
-      display: flex; flex-direction: column; gap: 20px;
-    }
-    .detail-grid--wide {
-      display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-      gap: 20px; background: #ffffff; border: 1px solid #e5e5e5;
-      border-radius: 8px; padding: 20px;
-    }
-    .detail-section-block {
-      background: #ffffff; border: 1px solid #e5e5e5; border-radius: 8px; padding: 16px 20px;
-    }
-    .detail-section-block .detail-label { margin-bottom: 10px; }
-
-    /* ── Footer ───────────────────────────────────────────────── */
-    .view-footer { padding: 9px 24px; border-top: 1px solid #e5e5e5; background: #ffffff; }
-    .breadcrumb { font-size: 0.78rem; color: #aaaaaa; }
-
     /* ── Store tax rate (Tax Classes view) ────────────────────── */
     .store-tax {
       margin: 12px 24px 0; padding: 12px 16px;
-      background: #ffffff; border: 1px solid #e5e5e5; border-radius: 6px;
+      background: var(--ec-surface); border: 1px solid var(--ec-border); border-radius: var(--ec-radius-md);
     }
     .store-tax-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
     .store-tax-row label { font-weight: 600; margin-right: 4px; }
-    .store-tax small { display: block; margin-top: 6px; color: #888888; }
+    .store-tax small { display: block; margin-top: 6px; color: var(--ec-text-muted); }
 
     /* ── Market list ──────────────────────────────────────────── */
-    .market-list { padding: 6px 0 2px; border-bottom: 1px solid #e5e5e5; }
+    .market-list { padding: 6px 0 2px; border-bottom: 1px solid var(--ec-border); }
     .market-item {
       display: flex; align-items: center; gap: 8px;
       padding: 6px 14px 6px 16px;
-      font-size: 0.8rem; color: #555555; cursor: pointer; user-select: none;
+      font-size: 0.8rem; color: var(--ec-text-alt); cursor: pointer; user-select: none;
     }
     .market-item:hover { background: #f5f5f5; }
-    .market-item--active { background: #eff6ff; color: #1d4ed8; font-weight: 600; }
-
-    /* ── Form panel (discounts / presets) ─────────────────────── */
-    .form-panel {
-      margin: 10px 24px; padding: 16px 20px;
-      background: #ffffff; border: 1px solid #e5e5e5; border-radius: 8px;
-    }
-    .form-panel h3 { margin: 0 0 14px; font-size: 0.95rem; color: #1a1a1a; }
-    .form-row { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
-    .form-row label { min-width: 140px; font-size: 0.82rem; color: #555555; }
-    .form-input {
-      flex: 1; padding: 6px 10px; border: 1px solid #d4d4d4; border-radius: 4px;
-      font-size: 0.82rem; color: #333333; background: #fff; outline: none;
-    }
-    .form-input:focus { border-color: #3b82f6; }
-    .form-actions { display: flex; gap: 10px; margin-top: 14px; padding-top: 10px; border-top: 1px solid #f0f0f0; }
-
-    /* Modal editor: dim backdrop + centered, scrollable panel with a sticky action footer so
-       Save/Cancel stay reachable no matter how many values the attribute has. */
-    .modal-overlay {
-      position: fixed; inset: 0; z-index: 1000;
-      background: rgba(0, 0, 0, 0.45);
-      display: flex; align-items: flex-start; justify-content: center;
-      padding: 4vh 16px; overflow-y: auto;
-    }
-    .form-panel--modal {
-      margin: 0; width: min(920px, 100%); max-height: 90vh;
-      display: flex; flex-direction: column; overflow-y: auto;
-      box-shadow: 0 12px 48px rgba(0, 0, 0, 0.28);
-    }
-    .form-panel--modal .form-actions {
-      position: sticky; bottom: 0; margin-top: 14px;
-      background: #ffffff; padding-bottom: 4px;
-    }
-    /* One question, one answer — a full-width editor panel would dwarf it. */
-    .form-panel--sm { width: min(460px, 100%); }
-    .form-panel--sm .form-row label { min-width: 90px; }
-
-    .row-actions { display: flex; gap: 4px; white-space: nowrap; }
-
-    /* Row action that shouldn't shout: grey until you reach for it, red once you do. */
-    .icon-btn {
-      display: inline-flex; align-items: center; justify-content: center;
-      width: 30px; height: 30px; padding: 0;
-      border: 1px solid transparent; border-radius: 4px;
-      background: none; color: #9a9a9a; cursor: pointer;
-    }
-    .icon-btn:hover { color: #d42054; background: #fdeaef; border-color: #f4c6d2; }
-    .icon-btn:focus-visible { outline: 2px solid #3b82f6; outline-offset: 1px; }
-  `;
+    .market-item--active { background: var(--ec-selected-bg); color: #1d4ed8; font-weight: 600; }
+  `];
 }
 
 customElements.define('commerce-admin-dashboard', CommerceAdminDashboard);
