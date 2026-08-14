@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations;
+
 namespace EComm.Data.ValueObjects.Product;
 
 public class ProductVariant
@@ -6,6 +8,7 @@ public class ProductVariant
     public string Sku { get; set; } = string.Empty;
     public decimal Price { get; set; }
     public decimal? SalePrice { get; set; }
+    [Range(0, int.MaxValue, ErrorMessage = "Stock quantity cannot be negative.")]
     public int StockQuantity { get; set; }
     public int LowStockThreshold { get; set; }
     public List<string>? Images { get; set; }

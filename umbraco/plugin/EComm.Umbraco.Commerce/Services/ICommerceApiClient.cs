@@ -112,18 +112,20 @@ public interface ICommerceApiClient
     /// <summary>
     /// Updates a product (creates new version in API). The API preserves the product's existing
     /// market regardless of caller — not scoped by market here.
+    /// The API's own words on a refusal ride back in Error, so the caller can say *why* it failed
+    /// ("Duplicate variant SKU 'X'") instead of inventing a message of its own.
     /// </summary>
-    Task<Product?> UpdateProductAsync(string productId, Product product, string userId, string? changeNotes = null);
+    Task<(Product? Product, string? Error)> UpdateProductAsync(string productId, Product product, string userId, string? changeNotes = null);
 
     /// <summary>
     /// Deletes a product permanently (not scoped by market — see GetProductAsync)
     /// </summary>
-    Task<bool> DeleteProductAsync(string productId);
+    Task<(bool Success, string? Error)> DeleteProductAsync(string productId);
 
     /// <summary>
     /// Creates a new product in the configured (or specified) market
     /// </summary>
-    Task<Product?> CreateProductAsync(Product product, string? marketId = null);
+    Task<(Product? Product, string? Error)> CreateProductAsync(Product product, string? marketId = null);
 
     /// <summary>
     /// Gets orders for the configured tenant/market with optional status filter, free-text search and

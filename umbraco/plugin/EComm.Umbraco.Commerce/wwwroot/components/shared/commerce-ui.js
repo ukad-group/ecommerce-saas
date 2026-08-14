@@ -1,6 +1,7 @@
 import { html, css } from '@umbraco-cms/backoffice/external/lit';
 import { umbFocus } from '@umbraco-cms/backoffice/lit-element';
 import { umbConfirmModal } from '@umbraco-cms/backoffice/modal';
+import { UMB_NOTIFICATION_CONTEXT } from '@umbraco-cms/backoffice/notification';
 
 /**
  * The Commerce backoffice design kit — one look for every Commerce surface.
@@ -534,6 +535,51 @@ export const errorBanner = (msg, onClose) => msg ? html`
     <span>${msg}</span>
     <button class="error-close" @click=${onClose}>×</button>
   </div>` : '';
+
+/**
+ * Toasts, via Umbraco's own notification layer — for the outcome of something the editor just did
+ * (a save, a delete). `errorBanner` stays for state the view is stuck in, e.g. a list that failed
+ * to load; a banner pinned above a form the editor has already moved on from is just noise.
+ *
+ * `host` is any UmbElementMixin element (`this` in a view).
+ */
+export const toast = async (host, color, headline, message) => {
+  // .catch: getContext rejects if the view is torn down mid-request — a lost toast, not a crash.
+  const notifications = await host.getContext(UMB_NOTIFICATION_CONTEXT).catch(() => null);
+  notifications?.peek(color, { data: { headline, message } });
+};
+
+export const toastSuccess = (host, headline, message) => toast(host, 'positive', headline, message);
+
+/** `detail` is whatever the failure handed you: a Response body, a parsed object, or an Error. */
+export const toastError = (host, headline, detail) => toast(host, 'danger', headline, apiErrorText(detail));
+
+/**
+ * A failed API call answers with ProblemDetails, which is unreadable raw — the field keys arrive
+ * JSON-path-prefixed (`$.$.product.variants[0].stockQuantity`) and the messages are buried under
+ * `errors`. Turn that into the sentence the editor needs; the untouched body still goes to the
+ * console at the call site.
+ */
+export const apiErrorText = (detail, fallback = 'The server rejected the request.') => {
+  if (!detail) return fallback;
+  if (detail instanceof Error) return detail.message || fallback;
+
+  let body = detail;
+  if (typeof body === 'string') {
+    try { body = JSON.parse(body); } catch { return body; }
+  }
+  if (typeof body !== 'object') return String(body);
+
+  // `errors` is a field → messages map, or a list of them (what the management API forwards).
+  const fields = Array.isArray(body.errors)
+    ? body.errors.flatMap(e => Object.entries(e || {}))
+    : Object.entries(body.errors || {});
+  const lines = fields.flatMap(([field, messages]) => [].concat(messages)
+    .map(m => `${field.replace(/^(\$\.)+/, '')}: ${m}`));
+
+  // `message` is the API's own refusal shape ("Duplicate variant SKU 'X'"); detail/title are ProblemDetails'.
+  return lines.join(' ') || body.detail || body.message || body.title || fallback;
+};
 
 export const stateCenter = (content) => html`<div class="state-center">${content}</div>`;
 

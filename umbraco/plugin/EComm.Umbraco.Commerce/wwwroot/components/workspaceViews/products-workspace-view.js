@@ -8,7 +8,7 @@ import { UMB_MEDIA_PICKER_MODAL } from '@umbraco-cms/backoffice/media';
 // The shared design kit — see umbraco/docs/DESIGN-SYSTEM.md before adding UI here.
 import {
   commerceStyles, stateCenter, loadingState, emptyState, errorBanner,
-  pill, modalShell, confirmDelete,
+  pill, modalShell, confirmDelete, toastError,
 } from '../shared/commerce-ui.js';
 
 class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
@@ -433,7 +433,7 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
     const merged = this._mergedCustomProperties();
     return html`
       <div class="attributes-section">
-        <h4 class="section-heading">Custom properties</h4>
+        <h4 class="section-heading">Product specifications</h4>
         <div class="custom-props-list">
           ${merged.map(prop => html`
             <div class="custom-prop-row" @click=${(e) => e.stopPropagation()}>
@@ -742,11 +742,11 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
 
     // For products with variants, skip master product price/stock validation
     if (!this.editedProduct.hasVariants) {
-      if (this.editedProduct.price == null || this.editedProduct.price < 0) {
+      if (!Number.isFinite(this.editedProduct.price) || this.editedProduct.price < 0) {
         errors.price = 'Valid price is required';
       }
 
-      if (this.editedProduct.stockQuantity == null || this.editedProduct.stockQuantity < 0) {
+      if (!Number.isFinite(this.editedProduct.stockQuantity) || this.editedProduct.stockQuantity < 0) {
         errors.stockQuantity = 'Stock quantity must be 0 or greater';
       }
     } else {
@@ -836,11 +836,12 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
 
       } else {
         const errorText = await response.text();
-        this.error = `Failed to save: ${errorText || response.statusText}`;
+        console.error('Failed to save product:', errorText);
+        toastError(this, 'Product not saved', errorText || response.statusText);
       }
     } catch (err) {
       console.error('Failed to save product:', err);
-      this.error = 'Failed to save product: ' + err.message;
+      toastError(this, 'Product not saved', err);
     } finally {
       this.saving = false;
     }
@@ -1037,10 +1038,12 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
         this.editedProduct = null;
       } else {
         const text = await response.text();
-        this.error = `Failed to delete: ${text || response.statusText}`;
+        console.error('Failed to delete product:', text);
+        toastError(this, 'Product not deleted', text || response.statusText);
       }
     } catch (err) {
-      this.error = 'Failed to delete product: ' + err.message;
+      console.error('Failed to delete product:', err);
+      toastError(this, 'Product not deleted', err);
     } finally {
       this.saving = false;
     }
@@ -1316,8 +1319,15 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
       errors[`variant_${variant.id}_sku`] = 'SKU is required';
     }
 
-    if (variant.price == null || variant.price < 0) {
+    // Number.isFinite, not `== null || < 0`: an emptied number field parses to NaN, which fails
+    // both of those and would then serialize to JSON null — the server answers 400 "could not be
+    // converted to System.Int32" instead of the field telling the editor what's wrong.
+    if (!Number.isFinite(variant.price) || variant.price < 0) {
       errors[`variant_${variant.id}_price`] = 'Valid price is required';
+    }
+
+    if (!Number.isFinite(variant.stockQuantity) || variant.stockQuantity < 0) {
+      errors[`variant_${variant.id}_stockQuantity`] = 'Stock quantity must be 0 or greater';
     }
 
     return errors;
@@ -2059,10 +2069,12 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
         this.variantSearchQuery = '';
       } else {
         const text = await response.text();
-        this.error = `Failed to create product: ${text || response.statusText}`;
+        console.error('Failed to create product:', text);
+        toastError(this, 'Product not created', text || response.statusText);
       }
     } catch (err) {
-      this.error = 'Failed to create product: ' + err.message;
+      console.error('Failed to create product:', err);
+      toastError(this, 'Product not created', err);
     } finally {
       this.createSaving = false;
     }
@@ -2540,7 +2552,7 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
             <span class="variant-sku">${variant.sku}</span>
             <span class="variant-price">${this.formatPrice(variant.price)}</span>
             <span class="variant-tag ${variant.stockQuantity > 0 ? 'tag-positive' : 'tag-danger'}">
-              Stock: ${variant.stockQuantity}
+              Stock: ${Number.isFinite(variant.stockQuantity) ? variant.stockQuantity : '—'}
             </span>
             <span class="variant-tag ${variant.status === 'active' ? 'tag-positive' : 'tag-default'}">
               ${variant.status}
@@ -2654,6 +2666,7 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
             <uui-input
               id="variant-stock-${variant.id}"
               type="number"
+              min="0"
               .value=${String(variant.stockQuantity ?? '')}
               @input=${(e) => this.handleVariantInput(variant.id, 'stockQuantity', parseInt(e.target.value))}
               ?disabled=${this.saving}
@@ -3190,7 +3203,7 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
 
         <div class="form-group">
           <uui-label for="sp-stock" required>Stock Quantity</uui-label>
-          <uui-input id="sp-stock" type="number"
+          <uui-input id="sp-stock" type="number" min="0"
             .value=${String(product.stockQuantity ?? '')}
             @input=${(e) => this.handleProductInput('stockQuantity', parseInt(e.target.value))}
             ?disabled=${this.saving} required>
@@ -3453,7 +3466,7 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
         <td>${this.formatPrice(variant.price)}</td>
         <td>
           <span class="${(variant.stockQuantity ?? 0) > 0 ? 'tag-positive' : 'tag-danger'} variant-tag">
-            ${variant.stockQuantity ?? 0}
+            ${Number.isFinite(variant.stockQuantity) ? variant.stockQuantity : '—'}
           </span>
         </td>
         <td>

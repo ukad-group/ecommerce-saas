@@ -102,7 +102,12 @@ DELETE /api/v1/products/{id}/permanent         // Hard-delete (removes all versi
 GET    /api/v1/products/{id}/versions          // Get version history
 GET    /api/v1/products/{id}/versions/{ver}    // Get specific version
 POST   /api/v1/products/{id}/versions/{ver}/restore // Restore version
+PATCH  /api/v1/products/{id}/stock             // Set stock (no new version)
 ```
+**Stock can't go negative**: `[Range(0, int.MaxValue)]` on `Product.StockQuantity`,
+`ProductVariant.StockQuantity` and `UpdateStockRequest`, so every write path (POST/PUT body, its
+variants, and the stock PATCH) answers **400** rather than storing it — a client-side rule only
+covers the client that has it. Order fulfilment still clamps at 0 as before.
 
 ### 2. CategoriesController
 ```csharp

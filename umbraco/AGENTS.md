@@ -23,9 +23,11 @@ Claude Code supports `/ctx-*` commands; Codex should open the matching `.claude/
 **Read [docs/DESIGN-SYSTEM.md](docs/DESIGN-SYSTEM.md) before adding or changing any backoffice UI.**
 Every Commerce surface shares one design kit —
 `plugin/EComm.Umbraco.Commerce/wwwroot/components/shared/commerce-ui.js` (`commerceStyles` plus
-`viewHeader`/`viewFooter`/`errorBanner`/`loadingState`/`emptyState`/`pager`/`searchBar`/`formRow`/
-`iconButton`/`pill`/`modalShell`/`modalActions`/`confirmDelete`). Use those instead of writing a
-local variant: one modal pattern, one table, one row-action, one confirm.
+`viewHeader`/`viewFooter`/`errorBanner`/`toastError`/`toastSuccess`/`loadingState`/`emptyState`/
+`pager`/`searchBar`/`formRow`/`iconButton`/`pill`/`modalShell`/`modalActions`/`confirmDelete`). Use
+those instead of writing a local variant: one modal pattern, one table, one row-action, one confirm.
+A failed save/delete/create is a **toast** (`toastError(this, headline, responseBody)`, which unwraps
+ProblemDetails); `errorBanner` is for state the view is stuck in.
 
 ## Specialist Agents
 

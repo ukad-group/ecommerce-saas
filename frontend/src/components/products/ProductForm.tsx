@@ -30,6 +30,13 @@ const variantComboKey = (opts: VariantOptionSelection[]) =>
 // Extended property type for merged display
 interface MergedCustomProperty extends CustomProperty {
   isMarketTemplate: boolean;
+  /**
+   * Where this row lives in `customProperties`, or -1 for a market template the product hasn't
+   * filled in yet. Rows are identified by this, never by their name — the name is the thing being
+   * typed, so matching on it renames the wrong row when two are blank and remounts the input on
+   * every keystroke.
+   */
+  sourceIndex: number;
 }
 
 interface ProductFormProps {
@@ -347,6 +354,7 @@ export function ProductForm({
       ...p,
       sortOrder: p.sortOrder ?? idx + 1,
       isMarketTemplate: marketTemplateNames.has(p.name.toLowerCase()),
+      sourceIndex: idx,
     }));
 
     // Find market templates not yet in product properties
@@ -358,6 +366,7 @@ export function ProductForm({
         value: t.defaultValue || '',
         sortOrder: t.sortOrder + 1000, // Append after product properties
         isMarketTemplate: true,
+        sourceIndex: -1,
       }));
 
     // Combine and sort
@@ -397,15 +406,10 @@ export function ProductForm({
   ) => {
     const mergedProp = mergedProperties[index];
 
-    // Check if this property already exists in customProperties
-    const actualIndex = customProperties.findIndex(
-      (p) => p.name.toLowerCase() === mergedProp.name.toLowerCase()
-    );
-
-    if (actualIndex !== -1) {
+    if (mergedProp.sourceIndex !== -1) {
       // Update existing product property
       const updated = [...customProperties];
-      updated[actualIndex] = { ...updated[actualIndex], [field]: value };
+      updated[mergedProp.sourceIndex] = { ...updated[mergedProp.sourceIndex], [field]: value };
       setCustomProperties(updated);
     } else {
       // Add new property (converting from unfilled market template)
@@ -429,9 +433,7 @@ export function ProductForm({
     // Only allow removing non-market-template properties
     if (!mergedProp.isMarketTemplate) {
       setCustomProperties(
-        customProperties.filter(
-          (p) => p.name.toLowerCase() !== mergedProp.name.toLowerCase()
-        )
+        customProperties.filter((_, i) => i !== mergedProp.sourceIndex)
       );
     }
   };
@@ -442,13 +444,9 @@ export function ProductForm({
     const prevProp = mergedProperties[index - 1];
 
     // Swap sort orders in the original customProperties array
-    const updated = customProperties.map((p) => {
-      if (p.name.toLowerCase() === mergedProp.name.toLowerCase()) {
-        return { ...p, sortOrder: prevProp.sortOrder };
-      }
-      if (p.name.toLowerCase() === prevProp.name.toLowerCase()) {
-        return { ...p, sortOrder: mergedProp.sortOrder };
-      }
+    const updated = customProperties.map((p, i) => {
+      if (i === mergedProp.sourceIndex) return { ...p, sortOrder: prevProp.sortOrder };
+      if (i === prevProp.sourceIndex) return { ...p, sortOrder: mergedProp.sortOrder };
       return p;
     });
     setCustomProperties(updated);
@@ -460,13 +458,9 @@ export function ProductForm({
     const nextProp = mergedProperties[index + 1];
 
     // Swap sort orders in the original customProperties array
-    const updated = customProperties.map((p) => {
-      if (p.name.toLowerCase() === mergedProp.name.toLowerCase()) {
-        return { ...p, sortOrder: nextProp.sortOrder };
-      }
-      if (p.name.toLowerCase() === nextProp.name.toLowerCase()) {
-        return { ...p, sortOrder: mergedProp.sortOrder };
-      }
+    const updated = customProperties.map((p, i) => {
+      if (i === mergedProp.sourceIndex) return { ...p, sortOrder: nextProp.sortOrder };
+      if (i === nextProp.sourceIndex) return { ...p, sortOrder: mergedProp.sortOrder };
       return p;
     });
     setCustomProperties(updated);
@@ -616,11 +610,11 @@ export function ProductForm({
           />
         </div>
 
-        {/* Custom Properties */}
+        {/* Product Specifications */}
         <div className="mt-6">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
             <label className="block text-sm font-medium text-gray-700">
-              Custom Properties
+              Product Specifications
             </label>
             <div className="flex items-center gap-2">
               {isAdmin && (
@@ -655,9 +649,11 @@ export function ProductForm({
             <div className="space-y-3">
               {mergedProperties.map((property, index) => (
                 <div
-                  key={property.name || `new-${index}`}
+                  key={property.sourceIndex === -1 ? `template-${property.name}` : `property-${property.sourceIndex}`}
                   className={`flex flex-col sm:flex-row gap-2 items-center sm:items-center p-3 rounded-md ${
-                    property.isMarketTemplate ? 'bg-[#4a6ba8]/5 border border-[#4a6ba8]/20' : 'bg-gray-50'
+                    property.isMarketTemplate
+                      ? 'bg-[#4a6ba8]/5 border border-[#4a6ba8]/20'
+                      : 'bg-gray-50 border border-transparent'
                   }`}
                 >
                   {/* Reorder buttons */}
@@ -701,7 +697,7 @@ export function ProductForm({
                       }`}
                     />
                   </div>
-                  <div className="flex-1 w-full w-full">
+                  <div className="flex-1 w-full">
                     {(() => {
                       const options = propertyOptionsByName.get(property.name.toLowerCase());
                       if (options) {
@@ -735,7 +731,7 @@ export function ProductForm({
                   </div>
                   {property.isMarketTemplate ? (
                     <div
-                      className="px-3 py-2 text-[#4a6ba8] text-sm flex items-center justify-center sm:justify-start gap-1"
+                      className="px-3 py-2 text-[#4a6ba8] text-sm flex items-center justify-center gap-1 w-full sm:w-24"
                       title="This property is defined at the market level. Edit templates to remove."
                     >
                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -747,7 +743,7 @@ export function ProductForm({
                     <button
                       type="button"
                       onClick={() => handleRemoveCustomProperty(index)}
-                      className="px-3 py-2 text-red-600 hover:text-red-800 text-sm font-medium w-full sm:w-auto text-center"
+                      className="px-3 py-2 text-red-600 hover:text-red-800 text-sm font-medium w-full sm:w-24 text-center"
                     >
                       Remove
                     </button>
@@ -916,6 +912,7 @@ export function ProductForm({
               <Input
                 label="Stock Quantity"
                 type="number"
+                min="0"
                 {...register('stockQuantity', {
                   required: !hasVariants ? 'Stock quantity is required' : false,
                   min: { value: 0, message: 'Stock quantity must be non-negative' },
@@ -926,6 +923,7 @@ export function ProductForm({
               <Input
                 label="Low Stock Threshold"
                 type="number"
+                min="0"
                 {...register('lowStockThreshold', {
                   required: !hasVariants ? 'Low stock threshold is required' : false,
                   min: { value: 0, message: 'Threshold must be non-negative' },
@@ -1160,13 +1158,14 @@ export function ProductForm({
                       />
                       <input
                         type="number"
+                        min="0"
                         placeholder="Stock"
                         value={variant.stockQuantity || ''}
                         onChange={(e) =>
                           handleUpdateVariant(
                             variant.id,
                             'stockQuantity',
-                            parseInt(e.target.value) || 0
+                            Math.max(0, parseInt(e.target.value) || 0)
                           )
                         }
                         className="px-3 py-2 border border-gray-300 rounded-md text-sm"

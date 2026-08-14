@@ -205,11 +205,11 @@ public class CategoryPickerApiController : ManagementApiControllerBase
         // Extract user ID from product for version tracking
         var userId = request.Product.VersionCreatedBy ?? "system";
 
-        var updated = await _apiClient.UpdateProductAsync(id, request.Product, userId, request.ChangeNotes);
+        var (updated, error) = await _apiClient.UpdateProductAsync(id, request.Product, userId, request.ChangeNotes);
 
         if (updated == null)
         {
-            return NotFound($"Product {id} not found or update failed");
+            return BadRequest(error ?? $"Product {id} could not be updated");
         }
 
         return Ok(updated);
@@ -227,10 +227,9 @@ public class CategoryPickerApiController : ManagementApiControllerBase
         if (string.IsNullOrWhiteSpace(id))
             return BadRequest("Product ID is required");
 
-        var success = await _apiClient.DeleteProductAsync(id);
+        var (success, error) = await _apiClient.DeleteProductAsync(id);
         if (!success)
-            return StatusCode(StatusCodes.Status500InternalServerError,
-                $"Failed to delete product {id}. Check that the eCommerce API is running and the product exists.");
+            return BadRequest(error ?? $"Failed to delete product {id}. Check that the eCommerce API is running.");
 
         return NoContent();
     }
@@ -418,10 +417,9 @@ public class CategoryPickerApiController : ManagementApiControllerBase
             SeoDescription = request.SeoDescription,
         };
 
-        var created = await _apiClient.CreateProductAsync(product, marketId);
+        var (created, error) = await _apiClient.CreateProductAsync(product, marketId);
         if (created == null)
-            return StatusCode(StatusCodes.Status500InternalServerError,
-                "Failed to create product. Check that the eCommerce API is running.");
+            return BadRequest(error ?? "Failed to create product. Check that the eCommerce API is running.");
 
         return StatusCode(StatusCodes.Status201Created, created);
     }

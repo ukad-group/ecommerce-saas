@@ -459,13 +459,13 @@ public class CommerceApiClient : ICommerceApiClient
         }
     }
 
-    public async Task<Product?> UpdateProductAsync(string productId, Product product, string userId, string? changeNotes = null)
+    public async Task<(Product? Product, string? Error)> UpdateProductAsync(string productId, Product product, string userId, string? changeNotes = null)
     {
         var settings = await _settingsService.GetSettingsAsync();
         if (settings == null || !settings.IsValid)
         {
             _logger.LogWarning("Cannot update product: API settings not configured");
-            return null;
+            return (null, "Commerce API is not configured");
         }
 
         try
@@ -513,18 +513,18 @@ public class CommerceApiClient : ICommerceApiClient
                         productId, updated.Version);
                 }
 
-                return updated;
+                return (updated, null);
             }
 
-            var error = await response.Content.ReadAsStringAsync();
+            var error = await ReadErrorAsync(response);
             _logger.LogError("Failed to update product {ProductId}: {StatusCode} - {Error}",
                 productId, response.StatusCode, error);
-            return null;
+            return (null, error);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to update product {ProductId}", productId);
-            return null;
+            return (null, ex.Message);
         }
     }
 
@@ -560,13 +560,13 @@ public class CommerceApiClient : ICommerceApiClient
         }
     }
 
-    public async Task<bool> DeleteProductAsync(string productId)
+    public async Task<(bool Success, string? Error)> DeleteProductAsync(string productId)
     {
         var settings = await _settingsService.GetSettingsAsync();
         if (settings == null || !settings.IsValid)
         {
             _logger.LogWarning("Cannot delete product: API settings not configured");
-            return false;
+            return (false, "Commerce API is not configured");
         }
 
         try
@@ -583,28 +583,28 @@ public class CommerceApiClient : ICommerceApiClient
                 _cache.Remove($"EComm_Product_{productId}");
                 _cache.Remove($"EComm_Products_all");
                 _logger.LogInformation("Product {ProductId} deleted successfully", productId);
-                return true;
+                return (true, null);
             }
 
-            var error = await response.Content.ReadAsStringAsync();
+            var error = await ReadErrorAsync(response);
             _logger.LogError("Failed to delete product {ProductId}: {StatusCode} - {Error}",
                 productId, response.StatusCode, error);
-            return false;
+            return (false, error);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to delete product {ProductId}", productId);
-            return false;
+            return (false, ex.Message);
         }
     }
 
-    public async Task<Product?> CreateProductAsync(Product product, string? marketId = null)
+    public async Task<(Product? Product, string? Error)> CreateProductAsync(Product product, string? marketId = null)
     {
         var settings = await _settingsService.GetSettingsAsync();
         if (settings == null || !settings.IsValid)
         {
             _logger.LogWarning("Cannot create product: API settings not configured");
-            return null;
+            return (null, "Commerce API is not configured");
         }
 
         try
@@ -638,17 +638,17 @@ public class CommerceApiClient : ICommerceApiClient
                     _cache.Remove($"EComm_Products_{created.CategoryId}");
                 }
                 _logger.LogInformation("Product created successfully with ID {ProductId}", created?.Id);
-                return created;
+                return (created, null);
             }
 
-            var error = await response.Content.ReadAsStringAsync();
+            var error = await ReadErrorAsync(response);
             _logger.LogError("Failed to create product: {StatusCode} - {Error}", response.StatusCode, error);
-            return null;
+            return (null, error);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to create product");
-            return null;
+            return (null, ex.Message);
         }
     }
 
@@ -1122,7 +1122,12 @@ public class CommerceApiClient : ICommerceApiClient
         catch (JsonException) { return 0; }
     }
 
-    /// <summary>Pulls the message out of the API's `{ "error": "…" }` body, falling back to the raw body.</summary>
+    /// <summary>
+    /// Pulls the message out of the API's error body, falling back to the raw body. The API refuses
+    /// in two dialects — `{ "error": "…", "suggestion": "…" }` and `{ "message": "…" }` (what the
+    /// products endpoints answer, e.g. "Duplicate variant SKU 'X'") — so read both. A ProblemDetails
+    /// body falls through to the raw JSON, which the backoffice unwraps for display.
+    /// </summary>
     private static async Task<string> ReadErrorAsync(HttpResponseMessage response)
     {
         var body = await response.Content.ReadAsStringAsync();
@@ -1133,6 +1138,10 @@ public class CommerceApiClient : ICommerceApiClient
             {
                 var suggestion = doc.TryGetValue("suggestion", out var s) && s.ValueKind == JsonValueKind.String ? $" {s.GetString()}" : "";
                 return $"{error.GetString()}{suggestion}";
+            }
+            if (doc != null && doc.TryGetValue("message", out var message) && message.ValueKind == JsonValueKind.String)
+            {
+                return message.GetString()!;
             }
         }
         catch (JsonException) { /* not JSON — use the raw body */ }

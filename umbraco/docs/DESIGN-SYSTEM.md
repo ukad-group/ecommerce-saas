@@ -132,8 +132,19 @@ payment state from its order status.
 **States** — `loadingState('Loading…')`, `emptyState('icon-tag', 'No attributes yet', optionalNote)`,
 or `stateCenter(anything)`.
 
-**Errors** — `errorBanner(this.xError, () => { this.xError = null; })` directly under the header.
-API refusals are shown verbatim; never swallow the server's message.
+**Errors** — two shapes, picked by what the editor can do about it:
+
+- **A failed action** (save, delete, create) → a toast: `toastError(this, 'Product not saved', body)`,
+  where `body` is the response text, a parsed object, or the caught `Error`. It runs through
+  `apiErrorText`, which unwraps ProblemDetails into a sentence — the raw JSON belongs in
+  `console.error` next to it, not in the editor's face. `toastSuccess(this, 'Saved')` is the
+  positive twin. Both go through Umbraco's notification layer, so they stack and dismiss like
+  every other backoffice toast.
+- **State the view is stuck in** (a list that wouldn't load, a missing configuration) →
+  `errorBanner(this.xError, () => { this.xError = null; })` directly under the header, because it
+  explains what the editor is looking at.
+
+Never swallow the server's message: whichever shape you use, the full body still reaches the console.
 
 **Notices** — a result the editor reads but needn't dismiss (a save succeeded, a save failed, a
 warning inside a form): `.notice` + `.notice--success` / `--error` / `--warning`. Not `uui-badge`.

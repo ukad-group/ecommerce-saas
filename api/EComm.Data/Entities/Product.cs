@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using EComm.Data.ValueObjects.Product;
 
 namespace EComm.Data.Entities;
@@ -13,6 +14,7 @@ public class Product
     public decimal? Price { get; set; } // Optional when product has variants
     public decimal? SalePrice { get; set; }
     public string Status { get; set; } = "active";
+    [Range(0, int.MaxValue, ErrorMessage = "Stock quantity cannot be negative.")]
     public int? StockQuantity { get; set; } // Optional when product has variants
     public int? LowStockThreshold { get; set; } // Optional when product has variants
     public string Currency { get; set; } = "USD";

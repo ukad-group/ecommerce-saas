@@ -46,7 +46,8 @@ interface ProductVersion {
 - **Versioning**: Every update creates new version, full history retained
 - **Market-scoped**: Products belong to specific markets (not tenant-wide)
 - **Categories**: Hierarchical category assignment
-- **Stock**: Quick stock updates, low-stock warnings
+- **Stock**: Quick stock updates, low-stock warnings; negative stock is refused by the API (400) on
+  every write path, not just by the admin form
 - **Search & Filter**: By name, SKU, status, category
 - **Restore**: Restore any previous version with one click
 - **Image Upload**: Multiple images per product with drag-and-drop reordering
