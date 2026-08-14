@@ -119,15 +119,14 @@ VITE_USE_MOCKS=false
 ## Key Patterns
 
 ### API Client
+
+Every call goes through `apiClient` (`services/api/client.ts`) — never a bare `fetch`. It carries the
+tenant/market headers and the JWT cookie, and on a 401 it clears the session and sends the user to
+`/login`; a hand-rolled `fetch` leaves an expired session looking like a broken page.
+
 ```typescript
-// services/api/client.ts - Base client with headers
-const response = await fetch(url, {
-  headers: {
-    'Content-Type': 'application/json',
-    'X-Tenant-ID': tenantId,
-    'X-Market-ID': marketId
-  }
-});
+const markets = await apiClient.get<Market[]>(`/admin/markets?${params}`);
+await apiClient.post<ApiKeyCreationResponse>(`/markets/${marketId}/api-keys`, input);
 ```
 
 ### TanStack Query Hooks

@@ -12,6 +12,7 @@ import { Link, useParams } from 'react-router-dom';
 import { PlusIcon, MagnifyingGlassIcon, KeyIcon } from '@heroicons/react/24/outline';
 import type { Market, MarketStatus, MarketType, UpdateMarketInput } from '../../../types/market';
 import { useAuthStore } from '../../../store/authStore';
+import { apiClient } from '../../../services/api/client';
 import { Modal } from '../../../components/common/Modal';
 import { MarketForm } from '../../../components/markets/MarketForm';
 import { MarketPaymentProviders } from '../../../components/markets/MarketPaymentProviders';
@@ -61,13 +62,9 @@ export function MarketsPage() {
       if (statusFilter !== 'all') params.append('status', statusFilter);
       if (typeFilter !== 'all') params.append('type', typeFilter);
 
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/admin/markets?${params}`, {
-        credentials: 'include', // Send JWT cookie
-      });
-      if (!response.ok) {
-        throw new Error('Failed to fetch markets');
-      }
-      return response.json();
+      return apiClient.get<{ data: Market[]; total: number; page: number; limit: number }>(
+        `/admin/markets?${params}`
+      );
     },
   });
 
@@ -81,14 +78,7 @@ export function MarketsPage() {
   // Deactivate market mutation
   const deactivateMutation = useMutation({
     mutationFn: async (marketId: string) => {
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/admin/markets/${marketId}`, {
-        method: 'DELETE',
-        credentials: 'include', // Send JWT cookie
-      });
-      if (!response.ok) {
-        throw new Error('Failed to deactivate market');
-      }
-      return response.json();
+      return apiClient.delete(`/admin/markets/${marketId}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['markets'] });
@@ -98,14 +88,7 @@ export function MarketsPage() {
   // Reactivate market mutation
   const reactivateMutation = useMutation({
     mutationFn: async (marketId: string) => {
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/admin/markets/${marketId}/reactivate`, {
-        method: 'POST',
-        credentials: 'include', // Send JWT cookie
-      });
-      if (!response.ok) {
-        throw new Error('Failed to reactivate market');
-      }
-      return response.json();
+      return apiClient.post(`/admin/markets/${marketId}/reactivate`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['markets'] });
@@ -115,16 +98,7 @@ export function MarketsPage() {
   // Update market mutation
   const updateMutation = useMutation({
     mutationFn: async ({ marketId, data }: { marketId: string; data: UpdateMarketInput }) => {
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/admin/markets/${marketId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include', // Send JWT cookie
-        body: JSON.stringify(data),
-      });
-      if (!response.ok) {
-        throw new Error('Failed to update market');
-      }
-      return response.json();
+      return apiClient.put(`/admin/markets/${marketId}`, data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['markets'] });

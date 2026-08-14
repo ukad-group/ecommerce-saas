@@ -10,6 +10,7 @@ import { Menu, Transition } from '@headlessui/react';
 import { ChevronDownIcon, MapPinIcon } from '@heroicons/react/20/solid';
 import { useQuery } from '@tanstack/react-query';
 import { useAuthStore } from '../../store/authStore';
+import { apiClient } from '../../services/api/client';
 import type { Market } from '../../types/market';
 
 /**
@@ -39,18 +40,7 @@ export function HeaderMarketSelector() {
         status: 'active', // Only show active markets in the dropdown
       });
 
-      const response = await fetch(
-        `${import.meta.env.VITE_API_BASE_URL}/admin/markets?${params}`,
-        {
-          credentials: 'include', // Send JWT cookie
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch markets');
-      }
-
-      return response.json();
+      return apiClient.get<{ data: Market[]; total: number }>(`/admin/markets?${params}`);
     },
     enabled: !!tenantId, // Only fetch when tenantId is available
   });

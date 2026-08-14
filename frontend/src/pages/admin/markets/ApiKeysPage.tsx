@@ -16,6 +16,7 @@ import {
   ClipboardDocumentIcon,
   CheckIcon
 } from '@heroicons/react/24/outline';
+import { apiClient } from '../../../services/api/client';
 import type { ApiKeyListItem, CreateApiKeyInput, ApiKeyCreationResponse } from '../../../types/apiKey';
 import type { Market } from '../../../types/market';
 
@@ -31,13 +32,7 @@ export function ApiKeysPage() {
   const { data: market } = useQuery<Market>({
     queryKey: ['market', marketId],
     queryFn: async () => {
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/admin/markets/${marketId}`, {
-        credentials: 'include', // Send JWT cookie
-      });
-      if (!response.ok) {
-        throw new Error('Failed to fetch market');
-      }
-      return response.json();
+      return apiClient.get<Market>(`/admin/markets/${marketId}`);
     },
     enabled: !!marketId,
   });
@@ -46,13 +41,7 @@ export function ApiKeysPage() {
   const { data: apiKeys, isLoading, error } = useQuery<ApiKeyListItem[]>({
     queryKey: ['apiKeys', marketId],
     queryFn: async () => {
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/markets/${marketId}/api-keys`, {
-        credentials: 'include', // Send JWT cookie
-      });
-      if (!response.ok) {
-        throw new Error('Failed to fetch API keys');
-      }
-      return response.json();
+      return apiClient.get<ApiKeyListItem[]>(`/markets/${marketId}/api-keys`);
     },
     enabled: !!marketId,
   });
@@ -60,18 +49,7 @@ export function ApiKeysPage() {
   // Generate new API key mutation
   const generateKeyMutation = useMutation({
     mutationFn: async (input: CreateApiKeyInput) => {
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/markets/${marketId}/api-keys`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include', // Send JWT cookie
-        body: JSON.stringify(input),
-      });
-      if (!response.ok) {
-        throw new Error('Failed to generate API key');
-      }
-      return response.json() as Promise<ApiKeyCreationResponse>;
+      return apiClient.post<ApiKeyCreationResponse>(`/markets/${marketId}/api-keys`, input);
     },
     onSuccess: (data) => {
       setGeneratedKey(data);
@@ -85,14 +63,7 @@ export function ApiKeysPage() {
   // Revoke API key mutation
   const revokeKeyMutation = useMutation({
     mutationFn: async (keyId: string) => {
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/markets/${marketId}/api-keys/${keyId}`, {
-        method: 'DELETE',
-        credentials: 'include', // Send JWT cookie
-      });
-      if (!response.ok) {
-        throw new Error('Failed to revoke API key');
-      }
-      return response.json();
+      return apiClient.delete(`/markets/${marketId}/api-keys/${keyId}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['apiKeys', marketId] });

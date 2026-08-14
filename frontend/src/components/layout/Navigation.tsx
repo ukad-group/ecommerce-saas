@@ -30,7 +30,7 @@ export function Navigation() {
   return (
     <>
       <nav className="bg-[#4a6ba8] shadow-sm border-b border-[#3d5789]">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Main Header Row */}
           <div className="flex justify-between items-center h-16 gap-4">
             <div className="flex items-center min-w-0 flex-1">

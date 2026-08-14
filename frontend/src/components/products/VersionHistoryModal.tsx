@@ -342,7 +342,7 @@ function VersionDetailsModal({
                   {version.customProperties && version.customProperties.length > 0 && (
                     <div>
                       <h4 className="text-sm font-medium text-gray-700 mb-2">
-                        Custom Properties
+                        Product Specifications
                       </h4>
                       <div className="space-y-2">
                         {version.customProperties.map((prop, idx) => (

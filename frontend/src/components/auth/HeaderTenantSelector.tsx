@@ -10,6 +10,7 @@ import { Menu, Transition } from '@headlessui/react';
 import { ChevronDownIcon, BuildingOfficeIcon } from '@heroicons/react/20/solid';
 import { useQuery } from '@tanstack/react-query';
 import { useAuthStore } from '../../store/authStore';
+import { apiClient } from '../../services/api/client';
 import type { Tenant } from '../../types/tenant';
 
 /**
@@ -35,18 +36,7 @@ export function HeaderTenantSelector() {
         status: 'active', // Only show active tenants
       });
 
-      const response = await fetch(
-        `${import.meta.env.VITE_API_BASE_URL}/admin/tenants?${params}`,
-        {
-          credentials: 'include', // Send JWT cookie
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch tenants');
-      }
-
-      return response.json();
+      return apiClient.get<{ data: Tenant[]; total: number }>(`/admin/tenants?${params}`);
     },
   });
 

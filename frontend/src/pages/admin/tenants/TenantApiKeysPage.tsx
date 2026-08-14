@@ -8,6 +8,7 @@ import {
   ClipboardDocumentIcon,
   CheckIcon,
 } from '@heroicons/react/24/outline';
+import { apiClient } from '../../../services/api/client';
 import type { ApiKeyListItem, ApiKeyCreationResponse } from '../../../types/apiKey';
 import type { Tenant } from '../../../types/tenant';
 
@@ -22,9 +23,7 @@ export function TenantApiKeysPage() {
   const { data: tenant } = useQuery<Tenant>({
     queryKey: ['tenant', tenantId],
     queryFn: async () => {
-      const r = await fetch(`${import.meta.env.VITE_API_BASE_URL}/admin/tenants/${tenantId}`, { credentials: 'include' });
-      if (!r.ok) throw new Error('Failed to fetch tenant');
-      return r.json();
+      return apiClient.get<Tenant>(`/admin/tenants/${tenantId}`);
     },
     enabled: !!tenantId,
   });
@@ -32,23 +31,14 @@ export function TenantApiKeysPage() {
   const { data: apiKeys, isLoading, error } = useQuery<ApiKeyListItem[]>({
     queryKey: ['tenantApiKeys', tenantId],
     queryFn: async () => {
-      const r = await fetch(`${import.meta.env.VITE_API_BASE_URL}/admin/tenants/${tenantId}/api-keys`, { credentials: 'include' });
-      if (!r.ok) throw new Error('Failed to fetch API keys');
-      return r.json();
+      return apiClient.get<ApiKeyListItem[]>(`/admin/tenants/${tenantId}/api-keys`);
     },
     enabled: !!tenantId,
   });
 
   const createMutation = useMutation({
     mutationFn: async (name: string) => {
-      const r = await fetch(`${import.meta.env.VITE_API_BASE_URL}/admin/tenants/${tenantId}/api-keys`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ name }),
-      });
-      if (!r.ok) throw new Error('Failed to generate API key');
-      return r.json() as Promise<ApiKeyCreationResponse>;
+      return apiClient.post<ApiKeyCreationResponse>(`/admin/tenants/${tenantId}/api-keys`, { name });
     },
     onSuccess: (data) => {
       setGeneratedKey(data);
@@ -59,11 +49,7 @@ export function TenantApiKeysPage() {
 
   const revokeMutation = useMutation({
     mutationFn: async (keyId: string) => {
-      const r = await fetch(`${import.meta.env.VITE_API_BASE_URL}/admin/tenants/${tenantId}/api-keys/${keyId}`, {
-        method: 'DELETE',
-        credentials: 'include',
-      });
-      if (!r.ok) throw new Error('Failed to revoke API key');
+      await apiClient.delete(`/admin/tenants/${tenantId}/api-keys/${keyId}`);
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['tenantApiKeys', tenantId] }),
   });
