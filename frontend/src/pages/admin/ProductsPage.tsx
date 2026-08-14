@@ -31,6 +31,7 @@ export function ProductsPage() {
     status: statusFilter === 'all' ? undefined : statusFilter,
     categoryId: categoryFilter === 'all' ? undefined : categoryFilter,
     searchQuery: searchQuery || undefined,
+    sort: 'newest', // what you just created is the first row, not buried alphabetically
   });
 
   const deleteProduct = useDeleteProduct();

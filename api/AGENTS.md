@@ -94,6 +94,7 @@ dotnet run
 ### 1. ProductsController
 ```csharp
 GET    /api/v1/products                        // List products (market-scoped); +paged=true&page&pageSize returns {items,total,page,pageSize}
+                                               // sort=newest orders by CreatedAt desc (the backoffice list); default is by name
 POST   /api/v1/products                        // Create product
 GET    /api/v1/products/{id}                   // Get current version
 PUT    /api/v1/products/{id}                   // Update (creates new version)

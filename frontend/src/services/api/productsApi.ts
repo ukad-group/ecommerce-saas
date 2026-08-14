@@ -17,6 +17,8 @@ export interface ProductsQueryParams {
   searchQuery?: string;
   page?: number;
   limit?: number;
+  /** 'newest' puts just-created products first; omitted sorts by name (the API's default). */
+  sort?: 'newest';
 }
 
 /**
@@ -32,6 +34,7 @@ export async function getProducts(params?: ProductsQueryParams): Promise<Product
 
   if (params?.categoryId) queryParams.append('categoryId', params.categoryId);
   if (params?.searchQuery) queryParams.append('search', params.searchQuery);
+  if (params?.sort) queryParams.append('sort', params.sort);
   if (params?.page) queryParams.append('page', params.page.toString());
   if (params?.limit) queryParams.append('limit', params.limit.toString());
 

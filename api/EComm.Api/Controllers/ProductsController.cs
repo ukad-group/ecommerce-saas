@@ -20,6 +20,7 @@ public class ProductsController : ControllerBase
         [FromQuery] string? search = null,
         [FromQuery] string? tenantId = null,
         [FromQuery] string? marketId = null,
+        [FromQuery] string? sort = null, // "newest" (created first) — anything else: by name
         [FromQuery] bool paged = false,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20,
@@ -76,7 +77,13 @@ public class ProductsController : ControllerBase
                 (p.Description != null && p.Description.Contains(search, StringComparison.OrdinalIgnoreCase)));
         }
 
-        var result = products.OrderBy(p => p.Name).ToList();
+        // Ordering is server-side like the filters above it — sorting a page in hand would only
+        // sort that page. `newest` is what the backoffice list asks for, so a product someone just
+        // created is the first row rather than wherever its name happens to fall; storefronts and
+        // the pickers keep the alphabetical default.
+        var result = (sort?.Equals("newest", StringComparison.OrdinalIgnoreCase) == true
+            ? products.OrderByDescending(p => p.CreatedAt).ThenBy(p => p.Name)
+            : products.OrderBy(p => p.Name)).ToList();
 
         // Opt-in server-side pagination envelope. Existing callers (which never send
         // paged=true) keep receiving a plain array — unchanged contract.
