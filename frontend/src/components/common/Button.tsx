@@ -28,7 +28,8 @@ export function Button({
   disabled = false,
   ...props
 }: ButtonProps) {
-  const baseClasses = 'px-4 py-2 rounded-md font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed';
+  // ponytail: whitespace-nowrap keeps the label on one line so a button next to an input stays the same height
+  const baseClasses = 'px-4 py-2 rounded-md font-medium whitespace-nowrap transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed';
 
   const variantClasses: Record<ButtonVariant, string> = {
     primary: 'bg-[#4a6ba8] text-white hover:bg-[#3d5789] focus:ring-[#4a6ba8]',

@@ -992,7 +992,7 @@ export function ProductForm({
                   onChange={(e) => setNewOptionName(e.target.value)}
                   placeholder="Size"
                 />
-                <div className="flex items-end">
+                <div className="flex items-end shrink-0">
                   <Button type="button" onClick={handleAddVariantOption}>
                     Add Local
                   </Button>
@@ -1029,7 +1029,7 @@ export function ProductForm({
                     onChange={(e) => setNewOptionValues({ ...newOptionValues, [option.name]: e.target.value })}
                     placeholder="e.g., Small, Red"
                   />
-                  <div className="flex items-end">
+                  <div className="flex items-end shrink-0">
                     <Button
                       type="button"
                       onClick={() => handleAddVariantValue(option.name)}
