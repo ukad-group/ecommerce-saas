@@ -36,10 +36,25 @@ public class ProductListOrderTests
         Assert.Equal(new[] { "Alpha", "Middle", "Zebra crossing" }, ProductNames(sort: "sideways"));
     }
 
-    private static List<string> ProductNames(string? sort)
+    /// <summary>
+    /// A soft-deleted product is gone, not a fourth status: "all" must leave it out, or the
+    /// backoffice list keeps showing it and the dashboard's Total Products never drops on delete.
+    /// </summary>
+    [Fact]
+    public void All_LeavesOutSoftDeletedProducts()
+    {
+        using var connection = SeededDb();
+        DataStore.Instance.DeleteProduct("prod-2"); // "Zebra crossing"
+
+        Assert.Equal(new[] { "Alpha", "Middle" }, ProductNames(sort: null));
+        // Still reachable when asked for by name, so nothing is silently unrecoverable.
+        Assert.Equal(new[] { "Zebra crossing" }, ProductNames(sort: null, status: "deleted"));
+    }
+
+    private static List<string> ProductNames(string? sort, string status = "all")
     {
         var result = new ProductsController().GetProducts(
-            status: "all", marketId: "market-1", sort: sort);
+            status: status, marketId: "market-1", sort: sort);
         var products = Assert.IsType<List<Product>>(Assert.IsType<OkObjectResult>(result).Value);
         return products.Select(p => p.Name).ToList();
     }

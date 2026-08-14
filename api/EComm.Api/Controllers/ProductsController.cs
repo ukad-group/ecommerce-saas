@@ -47,18 +47,22 @@ public class ProductsController : ControllerBase
         }
 
         // Filter by status - default to "active" only if not specified
-        if (!string.IsNullOrEmpty(status))
-        {
-            // If status is explicitly provided, use it (can be "all" to get all statuses)
-            if (!status.Equals("all", StringComparison.OrdinalIgnoreCase))
-            {
-                products = products.Where(p => p.Status.Equals(status, StringComparison.OrdinalIgnoreCase));
-            }
-        }
-        else
+        if (string.IsNullOrEmpty(status))
         {
             // Default behavior: return only active products
             products = products.Where(p => p.Status.Equals("active", StringComparison.OrdinalIgnoreCase));
+        }
+        else if (status.Equals("all", StringComparison.OrdinalIgnoreCase))
+        {
+            // "all" means every status a store manages (active/inactive/draft) — a soft-deleted
+            // product is gone, not a status you can pick, so it stays out of the list *and* out of
+            // the counts derived from it (the dashboard's Total/Low Stock/Out of Stock tiles).
+            // Ask for status=deleted explicitly to see them.
+            products = products.Where(p => !p.Status.Equals("deleted", StringComparison.OrdinalIgnoreCase));
+        }
+        else
+        {
+            products = products.Where(p => p.Status.Equals(status, StringComparison.OrdinalIgnoreCase));
         }
 
         // Filter by category (check if product is in this category or any of its subcategories)
