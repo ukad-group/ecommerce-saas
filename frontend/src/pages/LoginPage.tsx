@@ -5,11 +5,11 @@
  * Supports JWT authentication with httpOnly cookies
  */
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline';
 import { useAuthStore } from '../store/authStore';
-import { login } from '../services/auth/authService';
+import { login, getAuthConfig } from '../services/auth/authService';
 
 /**
  * Admin login page
@@ -19,11 +19,38 @@ export function LoginPage() {
   const navigate = useNavigate();
   const setSession = useAuthStore((state) => state.setSession);
 
-  const [email, setEmail] = useState<string>('admin@platform.com');
-  const [password, setPassword] = useState<string>('password123'); // Pre-filled for testing
+  const [email, setEmail] = useState<string>('');
+  const [password, setPassword] = useState<string>('');
   const [error, setError] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [demoLogin, setDemoLogin] = useState(false);
+
+  // Written against the statically-replaced flag rather than the state alone, so a production build
+  // folds this to false and drops the demo credential strings from the bundle entirely.
+  const showDemoHints = import.meta.env.DEV && demoLogin;
+
+  /**
+   * Pre-fill the seeded demo credentials, but only for local development: the build has to be a dev
+   * build (Vite replaces this statically, so the branch and the literal password are dropped from a
+   * production bundle) and the API has to report that it still runs on the demo accounts - a
+   * deployment that configures Admin:Email/Admin:Password answers demoLogin: false.
+   */
+  useEffect(() => {
+    if (!import.meta.env.DEV) return;
+
+    let cancelled = false;
+    getAuthConfig().then((config) => {
+      if (cancelled || !config.demoLogin) return;
+      setEmail('admin@platform.com');
+      setPassword('password123');
+      setDemoLogin(true);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   /**
    * Handle login submission
@@ -85,7 +112,7 @@ export function LoginPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                  placeholder="admin@platform.com"
+                  placeholder={showDemoHints ? 'admin@platform.com' : 'you@example.com'}
                 />
               </div>
             </div>
@@ -158,23 +185,25 @@ export function LoginPage() {
             </div>
           </form>
 
-          {/* Development Notice */}
-          <div className="mt-6">
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-gray-300" />
+          {/* Development Notice - local dev against a demo-seeded API only */}
+          {showDemoHints && (
+            <div className="mt-6">
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-gray-300" />
+                </div>
+                <div className="relative flex justify-center text-sm">
+                  <span className="px-2 bg-white text-gray-500">Test Accounts</span>
+                </div>
               </div>
-              <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-white text-gray-500">Test Accounts</span>
+              <div className="mt-3 space-y-1 text-xs text-gray-500">
+                <p className="font-medium">All test users: password123</p>
+                <p>• admin@platform.com (Superadmin)</p>
+                <p>• admin@demostore.com (Tenant Admin)</p>
+                <p>• catalog@demostore.com (Catalog Manager)</p>
               </div>
             </div>
-            <div className="mt-3 space-y-1 text-xs text-gray-500">
-              <p className="font-medium">All test users: password123</p>
-              <p>• admin@platform.com (Superadmin)</p>
-              <p>• admin@demostore.com (Tenant Admin)</p>
-              <p>• catalog@demostore.com (Catalog Manager)</p>
-            </div>
-          </div>
+          )}
         </div>
       </div>
     </div>

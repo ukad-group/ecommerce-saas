@@ -260,6 +260,50 @@ GET/POST/DELETE  /api/v1/admin/tenants/{tenantId}/api-keys // Tenant-level API k
 GET /api/v1/admin/logs?level&category&search&after&take // Read back what the API logged (X-API-Key or admin JWT)
 ```
 
+## Admin credentials
+
+A deployment supplies its own admin account through configuration; without one the API keeps the
+seeded `password123` demo users, which is the local-development path and nothing else.
+
+```jsonc
+"Admin": {
+  "Email": "",      // Admin__Email  in a deployed environment
+  "Password": ""    // Admin__Password
+}
+```
+
+`DatabaseSeeder.ApplyConfiguredAdmin` runs on every startup (from `Program.cs`, right after seeding)
+and is the whole mechanism:
+
+- **Both values set** → the account is upserted as a `SUPERADMIN` (matched on email,
+  case-insensitively, created as `admin-configured` if absent) and **every other user is
+  deactivated**. `AuthController` already filters on `IsActive`, so the demo logins simply stop
+  working — no change to the login path. The password is re-hashed on each boot, so rotating the
+  secret takes effect on the next redeploy rather than needing a DB edit.
+- **Either value blank** → nothing is deactivated, and any seeded user (`CreatedBy == "system"`) that
+  a previous run switched off is switched back on, so dropping the config genuinely restores local
+  behaviour. A previously configured admin keeps working: the k8s secret is mounted `optional: true`,
+  so absent config can also mean the secret went missing, and revoking the only real account on that
+  reading would lock an operator out of a live cluster. Startup logs a warning in this case.
+
+The migration is in place — no reseed, no reset of `ecomm.db`, matching the rest of the seeder.
+
+`GET /api/v1/auth/config` (anonymous) exposes `{ demoLogin }` — false once credentials are
+configured — so the admin UI knows not to pre-fill demo credentials. It returns only the flag, never
+the configured email. Covered by `EComm.Api.Tests/ConfiguredAdminTests.cs`.
+
+In CI the values ride the same k8s secret as the JWT key (`ci-api.yml`), from GitHub environment
+secrets `ADMIN_EMAIL` / `ADMIN_PASSWORD` on the `development` environment:
+
+```yaml
+string-data: |
+  {
+    "Jwt__SecretKey": "${{ secrets.JWT_SECRET_KEY }}",
+    "Admin__Email": "${{ secrets.ADMIN_EMAIL }}",
+    "Admin__Password": "${{ secrets.ADMIN_PASSWORD }}"
+  }
+```
+
 ## Reading the API's logs remotely
 
 `GET /api/v1/admin/logs` serves an in-memory ring buffer of recent log lines (`EComm.Api/Logging/`),

@@ -118,12 +118,18 @@ dotnet run
 | admin@demostore.com | password123 | Tenant Admin | tenant-a only |
 | catalog@demostore.com | password123 | Catalog Manager | tenant-a, limited |
 
+These exist **only while no admin credentials are configured** — the local-development default. Set
+`Admin:Email` + `Admin:Password` (as `Admin__Email` / `Admin__Password` env vars in a deployment) and
+that account becomes the only login that works: the three above are deactivated at startup, and the
+login page stops pre-filling anything. Clearing the config reactivates them. See
+[api/AGENTS.md](api/AGENTS.md#admin-credentials).
+
 **Seed Data**: 3 tenants, 7 markets, 12 products, 5 categories, 6 orders, 9 API keys
 
 ## Routes
 
 **Admin** (http://localhost:5173):
-- `/login` - Profile selection
+- `/login` - Email/password login
 - `/admin` - Dashboard
 - `/admin/products` - Product management
 - `/admin/products/property-templates` - Market property templates

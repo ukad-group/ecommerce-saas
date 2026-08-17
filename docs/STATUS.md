@@ -184,12 +184,16 @@ POST   /api/v1/order-statuses/reset-defaults
 - User database entity with role management
 - Session persistence with 1-hour JWT expiry
 - User info display with logout
+- **Deployment-configured admin** (`Admin:Email` / `Admin:Password`, i.e. `Admin__Email` /
+  `Admin__Password` env vars): when set, that account is the only login that works — the seeded demo
+  users are deactivated at startup and the login page pre-fills nothing. Unset keeps today's demo
+  behaviour, for local development only. `GET /api/v1/auth/config` reports which mode is active
 
 ### Missing
 - ❌ Permission-based UI hiding/disabling (all logged-in users see same UI)
 - ❌ Full tenant filtering in API calls (headers sent but not fully enforced)
 
-### Test Users (Password: "password123")
+### Test Users (Password: "password123", active only when no admin credentials are configured)
 ```
 - admin@platform.com → SUPERADMIN → All tenants
 - admin@demostore.com → TENANT_ADMIN → tenant-a

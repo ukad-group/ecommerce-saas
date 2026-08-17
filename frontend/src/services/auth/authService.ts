@@ -136,6 +136,26 @@ export async function logout(): Promise<void> {
 }
 
 /**
+ * Public login-page configuration.
+ *
+ * `demoLogin` is false once the API has real admin credentials configured (Admin:Email /
+ * Admin:Password), which is the signal for the login page not to pre-fill anything.
+ * Defaults to false on any failure: never offer demo credentials on a guess.
+ */
+export async function getAuthConfig(): Promise<{ demoLogin: boolean }> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/auth/config`);
+    if (!response.ok) return { demoLogin: false };
+
+    const data = await response.json();
+    return { demoLogin: data.demoLogin === true };
+  } catch (error) {
+    console.error('Auth config error:', error);
+    return { demoLogin: false };
+  }
+}
+
+/**
  * Gets the current session from storage
  * (This is a utility - actual storage is handled by Zustand)
  */

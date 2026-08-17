@@ -44,7 +44,10 @@ This project is designed as a **starter template** for eCommerce applications. B
 
 The seed data includes test users with the password `password123`. This is intentionally simple for development purposes. In production:
 
-- Remove or change all seed user accounts
+- **Configure `Admin:Email` and `Admin:Password`** (supplied as `Admin__Email` / `Admin__Password`
+  environment variables). That account is then the only one that can log in — the seeded users are
+  deactivated on startup and the admin UI stops pre-filling credentials. Leaving them unset keeps the
+  demo accounts active, which is only appropriate for local development.
 - Implement proper password policies
 - Consider integrating with OAuth2/OIDC providers
 

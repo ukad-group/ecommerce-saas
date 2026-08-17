@@ -133,7 +133,9 @@ jobs:
           secret-name: ecomm-api
           string-data: |
             {
-              "Jwt__SecretKey": "${{ secrets.JWT_SECRET_KEY }}"
+              "Jwt__SecretKey": "${{ secrets.JWT_SECRET_KEY }}",
+              "Admin__Email": "${{ secrets.ADMIN_EMAIL }}",
+              "Admin__Password": "${{ secrets.ADMIN_PASSWORD }}"
             }
 
       - name: Deploy to Kubernetes

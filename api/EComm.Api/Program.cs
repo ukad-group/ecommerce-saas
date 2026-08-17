@@ -165,6 +165,20 @@ using (var scope = app.Services.CreateScope())
     // Seed data
     DatabaseSeeder.SeedDatabase(context);
 
+    // A deployment that configures Admin:Email/Admin:Password gets that account and nothing else;
+    // without them the seeded demo logins stay active, which is what local development wants.
+    var configuredAdmin = DatabaseSeeder.ApplyConfiguredAdmin(
+        context,
+        builder.Configuration["Admin:Email"],
+        builder.Configuration["Admin:Password"]);
+
+    if (!configuredAdmin)
+    {
+        // The k8s secret is mounted with optional: true, so a missing secret is silent otherwise.
+        app.Logger.LogWarning(
+            "No Admin:Email/Admin:Password configured - the seeded demo users (password123) remain active.");
+    }
+
     // Per-market status codes are only unique once the seeder has re-pointed every row at its market.
     SchemaUpgrader.EnsureOrderStatusUniqueIndex(context);
 }

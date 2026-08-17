@@ -42,8 +42,9 @@ interface AuthSession {
 ```
 
 ### Implemented
-✅ Login page with profile selector
+✅ Login page with email/password
 ✅ Superadmin login flow
+✅ Deployment-configured admin credentials (see below)
 ✅ Tenant selector for scoped roles
 ✅ Auth state (Zustand + localStorage)
 ✅ Protected routes
@@ -56,32 +57,19 @@ interface AuthSession {
 ❌ Permission-based UI hiding/disabling
 ❌ Tenant filtering in API calls (headers sent but not always enforced)
 
-### Mock Users (Hardcoded)
-```typescript
-// In frontend/src/data/profiles.ts
-{
-  id: '1',
-  name: 'Super Admin',
-  email: 'admin@system.com',
-  role: 'superadmin'
-},
-{
-  id: '2',
-  name: 'Admin (Demo Store)',
-  email: 'admin@demo.com',
-  role: 'tenant_admin'
-},
-{
-  id: '3',
-  name: 'Catalog Manager (Demo Store)',
-  email: 'manager@demo.com',
-  role: 'tenant_user'
-}
-```
+### Login Credentials
+
+Users live in the database (`Users` table, BCrypt hashes), seeded by `DatabaseSeeder` as
+`admin@platform.com` / `admin@demostore.com` / `catalog@demostore.com`, all `password123`.
+
+A deployment overrides that with `Admin:Email` + `Admin:Password` (`Admin__Email` / `Admin__Password`
+env vars): `DatabaseSeeder.ApplyConfiguredAdmin` then upserts that superadmin and deactivates every
+other user, so the seeded logins stop working. Clearing the config reactivates them. `LoginPage`
+pre-fills the demo credentials only on a dev build whose API still reports
+`GET /api/v1/auth/config` → `{ demoLogin: true }` — see [api/AGENTS.md](../../api/AGENTS.md#admin-credentials).
 
 ### Components
-- **LoginPage**: Profile selector + tenant selector
-- **ProfileSelector**: Choose user role
+- **LoginPage**: Email/password form
 - **TenantSelector**: Choose tenant (for scoped roles)
 - **UserInfo**: Display user + logout button
 - **ProtectedRoute**: Route wrapper requiring auth

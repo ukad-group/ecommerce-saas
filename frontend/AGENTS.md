@@ -70,7 +70,7 @@ VITE_USE_MOCKS=false
 /src/
   /components/
     /admin/      # ProductList, OrderList, etc.
-    /auth/       # LoginPage, ProfileSelector, TenantSelector
+    /auth/       # ProtectedRoute, TenantSelector, UserInfo
     /cart/       # CartItem, CartSummary
     /orders/     # OrderStatusBadge
     /products/   # ProductForm
@@ -101,7 +101,6 @@ VITE_USE_MOCKS=false
 
   /data/         # Minimal hardcoded data
     tenants.ts            # Tenant/market references
-    profiles.ts           # Hardcoded user profiles
 
   /types/        # TypeScript interfaces
     auth.ts, product.ts, order.ts, address.ts, market.ts
@@ -270,7 +269,9 @@ test('renders product list', () => {
 
 - **Market-scoped**: Products, categories, orders belong to markets (not tenants)
 - **Auth headers**: Always send X-Tenant-ID and X-Market-ID
-- **No real auth**: Hardcoded profiles for now
+- **Auth**: real email/password login against the API. The login page pre-fills the seeded demo
+  credentials only on a dev build whose API reports `demoLogin` (`GET /auth/config`) — a deployment
+  with `Admin__Email`/`Admin__Password` configured pre-fills nothing
 - **SQLite Database**: Data persists across restarts (delete ecomm.db to reset)
 - **Optimistic updates**: Use TanStack Query mutations
 

@@ -27,6 +27,17 @@ public class AuthController : ControllerBase
     }
 
     /// <summary>
+    /// Public login-page configuration. Reports whether this deployment still runs on the seeded demo
+    /// accounts, so the admin UI knows not to pre-fill credentials once real ones are configured.
+    /// Deliberately returns only the flag - never the configured email.
+    /// </summary>
+    [HttpGet("config")]
+    public IActionResult GetAuthConfig()
+    {
+        return Ok(new { demoLogin = !HasConfiguredAdmin() });
+    }
+
+    /// <summary>
     /// Login with email and password
     /// </summary>
     [HttpPost("login")]
@@ -130,6 +141,13 @@ public class AuthController : ControllerBase
             user.LastLoginAt
         });
     }
+
+    /// <summary>
+    /// Whether this deployment supplies its own admin credentials (see DatabaseSeeder.ApplyConfiguredAdmin)
+    /// </summary>
+    private bool HasConfiguredAdmin()
+        => !string.IsNullOrWhiteSpace(_configuration["Admin:Email"])
+           && !string.IsNullOrWhiteSpace(_configuration["Admin:Password"]);
 
     /// <summary>
     /// Generate JWT token for user

@@ -1290,4 +1290,75 @@ public static class DatabaseSeeder
         if (changed)
             context.SaveChanges();
     }
+
+    /// <summary>
+    /// Applies the deployment's configured admin account (<c>Admin:Email</c> / <c>Admin:Password</c>,
+    /// supplied as <c>Admin__Email</c> / <c>Admin__Password</c> env vars in a deployed environment).
+    /// When both are set that account becomes the <em>only</em> one that can log in: it is upserted as
+    /// a superadmin and every other user is deactivated, so the seeded "password123" demo logins stop
+    /// working. When either is blank nothing happens at all and the demo users stay as they are —
+    /// that is the local-development path.
+    /// </summary>
+    /// <returns>True when configured credentials were applied.</returns>
+    public static bool ApplyConfiguredAdmin(ECommDbContext context, string? email, string? password)
+    {
+        // Handful of rows, and EF can't translate an OrdinalIgnoreCase compare to SQL — match in memory.
+        var users = context.Users.ToList();
+
+        if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(password))
+        {
+            // Symmetric with the branch below, so dropping the config really does restore local
+            // behaviour instead of leaving the machine with no way in. This branch only ever
+            // switches accounts back on: a previously configured admin keeps working, because
+            // absent config can also mean the (optional) k8s secret went missing, and revoking the
+            // only real account on that reading would lock an operator out of a live cluster.
+            RestoreSeededUsers(context, users);
+            return false;
+        }
+
+        email = email.Trim();
+        var admin = users.FirstOrDefault(u => string.Equals(u.Email, email, StringComparison.OrdinalIgnoreCase));
+
+        if (admin == null)
+        {
+            admin = new User
+            {
+                Id = "admin-configured",
+                Email = email,
+                DisplayName = "Administrator",
+                PasswordHash = string.Empty, // set below, along with the rotation path
+                Role = "SUPERADMIN",
+                TenantId = null,
+                AssignedMarketIds = null,
+                CreatedAt = DateTime.UtcNow,
+                CreatedBy = "config"
+            };
+            context.Users.Add(admin);
+        }
+
+        // Re-hashed every boot so rotating the secret takes effect on redeploy, with no DB surgery.
+        admin.PasswordHash = BCrypt.Net.BCrypt.HashPassword(password);
+        admin.IsActive = true;
+
+        foreach (var other in users.Where(u => !ReferenceEquals(u, admin)))
+            other.IsActive = false;
+
+        context.SaveChanges();
+        return true;
+    }
+
+    /// <summary>
+    /// Reactivates the users this seeder created (<c>CreatedBy == "system"</c>), undoing a previous
+    /// run's deactivation once the configured credentials are removed again.
+    /// </summary>
+    private static void RestoreSeededUsers(ECommDbContext context, List<User> users)
+    {
+        var restored = users.Where(u => u is { IsActive: false, CreatedBy: "system" }).ToList();
+        if (restored.Count == 0) return;
+
+        foreach (var user in restored)
+            user.IsActive = true;
+
+        context.SaveChanges();
+    }
 }
