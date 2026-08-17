@@ -1305,10 +1305,10 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
     const idx = this.editedProduct.variants.findIndex(v => v.id === variantId);
     if (idx === -1) return;
     const updated = [...this.editedProduct.variants];
-    updated[idx] = {
-      ...updated[idx],
-      options: { ...updated[idx].options, [optionName]: value },
-    };
+    const options = { ...updated[idx].options };
+    // Blank = axis not set for this variant; drop the key rather than persist an empty valueName.
+    if (value) options[optionName] = value; else delete options[optionName];
+    updated[idx] = { ...updated[idx], options };
     this.editedProduct = { ...this.editedProduct, variants: updated };
   }
 
@@ -2591,8 +2591,9 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
                       class="variant-status-select"
                       @change=${(e) => this.handleVariantOptionInput(variant.id, opt.name, e.target.value)}
                       ?disabled=${this.saving}>
+                      <option value="" ?selected=${!variant.options?.[opt.name]}>— not set —</option>
                       ${this._optionValueNames(opt).map(v => html`
-                        <option value="${v}" ?selected=${(variant.options?.[opt.name] ?? this._optionValueNames(opt)[0]) === v}>
+                        <option value="${v}" ?selected=${variant.options?.[opt.name] === v}>
                           ${v}
                         </option>
                       `)}
@@ -2751,7 +2752,15 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
                     <div class="option-draft-name-row">
                       <strong class="option-draft-global-name">${opt.name}</strong>
                       <span class="pill pill--info" title="From the store attribute library">global</span>
-                      <!-- Global attributes are managed in Commerce → Attributes; not detachable per product. -->
+                      <!-- Detaches the axis from THIS product only; the library entry in
+                           Commerce → Attributes is untouched. Existing variants lose their
+                           selection for it (handled by _saveOptions). -->
+                      <uui-button look="secondary" color="danger"
+                        title="Remove this attribute from this product (the store library keeps it)"
+                        @click=${() => this.removeOptionDraft(index)}
+                        ?disabled=${this.saving}>
+                        Remove
+                      </uui-button>
                     </div>
                     <div class="option-draft-values">
                       <div class="option-value-chips">
@@ -4608,6 +4617,12 @@ class ECommProductsWorkspaceView extends UmbElementMixin(LitElement) {
 
     .option-draft-name-row uui-input {
       flex: 1;
+    }
+
+    /* Right-align Remove. On the local card the flex:1 input already absorbs the space, so this
+       only matters for the global card (name + pill, both intrinsically sized). */
+    .option-draft-name-row uui-button {
+      margin-left: auto;
     }
 
     .option-draft-values {

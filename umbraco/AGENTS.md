@@ -8,7 +8,7 @@ This document outlines the architecture and implementation plan for an Umbraco p
 
 **Status**: Phase 1-4 Complete - Core Implementation + Products Workspace View, Upgraded to Umbraco 17, Configurable Defaults, Product Variant Support, real Cart & Checkout with Nets Easy payments, and a "Commerce" backoffice section (Orders/Carts/Discounts/Currencies/Countries/Order Statuses/Property Templates/Tax Classes/Analytics)
 
-**Last Updated**: 2026-08-04
+**Last Updated**: 2026-08-17
 
 ---
 
@@ -430,6 +430,15 @@ dropdowns resolve a global axis's full unique value set from the library. `Attri
 preserved across every save path (main save, "Update Attributes", create-variants, new product).
 The create-variants panel auto-generates the value cross-product, so it caps at 500 combinations
 (a warning replaces the preview past that) — for large global libraries, add variants manually.
+All three surfaces can **remove** an axis, global included: that detaches it from *this product*
+only and leaves the Commerce → Attributes library entry alone, and `_saveOptions` strips the axis
+from every existing variant.
+
+**Unset axes**: a variant only stores the axes it actually sets, so an axis added after the variants
+existed has no selection on them. The editor shows `— not set —` for those, and clearing an axis
+deletes its key rather than persisting an empty `valueName`. Do **not** default the dropdown to the
+axis's first library value — it displays a value that was never stored, no change event fires, and
+"Save Variant" persists nothing, so the variant table's `—` and the form disagree.
 
 **UI Features**:
 - Products with variants display badge showing variant count (e.g., "5 variants")

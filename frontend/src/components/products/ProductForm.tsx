@@ -27,6 +27,10 @@ import { slugify } from '../../pages/admin/ProductAttributesPage';
 const variantComboKey = (opts: VariantOptionSelection[]) =>
   opts.map((o) => `${o.attributeId || o.alias}=${o.valueAlias}`).sort().join('|');
 
+/** Stable identity of one variant axis, shared by VariantOption and VariantOptionSelection. */
+const axisKey = (o: { attributeId?: string; alias?: string; name: string }) =>
+  o.attributeId || o.alias || slugify(o.name);
+
 // Extended property type for merged display
 interface MergedCustomProperty extends CustomProperty {
   isMarketTemplate: boolean;
@@ -266,9 +270,15 @@ export function ProductForm({
   };
 
   const handleRemoveVariantOption = (optionName: string) => {
+    const removed = variantOptions.find((opt) => opt.name === optionName);
     setVariantOptions(variantOptions.filter((opt) => opt.name !== optionName));
-    // Remove variants that used this axis
-    setVariants(variants.filter((v) => !v.options.some((o) => o.name === optionName)));
+    // Drop the axis from every variant rather than deleting the variant: a variant is hand-built
+    // here, so losing its SKU/price because an axis went away destroys entered work.
+    if (removed) {
+      setVariants(
+        variants.map((v) => ({ ...v, options: v.options.filter((o) => axisKey(o) !== axisKey(removed)) }))
+      );
+    }
   };
 
   const handleRemoveVariantValue = (optionName: string, valueName: string) => {
@@ -279,8 +289,76 @@ export function ProductForm({
           : opt
       )
     );
-    // Remove variants that used this value
-    setVariants(variants.filter((v) => !v.options.some((o) => o.name === optionName && o.valueName === valueName)));
+    // Clear the selection on variants that used this value; don't delete the variant.
+    setVariants(
+      variants.map((v) => ({
+        ...v,
+        options: v.options.filter((o) => !(o.name === optionName && o.valueName === valueName)),
+      }))
+    );
+  };
+
+  const renderOptionValues = (option: VariantOption) =>
+    option.values.map((value) => (
+      <span
+        key={value.name}
+        className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-primary-100 text-primary-800"
+        title={value.alias ? `alias: ${value.alias}` : undefined}
+      >
+        {value.name}
+        <button
+          type="button"
+          onClick={() => handleRemoveVariantValue(option.name, value.name)}
+          className="ml-2 text-primary-600 hover:text-primary-800"
+        >
+          ×
+        </button>
+      </span>
+    ));
+
+  /** Add one empty variant. Values are picked per variant — no need to sweep every combination. */
+  const handleAddVariant = () => {
+    setVariants([
+      ...variants,
+      {
+        id: `variant-${Date.now()}-${variants.length}`,
+        sku: '',
+        price: 0,
+        stockQuantity: 0,
+        lowStockThreshold: 10,
+        options: [],
+        status: 'draft' as ProductStatus,
+      },
+    ]);
+  };
+
+  /** Set (or clear, when valueName is empty) one axis value on an existing variant. */
+  const handleSetVariantOptionValue = (
+    variantId: string,
+    option: VariantOption,
+    valueName: string
+  ) => {
+    setVariants(
+      variants.map((v) => {
+        if (v.id !== variantId) return v;
+        const others = v.options.filter((o) => axisKey(o) !== axisKey(option));
+        if (!valueName) return { ...v, options: others };
+        const value = option.values.find((x) => x.name === valueName);
+        return {
+          ...v,
+          options: [
+            ...others,
+            {
+              attributeId: option.attributeId,
+              alias: option.alias || slugify(option.name),
+              name: option.name,
+              valueAlias: value?.alias || slugify(valueName),
+              valueName,
+            },
+          ],
+        };
+      })
+    );
   };
 
   const generateVariants = () => {
@@ -1039,32 +1117,37 @@ export function ProductForm({
                   </div>
                 </div>
 
-                {/* Display values */}
-                <div className="flex flex-wrap gap-2">
-                  {option.values.map((value) => (
-                    <span
-                      key={value.name}
-                      className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-primary-100 text-primary-800"
-                      title={value.alias ? `alias: ${value.alias}` : undefined}
-                    >
-                      {value.name}
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveVariantValue(option.name, value.name)}
-                        className="ml-2 text-primary-600 hover:text-primary-800"
-                      >
-                        ×
-                      </button>
-                    </span>
-                  ))}
-                </div>
+                {/* Display values. A store attribute can carry 50+ values, and rendering them all
+                    inline pushed the variant list a full screen below the fold — collapse the long
+                    ones behind a native disclosure. */}
+                {option.values.length > 8 ? (
+                  <details>
+                    <summary className="text-sm text-gray-600 cursor-pointer">
+                      {option.values.length} values
+                    </summary>
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {renderOptionValues(option)}
+                    </div>
+                  </details>
+                ) : (
+                  <div className="flex flex-wrap gap-2">{renderOptionValues(option)}</div>
+                )}
               </div>
             ))}
 
             {variantOptions.length > 0 && (
-              <Button type="button" onClick={generateVariants}>
-                Generate All Variant Combinations
-              </Button>
+              <div className="flex flex-wrap items-center gap-3">
+                <Button type="button" onClick={handleAddVariant}>
+                  Add Variant
+                </Button>
+                <Button type="button" onClick={generateVariants}>
+                  Generate All Combinations
+                </Button>
+                <span className="text-sm text-gray-500">
+                  Add variants one at a time and pick their attribute values, or generate every
+                  combination at once.
+                </span>
+              </div>
             )}
           </div>
 
@@ -1077,21 +1160,39 @@ export function ProductForm({
               <div className="space-y-4">
                 {variants.map((variant, index) => (
                   <div key={variant.id} className="p-4 border rounded-md">
-                    <div className="flex justify-between items-start mb-3">
-                      <div className="flex gap-2 flex-wrap">
-                        {variant.options.map((o) => (
-                          <span
-                            key={o.attributeId || o.alias}
-                            className="px-2 py-1 bg-gray-100 text-gray-700 rounded text-sm"
-                          >
-                            {o.name}: {o.valueName}
-                          </span>
-                        ))}
+                    <div className="flex justify-between items-start gap-4 mb-3">
+                      {/* One dropdown per axis — an axis left unset simply isn't part of this
+                          variant, so variants don't have to cover every combination. */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 flex-1">
+                        {variantOptions.map((option) => {
+                          const selected = variant.options.find((o) => axisKey(o) === axisKey(option));
+                          return (
+                            <div key={option.name}>
+                              <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-1">
+                                {option.name}
+                              </label>
+                              <select
+                                value={selected?.valueName ?? ''}
+                                onChange={(e) =>
+                                  handleSetVariantOptionValue(variant.id, option, e.target.value)
+                                }
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                              >
+                                <option value="">— not set —</option>
+                                {option.values.map((value) => (
+                                  <option key={value.alias || value.name} value={value.name}>
+                                    {value.name}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                          );
+                        })}
                       </div>
                       <button
                         type="button"
                         onClick={() => handleRemoveVariant(variant.id)}
-                        className="text-red-600 hover:text-red-800 text-sm"
+                        className="text-red-600 hover:text-red-800 text-sm shrink-0"
                       >
                         Remove
                       </button>
