@@ -13,6 +13,7 @@ public class StoreCartService
 {
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly ICommerceSettingsService _settingsService;
+    private readonly IHttpContextAccessor _httpContextAccessor;
     private readonly ILogger<StoreCartService> _logger;
 
     private static readonly JsonSerializerOptions JsonOptions = new()
@@ -24,10 +25,12 @@ public class StoreCartService
     public StoreCartService(
         IHttpClientFactory httpClientFactory,
         ICommerceSettingsService settingsService,
+        IHttpContextAccessor httpContextAccessor,
         ILogger<StoreCartService> logger)
     {
         _httpClientFactory = httpClientFactory;
         _settingsService = settingsService;
+        _httpContextAccessor = httpContextAccessor;
         _logger = logger;
     }
 
@@ -40,8 +43,13 @@ public class StoreCartService
 
         if (!string.IsNullOrEmpty(settings?.TenantId))
             client.DefaultRequestHeaders.TryAddWithoutValidation("X-Tenant-ID", settings.TenantId);
-        if (!string.IsNullOrEmpty(settings?.MarketId))
-            client.DefaultRequestHeaders.TryAddWithoutValidation("X-Market-ID", settings.MarketId);
+        // The store the shopper actually browsed, remembered by StoreContext while they were in
+        // the content tree. /cart and /checkout are reserved paths with no content node, so
+        // without this the cart and the order would always go to the globally configured market
+        // no matter which store branch they shopped.
+        var marketId = StoreContext.Current(_httpContextAccessor.HttpContext) ?? settings?.MarketId;
+        if (!string.IsNullOrEmpty(marketId))
+            client.DefaultRequestHeaders.TryAddWithoutValidation("X-Market-ID", marketId);
         if (!string.IsNullOrEmpty(settings?.ApiKey))
             client.DefaultRequestHeaders.TryAddWithoutValidation("X-API-Key", settings.ApiKey);
         if (!string.IsNullOrEmpty(sessionId))
@@ -199,6 +207,41 @@ public class StoreCartService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to pay order {OrderId}", orderId);
+            return (null, ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// Asks the API to start a real payment for the order and returns where to send the shopper.
+    ///
+    /// No body: the return URLs, language and credentials all come from the provider settings on
+    /// the order's market, so a storefront can't redirect a payment somewhere the market never
+    /// configured. The market comes from the order itself, so this follows whichever store the
+    /// order was placed in.
+    /// </summary>
+    public async Task<(PaymentDto? Payment, string? Error)> CreatePaymentAsync(string orderId)
+    {
+        try
+        {
+            var (client, baseUrl) = await CreateClientAsync();
+            var response = await client.PostAsync($"{baseUrl}/orders/{orderId}/payment", content: null);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                // The API returns a useful message here - "No payment provider is configured for
+                // this market", or which common setting failed validation - so surface it rather
+                // than a generic failure.
+                var error = await response.Content.ReadAsStringAsync();
+                _logger.LogError("Failed to create payment for order {OrderId}: {Error}", orderId, error);
+                return (null, error);
+            }
+
+            var payment = await response.Content.ReadFromJsonAsync<PaymentDto>(JsonOptions);
+            return (payment, null);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to create payment for order {OrderId}", orderId);
             return (null, ex.Message);
         }
     }

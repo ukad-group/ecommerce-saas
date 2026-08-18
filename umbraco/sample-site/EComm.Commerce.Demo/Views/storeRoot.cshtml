@@ -1,0 +1,63 @@
+@using EComm.Commerce.Demo.Controllers
+@inherits Umbraco.Cms.Web.Common.Views.UmbracoViewPage<StoreRootViewModel>
+@{
+    Layout = "master.cshtml";
+    ViewData["Title"] = Model.Name;
+}
+
+<div class="container my-4">
+    <div class="d-flex align-items-baseline justify-content-between mb-4">
+        <h1 class="mb-0">@Model.Name</h1>
+        @if (!string.IsNullOrEmpty(Model.StoreId))
+        {
+            <span class="badge bg-secondary" title="Every category and order below resolves to this store">
+                <i class="bi bi-shop"></i> @Model.StoreId
+            </span>
+        }
+    </div>
+
+    @if (string.IsNullOrEmpty(Model.StoreId))
+    {
+        <div class="alert alert-warning">
+            <i class="bi bi-exclamation-triangle"></i>
+            No store selected on this node. Pick one in the <strong>Store</strong> property so the
+            catalogue and orders below resolve to a market.
+        </div>
+    }
+
+    @if (Model.Categories.Count == 0)
+    {
+        <p class="text-muted">No categories yet.</p>
+    }
+    else
+    {
+        <div class="row row-cols-1 row-cols-sm-2 row-cols-lg-3 g-4">
+            @foreach (var category in Model.Categories)
+            {
+                <div class="col">
+                    <a href="@category.Content.Url()" class="text-decoration-none">
+                        <div class="card h-100 shadow-sm">
+                            <div class="card-body">
+                                <h5 class="card-title mb-1">@category.Content.Name</h5>
+                                <span class="text-muted small">
+                                    @if (category.ProductCount is int count)
+                                    {
+                                        @(count == 1 ? "1 product" : $"{count} products")
+                                    }
+                                    else if (string.IsNullOrEmpty(category.CategoryId))
+                                    {
+                                        <text>No category mapped</text>
+                                    }
+                                    else
+                                    {
+                                        <text>Count unavailable</text>
+                                    }
+                                </span>
+                            </div>
+                        </div>
+                    </a>
+                </div>
+            }
+        </div>
+    }
+</div>

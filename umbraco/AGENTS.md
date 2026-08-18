@@ -4,7 +4,8 @@
 
 This document outlines the architecture and implementation plan for an Umbraco plugin that integrates with the headless eCommerce SaaS platform. The plugin enables Umbraco sites to leverage the eCommerce API while maintaining full content management control in Umbraco.
 
-**Target Umbraco Version**: 17.0.0 (LTS - Long Term Support with .NET 10)
+**Target Umbraco Version**: 17.x (LTS - Long Term Support with .NET 10). The sample site runs
+**17.6.2**; the plugin keeps a **17.0.0** floor so consumers aren't forced to upgrade.
 
 **Status**: Phase 1-4 Complete - Core Implementation + Products Workspace View, Upgraded to Umbraco 17, Configurable Defaults, Product Variant Support, real Cart & Checkout with Nets Easy payments, and a "Commerce" backoffice section (Orders/Carts/Discounts/Currencies/Countries/Order Statuses/Property Templates/Tax Classes/Analytics)
 
@@ -34,6 +35,21 @@ ProblemDetails); `errorBanner` is for state the view is stuck in.
 Claude Code supports subagents; Codex should open the matching `.claude/agents/*.md` file.
 
 - **`umbraco-17-expert`** - Umbraco 17 expert guidance (`.claude/agents/umbraco-17-expert.md`)
+
+## Store selection (storeRoot)
+
+The **root content node carries the store**: a `storeRoot` node with a `storeId` (Store Picker), and
+every descendant resolves its market by walking up to it — the same ancestor lookup
+`CategoryPickerApiController.GetValueWithAncestorFallback` uses, so backoffice and storefront agree.
+That is what decides which store a product is read from and which store an order is saved to. One
+site can serve several markets by giving each branch its own store node; the global
+`EComm.Commerce.MarketId` setting is a legacy fallback, not the model.
+
+`/cart` and `/checkout` are reserved paths outside the content tree, so they have no ancestor to
+walk — the sample site remembers the resolved store in an `ecomm_store` cookie
+(`sample-site/.../Services/StoreContext.cs`) and sends it as `X-Market-ID`.
+
+**Full guide, including the payment wiring: [docs/SAMPLE-CONTENT.md](docs/SAMPLE-CONTENT.md).**
 
 ---
 
@@ -108,7 +124,7 @@ Home
 
 | Component | Technology | Version |
 |-----------|-----------|---------|
-| **Umbraco CMS** | Umbraco CMS | 17.0.0 (LTS) |
+| **Umbraco CMS** | Umbraco CMS | 17.6.2 sample site / 17.0.0 plugin floor (LTS) |
 | **Backoffice UI** | Lit (Web Components) | Latest |
 | **Backend** | .NET | 10 |
 | **API Client** | HttpClient | Built-in |

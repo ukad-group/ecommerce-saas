@@ -1,0 +1,39 @@
+@model EComm.Commerce.Demo.Models.OrderDto
+@{
+    Layout = "~/Views/Shared/_Layout.cshtml";
+    ViewData["Title"] = "Payment Processing";
+}
+
+<div class="container my-5">
+    <div class="text-center mb-5">
+        <div class="mb-3">
+            <span class="d-inline-flex align-items-center justify-content-center bg-warning rounded-circle"
+                  style="width:80px;height:80px;">
+                <i class="bi bi-hourglass-split text-white" style="font-size:2.5rem;"></i>
+            </span>
+        </div>
+        <h1 class="display-6 fw-bold">Payment processing</h1>
+        <p class="lead text-muted">
+            Thanks &mdash; we've received your payment and are waiting for the provider to confirm it.
+            This usually takes a few seconds.
+        </p>
+        <div class="badge bg-primary fs-6 px-4 py-2">Order #@Model.OrderNumber</div>
+    </div>
+
+    <div class="row justify-content-center">
+        <div class="col-md-7">
+            <div class="alert alert-info">
+                <i class="bi bi-info-circle me-1"></i>
+                Your order is confirmed as soon as the provider notifies us. You don't need to pay
+                again &mdash; refresh this page in a moment, or check the order below.
+            </div>
+
+            <div class="d-flex gap-2 justify-content-center">
+                <a href="/checkout/confirmation/@Model.Id" class="btn btn-primary">
+                    <i class="bi bi-receipt me-1"></i>View order
+                </a>
+                <a href="/" class="btn btn-outline-secondary">Continue shopping</a>
+            </div>
+        </div>
+    </div>
+</div>

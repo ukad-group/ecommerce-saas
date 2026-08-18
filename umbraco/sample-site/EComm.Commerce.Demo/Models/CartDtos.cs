@@ -76,3 +76,12 @@ public class AddToCartRequest
     public string? VariantId { get; set; }
     public int Quantity { get; set; } = 1;
 }
+
+/// <summary>Result of asking the API to start a payment for an order.</summary>
+public class PaymentDto
+{
+    public string PaymentId { get; set; } = string.Empty;
+
+    /// <summary>Hosted payment page to send the shopper to. Null means the provider gave us none.</summary>
+    public string? RedirectUrl { get; set; }
+}

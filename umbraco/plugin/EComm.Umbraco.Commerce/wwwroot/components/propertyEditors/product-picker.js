@@ -46,6 +46,8 @@ class ECommProductPicker extends UmbElementMixin(LitElement) {
 
     this.consumeContext(UMB_DOCUMENT_WORKSPACE_CONTEXT, (ctx) => {
       this._documentContext = ctx;
+      // Fires again with undefined when the workspace context goes away (node closed/torn down).
+      if (!ctx) return;
       // The node key comes from the edit URL. When the picker is edited inside a Block List /
       // infinite-editing overlay the path nests the outer product AND the inner node
       // (.../document/edit/{outer}/.../document/{inner}/edit/{inner}), so _getNodeKeyFromUrl returns

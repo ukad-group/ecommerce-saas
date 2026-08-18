@@ -1,3 +1,4 @@
+using EComm.Commerce.Demo.Services;
 using EComm.Umbraco.Commerce.Models;
 using EComm.Umbraco.Commerce.Services;
 using Microsoft.AspNetCore.Mvc;
@@ -5,6 +6,7 @@ using Microsoft.AspNetCore.Mvc.ViewEngines;
 using Umbraco.Cms.Core.Models.PublishedContent;
 using Umbraco.Cms.Core.Web;
 using Umbraco.Cms.Web.Common.Controllers;
+using Umbraco.Extensions;
 
 namespace EComm.Commerce.Demo.Controllers;
 
@@ -50,6 +52,10 @@ public class CategoryPageController : RenderController
             return RenderProductDetail(content);
         }
 
+        // Which store this branch belongs to - also remembered for /cart and /checkout, which
+        // have no content node to resolve from.
+        var storeId = StoreContext.ResolveAndRemember(content, HttpContext);
+
         // Get the categoryId from the current page property
         var categoryId = content.Value<string>("categoryId");
 
@@ -65,17 +71,17 @@ public class CategoryPageController : RenderController
             var root = content.Root();
 
             // Get all root-level CategoryPage nodes
-            var rootCategoryPages = root.Children
+            var rootCategoryPages = root.Children()
                 .Where(x => x.ContentType.Alias == "categoryPage")
                 .ToList();
 
             viewModel.RootCategoryPages = rootCategoryPages;
 
             // Keep the old CategoryPages for backwards compatibility (siblings)
-            var parent = content.Parent;
+            var parent = content.Parent();
             if (parent != null)
             {
-                viewModel.CategoryPages = parent.Children
+                viewModel.CategoryPages = parent.Children()
                     .Where(x => x.ContentType.Alias == "categoryPage")
                     .ToList();
             }
@@ -92,7 +98,7 @@ public class CategoryPageController : RenderController
                 viewModel.CategoryName = category?.Name;
 
                 // Get products for this category (first page, 100 items)
-                var productsResult = _commerceApiClient.GetProductsAsync(categoryId, page: 1, pageSize: 100).GetAwaiter().GetResult();
+                var productsResult = _commerceApiClient.GetProductsAsync(categoryId, page: 1, pageSize: 100, marketId: storeId).GetAwaiter().GetResult();
                 viewModel.Products = productsResult.Products;
                 viewModel.TotalProducts = productsResult.TotalCount;
             }
@@ -102,7 +108,7 @@ public class CategoryPageController : RenderController
                 viewModel.CategoryName = "All Products";
 
                 // Get all products (first page, 100 items)
-                var productsResult = _commerceApiClient.GetAllProductsAsync(page: 1, pageSize: 100).GetAwaiter().GetResult();
+                var productsResult = _commerceApiClient.GetAllProductsAsync(page: 1, pageSize: 100, marketId: storeId).GetAwaiter().GetResult();
                 viewModel.Products = productsResult.Products;
                 viewModel.TotalProducts = productsResult.TotalCount;
             }
@@ -127,6 +133,10 @@ public class CategoryPageController : RenderController
 
         // Create product view model
         var viewModel = new ProductPageViewModel(content, _publishedValueFallback);
+
+        // Which store this branch belongs to - also remembered for /cart and /checkout, which
+        // have no content node to resolve from.
+        var storeId = StoreContext.ResolveAndRemember(content, HttpContext);
 
         // Get the categoryId from the current page property
         var categoryId = content.Value<string>("categoryId");
@@ -158,7 +168,7 @@ public class CategoryPageController : RenderController
                     var product = _commerceApiClient.GetProductAsync(productIdentifier).GetAwaiter().GetResult();
                     if (product == null)
                     {
-                        product = _commerceApiClient.GetProductBySlugAsync(categoryId, productIdentifier).GetAwaiter().GetResult();
+                        product = _commerceApiClient.GetProductBySlugAsync(categoryId, productIdentifier, marketId: storeId).GetAwaiter().GetResult();
                     }
 
                     if (product != null)
@@ -203,7 +213,7 @@ public class CategoryPageController : RenderController
                 Id = categoryId
             });
 
-            current = current.Parent;
+            current = current.Parent();
         }
 
         return breadcrumbs;

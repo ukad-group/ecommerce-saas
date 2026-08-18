@@ -53,6 +53,8 @@ class ECommCategoryPicker extends UmbElementMixin(LitElement) {
       // categoryIdPropertyAlias is configurable in Commerce Settings.
       this.loadStoreIdPropertyAlias().then(() => {
         this.consumeContext(UMB_PROPERTY_DATASET_CONTEXT, async (datasetContext) => {
+          // Fires again with undefined when the dataset context goes away (node closed/torn down).
+          if (!datasetContext) return;
           this.observe(
             await datasetContext.propertyValueByAlias(this.storeIdPropertyAlias),
             (value) => {
