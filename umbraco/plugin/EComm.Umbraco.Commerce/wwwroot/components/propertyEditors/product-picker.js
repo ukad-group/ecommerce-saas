@@ -11,6 +11,7 @@ class ECommProductPicker extends UmbElementMixin(LitElement) {
     _products: { type: Array, state: true },
     _loading: { type: Boolean, state: true },
     _error: { type: String, state: true },
+    _notice: { type: String, state: true },
     _showCreate: { type: Boolean, state: true },
     _newType: { type: String, state: true },
     _newName: { type: String, state: true },
@@ -27,6 +28,7 @@ class ECommProductPicker extends UmbElementMixin(LitElement) {
     this._products = [];
     this._loading = true;
     this._error = null;
+    this._notice = null;
     this._documentContext = null;
     this._documentKey = null;
     this._resolvedCategoryId = null;
@@ -102,6 +104,7 @@ class ECommProductPicker extends UmbElementMixin(LitElement) {
   async _loadProducts(nodeKey) {
     this._loading = true;
     this._error = null;
+    this._notice = null;
 
     try {
       const headers = await this._getAuthHeaders();
@@ -117,6 +120,10 @@ class ECommProductPicker extends UmbElementMixin(LitElement) {
         this._resolvedCategoryId = result.categoryId || null;
         this._resolvedMarketId = result.marketId || null;
         this._loadSelectedName();
+      } else if (response.status === 404) {
+        // Until the first save/publish the node exists only in the browser, so the server can't
+        // walk up to its parent category - which reads as "no products" rather than "not saved yet".
+        this._notice = 'Save and publish this page first. Products for its category appear here once the page exists in the content tree.';
       } else if (response.status === 400) {
         const text = await response.text();
         this._error = text.includes('categoryId')
@@ -228,6 +235,19 @@ class ECommProductPicker extends UmbElementMixin(LitElement) {
       `;
     }
 
+    if (this._notice) {
+      return html`
+        <div class="notice notice--warning">
+          <span>${this._notice}</span>
+          ${this._documentKey ? html`
+            <uui-button look="secondary" compact @click=${() => this._loadProducts(this._documentKey)}>
+              Check again
+            </uui-button>
+          ` : ''}
+        </div>
+      `;
+    }
+
     if (this._error) {
       return html`
         <div class="error">
@@ -277,6 +297,13 @@ class ECommProductPicker extends UmbElementMixin(LitElement) {
 
       ${this.value ? html`
         <small class="selected-info">Selected: ${this._selectedName || this.value}</small>
+      ` : ''}
+
+      ${!this.value && !this._products.length ? html`
+        <small class="selected-info">
+          No products in this category yet - use + to create one. A page that hasn't been saved
+          and published yet always shows an empty list here.
+        </small>
       ` : ''}
 
       ${this._showCreate ? this._renderCreatePopup() : ''}
@@ -343,6 +370,8 @@ class ECommProductPicker extends UmbElementMixin(LitElement) {
       padding: var(--uui-size-space-2);
       color: var(--uui-color-danger);
     }
+
+    .notice uui-button { margin-left: 8px; }
 
     .picker-row {
       display: flex;
