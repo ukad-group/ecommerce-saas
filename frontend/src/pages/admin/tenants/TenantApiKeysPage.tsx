@@ -1,9 +1,8 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useParams, Link } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import {
   PlusIcon,
-  ArrowLeftIcon,
   ExclamationTriangleIcon,
   ClipboardDocumentIcon,
   CheckIcon,
@@ -62,13 +61,6 @@ export function TenantApiKeysPage() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <div className="mb-6">
-        <Link to="/admin/tenants" className="inline-flex items-center text-sm text-gray-500 hover:text-gray-700">
-          <ArrowLeftIcon className="h-4 w-4 mr-1" />
-          Back to Tenants
-        </Link>
-      </div>
-
       <div className="sm:flex sm:items-center">
         <div className="sm:flex-auto">
           <h1 className="text-2xl font-semibold text-gray-900">

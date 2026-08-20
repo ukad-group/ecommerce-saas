@@ -47,13 +47,6 @@ export function AdminOrderDetailsPage() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="mb-6">
-          <Button
-            variant="secondary"
-            onClick={() => navigate('/admin/orders')}
-            className="mb-4"
-          >
-            ← Back to Orders
-          </Button>
           <div className="flex justify-between items-start">
             <div>
               <h1 className="text-3xl font-bold text-gray-900">

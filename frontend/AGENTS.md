@@ -75,7 +75,7 @@ VITE_USE_MOCKS=false
     /orders/     # OrderStatusBadge
     /products/   # ProductForm
     /common/     # Button, Input, Select, LoadingSpinner
-    /layout/     # Navigation, Layout, MobileMenu
+    /layout/     # Navigation, Layout, MobileMenu, BackButton
     /tenants/    # TenantList, MarketList
 
   /pages/        # Route handlers

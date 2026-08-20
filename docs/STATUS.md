@@ -32,6 +32,8 @@
   - Reusable Button component with UKAD colors
   - Mobile-friendly forms and inputs
   - Responsive navigation with MobileMenu component
+  - Shared BackButton rendered on every admin page below the dashboard (history-aware,
+    falls back to the dashboard on direct entry)
   - OrderCard and ProductCard for mobile views
 - **Umbraco backoffice design system** — every Commerce surface (dashboard tabs, Payment Providers,
   picker create dialogs, products workspace view) shares one kit: `wwwroot/components/shared/commerce-ui.js`.
