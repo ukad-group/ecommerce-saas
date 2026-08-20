@@ -84,22 +84,22 @@ export function ProductList({
       <table className="min-w-full divide-y divide-gray-200">
         <thead className="bg-gray-50">
           <tr>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
               Product
             </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th className="w-1 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
               SKU
             </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th className="w-1 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
               Status
             </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th className="w-1 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
               Price
             </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th className="w-1 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
               Stock
             </th>
-            <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th className="w-1 px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
               Actions
             </th>
           </tr>
@@ -107,7 +107,7 @@ export function ProductList({
         <tbody className="bg-white divide-y divide-gray-200">
           {products.map((product) => (
             <tr key={product.id} className="hover:bg-gray-50">
-              <td className="px-6 py-4">
+              <td className="px-4 py-4">
                 <div className="flex items-center">
                   <img
                     src={product.images && product.images[0] ? getThumbnailUrl(imageUrl(product.images[0])) : 'https://dummyimage.com/96x96/AAA/fff.png&text=No+Image'}
@@ -135,7 +135,7 @@ export function ProductList({
                   </div>
                 </div>
               </td>
-              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+              <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
                 {product.hasVariants ? (
                   <span className="text-xs text-gray-400">
                     {product.variants?.length || 0} variant{product.variants?.length !== 1 ? 's' : ''}
@@ -144,7 +144,7 @@ export function ProductList({
                   product.sku
                 )}
               </td>
-              <td className="px-6 py-4 whitespace-nowrap">
+              <td className="px-4 py-4 whitespace-nowrap">
                 <span
                   className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                     statusColors[product.status] || statusColors.draft
@@ -153,7 +153,7 @@ export function ProductList({
                   {product.status}
                 </span>
               </td>
-              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+              <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                 {product.hasVariants ? (
                   <div>
                     {product.variants && product.variants.length > 0 ? (
@@ -183,7 +183,7 @@ export function ProductList({
                   </>
                 )}
               </td>
-              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+              <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
                 {product.hasVariants ? (
                   <div>
                     {product.variants && product.variants.length > 0 ? (
@@ -214,30 +214,32 @@ export function ProductList({
                   </span>
                 )}
               </td>
-              <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                <Link
-                  to={`/admin/products/${product.id}/edit`}
-                  className="text-[#4a6ba8] hover:text-[#3d5789] mr-4"
-                >
-                  Edit
-                </Link>
-                {onDelete && (
-                  <button
-                    onClick={() => onDelete(product.id)}
-                    className="text-red-600 hover:text-red-900 mr-4"
+              <td className="px-4 py-4 whitespace-nowrap text-right text-sm font-medium">
+                <div className="flex items-center justify-end gap-3">
+                  <Link
+                    to={`/admin/products/${product.id}/edit`}
+                    className="text-[#4a6ba8] hover:text-[#3d5789]"
                   >
-                    Delete
-                  </button>
-                )}
-                {onHardDelete && (
-                  <button
-                    onClick={() => onHardDelete(product.id)}
-                    className="text-red-700 hover:text-red-900 font-semibold"
-                    title="Permanently delete this product and its version history"
-                  >
-                    Delete permanently
-                  </button>
-                )}
+                    Edit
+                  </Link>
+                  {onDelete && (
+                    <button
+                      onClick={() => onDelete(product.id)}
+                      className="text-red-600 hover:text-red-900"
+                    >
+                      Delete
+                    </button>
+                  )}
+                  {onHardDelete && (
+                    <button
+                      onClick={() => onHardDelete(product.id)}
+                      className="text-red-700 hover:text-red-900 font-semibold"
+                      title="Permanently delete this product and its version history"
+                    >
+                      Delete permanently
+                    </button>
+                  )}
+                </div>
               </td>
             </tr>
           ))}
